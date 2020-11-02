@@ -1,4 +1,4 @@
-if(GENERATE_DOXYGEN)
+if(GENERATE_DOCS)
   find_package(Doxygen REQUIRED)
   if(DOXYGEN_DOT_FOUND)
     set(HAS_DOT_VALUE "YES")

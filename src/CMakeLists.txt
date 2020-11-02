@@ -11,6 +11,6 @@ add_compile_options(
 add_compile_definitions(
   "$<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_USE_MATH_DEFINES;_VARIADIC_MAX=10;_SCL_SECURE_NO_WARNINGS>")
 
-add_subdirectory(sah_kd_tree)
-add_subdirectory(scene_loader)
-add_subdirectory(builder)
+add_subdirectory("sah_kd_tree")
+add_subdirectory("scene_loader")
+add_subdirectory("builder")
