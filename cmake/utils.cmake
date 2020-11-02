@@ -1,0 +1,2 @@
+include(CheckCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
