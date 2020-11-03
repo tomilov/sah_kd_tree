@@ -1,13 +1,44 @@
 BasedOnStyle: Google
 IndentWidth: 4
-ColumnLimit: 1024
+ContinuationIndentWidth: 4
+ColumnLimit: 200
 ---
 Language: Cpp
+AccessModifierOffset: -4
 Standard: Latest
 AllowShortFunctionsOnASingleLine: false
+DerivePointerAlignment: false
+PointerAlignment: Middle
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterFunction: true
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: MultiLine
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: false
+  BeforeElse: false
+  #BeforeLambdaBody: true
+  #BeforeWhile: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+UseTab: Never
+Cpp11BracedListStyle: true
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+BreakStringLiterals: true
+DeriveLineEnding: false
+UseCRLF: false
+FixNamespaceComments: true
+CompactNamespaces: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: ^<(sah_kd_tree|scene_loader)/

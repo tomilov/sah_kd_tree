@@ -11,6 +11,53 @@ add_compile_options(
 add_compile_definitions(
   "$<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_USE_MATH_DEFINES;_VARIADIC_MAX=10;_SCL_SECURE_NO_WARNINGS>")
 
+set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
+find_package(CUDAToolkit REQUIRED)
+
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda")
+
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_EXTENSIONS ON)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+if(MSVC)
+  set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
+
+find_package(OpenMP REQUIRED)
+
+find_package(TBB REQUIRED)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+add_compile_definitions(
+  QT_NO_KEYWORDS
+  QT_NO_FOREACH)
+
+add_compile_definitions(
+  QT_DEPRECATED_WARNINGS
+  QT_FORCE_ASSERTS)
+
+add_compile_definitions(
+  QT_USE_QSTRINGBUILDER
+  QT_USE_FAST_CONCATENATION
+  QT_USE_FAST_OPERATOR_PLUS)
+
+add_compile_definitions(
+  QT_RESTRICTED_CAST_FROM_ASCII #QT_NO_CAST_FROM_ASCII
+  QT_NO_CAST_TO_ASCII
+  QT_NO_CAST_FROM_BYTEARRAY
+  QT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
+
+add_compile_definitions(QT_MESSAGELOGCONTEXT)
+
+find_package(
+  Qt5 REQUIRED
+  COMPONENTS
+    Core)
+
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")

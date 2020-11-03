@@ -1,20 +1,3 @@
-set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
-find_package(CUDAToolkit REQUIRED)
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda")
-
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_EXTENSIONS ON)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-
-if(MSVC)
-  set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-endif()
-
-find_package(OpenMP REQUIRED)
-
-find_package(TBB REQUIRED)
-
 add_library("${PROJECT_NAME}" STATIC)
 
 target_compile_options(

@@ -10,5 +10,6 @@ target_sources(
 target_link_libraries(
   "builder"
   PRIVATE
+    Qt5::Core
     "${PROJECT_NAME}"
     "scene_loader")

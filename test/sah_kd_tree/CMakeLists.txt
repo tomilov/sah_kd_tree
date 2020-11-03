@@ -4,7 +4,7 @@ function(add_sah_kd_tree_test test_file)
 
   add_test(
     NAME "${test_name}"
-    COMMAND "builder" "${test_file}")
+    COMMAND "builder" "${CMAKE_CURRENT_SOURCE_DIR}/data/${test_file}")
 
   if(ARGC GREATER 1)
     set_tests_properties(
@@ -20,11 +20,11 @@ function(add_sah_kd_tree_test test_file)
   endif()
 endfunction()
 
-add_sah_kd_tree_test("data/triangle.obj")
-add_sah_kd_tree_test("data/aa_triangle.obj")
-add_sah_kd_tree_test("data/coincident_triangles.obj")
-add_sah_kd_tree_test("data/aa_parallel_non_coincident_triangles.obj")
-add_sah_kd_tree_test("data/box.obj")
-add_sah_kd_tree_test("data/aa_box.obj")
-add_sah_kd_tree_test("data/tetrahedron.obj")
-add_sah_kd_tree_test("data/box_inside_box.obj")
+add_sah_kd_tree_test("triangle.obj")
+add_sah_kd_tree_test("aa_triangle.obj")
+add_sah_kd_tree_test("coincident_triangles.obj")
+add_sah_kd_tree_test("aa_parallel_non_coincident_triangles.obj")
+add_sah_kd_tree_test("box.obj")
+add_sah_kd_tree_test("aa_box.obj")
+add_sah_kd_tree_test("tetrahedron.obj")
+add_sah_kd_tree_test("box_inside_box.obj")
