@@ -31,10 +31,10 @@ inline bool checkDataStreamStatus(QDataStream & dataStream, const LoggingCategor
 
 bool SceneLoader::load(QFileInfo sceneFileInfo)
 {
-    AssimpLoggerGuard loggerGuard;
+    AssimpLoggerGuard loggerGuard{Assimp::Logger::LogSeverity::VERBOSE};
     Assimp::Importer importer;
     importer.SetProgressHandler(new AssimpProgressHandler);
-    // importer.SetIOHandler(new IOSystem);
+    importer.SetIOHandler(new AssimpIOSystem);
 
     // aiProcess_GenUVCoords | aiProcess_TransformUVCoords
     // aiProcess_PreTransformVertices
@@ -52,7 +52,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     sceneLoadTimer.start();
     Q_ASSERT(importer.ValidateFlags(pFlags));
     const auto scene = importer.ReadFile(qPrintable(sceneFileInfo.filePath()), pFlags);
-    qCDebug(sceneLoader) << QStringLiteral("scene loaded in %1").arg(sceneLoadTimer.elapsed());
+    qCDebug(sceneLoader) << QStringLiteral("scene loaded in %1 ms").arg(sceneLoadTimer.nsecsElapsed() * 1E-6);
     if (!scene) {
         qCCritical(sceneLoader) << QStringLiteral("unable to load scene %1: %2").arg(sceneFileInfo.filePath(), QString::fromLocal8Bit(importer.GetErrorString()));
         return false;
@@ -77,7 +77,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     qCInfo(sceneLoader) << "scene has materials (required):" << scene->HasMaterials();
     qCInfo(sceneLoader) << "scene has meshes (required):" << scene->HasMeshes();
     qCInfo(sceneLoader) << "scene has textures:" << scene->HasTextures();
-    if (!scene->HasMaterials() || !scene->HasMeshes()) {
+    if (!scene->HasMeshes()) {
         qCCritical(sceneLoader) << QStringLiteral("Scene %1 is empty").arg(sceneFileInfo.filePath());
         return false;
     }
@@ -174,7 +174,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     return true;
 }
 
-bool SceneLoader::saveToCache(QFileInfo cacheEntryFileInfo)
+bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
 {
     QElapsedTimer saveTimer;
     saveTimer.start();
@@ -216,7 +216,7 @@ bool SceneLoader::cachingLoad(QString fileName)
     if (!load(sceneFileInfo)) {
         return false;
     }
-    if (!saveToCache(cacheEntryFileInfo)) {
+    if (!storeToCache(cacheEntryFileInfo)) {
         return false;
     }
     return true;

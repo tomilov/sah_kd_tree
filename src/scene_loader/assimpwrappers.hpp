@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assimp/IOSystem.hpp>
+#include <assimp/Logger.hpp>
 #include <assimp/ProgressHandler.hpp>
 
 #include <QtCore>
@@ -9,7 +10,7 @@ Q_DECLARE_LOGGING_CATEGORY(assimpWrappers)
 
 struct AssimpLoggerGuard
 {
-    AssimpLoggerGuard();
+    AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity = Assimp::Logger::LogSeverity::NORMAL);
     ~AssimpLoggerGuard();
 };
 
@@ -31,5 +32,5 @@ struct AssimpIOSystem : Assimp::IOSystem
     void Close(Assimp::IOStream * pFile) override;
 
 private:
-    QMap<QByteArray, QIODevice::OpenMode> openModeMaps;
+    QMap<QByteArray, QIODevice::OpenMode> openModeMap;
 };

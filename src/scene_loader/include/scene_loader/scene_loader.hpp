@@ -20,7 +20,7 @@ struct SceneLoader
     QFileInfo getCacheEntryFileInfo(QFileInfo sceneFileInfo);
 
     bool loadFromCache(QFileInfo cacheEntryFileInfo);
-    bool saveToCache(QFileInfo cacheEntryFileInfo);
+    bool storeToCache(QFileInfo cacheEntryFileInfo);
 
     bool cachingLoad(QString fileName);
 

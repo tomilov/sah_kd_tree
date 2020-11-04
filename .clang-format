@@ -45,11 +45,13 @@ IncludeCategories:
     Priority: 2
   - Regex: \.hpp>$
     Priority: 3
-  - Regex: \.h>$
-    Priority: 6
-  - Regex: <c[[:alnum:]]+>
-    Priority: 5
-  - Regex: <[[:alnum:]]+>
+  - Regex: ^<thrust/
     Priority: 4
+  - Regex: \.h>$
+    Priority: 7
+  - Regex: <c[[:alnum:]]+>
+    Priority: 6
+  - Regex: <[[:alnum:]]+>
+    Priority: 5
   - Regex: .*
     Priority: 1

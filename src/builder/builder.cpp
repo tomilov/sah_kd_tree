@@ -7,8 +7,14 @@ bool build(QString sceneFileName, bool useCache)
 {
     SceneLoader sceneLoader;
     if (useCache) {
-        return sceneLoader.cachingLoad(sceneFileName);
+        if (!sceneLoader.cachingLoad(sceneFileName)) {
+            return false;
+        }
     } else {
-        return sceneLoader.load(sceneFileName);
+        if (sceneLoader.load(sceneFileName)) {
+            return false;
+        }
     }
+    sah_kd_tree::build();
+    return true;
 }

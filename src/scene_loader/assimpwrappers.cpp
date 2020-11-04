@@ -72,9 +72,9 @@ void Logger::OnError(const char * message)
     qCCritical(assimpWrappers) << message;
 }
 
-AssimpLoggerGuard::AssimpLoggerGuard()
+AssimpLoggerGuard::AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity)
 {
-    Assimp::DefaultLogger::set(new Logger{Logger::VERBOSE});
+    Assimp::DefaultLogger::set(new Logger{logSeverity});
 }
 
 AssimpLoggerGuard::~AssimpLoggerGuard()
@@ -148,16 +148,16 @@ void AssimpIOStream::Flush()
 
 AssimpIOSystem::AssimpIOSystem()
 {
-    openModeMaps[QByteArrayLiteral("r")] = QIODevice::ReadOnly;
-    openModeMaps[QByteArrayLiteral("rb")] = QIODevice::ReadOnly;
-    openModeMaps[QByteArrayLiteral("rt")] = QIODevice::ReadOnly | QIODevice::Text;
-    openModeMaps[QByteArrayLiteral("r+")] = QIODevice::ReadWrite;
-    openModeMaps[QByteArrayLiteral("w+")] = QIODevice::ReadWrite | QIODevice::Truncate;
-    openModeMaps[QByteArrayLiteral("a+")] = QIODevice::ReadWrite | QIODevice::Append;
-    openModeMaps[QByteArrayLiteral("wb")] = QIODevice::WriteOnly;
-    openModeMaps[QByteArrayLiteral("w")] = QIODevice::WriteOnly | QIODevice::Truncate;
-    openModeMaps[QByteArrayLiteral("a")] = QIODevice::WriteOnly | QIODevice::Append;
-    openModeMaps[QByteArrayLiteral("wt")] = QIODevice::WriteOnly | QIODevice::Text;
+    openModeMap[QByteArrayLiteral("r")] = QIODevice::ReadOnly;
+    openModeMap[QByteArrayLiteral("rb")] = QIODevice::ReadOnly;
+    openModeMap[QByteArrayLiteral("rt")] = QIODevice::ReadOnly | QIODevice::Text;
+    openModeMap[QByteArrayLiteral("r+")] = QIODevice::ReadWrite;
+    openModeMap[QByteArrayLiteral("w+")] = QIODevice::ReadWrite | QIODevice::Truncate;
+    openModeMap[QByteArrayLiteral("a+")] = QIODevice::ReadWrite | QIODevice::Append;
+    openModeMap[QByteArrayLiteral("wb")] = QIODevice::WriteOnly;
+    openModeMap[QByteArrayLiteral("w")] = QIODevice::WriteOnly | QIODevice::Truncate;
+    openModeMap[QByteArrayLiteral("a")] = QIODevice::WriteOnly | QIODevice::Append;
+    openModeMap[QByteArrayLiteral("wt")] = QIODevice::WriteOnly | QIODevice::Text;
 }
 
 AssimpIOSystem::~AssimpIOSystem() = default;
@@ -177,7 +177,7 @@ Assimp::IOStream * AssimpIOSystem::Open(const char * pFile, const char * pMode)
     const QString fileName{QString::fromUtf8(pFile)};
     const QByteArray cleanedMode{QByteArray(pMode).trimmed()};
 
-    const QIODevice::OpenMode openMode = openModeMaps.value(cleanedMode, QIODevice::NotOpen);
+    const QIODevice::OpenMode openMode = openModeMap.value(cleanedMode, QIODevice::NotOpen);
 
     QScopedPointer<QFile> file{new QFile(fileName)};
     if (!file->open(openMode)) {
@@ -188,5 +188,6 @@ Assimp::IOStream * AssimpIOSystem::Open(const char * pFile, const char * pMode)
 
 void AssimpIOSystem::Close(Assimp::IOStream * pFile)
 {
+    Q_ASSERT(dynamic_cast<AssimpIOStream *>(pFile));
     delete pFile;
 }
