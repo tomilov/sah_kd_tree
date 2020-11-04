@@ -9,6 +9,7 @@ template struct projection<2>;
 
 void build()
 {
-    [[maybe_unused]] auto builder = sah_kd_tree::make_builder(thrust::cuda::par);
+    builder b;
+    b();
 }
 }  // namespace sah_kd_tree
