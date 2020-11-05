@@ -19,11 +19,11 @@ target_sources(
 target_include_directories(
   "scene_loader"
   PUBLIC
-    "include"
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    "include")
 
 target_link_libraries(
   "scene_loader"
   PUBLIC
+    "types"
     assimp::assimp
     Qt5::Core)

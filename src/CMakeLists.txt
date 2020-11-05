@@ -4,7 +4,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# https://quuxplusone.github.io/blog/2018/12/06/dont-use-weverything/
 add_compile_options(
   "$<$<CXX_COMPILER_ID:Clang,GNU>:$<BUILD_INTERFACE:-Wall;-Wextra>>")
 
@@ -58,6 +57,7 @@ find_package(
   COMPONENTS
     Core)
 
+add_subdirectory("types")
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")

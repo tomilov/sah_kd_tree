@@ -1,17 +1,10 @@
 #pragma once
 
+#include <sah_kd_tree/types.hpp>
+
 #include <QtCore>
 
 Q_DECLARE_LOGGING_CATEGORY(sceneLoader)
-
-#include <vector_functions.hpp>
-
-using Vertex = float3;
-
-struct Triangle
-{
-    Vertex A, B, C;
-};
 
 struct SceneLoader
 {
@@ -24,5 +17,5 @@ struct SceneLoader
 
     bool cachingLoad(QString fileName);
 
-    QVector<Triangle> triangles;
+    QVector<SahKdTree::Triangle> triangles;
 };

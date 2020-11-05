@@ -11,10 +11,11 @@ bool build(QString sceneFileName, bool useCache)
             return false;
         }
     } else {
-        if (sceneLoader.load(sceneFileName)) {
+        if (!sceneLoader.load(sceneFileName)) {
             return false;
         }
     }
-    sah_kd_tree::build();
+    const auto & triangles = sceneLoader.triangles;
+    SahKdTree::build({}, triangles.data(), triangles.data() + triangles.size());
     return true;
 }

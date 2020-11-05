@@ -8,6 +8,7 @@ target_compile_options(
 target_sources(
   "${PROJECT_NAME}"
   PRIVATE
+    "include/sah_kd_tree/config.hpp"
     "include/sah_kd_tree/sah_kd_tree.hpp"
     "sah_kd_tree.cuh"
     "sah_kd_tree.cu")
@@ -15,12 +16,13 @@ target_sources(
 target_include_directories(
   "${PROJECT_NAME}"
   PUBLIC
-    "include")
+    "include") # thrust::cpp::pointer
 
 target_link_libraries(
   "${PROJECT_NAME}"
   PUBLIC
-    CUDA::toolkit # for Thrust (or include directory CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES)
+    "types"
+    CUDA::toolkit # for Thrust
     OpenMP::OpenMP_CXX
     ${TBB_IMPORTED_TARGETS})
 

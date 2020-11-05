@@ -9,7 +9,7 @@
 
 Q_LOGGING_CATEGORY(sceneLoader, "sceneLoader")
 
-template <typename Type>
+template<typename Type>
 QString toString(const Type & value)
 {
     QString string;
@@ -38,8 +38,8 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
 
     // aiProcess_GenUVCoords | aiProcess_TransformUVCoords
     // aiProcess_PreTransformVertices
-    unsigned int pFlags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph |
-                          aiProcess_ValidateDataStructure | aiProcess_FindInvalidData | aiProcess_RemoveRedundantMaterials | aiProcess_EmbedTextures;
+    unsigned int pFlags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph | aiProcess_ValidateDataStructure | aiProcess_FindInvalidData |
+                          aiProcess_RemoveRedundantMaterials | aiProcess_EmbedTextures;
     if ((false)) {
         pFlags |= aiProcess_FindDegenerates;
         importer.SetPropertyBool(AI_CONFIG_PP_FD_REMOVE, true);
@@ -103,7 +103,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     triangles.resize(int(triangleCount));
     {
         auto t = triangles.data();
-        const auto toVertex = [](const aiVector3D & v) -> Vertex { return {v.x, v.y, v.z}; };
+        const auto toVertex = [](const aiVector3D & v) -> SahKdTree::Vertex { return {v.x, v.y, v.z}; };
         for (unsigned int m = 0; m < scene->mNumMeshes; ++m) {
             const aiMesh & mesh = *scene->mMeshes[m];
             // qCDebug(sceneLoader) << mesh.mName.C_Str();
