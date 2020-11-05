@@ -36,18 +36,21 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     importer.SetProgressHandler(new AssimpProgressHandler);
     importer.SetIOHandler(new AssimpIOSystem);
 
-    // aiProcess_GenUVCoords | aiProcess_TransformUVCoords
-    // aiProcess_PreTransformVertices
-    unsigned int pFlags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph | aiProcess_ValidateDataStructure | aiProcess_FindInvalidData |
-                          aiProcess_RemoveRedundantMaterials | aiProcess_EmbedTextures;
-    if ((false)) {
-        pFlags |= aiProcess_FindDegenerates;
-        importer.SetPropertyBool(AI_CONFIG_PP_FD_REMOVE, true);
-    } else {
+    unsigned int pFlags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
+    //pFlags |= aiProcess_ValidateDataStructure | aiProcess_FindInvalidData;
+    {
+        //pFlags |= aiProcess_FindDegenerates;
         pFlags |= aiProcess_SortByPType;
         importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
+        importer.SetPropertyBool(AI_CONFIG_PP_FD_CHECKAREA, false);
     }
-    importer.SetPropertyBool(AI_CONFIG_PP_FD_CHECKAREA, false);
+    {
+        pFlags |= aiProcess_RemoveComponent;
+        // all except aiComponent_MESHES
+        auto excludeAllComponents = aiComponent_NORMALS | aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS | aiComponent_TEXCOORDS | aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS | aiComponent_TEXTURES | aiComponent_LIGHTS |
+                                    aiComponent_CAMERAS | aiComponent_MATERIALS;
+        importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, excludeAllComponents);
+    }
     QElapsedTimer sceneLoadTimer;
     sceneLoadTimer.start();
     Q_ASSERT(importer.ValidateFlags(pFlags));
