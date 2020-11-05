@@ -3,6 +3,8 @@
 #include <sah_kd_tree/sah_kd_tree.hpp>
 #include <scene_loader/scene_loader.hpp>
 
+#include <thrust/system/cuda/vector.h>
+
 bool build(QString sceneFileName, bool useCache)
 {
     SceneLoader sceneLoader;
@@ -16,6 +18,8 @@ bool build(QString sceneFileName, bool useCache)
         }
     }
     const auto & triangles = sceneLoader.triangles;
-    SahKdTree::build({}, triangles.data(), triangles.data() + triangles.size());
+    thrust::cuda::vector<SahKdTree::Triangle> deviceTriangles{triangles.cbegin(), triangles.cend()};
+    SahKdTree::Params params;
+    SahKdTree::build(params, deviceTriangles.data(), deviceTriangles.data() + deviceTriangles.size());
     return true;
 }

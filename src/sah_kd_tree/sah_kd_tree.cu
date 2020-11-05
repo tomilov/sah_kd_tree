@@ -59,57 +59,52 @@ struct TriangleSlice
     }
 };
 
-void build(const Params & sah, thrust::cpp::pointer<const Triangle> trianglesBegin, thrust::cpp::pointer<const Triangle> trianglesEnd)
+void build(const Params & sah, thrust::cuda::pointer<const Triangle> triangleBegin, thrust::cuda::pointer<const Triangle> triangleEnd)
 {
     Builder builder;
-    {
-        thrust::cuda::vector<Triangle> triangles{trianglesBegin, trianglesEnd};
-        auto triangleBegin{triangles.cbegin()}, triangleEnd{triangles.cend()};
-        auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
+    auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
+    if ((false)) {
+        auto ax = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::x>{});
+        auto ay = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::y>{});
+        auto az = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::z>{});
 
-        if ((false)) {
-            auto ax = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::x>{});
-            auto ay = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::y>{});
-            auto az = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::z>{});
+        auto bx = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::x>{});
+        auto by = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::y>{});
+        auto bz = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::z>{});
 
-            auto bx = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::x>{});
-            auto by = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::y>{});
-            auto bz = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::b, &Vertex::z>{});
+        auto cx = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::x>{});
+        auto cy = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::y>{});
+        auto cz = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::z>{});
 
-            auto cx = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::x>{});
-            auto cy = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::y>{});
-            auto cz = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::c, &Vertex::z>{});
+        auto setProjectionTriangle = [triangleCount](auto & projection, auto a, auto b, auto c) {
+            auto & triangle = projection.triangle;
+            triangle.a.assign(a, thrust::next(a, triangleCount));
+            triangle.b.assign(b, thrust::next(b, triangleCount));
+            triangle.c.assign(c, thrust::next(c, triangleCount));
+        };
+        setProjectionTriangle(builder.x, ax, bx, cx);
+        setProjectionTriangle(builder.y, ay, by, cy);
+        setProjectionTriangle(builder.z, az, bz, cz);
+    } else {
+        Builder builder;
+        auto resizeProjectionTriangle = [triangleCount](auto & projection) {
+            auto & triangle = projection.triangle;
+            triangle.a.resize(size_t(triangleCount));
+            triangle.b.resize(size_t(triangleCount));
+            triangle.c.resize(size_t(triangleCount));
+        };
+        resizeProjectionTriangle(builder.x);
+        resizeProjectionTriangle(builder.y);
+        resizeProjectionTriangle(builder.z);
 
-            auto setProjectionTriangles = [triangleCount](auto & projection, auto a, auto b, auto c) {
-                auto & triangle = projection.triangle;
-                triangle.a.assign(a, thrust::next(a, triangleCount));
-                triangle.b.assign(b, thrust::next(b, triangleCount));
-                triangle.c.assign(c, thrust::next(c, triangleCount));
-            };
-            setProjectionTriangles(builder.x, ax, bx, cx);
-            setProjectionTriangles(builder.y, ay, by, cy);
-            setProjectionTriangles(builder.z, az, bz, cz);
-        } else {
-            Builder builder;
-            auto resizeProjectionTriangles = [triangleCount](auto & projection) {
-                auto & triangle = projection.triangle;
-                triangle.a.resize(size_t(triangleCount));
-                triangle.b.resize(size_t(triangleCount));
-                triangle.c.resize(size_t(triangleCount));
-            };
-            resizeProjectionTriangles(builder.x);
-            resizeProjectionTriangles(builder.y);
-            resizeProjectionTriangles(builder.z);
-
-            auto getProjectionTriangles = [](auto & projection) {
-                auto & triangle = projection.triangle;
-                return thrust::make_zip_iterator(thrust::make_tuple(triangle.a.begin(), triangle.b.begin(), triangle.c.begin()));
-            };
-            auto projectedTrianglesbegin = thrust::make_zip_iterator(thrust::make_tuple(getProjectionTriangles(builder.x), getProjectionTriangles(builder.y), getProjectionTriangles(builder.z)));
-            using ProjectedTrianglesType = OutputIteratorValueType<decltype(projectedTrianglesbegin)>;
-            auto projectPointsCoordinates = [] __host__ __device__(const Triangle & t) -> ProjectedTrianglesType { return {{t.a.x, t.a.y, t.a.z}, {t.b.x, t.b.y, t.b.z}, {t.c.x, t.c.y, t.c.z}}; };
-            thrust::transform(triangleBegin, triangleEnd, projectedTrianglesbegin, projectPointsCoordinates);
-        }
+        auto splitTriangleProjection = [](auto & projection) {
+            auto & triangle = projection.triangle;
+            return thrust::make_zip_iterator(thrust::make_tuple(triangle.a.begin(), triangle.b.begin(), triangle.c.begin()));
+        };
+        auto splittedTriangleBegin = thrust::make_zip_iterator(thrust::make_tuple(splitTriangleProjection(builder.x), splitTriangleProjection(builder.y), splitTriangleProjection(builder.z)));
+        using SplittedTriangleType = OutputIteratorValueType<decltype(splittedTriangleBegin)>;
+        auto splitTriangle = [] __host__ __device__(const Triangle & t) -> SplittedTriangleType { return {{t.a.x, t.a.y, t.a.z}, {t.b.x, t.b.y, t.b.z}, {t.c.x, t.c.y, t.c.z}}; };
+        thrust::transform(triangleBegin, triangleEnd, splittedTriangleBegin, splitTriangle);
     }
     return builder(sah);
 }

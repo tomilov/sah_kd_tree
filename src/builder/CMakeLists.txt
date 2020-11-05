@@ -11,5 +11,6 @@ target_link_libraries(
   "builder"
   PRIVATE
     Qt5::Core
+    CUDA::toolkit
     "${PROJECT_NAME}"
     "scene_loader")
