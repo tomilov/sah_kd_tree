@@ -4,7 +4,9 @@ function(add_sah_kd_tree_test test_file)
 
   add_test(
     NAME "${test_name}"
-    COMMAND "builder" "${CMAKE_CURRENT_SOURCE_DIR}/data/${test_file}")
+    COMMAND
+      "builder"
+      "${CMAKE_CURRENT_SOURCE_DIR}/data/${test_file}")
 
   if(ARGC GREATER 1)
     set_tests_properties(

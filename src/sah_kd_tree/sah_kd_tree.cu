@@ -10,6 +10,23 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
+#include <chrono>
+#include <string>
+#include <iostream>
+
+struct Timer
+{
+    std::chrono::system_clock::time_point start = std::chrono::high_resolution_clock::now();
+
+    void operator()(const std::string & description)
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        std::cout << description << " "
+                  << std::fixed << (double(std::chrono::duration_cast<std::chrono::nanoseconds>(now - std::exchange(start, now)).count()) * 1E-9)
+                  << std::endl;
+    }
+};
+
 #ifndef __CUDACC_EXTENDED_LAMBDA__
 #error "nvcc --extended-lambda"
 #endif
@@ -45,9 +62,14 @@ void Projection<dimension>::calculateTriangleBbox()
     thrust::transform(triangleBegin, thrust::next(triangleBegin, triangleCount), polygonBboxBegin, toTriangleBbox);
 }
 
-template void Projection<0>::calculateTriangleBbox();
-template void Projection<1>::calculateTriangleBbox();
-template void Projection<2>::calculateTriangleBbox();
+void Builder::operator()(const Params & /*sah*/)
+{
+    Timer timer;
+    x.calculateTriangleBbox();
+    y.calculateTriangleBbox();
+    z.calculateTriangleBbox();
+    timer("calculateTriangleBbox"); // 0.004484
+}
 
 template<Vertex Triangle::*V, float Vertex::*C>
 struct TriangleSlice
@@ -62,6 +84,7 @@ void build(const Params & sah, thrust::cuda::pointer<const Triangle> triangleBeg
 {
     Builder builder;
     auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
+    Timer timer;
     if ((true)) {
         auto ax = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::x>{});
         auto ay = thrust::make_transform_iterator(triangleBegin, TriangleSlice<&Triangle::a, &Vertex::y>{});
@@ -85,7 +108,6 @@ void build(const Params & sah, thrust::cuda::pointer<const Triangle> triangleBeg
         setTriangleProjection(builder.y, ay, by, cy);
         setTriangleProjection(builder.z, az, bz, cz);
     } else {
-        Builder builder;
         auto resizeTriangleProjection = [triangleCount](auto & projection) {
             auto & triangle = projection.triangle;
             triangle.a.resize(size_t(triangleCount));
@@ -105,6 +127,7 @@ void build(const Params & sah, thrust::cuda::pointer<const Triangle> triangleBeg
         auto splitTriangle = [] __host__ __device__(const Triangle & t) -> SplittedTriangleType { return {{t.a.x, t.a.y, t.a.z}, {t.b.x, t.b.y, t.b.z}, {t.c.x, t.c.y, t.c.z}}; };
         thrust::transform(triangleBegin, triangleEnd, splittedTriangleBegin, splitTriangle);
     }
+    timer("AoS to SoA"); // 0.014827
     return builder(sah);
 }
 }  // namespace SahKdTree

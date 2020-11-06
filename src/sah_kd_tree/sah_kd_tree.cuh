@@ -34,7 +34,6 @@ struct Builder
     Projection<1> y;
     Projection<2> z;
 
-    void operator()(const Params & /*sah*/)
-    {}
+    void operator()(const Params & sah);
 };
 }  // namespace SahKdTree
