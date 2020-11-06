@@ -11,15 +11,22 @@ namespace SahKdTree
 template<I dimension>
 struct Projection
 {
+    using X = Projection;
+    using Y = Projection<(dimension + 1) % 3>;
+    using Z = Projection<(dimension + 2) % 3>;
+
     struct
     {
         thrust::cuda::vector<F> a, b, c;
     } triangle;
-};
 
-extern template struct Projection<0>;
-extern template struct Projection<1>;
-extern template struct Projection<2>;
+    struct
+    {
+        thrust::cuda::vector<F> min, max;
+    } polygon;
+
+    void calculateTriangleBbox();
+};
 
 struct Builder
 {
