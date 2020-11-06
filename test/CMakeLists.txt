@@ -1,7 +1,4 @@
 ProcessorCount(N)
-if(N EQUAL 0)
-  set(N 1)
-endif()
 
 add_custom_target(
   "check"

@@ -54,9 +54,9 @@ IncludeCategories:
     Priority: 6
   - Regex: \.h>$
     Priority: 9
-  - Regex: <c[[:alnum:]]+>
+  - Regex: ^<c[[:alnum:]_]+>$
     Priority: 8
-  - Regex: <[[:alnum:]]+>
+  - Regex: ^<[[:alnum:]_]+>$
     Priority: 7
   - Regex: .*
     Priority: 1

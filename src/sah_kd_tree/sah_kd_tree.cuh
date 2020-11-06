@@ -1,10 +1,10 @@
 #pragma once
 
-#include <type_traits>
-
 #include <sah_kd_tree/config.hpp>
 
 #include <thrust/system/cuda/vector.h>
+
+#include <type_traits>
 
 namespace SahKdTree
 {

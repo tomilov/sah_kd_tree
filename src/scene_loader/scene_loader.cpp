@@ -37,9 +37,9 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     importer.SetIOHandler(new AssimpIOSystem);
 
     unsigned int pFlags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph;
-    //pFlags |= aiProcess_ValidateDataStructure | aiProcess_FindInvalidData;
+    // pFlags |= aiProcess_ValidateDataStructure | aiProcess_FindInvalidData;
     {
-        //pFlags |= aiProcess_FindDegenerates;
+        // pFlags |= aiProcess_FindDegenerates;
         pFlags |= aiProcess_SortByPType;
         importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
         importer.SetPropertyBool(AI_CONFIG_PP_FD_CHECKAREA, false);
