@@ -25,7 +25,22 @@ struct Projection
         thrust::cuda::vector<F> min, max;
     } polygon;
 
+    struct
+    {
+        thrust::cuda::vector<F> min, max;
+    } node;
+
+    struct
+    {
+        thrust::cuda::vector<U> node;
+        thrust::cuda::vector<F> pos;
+        thrust::cuda::vector<I> kind;
+        thrust::cuda::vector<U> polygon;
+    } event;
+
     void calculateTriangleBbox();
+    void caluculateRootNodeBbox();
+    void generateInitialEvent();
 };
 
 struct Builder
