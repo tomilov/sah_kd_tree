@@ -2,8 +2,6 @@
 
 #include <vector_functions.hpp>
 
-#include <type_traits>
-
 namespace SahKdTree
 {
 using Vertex = float3;

@@ -1,4 +1,6 @@
-#include "sah_kd_tree.cuh"
+#include "utility.cuh"
+
+#include <sah_kd_tree/projection.hpp>
 
 #include <thrust/advance.h>
 #include <thrust/extrema.h>

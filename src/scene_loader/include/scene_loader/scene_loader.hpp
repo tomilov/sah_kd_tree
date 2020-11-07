@@ -4,6 +4,9 @@
 
 #include <QtCore>
 
+#include <array>
+#include <vector>
+
 Q_DECLARE_LOGGING_CATEGORY(sceneLoader)
 
 struct SceneLoader
@@ -17,5 +20,5 @@ struct SceneLoader
 
     bool cachingLoad(QString fileName);
 
-    QVector<SahKdTree::Triangle> triangles;
+    QVector<SahKdTree::Triangle> triangle;
 };

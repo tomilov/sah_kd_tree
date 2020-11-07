@@ -11,9 +11,9 @@ add_library("scene_loader" STATIC)
 target_sources(
   "scene_loader"
   PRIVATE
+    "include/scene_loader/scene_loader.hpp"
     "assimpwrappers.hpp"
     "assimpwrappers.cpp"
-    "include/scene_loader/scene_loader.hpp"
     "scene_loader.cpp")
 
 target_include_directories(
@@ -24,6 +24,6 @@ target_include_directories(
 target_link_libraries(
   "scene_loader"
   PUBLIC
-    "types"
     assimp::assimp
-    Qt5::Core)
+    Qt5::Core
+    "types")

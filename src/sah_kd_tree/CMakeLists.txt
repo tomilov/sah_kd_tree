@@ -10,11 +10,14 @@ target_sources(
   PRIVATE
     "include/sah_kd_tree/config.hpp"
     "include/sah_kd_tree/sah_kd_tree.hpp"
-    "sah_kd_tree.cuh"
+    "include/sah_kd_tree/projection.hpp"
+    "include/sah_kd_tree/builder.hpp"
+    "utility.cuh"
+    "setTriangle.cu"
     "calculateTriangleBbox.cu"
     "caluculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
-    "sah_kd_tree.cu")
+    "builder.cu")
 
 target_include_directories(
   "${PROJECT_NAME}"
@@ -24,10 +27,10 @@ target_include_directories(
 target_link_libraries(
   "${PROJECT_NAME}"
   PUBLIC
-    "types"
     CUDA::toolkit # for Thrust
     OpenMP::OpenMP_CXX
-    ${TBB_IMPORTED_TARGETS})
+    ${TBB_IMPORTED_TARGETS}
+    "types")
 
 # OMP works properly only with gcc due to nvcc uses gcc as host compiler
 # and openmp flags inferred for clang cannot be passed to gcc as is
@@ -36,8 +39,3 @@ target_compile_definitions(
   PUBLIC
     THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA)
 
-set_target_properties(
-  "${PROJECT_NAME}"
-  PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON # required for static lib
-    POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib

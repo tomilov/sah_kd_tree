@@ -30,6 +30,9 @@ if(MSVC)
   set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
+set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
