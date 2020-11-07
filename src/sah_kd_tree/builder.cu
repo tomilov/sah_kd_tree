@@ -61,6 +61,10 @@ SahKdTree Builder::operator()(const Params & sah)
             layerNodeOffset.erase(layerNodeEnd, layerNodeOffset.end());
             timer("layerNodeOffset");
         }
+
+        x.findPerfectSplit(sah, nodeCount, layerNodeOffset, y, z);
+        y.findPerfectSplit(sah, nodeCount, layerNodeOffset, z, x);
+        z.findPerfectSplit(sah, nodeCount, layerNodeOffset, x, y);
         break;
     }
     return {};

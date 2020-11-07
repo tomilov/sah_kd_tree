@@ -17,6 +17,7 @@ target_sources(
     "calculateTriangleBbox.cu"
     "caluculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
+    "findPerfectSplit.cu"
     "builder.cu")
 
 target_include_directories(
