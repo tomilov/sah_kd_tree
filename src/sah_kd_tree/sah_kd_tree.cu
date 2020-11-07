@@ -2,38 +2,12 @@
 
 #include <sah_kd_tree/sah_kd_tree.hpp>
 
-#include <thrust/advance.h>
-#include <thrust/count.h>
-#include <thrust/device_vector.h>
 #include <thrust/distance.h>
-#include <thrust/extrema.h>
-#include <thrust/fill.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/transform_iterator.h>
-#include <thrust/iterator/transform_output_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
-#include <thrust/pair.h>
-#include <thrust/partition.h>
-#include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-#include <chrono>
-#include <iostream>
-#include <string>
-
 #include <cassert>
-
-struct Timer
-{
-    std::chrono::system_clock::time_point start = std::chrono::high_resolution_clock::now();
-
-    void operator()(const std::string & description)
-    {
-        auto now = std::chrono::high_resolution_clock::now();
-        std::cout << description << " " << std::fixed << (double(std::chrono::duration_cast<std::chrono::nanoseconds>(now - std::exchange(start, now)).count()) * 1E-9) << std::endl;
-    }
-};
 
 #ifndef __CUDACC_EXTENDED_LAMBDA__
 #error "nvcc --extended-lambda"
@@ -44,92 +18,6 @@ struct Timer
 
 namespace SahKdTree
 {
-template<typename Iterator>
-using IteratorValueType = typename Iterator::value_type;
-
-template<typename Type>
-struct doubler
-{
-    __host__ __device__ thrust::tuple<Type, Type> operator()(Type value)
-    {
-        return {value, value};
-    }
-};
-
-template<I dimension>
-void Projection<dimension>::calculateTriangleBbox()
-{
-    auto triangleCount = U(triangle.a.size());
-    assert(triangleCount == U(triangle.b.size()));
-    assert(triangleCount == U(triangle.c.size()));
-
-    polygon.min.resize(triangleCount);
-    polygon.max.resize(triangleCount);
-
-    auto triangleBegin = thrust::make_zip_iterator(thrust::make_tuple(triangle.a.cbegin(), triangle.b.cbegin(), triangle.c.cbegin()));
-    using TriangleType = IteratorValueType<decltype(triangleBegin)>;
-    auto polygonBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.min.begin(), polygon.max.begin()));
-    using PolygonBboxType = IteratorValueType<decltype(polygonBboxBegin)>;
-    auto toTriangleBbox = [] __host__ __device__(TriangleType triangle) -> PolygonBboxType {
-        F a = thrust::get<0>(triangle);
-        F b = thrust::get<1>(triangle);
-        F c = thrust::get<2>(triangle);
-        return {thrust::min(a, thrust::min(b, c)), thrust::max(a, thrust::max(b, c))};
-    };
-    thrust::transform(triangleBegin, thrust::next(triangleBegin, triangleCount), polygonBboxBegin, toTriangleBbox);
-}
-
-template<I dimension>
-void Projection<dimension>::caluculateRootNodeBbox()
-{
-    auto rootBboxMinBegin = thrust::min_element(polygon.min.cbegin(), polygon.min.cend());
-    node.min.assign(rootBboxMinBegin, thrust::next(rootBboxMinBegin));
-
-    auto rootBboxMaxBegin = thrust::max_element(polygon.max.cbegin(), polygon.max.cend());
-    node.max.assign(rootBboxMaxBegin, thrust::next(rootBboxMaxBegin));
-}
-
-template<I dimension>
-void Projection<dimension>::generateInitialEvent()
-{
-    Timer timer;
-    auto triangleCount = U(triangle.a.size());
-
-    auto triangleBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.min.cbegin(), polygon.max.cbegin()));
-    using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;
-    auto isPlanarEvent = [] __host__ __device__(BboxType bbox) -> bool { return !(thrust::get<0>(bbox) < thrust::get<1>(bbox)); };
-    auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangleCount), isPlanarEvent));
-    timer(" generateInitialEvent count_if");  // 0.000302
-
-    auto eventCount = triangleCount - planarEventCount + triangleCount;
-
-    event.node.resize(eventCount, U(0));
-    event.pos.resize(eventCount);
-    event.kind.resize(eventCount, I(0));
-    event.polygon.resize(eventCount);
-
-    auto eventKindLRBegin = thrust::make_zip_iterator(thrust::make_tuple(event.kind.begin(), event.kind.rbegin()));
-    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindLRBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right event sequenced before left event if positions are equivalent
-    // thrust::fill_n(thrust::get< 0 >(planarEventKind.get_iterator_tuple()), planarEventCount, I(0));
-    timer(" generateInitialEvent fill_n");  // 0.002204
-
-    auto triangleBegin = thrust::make_counting_iterator<U>(0);
-    auto planarEventBegin = thrust::next(event.polygon.begin(), triangleCount - planarEventCount);
-    auto eventPairBegin = thrust::make_zip_iterator(thrust::make_tuple(event.polygon.begin(), event.polygon.rbegin()));
-    auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, doubler<U>{});
-    thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangleCount), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
-    timer(" generateInitialEvent partition_copy");  // 0.000614
-
-    auto eventPolygonBboxBegin = thrust::make_permutation_iterator(triangleBboxBegin, event.polygon.cbegin());
-    auto toEventPos = [] __host__ __device__(I eventKind, BboxType bbox) -> F { return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox); };
-    thrust::transform(event.kind.cbegin(), event.kind.cend(), eventPolygonBboxBegin, event.pos.begin(), toEventPos);
-    timer(" generateInitialEvent transform");  // 0.001223
-
-    auto eventBegin = thrust::make_zip_iterator(thrust::make_tuple(event.pos.begin(), event.kind.begin(), event.polygon.begin()));
-    thrust::sort(eventBegin, thrust::next(eventBegin, eventCount));
-    timer(" generateInitialEvent sort");  // 0.038971
-}
-
 void Builder::operator()(const Params & /*sah*/)
 {
     auto triangleCount = U(x.triangle.a.size());

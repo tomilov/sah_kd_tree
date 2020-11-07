@@ -11,6 +11,9 @@ target_sources(
     "include/sah_kd_tree/config.hpp"
     "include/sah_kd_tree/sah_kd_tree.hpp"
     "sah_kd_tree.cuh"
+    "calculateTriangleBbox.cu"
+    "caluculateRootNodeBbox.cu"
+    "generateInitialEvent.cu"
     "sah_kd_tree.cu")
 
 target_include_directories(
