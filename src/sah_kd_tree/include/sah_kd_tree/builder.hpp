@@ -26,13 +26,15 @@ struct Builder
     {
         thrust::device_vector<I> splitDimension;
         thrust::device_vector<F> splitPos;
-        thrust::device_vector<U> l, r;                                               // left child node and right child node if not leaf, polygon range otherwise
-        thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in current node, in its left child node and in its right child node correspondingly
-    } node;                                                                          // TODO: optimize out node.l
+        thrust::device_vector<U> leftNode, rightNode;                                // left child node and right child node if not leaf, polygon range otherwise
+        thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
+    } node;                                                                          // TODO: optimize out node.leftNode
 
     thrust::device_vector<U> layerNodeOffset;
 
     void setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd);
+    void selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount);
+
     SahKdTree operator()(const Params & sah);
 };
 }  // namespace SahKdTree

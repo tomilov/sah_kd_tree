@@ -9,9 +9,7 @@
 
 #include <cassert>
 
-namespace SahKdTree
-{
-SahKdTree Builder::operator()(const Params & sah)
+auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
 {
     auto triangleCount = U(x.triangle.a.size());
     assert(triangleCount == U(y.triangle.a.size()));
@@ -41,8 +39,8 @@ SahKdTree Builder::operator()(const Params & sah)
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
-    node.l.resize(1);
-    node.r.resize(1);
+    node.leftNode.resize(1);
+    node.rightNode.resize(1);
     node.polygonCount.assign(1, triangleCount);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
@@ -67,10 +65,11 @@ SahKdTree Builder::operator()(const Params & sah)
         y.findPerfectSplit(sah, nodeCount, layerNodeOffset, z, x);
         z.findPerfectSplit(sah, nodeCount, layerNodeOffset, x, y);
         timer("findPerfectSplit");  // 0.024922
+
+        selectNodeBestSplit(sah, baseNode, nodeCount);
         break;
     }
 
     timerTotal("total");  // 0.179895
     return {};
 }
-}  // namespace SahKdTree

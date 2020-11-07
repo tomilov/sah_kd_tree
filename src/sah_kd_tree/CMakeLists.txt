@@ -18,12 +18,13 @@ target_sources(
     "calculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
     "findPerfectSplit.cu"
+    "selectNodeBestSplit.cu"
     "builder.cu")
 
 target_include_directories(
   "${PROJECT_NAME}"
   PUBLIC
-    "include") # thrust::cpp::pointer
+    "include")
 
 target_link_libraries(
   "${PROJECT_NAME}"

@@ -7,9 +7,7 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-namespace SahKdTree
-{
-void Builder::setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd)
+void SahKdTree::Builder::setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd)
 {
     Timer timer;
     auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
@@ -26,4 +24,3 @@ void Builder::setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thru
     thrust::transform(triangleBegin, triangleEnd, transposedTriangleBegin, transposeTriangle);
     timer("setTriangle");  // 0.005521
 }
-}  // namespace SahKdTree
