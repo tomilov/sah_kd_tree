@@ -26,9 +26,9 @@ bool build(QString sceneFileName, bool useCache)
         builder.setTriangle(deviceTriangles.data(), deviceTriangles.data() + deviceTriangles.size());
     }  // deviceTriangles.clear() cause link error
     SahKdTree::Params params;
-    params.emptiness_factor = 0.8f;
-    params.traversal_cost = 2.0;
-    params.intersection_cost = 1.0f;
+    params.emptinessFactor = 0.8f;
+    params.traversalCost = 2.0;
+    params.intersectionCost = 1.0f;
     SahKdTree::SahKdTree sahKdTree = builder(params);
     (void)sahKdTree;
     return true;
