@@ -17,6 +17,7 @@ SahKdTree Builder::operator()(const Params & sah)
     assert(triangleCount == U(y.triangle.a.size()));
     assert(triangleCount == U(z.triangle.a.size()));
 
+    Timer timerTotal;
     Timer timer;
 
     x.calculateTriangleBbox();
@@ -24,10 +25,10 @@ SahKdTree Builder::operator()(const Params & sah)
     z.calculateTriangleBbox();
     timer("calculateTriangleBbox");  // 0.004484
 
-    x.caluculateRootNodeBbox();
-    y.caluculateRootNodeBbox();
-    z.caluculateRootNodeBbox();
-    timer("caluculateRootNodeBbox");  // 0.001709
+    x.calculateRootNodeBbox();
+    y.calculateRootNodeBbox();
+    z.calculateRootNodeBbox();
+    timer("calculateRootNodeBbox");  // 0.001709
 
     x.generateInitialEvent();
     y.generateInitialEvent();
@@ -59,14 +60,17 @@ SahKdTree Builder::operator()(const Params & sah)
             auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
             auto layerNodeEnd = thrust::copy_if(layerNodeBegin, thrust::next(layerNodeBegin, nodeCount), thrust::next(node.polygonCount.cbegin(), baseNode), layerNodeOffset.begin(), isNodeNotEmpty);
             layerNodeOffset.erase(layerNodeEnd, layerNodeOffset.end());
-            timer("layerNodeOffset");
+            timer("layerNodeOffset");  // 0.000074
         }
 
         x.findPerfectSplit(sah, nodeCount, layerNodeOffset, y, z);
         y.findPerfectSplit(sah, nodeCount, layerNodeOffset, z, x);
         z.findPerfectSplit(sah, nodeCount, layerNodeOffset, x, y);
+        timer("findPerfectSplit");  // 0.024922
         break;
     }
+
+    timerTotal("total");  // 0.179895
     return {};
 }
 }  // namespace SahKdTree

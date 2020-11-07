@@ -48,7 +48,7 @@ struct Projection
     } layer;
 
     void calculateTriangleBbox();
-    void caluculateRootNodeBbox();
+    void calculateRootNodeBbox();
     void generateInitialEvent();
 
     void findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z);

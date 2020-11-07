@@ -8,7 +8,7 @@
 namespace SahKdTree
 {
 template<I dimension>
-void Projection<dimension>::caluculateRootNodeBbox()
+void Projection<dimension>::calculateRootNodeBbox()
 {
     auto rootBboxMinBegin = thrust::min_element(polygon.min.cbegin(), polygon.min.cend());
     node.min.assign(rootBboxMinBegin, thrust::next(rootBboxMinBegin));
@@ -17,7 +17,7 @@ void Projection<dimension>::caluculateRootNodeBbox()
     node.max.assign(rootBboxMaxBegin, thrust::next(rootBboxMaxBegin));
 }
 
-template void Projection<0>::caluculateRootNodeBbox();
-template void Projection<1>::caluculateRootNodeBbox();
-template void Projection<2>::caluculateRootNodeBbox();
+template void Projection<0>::calculateRootNodeBbox();
+template void Projection<1>::calculateRootNodeBbox();
+template void Projection<2>::calculateRootNodeBbox();
 }  // namespace SahKdTree

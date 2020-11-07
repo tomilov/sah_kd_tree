@@ -15,7 +15,7 @@ target_sources(
     "utility.cuh"
     "setTriangle.cu"
     "calculateTriangleBbox.cu"
-    "caluculateRootNodeBbox.cu"
+    "calculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
     "findPerfectSplit.cu"
     "builder.cu")
