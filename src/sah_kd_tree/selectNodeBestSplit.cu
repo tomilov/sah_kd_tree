@@ -31,12 +31,12 @@ void SahKdTree::Builder::selectNodeBestSplit(const Params & sah, U baseNode, U n
         F x = thrust::get<0>(nodeSplitCost);
         F y = thrust::get<1>(nodeSplitCost);
         F z = thrust::get<2>(nodeSplitCost);
-        F bestNodeSPlitCost = thrust::min(sah.intersectionCost * nodePolygonCount, thrust::min(x, thrust::min(y, z)));
-        if (!(bestNodeSPlitCost < x)) {
+        F bestNodeSplitCost = thrust::min(sah.intersectionCost * nodePolygonCount, thrust::min(x, thrust::min(y, z)));
+        if (!(bestNodeSplitCost < x)) {
             return {0, thrust::get<0>(nodeSplitPos), thrust::get<0>(nodeLeftPolygonCount), thrust::get<0>(nodeRightPolygonCount)};
-        } else if (!(bestNodeSPlitCost < y)) {
+        } else if (!(bestNodeSplitCost < y)) {
             return {1, thrust::get<1>(nodeSplitPos), thrust::get<1>(nodeLeftPolygonCount), thrust::get<1>(nodeRightPolygonCount)};
-        } else if (!(bestNodeSPlitCost < z)) {
+        } else if (!(bestNodeSplitCost < z)) {
             return {2, thrust::get<2>(nodeSplitPos), thrust::get<2>(nodeLeftPolygonCount), thrust::get<2>(nodeRightPolygonCount)};
         } else {
             return {-1};  // terminate

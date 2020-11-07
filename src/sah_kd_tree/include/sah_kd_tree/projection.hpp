@@ -6,13 +6,8 @@
 
 namespace SahKdTree
 {
-template<I dimension>
 struct Projection
 {
-    using X = Projection;
-    using Y = Projection<(dimension + 1) % 3>;
-    using Z = Projection<(dimension + 2) % 3>;
-
     struct
     {
         thrust::device_vector<F> a, b, c;
@@ -51,6 +46,6 @@ struct Projection
     void calculateRootNodeBbox();
     void generateInitialEvent();
 
-    void findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z);
+    void findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z);
 };
 }  // namespace SahKdTree

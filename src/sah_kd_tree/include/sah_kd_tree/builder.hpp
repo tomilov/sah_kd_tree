@@ -12,9 +12,7 @@ namespace SahKdTree
 {
 struct Builder
 {
-    Projection<0> x;
-    Projection<1> y;
-    Projection<2> z;
+    Projection x, y, z;
 
     struct
     {

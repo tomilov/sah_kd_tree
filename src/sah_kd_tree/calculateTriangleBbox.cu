@@ -10,10 +10,7 @@
 
 #include <cassert>
 
-namespace SahKdTree
-{
-template<I dimension>
-void Projection<dimension>::calculateTriangleBbox()
+void SahKdTree::Projection::calculateTriangleBbox()
 {
     auto triangleCount = U(triangle.a.size());
     assert(triangleCount == U(triangle.b.size()));
@@ -34,8 +31,3 @@ void Projection<dimension>::calculateTriangleBbox()
     };
     thrust::transform(triangleBegin, thrust::next(triangleBegin, triangleCount), polygonBboxBegin, toTriangleBbox);
 }
-
-template void Projection<0>::calculateTriangleBbox();
-template void Projection<1>::calculateTriangleBbox();
-template void Projection<2>::calculateTriangleBbox();
-}  // namespace SahKdTree

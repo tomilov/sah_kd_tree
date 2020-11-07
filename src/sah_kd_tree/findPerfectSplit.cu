@@ -15,15 +15,12 @@
 
 #include <cassert>
 
-namespace SahKdTree
-{
-template<I dimension>
-void Projection<dimension>::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z)
+void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z)
 {
     Timer timer;
     auto eventCount = U(event.kind.size());
 
-    {  // calculate l and r polygon count
+    {  // calculate polygonCountLeft and polygonCountRight
         event.countLeft.resize(eventCount);
         event.countRight.resize(eventCount);
 
@@ -55,19 +52,19 @@ void Projection<dimension>::findPerfectSplit(const Params & sah, U nodeCount, co
         F splitPos = thrust::get<1>(perfectSplitValue);
         I eventKind = thrust::get<2>(perfectSplitValue);
         U splitEvent = thrust::get<3>(perfectSplitValue);
-        U l = thrust::get<4>(perfectSplitValue), r = thrust::get<5>(perfectSplitValue);  // polygon count
-        assert((l != 0) || (r != 0));
+        U polygonCountLeft = thrust::get<4>(perfectSplitValue), polygonCountRight = thrust::get<5>(perfectSplitValue);
+        assert((polygonCountLeft != 0) || (polygonCountRight != 0));
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
-        F xl = splitPos - min;
-        F xr = max - splitPos;
+        F xLeft = splitPos - min;
+        F xRight = max - splitPos;
         if (eventKind < 0) {
             ++splitEvent;
         } else if (eventKind == 0) {
-            if ((xl < xr) ? (l != 0) : (r == 0)) {
-                ++l;
+            if ((xLeft < xRight) ? (polygonCountLeft != 0) : (polygonCountRight == 0)) {
+                ++polygonCountLeft;
                 ++splitEvent;
             } else {
-                ++r;
+                ++polygonCountRight;
             }
         }
         F x = max - min;
@@ -75,13 +72,13 @@ void Projection<dimension>::findPerfectSplit(const Params & sah, U nodeCount, co
         F z = thrust::get<5>(nodeBbox) - thrust::get<4>(nodeBbox);
         F perimeter = y + z;
         F area = y * z;
-        F splitCost = (l * (area + perimeter * xl) + r * (area + perimeter * xr)) / (area + perimeter * x);
+        F splitCost = (polygonCountLeft * (area + perimeter * xLeft) + polygonCountRight * (area + perimeter * xRight)) / (area + perimeter * x);
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
-        if ((l == 0) || (r == 0)) {
+        if ((polygonCountLeft == 0) || (polygonCountRight == 0)) {
             splitCost *= sah.emptinessFactor;
         }
-        return {splitCost, splitEvent, splitPos, l, r};
+        return {splitCost, splitEvent, splitPos, polygonCountLeft, polygonCountRight};
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(perfectSplitInputBegin, toPerfectSplit);
     [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin()),
@@ -89,8 +86,3 @@ void Projection<dimension>::findPerfectSplit(const Params & sah, U nodeCount, co
     assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
     timer(" findPerfectSplit reduce_by_key");  // 0.003015
 }
-
-template void Projection<0>::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z);
-template void Projection<1>::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z);
-template void Projection<2>::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Y & y, const Z & z);
-}  // namespace SahKdTree

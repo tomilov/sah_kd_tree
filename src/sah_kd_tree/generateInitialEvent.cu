@@ -14,10 +14,7 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-namespace SahKdTree
-{
-template<I dimension>
-void Projection<dimension>::generateInitialEvent()
+void SahKdTree::Projection::generateInitialEvent()
 {
     Timer timer;
     auto triangleCount = U(triangle.a.size());
@@ -56,8 +53,3 @@ void Projection<dimension>::generateInitialEvent()
     thrust::sort(eventBegin, thrust::next(eventBegin, eventCount));
     timer(" generateInitialEvent sort");  // 0.038971
 }
-
-template void Projection<0>::generateInitialEvent();
-template void Projection<1>::generateInitialEvent();
-template void Projection<2>::generateInitialEvent();
-}  // namespace SahKdTree
