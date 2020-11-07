@@ -47,18 +47,11 @@ void build(const Params & sah, thrust::device_ptr<const Triangle> triangleBegin,
     Builder builder;
     Timer timer;
     auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
-    auto resizeTriangleProjection = [triangleCount](auto & projection) {
+    auto splitTriangleProjection = [triangleCount](auto & projection) {
         auto & triangle = projection.triangle;
         triangle.a.resize(size_t(triangleCount));
         triangle.b.resize(size_t(triangleCount));
         triangle.c.resize(size_t(triangleCount));
-    };
-    resizeTriangleProjection(builder.x);
-    resizeTriangleProjection(builder.y);
-    resizeTriangleProjection(builder.z);
-
-    auto splitTriangleProjection = [](auto & projection) {
-        auto & triangle = projection.triangle;
         return thrust::make_zip_iterator(thrust::make_tuple(triangle.a.begin(), triangle.b.begin(), triangle.c.begin()));
     };
     auto splittedTriangleBegin = thrust::make_zip_iterator(thrust::make_tuple(splitTriangleProjection(builder.x), splitTriangleProjection(builder.y), splitTriangleProjection(builder.z)));
