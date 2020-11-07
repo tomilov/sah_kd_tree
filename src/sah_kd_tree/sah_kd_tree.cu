@@ -4,6 +4,7 @@
 
 #include <thrust/advance.h>
 #include <thrust/count.h>
+#include <thrust/device_vector.h>
 #include <thrust/distance.h>
 #include <thrust/extrema.h>
 #include <thrust/fill.h>
@@ -14,14 +15,14 @@
 #include <thrust/pair.h>
 #include <thrust/partition.h>
 #include <thrust/sort.h>
-#include <thrust/system/cuda/vector.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
+#include <chrono>
 #include <iostream>
 #include <string>
 
-#include <chrono>
+#include <cassert>
 
 struct Timer
 {
@@ -132,6 +133,8 @@ void Projection<dimension>::generateInitialEvent()
 void Builder::operator()(const Params & /*sah*/)
 {
     auto triangleCount = U(x.triangle.a.size());
+    assert(triangleCount == U(y.triangle.a.size()));
+    assert(triangleCount == U(z.triangle.a.size()));
 
     Timer timer;
 
@@ -151,7 +154,7 @@ void Builder::operator()(const Params & /*sah*/)
     timer("generateInitialEvent");  // 0.138127
 }
 
-void build(const Params & sah, thrust::cuda::pointer<const Triangle> triangleBegin, thrust::cuda::pointer<const Triangle> triangleEnd)
+void build(const Params & sah, thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd)
 {
     Builder builder;
     Timer timer;

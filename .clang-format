@@ -54,7 +54,7 @@ IncludeCategories:
     Priority: 6
   - Regex: \.h>$
     Priority: 9
-  - Regex: ^<c[[:alnum:]_]+>$
+  - Regex: ^<c(assert|stdlib)>$
     Priority: 8
   - Regex: ^<[[:alnum:]_]+>$
     Priority: 7

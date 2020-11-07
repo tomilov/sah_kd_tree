@@ -2,7 +2,7 @@
 
 #include <sah_kd_tree/config.hpp>
 
-#include <thrust/system/cuda/vector.h>
+#include <thrust/device_vector.h>
 
 #include <type_traits>
 
@@ -17,25 +17,25 @@ struct Projection
 
     struct
     {
-        thrust::cuda::vector<F> a, b, c;
+        thrust::device_vector<F> a, b, c;
     } triangle;
 
     struct
     {
-        thrust::cuda::vector<F> min, max;
+        thrust::device_vector<F> min, max;
     } polygon;
 
     struct
     {
-        thrust::cuda::vector<F> min, max;
+        thrust::device_vector<F> min, max;
     } node;
 
     struct
     {
-        thrust::cuda::vector<U> node;
-        thrust::cuda::vector<F> pos;
-        thrust::cuda::vector<I> kind;
-        thrust::cuda::vector<U> polygon;
+        thrust::device_vector<U> node;
+        thrust::device_vector<F> pos;
+        thrust::device_vector<I> kind;
+        thrust::device_vector<U> polygon;
     } event;
 
     void calculateTriangleBbox();
