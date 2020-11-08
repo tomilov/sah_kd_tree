@@ -11,11 +11,11 @@
 
 void SahKdTree::Builder::updatePolygonNode(U baseNode, U polygonCount)
 {
-    auto nodeLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin()));
-    auto polygonNodeLeftRightBegin = thrust::make_permutation_iterator(nodeLeftRightBegin, polygon.node.cbegin());
-    using PolygonNodeLeftRightType = IteratorValueType<decltype(polygonNodeLeftRightBegin)>;
-    auto toPolygonNode = [] __host__ __device__(I polygonSide, PolygonNodeLeftRightType polygonNodeLeftRight) -> U {
-        return (0 < polygonSide) ? thrust::get<1>(polygonNodeLeftRight) : thrust::get<0>(polygonNodeLeftRight);  // splitted event assigned to left node
+    auto nodeBothBegin = thrust::make_zip_iterator(thrust::make_tuple(node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin()));
+    auto polygonNodeBothBegin = thrust::make_permutation_iterator(nodeBothBegin, polygon.node.cbegin());
+    using PolygonNodeBothType = IteratorValueType<decltype(polygonNodeBothBegin)>;
+    auto toPolygonNode = [] __host__ __device__(I polygonSide, PolygonNodeBothType polygonNodeBoth) -> U {
+        return (0 < polygonSide) ? thrust::get<1>(polygonNodeBoth) : thrust::get<0>(polygonNodeBoth);  // splitted event assigned to left node
     };
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto nodeStencilBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.node.cbegin(), splitDimensionBegin));
@@ -28,5 +28,5 @@ void SahKdTree::Builder::updatePolygonNode(U baseNode, U polygonCount)
         }
         return true;
     };
-    thrust::transform_if(polygon.side.cbegin(), thrust::next(polygon.side.cbegin(), polygonCount), polygonNodeLeftRightBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::zip_function(isCurrentLayer));
+    thrust::transform_if(polygon.side.cbegin(), thrust::next(polygon.side.cbegin(), polygonCount), polygonNodeBothBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::zip_function(isCurrentLayer));
 }

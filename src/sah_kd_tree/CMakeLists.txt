@@ -22,7 +22,7 @@ target_sources(
     "determinePolygonSide.cu"
     "getSplittedPolygonCount.cu"
     "separateSplittedPolygon.cu"
-    "decoupleEventLeftRight.cu"
+    "decoupleEventBoth.cu"
     "updatePolygonNode.cu"
     "splitPolygon.cu"
     "updateSplittedPolygonNode.cu"

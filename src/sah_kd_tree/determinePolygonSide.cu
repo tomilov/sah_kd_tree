@@ -47,14 +47,14 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
     }
     timer(" determinePolygonSide 2 * scatter_if");  // 1.958ms
 
-    auto polygonEventLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonEventLeft.cbegin(), polygonEventRight.cbegin()));
-    auto eventLeftRightBegin = thrust::make_permutation_iterator(polygonEventLeftRightBegin, event.polygon.cbegin());
-    using EventLeftRightType = IteratorValueType<decltype(eventLeftRightBegin)>;
+    auto polygonEventBothBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonEventLeft.cbegin(), polygonEventRight.cbegin()));
+    auto eventBothBegin = thrust::make_permutation_iterator(polygonEventBothBegin, event.polygon.cbegin());
+    using EventBothType = IteratorValueType<decltype(eventBothBegin)>;
     auto splitEventBegin = thrust::make_permutation_iterator(thrust::prev(layer.splitEvent.cbegin(), baseNode), event.node.cbegin());
     auto polygonSideBegin = thrust::make_permutation_iterator(polygonSide.begin(), event.polygon.cbegin());
-    auto toPolygonSide = [] __host__ __device__(EventLeftRightType eventLeftRight, U splitEvent) -> I {
-        U eventLeft = thrust::get<0>(eventLeftRight);
-        U eventRight = thrust::get<1>(eventLeftRight);
+    auto toPolygonSide = [] __host__ __device__(EventBothType eventBoth, U splitEvent) -> I {
+        U eventLeft = thrust::get<0>(eventBoth);
+        U eventRight = thrust::get<1>(eventBoth);
         assert(!(eventRight < eventLeft));
         if (eventRight < splitEvent) {
             return -1;  // goes to left child node
@@ -65,6 +65,6 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
         }
     };
     auto isX = [dimension] __host__ __device__(I nodeSplitDimension) -> bool { return nodeSplitDimension == dimension; };
-    thrust::transform_if(eventLeftRightBegin, thrust::next(eventLeftRightBegin, eventCount), splitEventBegin, splitDimensionBegin, polygonSideBegin, toPolygonSide, isX);
+    thrust::transform_if(eventBothBegin, thrust::next(eventBothBegin, eventCount), splitEventBegin, splitDimensionBegin, polygonSideBegin, toPolygonSide, isX);
     timer(" determinePolygonSide transform_if");  // 3.002ms
 }

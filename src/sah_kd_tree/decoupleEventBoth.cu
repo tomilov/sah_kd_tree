@@ -10,7 +10,7 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-void SahKdTree::Projection::decoupleEventLeftRight(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide)
+void SahKdTree::Projection::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide)
 {
     Timer timer;
     auto eventCount = U(event.kind.size());
@@ -29,7 +29,7 @@ void SahKdTree::Projection::decoupleEventLeftRight(const thrust::device_vector<I
     };
     auto eventLeftEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.countLeft.begin(), thrust::make_zip_function(isLeftPolygon));
     event.countLeft.erase(eventLeftEnd, event.countLeft.end());
-    timer(" decoupleEventLeftRight copy reft");  // 1.033ms
+    timer(" decoupleEventBoth copy reft");  // 1.033ms
 
     auto isRightPolygon = [] __host__ __device__(I splitDimension, I polygonSide) -> bool {
         if (splitDimension < 0) {
@@ -39,5 +39,5 @@ void SahKdTree::Projection::decoupleEventLeftRight(const thrust::device_vector<I
     };
     auto eventRightEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.countRight.begin(), thrust::make_zip_function(isRightPolygon));
     event.countRight.erase(eventRightEnd, event.countRight.end());
-    timer(" decoupleEventLeftRight copy right");  // 1.503ms
+    timer(" decoupleEventBoth copy right");  // 1.503ms
 }

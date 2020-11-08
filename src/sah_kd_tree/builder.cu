@@ -109,10 +109,10 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         separateSplittedPolygon(baseNode, polygonCount, splittedPolygonCount);
         timer("separateSplittedPolygon");  // 0.516ms
 
-        x.decoupleEventLeftRight(node.splitDimension, polygon.side);
-        y.decoupleEventLeftRight(node.splitDimension, polygon.side);
-        z.decoupleEventLeftRight(node.splitDimension, polygon.side);
-        timer("decoupleEventLeftRight");  // 7.316ms
+        x.decoupleEventBoth(node.splitDimension, polygon.side);
+        y.decoupleEventBoth(node.splitDimension, polygon.side);
+        z.decoupleEventBoth(node.splitDimension, polygon.side);
+        timer("decoupleEventBoth");  // 7.316ms
 
         updatePolygonNode(baseNode, polygonCount);
         timer("updatePolygonNode");  // 0.727ms
