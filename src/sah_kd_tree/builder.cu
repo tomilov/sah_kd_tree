@@ -91,6 +91,6 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         break;
     }
 
-    timerTotal("total");  // 0.179895
+    timerTotal("total");  // 0.182
     return {};
 }

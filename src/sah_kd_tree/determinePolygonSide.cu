@@ -9,6 +9,7 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+#include <thrust/zip_function.h>
 
 #include <cassert>
 
@@ -27,33 +28,29 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
         auto eventSideBegin = thrust::make_zip_iterator(thrust::make_tuple(splitDimensionBegin, event.kind.cbegin()));
         using EventSideType = IteratorValueType<decltype(eventSideBegin)>;
 
-        auto isNotRightEvent = [dimension] __host__ __device__(EventSideType eventSide) -> bool {
-            I nodeSplitDimension = thrust::get<0>(eventSide);
+        auto isNotRightEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
                 return false;
             }
-            I eventKind = thrust::get<1>(eventSide);
             return !(eventKind < 0);
         };
-        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonLeftEvent.begin(), isNotRightEvent);
+        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonLeftEvent.begin(), thrust::zip_function(isNotRightEvent));
 
         // TODO: optimize out one of (polygonLeftEvent, polygonRightEvent)
-        auto isNotLeftEvent = [dimension] __host__ __device__(EventSideType eventSide) -> bool {
-            I nodeSplitDimension = thrust::get<0>(eventSide);
+        auto isNotLeftEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
                 return false;
             }
-            I eventKind = thrust::get<1>(eventSide);
             return !(0 < eventKind);
         };
-        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonRightEvent.begin(), isNotLeftEvent);
+        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonRightEvent.begin(), thrust::zip_function(isNotLeftEvent));
     }
     timer(" determinePolygonSide 2 * scatter_if");  // 0.002360
 
-    auto splitEventBegin = thrust::make_permutation_iterator(thrust::prev(layer.splitEvent.cbegin(), baseNode), event.node.cbegin());
     auto polygonEventLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonLeftEvent.cbegin(), polygonRightEvent.cbegin()));
     auto eventLeftRightBegin = thrust::make_permutation_iterator(polygonEventLeftRightBegin, event.polygon.cbegin());
     using EventLeftRightType = IteratorValueType<decltype(eventLeftRightBegin)>;
+    auto splitEventBegin = thrust::make_permutation_iterator(thrust::prev(layer.splitEvent.cbegin(), baseNode), event.node.cbegin());
     auto polygonSideBegin = thrust::make_permutation_iterator(polygonSide.begin(), event.polygon.cbegin());
     auto toPolygonSide = [] __host__ __device__(EventLeftRightType eventLeftRight, U splitEvent) -> I {
         U eventLeft = thrust::get<0>(eventLeftRight);

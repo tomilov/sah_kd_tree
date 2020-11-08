@@ -4,9 +4,6 @@
 
 #include <QtCore>
 
-#include <array>
-#include <vector>
-
 Q_DECLARE_LOGGING_CATEGORY(sceneLoader)
 
 struct SceneLoader
