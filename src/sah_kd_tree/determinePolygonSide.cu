@@ -13,7 +13,7 @@
 
 #include <cassert>
 
-void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U baseNode, thrust::device_vector<U> & polygonLeftEvent, thrust::device_vector<U> & polygonRightEvent,
+void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U baseNode, thrust::device_vector<U> & polygonEventLeft, thrust::device_vector<U> & polygonEventRight,
                                                  thrust::device_vector<I> & polygonSide)
 {
     Timer timer;
@@ -34,20 +34,20 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
             }
             return !(eventKind < 0);
         };
-        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonLeftEvent.begin(), thrust::zip_function(isNotRightEvent));
+        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventLeft.begin(), thrust::zip_function(isNotRightEvent));
 
-        // TODO: optimize out one of (polygonLeftEvent, polygonRightEvent)
+        // TODO: optimize out one of (polygonEventLeft, polygonEventRight)
         auto isNotLeftEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
                 return false;
             }
             return !(0 < eventKind);
         };
-        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonRightEvent.begin(), thrust::zip_function(isNotLeftEvent));
+        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::zip_function(isNotLeftEvent));
     }
     timer(" determinePolygonSide 2 * scatter_if");  // 0.002360
 
-    auto polygonEventLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonLeftEvent.cbegin(), polygonRightEvent.cbegin()));
+    auto polygonEventLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonEventLeft.cbegin(), polygonEventRight.cbegin()));
     auto eventLeftRightBegin = thrust::make_permutation_iterator(polygonEventLeftRightBegin, event.polygon.cbegin());
     using EventLeftRightType = IteratorValueType<decltype(eventLeftRightBegin)>;
     auto splitEventBegin = thrust::make_permutation_iterator(thrust::prev(layer.splitEvent.cbegin(), baseNode), event.node.cbegin());

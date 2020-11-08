@@ -15,12 +15,12 @@
 
 auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
 {
+    Timer timerTotal;
+    Timer timer;
+
     auto triangleCount = U(x.triangle.a.size());
     assert(triangleCount == U(y.triangle.a.size()));
     assert(triangleCount == U(z.triangle.a.size()));
-
-    Timer timerTotal;
-    Timer timer;
 
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
@@ -43,8 +43,8 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
-    node.leftNode.resize(1);
-    node.rightNode.resize(1);
+    node.nodeLeft.resize(1);
+    node.nodeRight.resize(1);
     node.polygonCount.assign(1, triangleCount);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
@@ -82,24 +82,24 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         auto polygonCount = U(polygon.triangle.size());
 
         polygon.side.resize(polygonCount);
-        polygon.leftEvent.resize(polygonCount);
-        polygon.rightEvent.resize(polygonCount);
+        polygon.eventLeft.resize(polygonCount);
+        polygon.eventRight.resize(polygonCount);
         timer("polygonSide");  // 0.001178
 
-        x.determinePolygonSide(0, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
-        y.determinePolygonSide(1, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
-        z.determinePolygonSide(2, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
+        x.determinePolygonSide(0, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
+        y.determinePolygonSide(1, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
+        z.determinePolygonSide(2, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
         timer("determinePolygonSide");  // 0.009255
 
         U splittedPolygonCount = getSplittedPolygonCount(baseNode, nodeCount);
         timer("getSplittedPolygonCount");  // 0.00015
 
         {  // generate index for child node
-            auto nodeLeftBegin = thrust::next(node.leftNode.begin(), baseNode);
+            auto nodeLeftBegin = thrust::next(node.nodeLeft.begin(), baseNode);
             auto toNodeCount = [] __host__ __device__(I nodeSplitDimension) -> U { return (nodeSplitDimension < 0) ? 0 : 2; };
             auto nodeLeftEnd = thrust::transform_exclusive_scan(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), nodeLeftBegin, toNodeCount, baseNode, thrust::plus<U>{});
 
-            auto nodeRightBegin = thrust::next(node.rightNode.begin(), baseNode);
+            auto nodeRightBegin = thrust::next(node.nodeRight.begin(), baseNode);
             auto toNodeRight = [] __host__ __device__(U nodeLeft) { return nodeLeft + 1; };
             thrust::transform(nodeLeftBegin, nodeLeftEnd, nodeRightBegin, toNodeRight);
         }

@@ -3,6 +3,7 @@
 #include <thrust/tuple.h>
 
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -14,7 +15,7 @@ struct Timer
     void operator()(const std::string & description)
     {
         auto now = std::chrono::high_resolution_clock::now();
-        std::cout << description << " " << std::fixed << (double(std::chrono::duration_cast<std::chrono::nanoseconds>(now - std::exchange(start, now)).count()) * 1E-9) << std::endl;
+        std::cout << description << " " << std::fixed << std::setprecision(3) << (double(std::chrono::duration_cast<std::chrono::nanoseconds>(now - std::exchange(start, now)).count()) * 1E-6) << "ms" << std::endl;
     }
 };
 

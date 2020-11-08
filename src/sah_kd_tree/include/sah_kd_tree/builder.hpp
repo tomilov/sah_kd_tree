@@ -19,16 +19,16 @@ struct Builder
         thrust::device_vector<U> triangle;
         thrust::device_vector<U> node;
         thrust::device_vector<I> side;
-        thrust::device_vector<U> leftEvent, rightEvent;  // corresponding left and right event in diverse best dimensions
+        thrust::device_vector<U> eventLeft, eventRight;  // corresponding left and right event in diverse best dimensions
     } polygon;
 
     struct
     {
         thrust::device_vector<I> splitDimension;
         thrust::device_vector<F> splitPos;
-        thrust::device_vector<U> leftNode, rightNode;                                // left child node and right child node if not leaf, polygon range otherwise
+        thrust::device_vector<U> nodeLeft, nodeRight;                                // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
-    } node;                                                                          // TODO: optimize out node.leftNode
+    } node;                                                                          // TODO: optimize out node.nodeLeft
 
     thrust::device_vector<U> layerNodeOffset;
 
