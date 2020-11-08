@@ -98,7 +98,7 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         {  // generate index for child node
             auto nodeLeftBegin = thrust::next(node.nodeLeft.begin(), baseNode);
             auto toNodeCount = [] __host__ __device__(I nodeSplitDimension) -> U { return (nodeSplitDimension < 0) ? 0 : 2; };
-            auto nodeLeftEnd = thrust::transform_exclusive_scan(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), nodeLeftBegin, toNodeCount, baseNode, thrust::plus<U>{});
+            auto nodeLeftEnd = thrust::transform_exclusive_scan(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), nodeLeftBegin, toNodeCount, baseNode + nodeCount, thrust::plus<U>{});
 
             auto nodeRightBegin = thrust::next(node.nodeRight.begin(), baseNode);
             auto toNodeRight = [] __host__ __device__(U nodeLeft) { return nodeLeft + 1; };
@@ -116,9 +116,14 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
 
         updatePolygonNode(baseNode, polygonCount);
         timer("updatePolygonNode");  // 0.727ms
+
+        x.splitPolygon(0, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, y, z);
+        y.splitPolygon(1, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x);
+        z.splitPolygon(2, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y);
+        timer("splitPolygon");  // 0.006ms
         break;
     }
 
-    timerTotal("total");  // 187.800ms
+    timerTotal("total");  // 193.481ms
     return {};
 }

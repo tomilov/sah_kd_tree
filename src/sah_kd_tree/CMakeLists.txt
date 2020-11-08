@@ -24,6 +24,7 @@ target_sources(
     "separateSplittedPolygon.cu"
     "decoupleEventLeftRight.cu"
     "updatePolygonNode.cu"
+    "splitPolygon.cu"
     "builder.cu")
 
 target_include_directories(

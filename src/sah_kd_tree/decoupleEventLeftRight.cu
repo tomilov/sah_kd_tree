@@ -2,7 +2,12 @@
 
 #include <sah_kd_tree/projection.hpp>
 
+#include <thrust/advance.h>
+#include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/permutation_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
 void SahKdTree::Projection::decoupleEventLeftRight(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide)
