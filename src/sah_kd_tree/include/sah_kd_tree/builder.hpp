@@ -38,6 +38,7 @@ struct Builder
     void selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount);
     U getSplittedPolygonCount(U baseNode, U nodeCount);
     void separateSplittedPolygon(U baseNode, U polygonCount, U splittedPolygonCount);
+    void updatePolygonNode(U baseNode, U polygonCount);
 
     SahKdTree operator()(const Params & sah);
 };

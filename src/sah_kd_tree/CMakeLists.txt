@@ -23,6 +23,7 @@ target_sources(
     "getSplittedPolygonCount.cu"
     "separateSplittedPolygon.cu"
     "decoupleEventLeftRight.cu"
+    "updatePolygonNode.cu"
     "builder.cu")
 
 target_include_directories(
