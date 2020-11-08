@@ -86,6 +86,8 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         y.determinePolygonSide(1, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
         z.determinePolygonSide(2, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
         timer("determinePolygonSide");  // 0.009255
+
+        U splittedPolygonCount = getSplittedPolygonCount(baseNode, nodeCount);
         break;
     }
 

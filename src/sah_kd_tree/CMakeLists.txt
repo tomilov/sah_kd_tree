@@ -20,6 +20,7 @@ target_sources(
     "findPerfectSplit.cu"
     "selectNodeBestSplit.cu"
     "determinePolygonSide.cu"
+    "getSplittedPolygonCount.cu"
     "builder.cu")
 
 target_include_directories(

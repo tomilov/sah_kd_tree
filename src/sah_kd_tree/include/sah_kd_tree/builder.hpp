@@ -34,6 +34,7 @@ struct Builder
 
     void setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd);
     void selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount);
+    U getSplittedPolygonCount(U baseNode, U nodeCount);
 
     SahKdTree operator()(const Params & sah);
 };
