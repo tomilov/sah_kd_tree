@@ -25,17 +25,17 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
     z.calculateTriangleBbox();
-    timer("calculateTriangleBbox");  // 0.004484
+    timer("calculateTriangleBbox");  // 9.330ms
 
     x.calculateRootNodeBbox();
     y.calculateRootNodeBbox();
     z.calculateRootNodeBbox();
-    timer("calculateRootNodeBbox");  // 0.001709
+    timer("calculateRootNodeBbox");  // 2.358ms
 
     x.generateInitialEvent();
     y.generateInitialEvent();
     z.generateInitialEvent();
-    timer("generateInitialEvent");  // 0.138127
+    timer("generateInitialEvent");  // 141.887ms
 
     polygon.triangle.resize(triangleCount);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
@@ -48,7 +48,7 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
     node.polygonCount.assign(1, triangleCount);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
-    timer("init builder");  // 0.003133
+    timer("init builder");  // 2.359ms
 
     // layer
     U baseNode = 0;
@@ -62,19 +62,20 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
             auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
             auto layerNodeEnd = thrust::copy_if(layerNodeBegin, thrust::next(layerNodeBegin, nodeCount), thrust::next(node.polygonCount.cbegin(), baseNode), layerNodeOffset.begin(), isNodeNotEmpty);
             layerNodeOffset.erase(layerNodeEnd, layerNodeOffset.end());
-            timer("layerNodeOffset");  // 0.000074
+            timer("layerNodeOffset");  // 0.074ms
         }
 
         x.findPerfectSplit(sah, nodeCount, layerNodeOffset, y, z);
         y.findPerfectSplit(sah, nodeCount, layerNodeOffset, z, x);
         z.findPerfectSplit(sah, nodeCount, layerNodeOffset, x, y);
-        timer("findPerfectSplit");  // 0.024922
+        timer("findPerfectSplit");  // 20.758ms
 
         selectNodeBestSplit(sah, baseNode, nodeCount);
+        timer("selectNodeBestSplit");  // 0.202ms
 
         auto nodeSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), baseNode);
         auto completedNodeCount = U(thrust::count(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), I(-1)));
-        timer("completedNodeCount");  // 0.000316
+        timer("completedNodeCount");  // 0.256ms
         if (completedNodeCount == nodeCount) {
             break;
         }
@@ -84,15 +85,15 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         polygon.side.resize(polygonCount);
         polygon.eventLeft.resize(polygonCount);
         polygon.eventRight.resize(polygonCount);
-        timer("polygonSide");  // 0.001178
+        timer("resize polygon");  // 0.944ms
 
         x.determinePolygonSide(0, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
         y.determinePolygonSide(1, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
         z.determinePolygonSide(2, node.splitDimension, baseNode, polygon.eventLeft, polygon.eventRight, polygon.side);
-        timer("determinePolygonSide");  // 0.009255
+        timer("determinePolygonSide");  // 7.020ms
 
         U splittedPolygonCount = getSplittedPolygonCount(baseNode, nodeCount);
-        timer("getSplittedPolygonCount");  // 0.00015
+        timer("getSplittedPolygonCount");  // 0.048ms
 
         {  // generate index for child node
             auto nodeLeftBegin = thrust::next(node.nodeLeft.begin(), baseNode);
@@ -103,10 +104,13 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
             auto toNodeRight = [] __host__ __device__(U nodeLeft) { return nodeLeft + 1; };
             thrust::transform(nodeLeftBegin, nodeLeftEnd, nodeRightBegin, toNodeRight);
         }
-        timer("toNodePairIndices");  // 0.000006
+        timer("toNodePairIndices");  // 0.052ms
+
+        separateSplittedPolygon(baseNode, polygonCount, splittedPolygonCount);
+        timer("separateSplittedPolygon");  // 0.516ms
         break;
     }
 
-    timerTotal("total");  // 0.182
+    timerTotal("total");  // 185.608ms
     return {};
 }

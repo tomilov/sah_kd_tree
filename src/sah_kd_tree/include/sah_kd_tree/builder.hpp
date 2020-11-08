@@ -32,9 +32,12 @@ struct Builder
 
     thrust::device_vector<U> layerNodeOffset;
 
+    thrust::device_vector<U> splittedPolygon;
+
     void setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd);
     void selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount);
     U getSplittedPolygonCount(U baseNode, U nodeCount);
+    void separateSplittedPolygon(U baseNode, U polygonCount, U splittedPolygonCount);
 
     SahKdTree operator()(const Params & sah);
 };

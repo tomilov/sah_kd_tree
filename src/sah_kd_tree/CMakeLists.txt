@@ -21,6 +21,7 @@ target_sources(
     "selectNodeBestSplit.cu"
     "determinePolygonSide.cu"
     "getSplittedPolygonCount.cu"
+    "separateSplittedPolygon.cu"
     "builder.cu")
 
 target_include_directories(

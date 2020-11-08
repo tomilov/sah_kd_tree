@@ -13,7 +13,6 @@
 
 void SahKdTree::Builder::selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount)
 {
-    Timer timer;
     auto nodeSplitCostBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin()));
     using NodeBestCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
     auto nodeSplitPosBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.splitPos.cbegin(), y.layer.splitPos.cbegin(), z.layer.splitPos.cbegin()));
@@ -45,5 +44,4 @@ void SahKdTree::Builder::selectNodeBestSplit(const Params & sah, U baseNode, U n
     };
     auto isNodeNotEmpty = [] __host__ __device__(U nodePolygonCount) -> bool { return nodePolygonCount != 0; };
     thrust::transform_if(nodeSplitBegin, thrust::next(nodeSplitBegin, nodeCount), nodePolygonCountBegin, nodeBestSplitBegin, thrust::make_zip_function(toNodeBestSplit), isNodeNotEmpty);
-    timer("selectNodeBestSplit");  // 0.000017
 }

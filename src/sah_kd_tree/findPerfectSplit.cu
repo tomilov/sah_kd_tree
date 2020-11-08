@@ -31,7 +31,7 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
         auto rightTriangleCountBegin = thrust::make_transform_iterator(event.kind.crbegin(), [] __host__ __device__(I eventKind) -> U { return (0 < eventKind) ? 0 : 1; });
         thrust::exclusive_scan_by_key(event.node.crbegin(), event.node.crend(), rightTriangleCountBegin, event.countRight.rbegin());
     }
-    timer(" findPerfectSplit 2 * exclusive_scan_by_key");  // 0.003573
+    timer(" findPerfectSplit 2 * exclusive_scan_by_key");  // 4.131ms
 
     layer.splitCost.resize(nodeCount);
     layer.splitEvent.resize(nodeCount);
@@ -39,7 +39,7 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
 
     layer.polygonCountLeft.resize(nodeCount);
     layer.polygonCountRight.resize(nodeCount);
-    timer(" findPerfectSplit resize");  // 0.000667
+    timer(" findPerfectSplit resize");  // 0.640ms
 
     auto nodeLimitsBegin = thrust::make_zip_iterator(thrust::make_tuple(node.min.cbegin(), node.max.cbegin(), y.node.min.cbegin(), y.node.max.cbegin(), z.node.min.cbegin(), z.node.max.cbegin()));
     auto nodeBboxBegin = thrust::make_permutation_iterator(nodeLimitsBegin, event.node.cbegin());
@@ -80,5 +80,5 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin()),
                                                        thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
     assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
-    timer(" findPerfectSplit reduce_by_key");  // 0.003015
+    timer(" findPerfectSplit reduce_by_key");  // 2.897ms
 }

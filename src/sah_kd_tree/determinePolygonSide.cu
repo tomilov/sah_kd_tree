@@ -45,7 +45,7 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
         };
         thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::zip_function(isNotLeftEvent));
     }
-    timer(" determinePolygonSide 2 * scatter_if");  // 0.002360
+    timer(" determinePolygonSide 2 * scatter_if");  // 1.958ms
 
     auto polygonEventLeftRightBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonEventLeft.cbegin(), polygonEventRight.cbegin()));
     auto eventLeftRightBegin = thrust::make_permutation_iterator(polygonEventLeftRightBegin, event.polygon.cbegin());
@@ -66,5 +66,5 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
     };
     auto isX = [dimension] __host__ __device__(I nodeSplitDimension) -> bool { return nodeSplitDimension == dimension; };
     thrust::transform_if(eventLeftRightBegin, thrust::next(eventLeftRightBegin, eventCount), splitEventBegin, splitDimensionBegin, polygonSideBegin, toPolygonSide, isX);
-    timer(" determinePolygonSide transform_if");  // 0.003103
+    timer(" determinePolygonSide transform_if");  // 3.002ms
 }
