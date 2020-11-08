@@ -67,6 +67,25 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         timer("findPerfectSplit");  // 0.024922
 
         selectNodeBestSplit(sah, baseNode, nodeCount);
+
+        auto nodeSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), baseNode);
+        auto completedNodeCount = U(thrust::count(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), I(-1)));
+        timer("completedNodeCount");  // 0.000316
+        if (completedNodeCount == nodeCount) {
+            break;
+        }
+
+        auto polygonCount = U(polygon.triangle.size());
+
+        polygon.side.resize(polygonCount);
+        polygon.leftEvent.resize(polygonCount);
+        polygon.rightEvent.resize(polygonCount);
+        timer("polygonSide");  // 0.001178
+
+        x.determinePolygonSide(0, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
+        y.determinePolygonSide(1, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
+        z.determinePolygonSide(2, node.splitDimension, baseNode, polygon.leftEvent, polygon.rightEvent, polygon.side);
+        timer("determinePolygonSide");  // 0.009255
         break;
     }
 

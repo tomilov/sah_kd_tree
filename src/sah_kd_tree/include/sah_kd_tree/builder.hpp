@@ -18,6 +18,8 @@ struct Builder
     {
         thrust::device_vector<U> triangle;
         thrust::device_vector<U> node;
+        thrust::device_vector<I> side;
+        thrust::device_vector<U> leftEvent, rightEvent;  // corresponding left and right event in diverse best dimensions
     } polygon;
 
     struct

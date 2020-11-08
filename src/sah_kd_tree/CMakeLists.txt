@@ -19,6 +19,7 @@ target_sources(
     "generateInitialEvent.cu"
     "findPerfectSplit.cu"
     "selectNodeBestSplit.cu"
+    "determinePolygonSide.cu"
     "builder.cu")
 
 target_include_directories(
