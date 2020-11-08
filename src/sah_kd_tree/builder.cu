@@ -4,8 +4,12 @@
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
+#include <thrust/transform.h>
+#include <thrust/transform_scan.h>
 
 #include <cassert>
 
@@ -88,6 +92,18 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         timer("determinePolygonSide");  // 0.009255
 
         U splittedPolygonCount = getSplittedPolygonCount(baseNode, nodeCount);
+        timer("getSplittedPolygonCount");  // 0.00015
+
+        {  // generate index for child node
+            auto nodeLeftBegin = thrust::next(node.leftNode.begin(), baseNode);
+            auto toNodeCount = [] __host__ __device__(I nodeSplitDimension) -> U { return (nodeSplitDimension < 0) ? 0 : 2; };
+            auto nodeLeftEnd = thrust::transform_exclusive_scan(nodeSplitDimensionBegin, thrust::next(nodeSplitDimensionBegin, nodeCount), nodeLeftBegin, toNodeCount, baseNode, thrust::plus<U>{});
+
+            auto nodeRightBegin = thrust::next(node.rightNode.begin(), baseNode);
+            auto toNodeRight = [] __host__ __device__(U nodeLeft) { return nodeLeft + 1; };
+            thrust::transform(nodeLeftBegin, nodeLeftEnd, nodeRightBegin, toNodeRight);
+        }
+        timer("toNodePairIndices");  // 0.000006
         break;
     }
 
