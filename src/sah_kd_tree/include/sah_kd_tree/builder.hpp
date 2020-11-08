@@ -39,6 +39,7 @@ struct Builder
     U getSplittedPolygonCount(U baseNode, U nodeCount);
     void separateSplittedPolygon(U baseNode, U polygonCount, U splittedPolygonCount);
     void updatePolygonNode(U baseNode, U polygonCount);
+    void updateSplittedPolygonNode(U polygonCount, U splittedPolygonCount);
 
     SahKdTree operator()(const Params & sah);
 };

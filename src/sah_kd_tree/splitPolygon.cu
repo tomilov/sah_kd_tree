@@ -90,7 +90,7 @@ void SahKdTree::Projection::splitPolygon(I dimension, const thrust::device_vecto
         assert((c < a) || (a < c));
         F rpos = ax + (cx - ax) * (nodeSplitPos - a) / (c - a);
 
-        if (std::is_floating_point<F>::value) {
+        if (std::is_floating_point_v<F>) {
             if (max < lpos) {
                 lpos = max;
             }

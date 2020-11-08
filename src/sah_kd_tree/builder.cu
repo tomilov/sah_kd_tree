@@ -121,9 +121,17 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         y.splitPolygon(1, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x);
         z.splitPolygon(2, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y);
         timer("splitPolygon");  // 0.006ms
+
+        updateSplittedPolygonNode(polygonCount, splittedPolygonCount);
+        timer("updateSplittedPolygonNode");  // 0.003ms
+
+        x.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
+        y.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
+        z.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
+        timer("mergeEvent");  // 44.897ms
         break;
     }
 
-    timerTotal("total");  // 193.481ms
+    timerTotal("total");  // 231.211ms
     return {};
 }
