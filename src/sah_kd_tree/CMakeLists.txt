@@ -22,6 +22,7 @@ target_sources(
     "determinePolygonSide.cu"
     "getSplittedPolygonCount.cu"
     "separateSplittedPolygon.cu"
+    "decoupleEventLeftRight.cu"
     "builder.cu")
 
 target_include_directories(

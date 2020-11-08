@@ -47,7 +47,7 @@ struct Projection
     void generateInitialEvent();
 
     void findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z);
-
     void determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U baseNode, thrust::device_vector<U> & polygonEventLeft, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide);
+    void decoupleEventLeftRight(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
 };
 }  // namespace SahKdTree
