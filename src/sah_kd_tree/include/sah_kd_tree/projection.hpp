@@ -53,5 +53,7 @@ struct Projection
                       U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z);
 
     void mergeEvent(U polygonCount, const thrust::device_vector<U> & polygonNode, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon);
+    void setNodeCount(U nodeCount);
+    void splitNode(I dimension, U baseNodePrev, U baseNode, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft, const thrust::device_vector<U> & nodeRight);
 };
 }  // namespace SahKdTree

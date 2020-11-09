@@ -11,7 +11,7 @@
 
 void SahKdTree::Builder::updatePolygonNode(U baseNode, U polygonCount)
 {
-    auto nodeBothBegin = thrust::make_zip_iterator(thrust::make_tuple(node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin()));
+    auto nodeBothBegin = thrust::make_zip_iterator(thrust::make_tuple(node.nodeLeft.cbegin(), node.nodeRight.cbegin()));
     auto polygonNodeBothBegin = thrust::make_permutation_iterator(nodeBothBegin, polygon.node.cbegin());
     using PolygonNodeBothType = IteratorValueType<decltype(polygonNodeBothBegin)>;
     auto toPolygonNode = [] __host__ __device__(I polygonSide, PolygonNodeBothType polygonNodeBoth) -> U {

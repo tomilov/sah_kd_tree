@@ -27,6 +27,8 @@ target_sources(
     "splitPolygon.cu"
     "updateSplittedPolygonNode.cu"
     "mergeEvent.cu"
+    "setNodeCount.cu"
+    "splitNode.cu"
     "builder.cu")
 
 target_include_directories(

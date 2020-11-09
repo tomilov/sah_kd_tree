@@ -7,9 +7,12 @@
 #include <thrust/count.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/scatter.h>
 #include <thrust/sequence.h>
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
+#include <thrust/tuple.h>
 
 #include <cassert>
 
@@ -129,9 +132,47 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         y.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
         z.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
         timer("mergeEvent");  // 44.897ms
-        break;
-    }
 
-    timerTotal("total");  // 231.211ms
+        U baseNodePrev = baseNode;
+        baseNode += nodeCount;
+        nodeCount -= completedNodeCount;
+        nodeCount += nodeCount;
+
+        node.polygonCount.resize(baseNode + nodeCount);
+
+        auto isNotLeaf = [] __host__ __device__(I nodeSplitDimension) -> bool { return !(nodeSplitDimension < 0); };
+
+        thrust::scatter_if(thrust::next(node.polygonCountLeft.cbegin(), baseNodePrev), thrust::next(node.polygonCountLeft.cbegin(), baseNode), thrust::next(node.nodeLeft.cbegin(), baseNodePrev), nodeSplitDimensionBegin, node.polygonCount.begin(),
+                           isNotLeaf);
+        thrust::scatter_if(thrust::next(node.polygonCountRight.cbegin(), baseNodePrev), thrust::next(node.polygonCountRight.cbegin(), baseNode), thrust::next(node.nodeRight.cbegin(), baseNodePrev), nodeSplitDimensionBegin, node.polygonCount.begin(),
+                           isNotLeaf);
+        timer("polygonCount");  // 0.056ms
+
+        x.setNodeCount(baseNode + nodeCount);
+        y.setNodeCount(baseNode + nodeCount);
+        z.setNodeCount(baseNode + nodeCount);
+        timer("setNodeCount");  // 0.174ms
+
+        auto nodeBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin()));
+        auto layerBboxBegin = thrust::next(nodeBboxBegin, baseNodePrev);
+        auto layerBboxEnd = thrust::next(nodeBboxBegin, baseNode);
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.nodeLeft.cbegin(), baseNodePrev), nodeSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.nodeRight.cbegin(), baseNodePrev), nodeSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        timer("setNodeBbox");  // 0.031ms
+
+        x.splitNode(0, baseNodePrev, baseNode, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        y.splitNode(1, baseNodePrev, baseNode, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        z.splitNode(2, baseNodePrev, baseNode, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        timer("splitNode");  // 0.062ms
+
+        node.splitDimension.resize(baseNode + nodeCount, I(-1));
+        node.splitPos.resize(baseNode + nodeCount);
+        node.nodeLeft.resize(baseNode + nodeCount);
+        node.nodeRight.resize(baseNode + nodeCount);
+        node.polygonCountLeft.resize(baseNode + nodeCount);
+        node.polygonCountRight.resize(baseNode + nodeCount);
+        timer("resizeNode");  // 0.168ms
+    }
+    timerTotal("total");  // 236.149ms
     return {};
 }
