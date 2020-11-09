@@ -44,14 +44,14 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: ^<(sah_kd_tree|scene_loader)/
     Priority: 2
-  - Regex: \.hpp>$
-    Priority: 3
   - Regex: ^<thrust/
     Priority: 4
-  - Regex: ^<Qt
+  - Regex: ^<assimp/
     Priority: 5
-  - Regex: ^<Q[A-Z]
+  - Regex: ^<(Q[A-Z]|Qt)
     Priority: 6
+  - Regex: \.hpp>$
+    Priority: 3
   - Regex: \.h>$
     Priority: 9
   - Regex: ^<c(assert|stdlib)>$
