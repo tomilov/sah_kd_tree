@@ -20,7 +20,7 @@ void SahKdTree::Builder::setTriangle(thrust::device_ptr<const Triangle> triangle
     };
     auto transposedTriangleBegin = thrust::make_zip_iterator(thrust::make_tuple(transposeProjectionTriangle(x), transposeProjectionTriangle(y), transposeProjectionTriangle(z)));
     using TransposedTriangleType = IteratorValueType<decltype(transposedTriangleBegin)>;
-    auto transposeTriangle = [] __host__ __device__(const Triangle & t) -> TransposedTriangleType { return {{t.a.x, t.a.y, t.a.z}, {t.b.x, t.b.y, t.b.z}, {t.c.x, t.c.y, t.c.z}}; };
+    auto transposeTriangle = [] __host__ __device__(const Triangle & t) -> TransposedTriangleType { return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}}; };
     thrust::transform(triangleBegin, triangleEnd, transposedTriangleBegin, transposeTriangle);
     timer("setTriangle");  // 5.453ms
 }
