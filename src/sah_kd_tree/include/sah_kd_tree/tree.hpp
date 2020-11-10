@@ -4,7 +4,7 @@
 
 namespace SahKdTree
 {
-struct SahKdTree
+struct Tree
 {
 };
 }  // namespace SahKdTree

@@ -16,7 +16,7 @@
 
 #include <cassert>
 
-auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
+auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
 {
     Timer timerTotal;
     Timer timer;
@@ -174,5 +174,11 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> SahKdTree
         timer("resizeNode");  // 0.168ms
     }
     timerTotal("total");  // 236.149ms
-    return {};
+
+    Tree tree;
+    // calculate node parent
+    // sort value (polygon) by key (polygon.node)
+    // reduce value (counter, 1) by operation (project1st, plus) and key (node) to (key (node), value (offset, count))
+    // scatter value (offset, count) to (node.nodeLeft, node.nodeRight) at key (node)
+    return tree;
 }

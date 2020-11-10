@@ -1,7 +1,7 @@
 #include "builder.hpp"
 
 #include <sah_kd_tree/builder.hpp>
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <sah_kd_tree/tree.hpp>
 #include <sah_kd_tree/types.hpp>
 #include <scene_loader/scene_loader.hpp>
 
@@ -38,7 +38,7 @@ bool build(QString sceneFileName, bool useCache, float emptinessFactor, float tr
     if (maxDepth > 0) {
         params.maxDepth = SahKdTree::U(maxDepth);
     }
-    SahKdTree::SahKdTree sahKdTree = builder(params);
+    SahKdTree::Tree sahKdTree = builder(params);
     Q_UNUSED(sahKdTree)  // TODO(tomilov): make use it somehow eventually!
     return true;
 }

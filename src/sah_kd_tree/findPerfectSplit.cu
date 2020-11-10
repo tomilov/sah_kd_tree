@@ -49,7 +49,6 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     auto perfectSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin()));
     using PerfectSplitType = IteratorValueType<decltype(perfectSplitBegin)>;
     auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
-        assert((polygonCountLeft != 0) || (polygonCountRight != 0));
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
         F xLeft = splitPos - min;
         F xRight = max - splitPos;

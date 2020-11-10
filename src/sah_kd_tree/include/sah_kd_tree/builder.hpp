@@ -2,7 +2,7 @@
 
 #include <sah_kd_tree/config.hpp>
 #include <sah_kd_tree/projection.hpp>
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <sah_kd_tree/tree.hpp>
 #include <sah_kd_tree/types.hpp>
 
 #include <thrust/device_ptr.h>
@@ -41,6 +41,6 @@ struct Builder
     void updatePolygonNode(U baseNode, U polygonCount);
     void updateSplittedPolygonNode(U polygonCount, U splittedPolygonCount);
 
-    SahKdTree operator()(const Params & sah);
+    Tree operator()(const Params & sah);
 };
 }  // namespace SahKdTree
