@@ -13,6 +13,7 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+#include <thrust/zip_function.h>
 
 void SahKdTree::Projection::generateInitialEvent()
 {
@@ -21,7 +22,8 @@ void SahKdTree::Projection::generateInitialEvent()
 
     auto triangleBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.min.cbegin(), polygon.max.cbegin()));
     using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;
-    auto isPlanarEvent = [] __host__ __device__(BboxType bbox) -> bool { return !(thrust::get<0>(bbox) < thrust::get<1>(bbox)); };
+    auto isPlanarEvent = thrust::zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
+
     auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangleCount), isPlanarEvent));
     timer(" generateInitialEvent count_if");  // 0.439ms
 
@@ -32,8 +34,8 @@ void SahKdTree::Projection::generateInitialEvent()
     event.kind.resize(eventCount, I(0));
     event.polygon.resize(eventCount);
 
-    auto eventKindLRBegin = thrust::make_zip_iterator(thrust::make_tuple(event.kind.begin(), event.kind.rbegin()));
-    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindLRBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right event sequenced before left event if positions are equivalent
+    auto eventKindBothBegin = thrust::make_zip_iterator(thrust::make_tuple(event.kind.begin(), event.kind.rbegin()));
+    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right event sequenced before left event if positions are equivalent
     // thrust::fill_n(thrust::get< 0 >(planarEventKind.get_iterator_tuple()), planarEventCount, I(0));
     timer(" generateInitialEvent fill_n");  // 2.821ms
 
