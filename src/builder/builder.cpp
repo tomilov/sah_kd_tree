@@ -1,8 +1,6 @@
 #include "builder.hpp"
 
-#include <sah_kd_tree/builder.hpp>
-#include <sah_kd_tree/tree.hpp>
-#include <sah_kd_tree/types.hpp>
+#include <sah_kd_tree/sah_kd_tree.hpp>
 #include <scene_loader/scene_loader.hpp>
 
 #include <thrust/device_vector.h>

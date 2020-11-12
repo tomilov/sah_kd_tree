@@ -8,10 +8,7 @@ target_compile_options(
 target_sources(
   "${PROJECT_NAME}"
   PRIVATE
-    "include/sah_kd_tree/config.hpp"
-    "include/sah_kd_tree/tree.hpp"
-    "include/sah_kd_tree/projection.hpp"
-    "include/sah_kd_tree/builder.hpp"
+    "include/sah_kd_tree/sah_kd_tree.hpp"
     "utility.cuh"
     "setTriangle.cu"
     "calculateTriangleBbox.cu"

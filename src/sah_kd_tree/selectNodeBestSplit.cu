@@ -1,6 +1,6 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/builder.hpp>
+#include <sah_kd_tree/sah_kd_tree.hpp>
 
 #include <thrust/advance.h>
 #include <thrust/extrema.h>
