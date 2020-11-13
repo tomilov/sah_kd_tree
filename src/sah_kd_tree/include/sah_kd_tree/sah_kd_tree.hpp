@@ -49,7 +49,7 @@ struct Projection
         thrust::device_vector<I> kind;
         thrust::device_vector<U> polygon;
 
-        thrust::device_vector<U> countLeft, countRight;
+        thrust::device_vector<U> polygonCountLeft, polygonCountRight;
     } event;
 
     struct

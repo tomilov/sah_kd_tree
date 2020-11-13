@@ -27,8 +27,8 @@ void SahKdTree::Projection::decoupleEventBoth(const thrust::device_vector<I> & n
         }
         return polygonSide < 0;
     };
-    auto eventLeftEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.countLeft.begin(), thrust::make_zip_function(isLeftPolygon));
-    event.countLeft.erase(eventLeftEnd, event.countLeft.end());
+    auto eventLeftEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.polygonCountLeft.begin(), thrust::make_zip_function(isLeftPolygon));
+    event.polygonCountLeft.erase(eventLeftEnd, event.polygonCountLeft.end());
     timer(" decoupleEventBoth copy reft");  // 1.033ms
 
     auto isRightPolygon = [] __host__ __device__(I splitDimension, I polygonSide) -> bool {
@@ -37,7 +37,7 @@ void SahKdTree::Projection::decoupleEventBoth(const thrust::device_vector<I> & n
         }
         return 0 < polygonSide;
     };
-    auto eventRightEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.countRight.begin(), thrust::make_zip_function(isRightPolygon));
-    event.countRight.erase(eventRightEnd, event.countRight.end());
+    auto eventRightEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.polygonCountRight.begin(), thrust::make_zip_function(isRightPolygon));
+    event.polygonCountRight.erase(eventRightEnd, event.polygonCountRight.end());
     timer(" decoupleEventBoth copy right");  // 1.503ms
 }

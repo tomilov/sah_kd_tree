@@ -46,8 +46,8 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, const thrust::device_vect
 
     U splittedEventCount = splittedEventLeftCount + splittedEventRightCount;
 
-    auto countLeft = U(event.countLeft.size());
-    auto countRight = U(event.countRight.size());
+    auto countLeft = U(event.polygonCountLeft.size());
+    auto countRight = U(event.polygonCountRight.size());
 
     U eventStorageSize = std::exchange(eventCount, countLeft + countRight + splittedEventCount);
     if (eventStorageSize < eventCount) {
@@ -64,11 +64,11 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, const thrust::device_vect
     auto eventNodeBegin = thrust::make_permutation_iterator(polygonNode.cbegin(), event.polygon.cbegin());
     auto eventValueBegin = thrust::make_zip_iterator(thrust::make_tuple(event.pos.begin(), event.kind.begin(), event.polygon.begin()));
 
-    auto eventKeyLeftBegin = thrust::make_permutation_iterator(eventNodeBegin, event.countLeft.cbegin());
-    auto eventValueLeftBegin = thrust::make_permutation_iterator(eventValueBegin, event.countLeft.cbegin());
+    auto eventKeyLeftBegin = thrust::make_permutation_iterator(eventNodeBegin, event.polygonCountLeft.cbegin());
+    auto eventValueLeftBegin = thrust::make_permutation_iterator(eventValueBegin, event.polygonCountLeft.cbegin());
 
-    auto eventKeyRightBegin = thrust::make_permutation_iterator(eventNodeBegin, event.countRight.cbegin());
-    auto eventValueRightBegin = thrust::make_permutation_iterator(eventValueBegin, event.countRight.cbegin());
+    auto eventKeyRightBegin = thrust::make_permutation_iterator(eventNodeBegin, event.polygonCountRight.cbegin());
+    auto eventValueRightBegin = thrust::make_permutation_iterator(eventValueBegin, event.polygonCountRight.cbegin());
 
     auto eventBothKeyBegin = thrust::next(event.node.begin(), eventStorageSize);
     auto eventBothValueBegin = thrust::next(eventValueBegin, eventStorageSize);

@@ -21,15 +21,15 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     Timer timer;
     auto eventCount = U(event.kind.size());
 
-    {  // calculate polygonCountLeft and polygonCountRight
-        event.countLeft.resize(eventCount);
-        event.countRight.resize(eventCount);
+    {
+        event.polygonCountLeft.resize(eventCount);
+        event.polygonCountRight.resize(eventCount);
 
         auto leftTriangleCountBegin = thrust::make_transform_iterator(event.kind.cbegin(), [] __host__ __device__(I eventKind) -> U { return (eventKind < 0) ? 0 : 1; });
-        thrust::exclusive_scan_by_key(event.node.cbegin(), event.node.cend(), leftTriangleCountBegin, event.countLeft.begin());
+        thrust::exclusive_scan_by_key(event.node.cbegin(), event.node.cend(), leftTriangleCountBegin, event.polygonCountLeft.begin());
 
         auto rightTriangleCountBegin = thrust::make_transform_iterator(event.kind.crbegin(), [] __host__ __device__(I eventKind) -> U { return (0 < eventKind) ? 0 : 1; });
-        thrust::exclusive_scan_by_key(event.node.crbegin(), event.node.crend(), rightTriangleCountBegin, event.countRight.rbegin());
+        thrust::exclusive_scan_by_key(event.node.crbegin(), event.node.crend(), rightTriangleCountBegin, event.polygonCountRight.rbegin());
     }
     timer(" findPerfectSplit 2 * exclusive_scan_by_key");  // 4.131ms
 
@@ -45,7 +45,7 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     auto nodeBboxBegin = thrust::make_permutation_iterator(nodeLimitsBegin, event.node.cbegin());
     using NodeBboxType = IteratorValueType<decltype(nodeBboxBegin)>;
     auto splitEventBegin = thrust::make_counting_iterator<U>(0);
-    auto perfectSplitInputBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeBboxBegin, event.pos.cbegin(), event.kind.cbegin(), splitEventBegin, event.countLeft.cbegin(), event.countRight.cbegin()));
+    auto perfectSplitInputBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeBboxBegin, event.pos.cbegin(), event.kind.cbegin(), splitEventBegin, event.polygonCountLeft.cbegin(), event.polygonCountRight.cbegin()));
     auto perfectSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin()));
     using PerfectSplitType = IteratorValueType<decltype(perfectSplitBegin)>;
     auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
