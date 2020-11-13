@@ -6,7 +6,6 @@
 #include <thrust/copy.h>
 #include <thrust/count.h>
 #include <thrust/functional.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
@@ -58,15 +57,8 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
     U nodeCount = 1;
 
     for (U depth = 0; depth < sah.maxDepth; ++depth) {
-        {
-            layerNodeOffset.resize(nodeCount);
-
-            auto isNodeNotEmpty = [] __host__ __device__(U nodePolygonCount) -> bool { return nodePolygonCount != 0; };
-            auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
-            auto layerNodeEnd = thrust::copy_if(layerNodeBegin, thrust::next(layerNodeBegin, nodeCount), thrust::next(node.polygonCount.cbegin(), baseNode), layerNodeOffset.begin(), isNodeNotEmpty);
-            layerNodeOffset.erase(layerNodeEnd, layerNodeOffset.end());
-            timer("layerNodeOffset");  // 0.074ms
-        }
+        calculateLayerNodeOffset(baseNode, nodeCount);
+        timer("layerNodeOffset");  // 0.074ms
 
         x.findPerfectSplit(sah, nodeCount, layerNodeOffset, y, z);
         y.findPerfectSplit(sah, nodeCount, layerNodeOffset, z, x);

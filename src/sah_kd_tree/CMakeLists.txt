@@ -14,6 +14,7 @@ target_sources(
     "calculateTriangleBbox.cu"
     "calculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
+    "calculateLayerNodeOffset.cu"
     "findPerfectSplit.cu"
     "selectNodeBestSplit.cu"
     "determinePolygonSide.cu"
