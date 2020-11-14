@@ -1,6 +1,6 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <SahKdTree.hpp>
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
@@ -57,7 +57,7 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
     U nodeCount = 1;
 
     for (U depth = 0; depth < sah.maxDepth; ++depth) {
-        calculateLayerNodeOffset(baseNode, nodeCount);
+        thinLayerNodeOffset(baseNode, nodeCount);
         timer("layerNodeOffset");  // 0.074ms
 
         x.findPerfectSplit(sah, nodeCount, layerNodeOffset, y, z);

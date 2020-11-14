@@ -11,7 +11,7 @@ add_library("scene_loader" STATIC)
 target_sources(
   "scene_loader"
   PRIVATE
-    "include/scene_loader/scene_loader.hpp"
+    "include/SceneLoader.hpp"
     "assimpwrappers.hpp"
     "assimpwrappers.cpp"
     "scene_loader.cpp")

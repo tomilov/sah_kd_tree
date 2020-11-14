@@ -8,13 +8,13 @@ target_compile_options(
 target_sources(
   "${PROJECT_NAME}"
   PRIVATE
-    "include/sah_kd_tree/sah_kd_tree.hpp"
+    "include/SahKdTree.hpp"
     "utility.cuh"
     "setTriangle.cu"
     "calculateTriangleBbox.cu"
     "calculateRootNodeBbox.cu"
     "generateInitialEvent.cu"
-    "calculateLayerNodeOffset.cu"
+    "thinLayerNodeOffset.cu"
     "findPerfectSplit.cu"
     "selectNodeBestSplit.cu"
     "determinePolygonSide.cu"

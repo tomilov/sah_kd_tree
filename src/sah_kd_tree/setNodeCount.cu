@@ -1,6 +1,6 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <SahKdTree.hpp>
 
 void SahKdTree::Projection::setNodeCount(U nodeCount)
 {

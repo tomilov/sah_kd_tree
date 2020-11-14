@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sah_kd_tree/types.hpp>
+#include <SahKdTree/types.hpp>
 
 #include <QtCore>
 

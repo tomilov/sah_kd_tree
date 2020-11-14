@@ -1,6 +1,6 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <SahKdTree.hpp>
 
 #include <thrust/distance.h>
 #include <thrust/iterator/zip_iterator.h>

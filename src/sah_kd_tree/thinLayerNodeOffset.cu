@@ -1,12 +1,12 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <SahKdTree.hpp>
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
 
-void SahKdTree::Builder::calculateLayerNodeOffset(U baseNode, U nodeCount)
+void SahKdTree::Builder::thinLayerNodeOffset(U baseNode, U nodeCount)
 {
     layerNodeOffset.resize(nodeCount);
 

@@ -1,6 +1,6 @@
 #include "utility.cuh"
 
-#include <sah_kd_tree/sah_kd_tree.hpp>
+#include <SahKdTree.hpp>
 
 #include <thrust/extrema.h>
 #include <thrust/functional.h>
@@ -47,7 +47,8 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     auto splitEventBegin = thrust::make_counting_iterator<U>(0);
     auto perfectSplitInputBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeBboxBegin, event.pos.cbegin(), event.kind.cbegin(), splitEventBegin, event.polygonCountLeft.cbegin(), event.polygonCountRight.cbegin()));
     auto perfectSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin()));
-    using PerfectSplitType = IteratorValueType<decltype(perfectSplitBegin)>;
+    auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
+    using PerfectSplitType = IteratorValueType<decltype(perfectSplitOutputBegin)>;
     auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
         F xLeft = splitPos - min;
@@ -76,8 +77,7 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
         return {splitCost, splitEvent, splitPos, polygonCountLeft, polygonCountRight};
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(perfectSplitInputBegin, thrust::zip_function(toPerfectSplit));
-    [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin()),
-                                                       thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
+    [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
     assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
     timer(" findPerfectSplit reduce_by_key");  // 2.897ms
 }

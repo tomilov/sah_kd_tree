@@ -1,5 +1,4 @@
-#include "scene_loader/scene_loader.hpp"
-
+#include "SceneLoader.hpp"
 #include "assimpwrappers.hpp"
 
 #include <assimp/Importer.hpp>

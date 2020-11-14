@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sah_kd_tree/types.hpp>
+#include <SahKdTree/types.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -9,10 +9,6 @@
 
 namespace SahKdTree
 {
-using I = int;
-using U = unsigned int;
-using F = float;
-
 struct Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]
@@ -23,6 +19,7 @@ struct Params
 
 struct Tree
 {
+    // TODO(tomilov):
 };
 
 struct Projection
@@ -101,7 +98,7 @@ struct Builder
     thrust::device_vector<U> splittedPolygon;
 
     void setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd);
-    void calculateLayerNodeOffset(U baseNode, U nodeCount);
+    void thinLayerNodeOffset(U baseNode, U nodeCount);
     void selectNodeBestSplit(const Params & sah, U baseNode, U nodeCount);
     U getSplittedPolygonCount(U baseNode, U nodeCount);
     void separateSplittedPolygon(U baseNode, U polygonCount, U splittedPolygonCount);

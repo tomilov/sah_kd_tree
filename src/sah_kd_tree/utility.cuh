@@ -1,5 +1,6 @@
 #pragma once
 
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/tuple.h>
 
 #include <chrono>
@@ -22,7 +23,7 @@ struct Timer
 namespace SahKdTree
 {
 template<typename Iterator>
-using IteratorValueType = typename Iterator::value_type;
+using IteratorValueType = typename thrust::iterator_value<Iterator>::type;
 
 template<typename Type>
 struct doubler

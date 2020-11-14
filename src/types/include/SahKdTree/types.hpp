@@ -1,10 +1,15 @@
 #pragma once
 
-#include <vector_functions.hpp>
-
 namespace SahKdTree
 {
-using Vertex = float3;
+using I = int;
+using U = unsigned int;
+using F = float;
+
+struct Vertex
+{
+    F x, y, z;
+};
 
 struct Triangle
 {
