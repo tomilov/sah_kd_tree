@@ -9,7 +9,7 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-auto SahKdTree::Builder::getSplittedPolygonCount(U baseNode, U nodeCount) -> U
+auto SahKdTree::Builder::getSplittedPolygonCount(U layerBase, U layerSize) -> U
 {
     auto nodePolygonCountBegin = thrust::make_zip_iterator(thrust::make_tuple(node.splitDimension.cbegin(), node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin(), node.polygonCount.cbegin()));
     auto toSplittedPolygonCount = [] __host__ __device__(I splitDimension, U polygonCountLeft, U polygonCountRight, U polygonCount) -> U {
@@ -18,6 +18,6 @@ auto SahKdTree::Builder::getSplittedPolygonCount(U baseNode, U nodeCount) -> U
         }
         return polygonCountLeft + polygonCountRight - polygonCount;
     };
-    auto splittedPolygonCountBegin = thrust::next(nodePolygonCountBegin, baseNode);
-    return thrust::transform_reduce(splittedPolygonCountBegin, thrust::next(splittedPolygonCountBegin, nodeCount), thrust::make_zip_function(toSplittedPolygonCount), U(0), thrust::plus<U>{});
+    auto splittedPolygonCountBegin = thrust::next(nodePolygonCountBegin, layerBase);
+    return thrust::transform_reduce(splittedPolygonCountBegin, thrust::next(splittedPolygonCountBegin, layerSize), thrust::make_zip_function(toSplittedPolygonCount), U(0), thrust::plus<U>{});
 }

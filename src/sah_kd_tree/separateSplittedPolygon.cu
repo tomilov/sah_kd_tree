@@ -12,7 +12,7 @@
 
 #include <cassert>
 
-void SahKdTree::Builder::separateSplittedPolygon(U baseNode, U polygonCount, U splittedPolygonCount)
+void SahKdTree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount)
 {
     polygon.triangle.resize(polygonCount + splittedPolygonCount);
     polygon.node.resize(polygonCount + splittedPolygonCount);
@@ -23,17 +23,14 @@ void SahKdTree::Builder::separateSplittedPolygon(U baseNode, U polygonCount, U s
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto splittedPolygonStencilBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin()));
     auto splittedPolygonBegin = thrust::make_zip_iterator(thrust::make_tuple(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount)));
-    auto isSplittedPolygon = [baseNode] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
-        if (polygonNode < baseNode) {
+    auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
+        if (polygonNode < layerBase) {
             return false;
         }
         if (splitDimension < 0) {
             return false;
         }
-        if (polygonSide != 0) {
-            return false;
-        }
-        return true;
+        return polygonSide == 0;
     };
     [[maybe_unused]] auto splittedPolygonEnd = thrust::copy_if(indexedPolygonBegin, thrust::next(indexedPolygonBegin, polygonCount), splittedPolygonStencilBegin, splittedPolygonBegin, thrust::zip_function(isSplittedPolygon));
     assert(thrust::next(splittedPolygonBegin, splittedPolygonCount) == splittedPolygonEnd);

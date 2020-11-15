@@ -16,7 +16,7 @@
 
 #include <cassert>
 
-void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z)
+void SahKdTree::Projection::findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z)
 {
     Timer timer;
     auto eventCount = U(event.kind.size());
@@ -33,12 +33,12 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U nodeCount, co
     }
     timer(" findPerfectSplit 2 * exclusive_scan_by_key");  // 4.131ms
 
-    layer.splitCost.resize(nodeCount);
-    layer.splitEvent.resize(nodeCount);
-    layer.splitPos.resize(nodeCount);
+    layer.splitCost.resize(layerSize);
+    layer.splitEvent.resize(layerSize);
+    layer.splitPos.resize(layerSize);
 
-    layer.polygonCountLeft.resize(nodeCount);
-    layer.polygonCountRight.resize(nodeCount);
+    layer.polygonCountLeft.resize(layerSize);
+    layer.polygonCountRight.resize(layerSize);
     timer(" findPerfectSplit resize");  // 0.640ms
 
     auto nodeLimitsBegin = thrust::make_zip_iterator(thrust::make_tuple(node.min.cbegin(), node.max.cbegin(), y.node.min.cbegin(), y.node.max.cbegin(), z.node.min.cbegin(), z.node.max.cbegin()));
