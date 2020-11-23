@@ -68,7 +68,7 @@ struct Projection
     void splitPolygon(I dimension, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & polygonTriangle, const thrust::device_vector<U> & polygonNode, U polygonCount,
                       U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z);
 
-    void mergeEvent(U polygonCount, const thrust::device_vector<U> & polygonNode, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon);
+    void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
     void setNodeCount(U layerSize);
     void splitNode(I dimension, U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft, const thrust::device_vector<U> & nodeRight);
 };

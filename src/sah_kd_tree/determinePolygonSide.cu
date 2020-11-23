@@ -50,7 +50,7 @@ void SahKdTree::Projection::determinePolygonSide(I dimension, const thrust::devi
     auto polygonEventBothBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonEventLeft.cbegin(), polygonEventRight.cbegin()));
     auto eventCounterpartBegin = thrust::make_permutation_iterator(polygonEventBothBegin, event.polygon.cbegin());
     using EventCounterpartType = IteratorValueType<decltype(eventCounterpartBegin)>;
-    auto eventNodeOffsetBegin = thrust::make_transform_iterator(event.node.cbegin(), [layerBase](U eventNode) -> U {
+    auto eventNodeOffsetBegin = thrust::make_transform_iterator(event.node.cbegin(), [layerBase] __host__ __device__(U eventNode) -> U {
         assert(!(eventNode < layerBase));
         return eventNode - layerBase;
     });

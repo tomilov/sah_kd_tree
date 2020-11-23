@@ -1,3 +1,15 @@
+add_library("types" INTERFACE)
+
+target_sources(
+  "types"
+  INTERFACE
+    "include/SahKdTree/types.hpp")
+
+target_include_directories(
+  "types"
+  INTERFACE
+    "include")
+
 add_library("${PROJECT_NAME}" STATIC)
 
 target_compile_options(
@@ -47,5 +59,5 @@ target_link_libraries(
 target_compile_definitions(
   "${PROJECT_NAME}"
   PUBLIC
-    THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+    THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA)
 

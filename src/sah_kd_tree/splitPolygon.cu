@@ -24,8 +24,7 @@ void SahKdTree::Projection::splitPolygon(I dimension, const thrust::device_vecto
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     using PolygonBboxInputType = IteratorValueType<decltype(polygonLeftBboxBegin)>;
     auto nodeBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeSplitDimension.cbegin(), nodeSplitPos.cbegin()));
-    auto polygonNodeBegin = thrust::make_permutation_iterator(
-        nodeBegin, polygonNode.cbegin());  // TODO(tomilov): ! continue here. Valid only for splittedPolygon. Anyways polygonNode contains updated (child) nodes. It is wrong, because nodeSplitDimension nodeSplitPos are not initialized for these.
+    auto polygonNodeBegin = thrust::make_permutation_iterator(nodeBegin, polygonNode.cbegin());
     auto triangleBegin = thrust::make_zip_iterator(
         thrust::make_tuple(triangle.a.cbegin(), triangle.b.cbegin(), triangle.c.cbegin(), y.triangle.a.cbegin(), y.triangle.b.cbegin(), y.triangle.c.cbegin(), z.triangle.a.cbegin(), z.triangle.b.cbegin(), z.triangle.c.cbegin()));
     auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygonTriangle.cbegin());

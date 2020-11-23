@@ -110,6 +110,7 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
         z.decoupleEventBoth(node.splitDimension, polygon.side);
         timer("decoupleEventBoth");  // 7.316ms
 
+        assert(polygon.side.size() == polygonCount);
         updatePolygonNode(layerBase);
         timer("updatePolygonNode");  // 0.727ms
 
@@ -121,9 +122,9 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
         updateSplittedPolygonNode(polygonCount, splittedPolygonCount);
         timer("updateSplittedPolygonNode");  // 0.003ms
 
-        x.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
-        y.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
-        z.mergeEvent(polygonCount, polygon.node, splittedPolygonCount, splittedPolygon);
+        x.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
+        y.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
+        z.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
         timer("mergeEvent");  // 44.897ms
 
         U layerBasePrev = layerBase;
@@ -135,10 +136,12 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
 
         auto isNotLeaf = [] __host__ __device__(I layerSplitDimension) -> bool { return !(layerSplitDimension < 0); };
 
-        thrust::scatter_if(thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev), thrust::next(node.polygonCountLeft.cbegin(), layerBase), thrust::next(node.nodeLeft.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(),
-                           isNotLeaf);
-        thrust::scatter_if(thrust::next(node.polygonCountRight.cbegin(), layerBasePrev), thrust::next(node.polygonCountRight.cbegin(), layerBase), thrust::next(node.nodeRight.cbegin(), layerBasePrev), layerSplitDimensionBegin,
-                           node.polygonCount.begin(), isNotLeaf);
+        auto nodePolygonCountLeftBegin = thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev);
+        auto nodePolygonCountLeftEnd = thrust::next(node.polygonCountLeft.cbegin(), layerBase);
+        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.nodeLeft.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
+        auto nodePolygonCountRightBegin = thrust::next(node.polygonCountRight.cbegin(), layerBasePrev);
+        auto nodePolygonCountRightEnd = thrust::next(node.polygonCountRight.cbegin(), layerBase);
+        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.nodeRight.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
         timer("polygonCount");  // 0.056ms
 
         x.setNodeCount(layerBase + layerSize);

@@ -26,6 +26,7 @@ void SahKdTree::Builder::updatePolygonNode(U layerBase)
         if (splitDimension < 0) {
             return false;
         }
+        // assert(!(polygonNode < layerBase)); ???
         return true;
     };
     thrust::transform_if(polygon.side.cbegin(), polygon.side.cend(), polygonNodeBothBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::zip_function(isCurrentLayer));
