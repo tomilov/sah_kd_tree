@@ -46,7 +46,7 @@ struct Projection
         thrust::device_vector<I> kind;
         thrust::device_vector<U> polygon;
 
-        thrust::device_vector<U> polygonCountLeft, polygonCountRight;
+        thrust::device_vector<U> polygonCountLeft, polygonCountRight; // or eventLeft, eventRight mutually exclusive
     } event;
 
     struct

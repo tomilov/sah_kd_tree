@@ -46,8 +46,11 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, c
 
     U splittedEventCount = splittedEventLeftCount + splittedEventRightCount;
 
-    auto eventLeftCount = U(event.polygonCountLeft.size());
-    auto eventRightCount = U(event.polygonCountRight.size());
+    const auto & eventLeft = event.polygonCountLeft;
+    const auto & eventRight = event.polygonCountRight;
+
+    auto eventLeftCount = U(eventLeft.size());
+    auto eventRightCount = U(eventRight.size());
 
     U eventStorageSize = std::exchange(eventCount, eventLeftCount + eventRightCount + splittedEventCount);
     if (eventStorageSize < eventCount) {
@@ -64,11 +67,11 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, c
     auto eventNodeBegin = thrust::make_permutation_iterator(polygonNode.cbegin(), event.polygon.cbegin());
     auto eventValueBegin = thrust::make_zip_iterator(thrust::make_tuple(event.pos.begin(), event.kind.begin(), event.polygon.begin()));
 
-    auto eventKeyLeftBegin = thrust::make_permutation_iterator(eventNodeBegin, event.polygonCountLeft.cbegin());
-    auto eventValueLeftBegin = thrust::make_permutation_iterator(eventValueBegin, event.polygonCountLeft.cbegin());
+    auto eventKeyLeftBegin = thrust::make_permutation_iterator(eventNodeBegin, eventLeft.cbegin());
+    auto eventValueLeftBegin = thrust::make_permutation_iterator(eventValueBegin, eventLeft.cbegin());
 
-    auto eventKeyRightBegin = thrust::make_permutation_iterator(eventNodeBegin, event.polygonCountRight.cbegin());
-    auto eventValueRightBegin = thrust::make_permutation_iterator(eventValueBegin, event.polygonCountRight.cbegin());
+    auto eventKeyRightBegin = thrust::make_permutation_iterator(eventNodeBegin, eventRight.cbegin());
+    auto eventValueRightBegin = thrust::make_permutation_iterator(eventValueBegin, eventRight.cbegin());
 
     auto eventBothKeyBegin = thrust::next(event.node.begin(), eventStorageSize);
     auto eventBothValueBegin = thrust::next(eventValueBegin, eventStorageSize);

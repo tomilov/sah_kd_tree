@@ -21,23 +21,27 @@ void SahKdTree::Projection::decoupleEventBoth(const thrust::device_vector<I> & n
     auto polygonSideBegin = thrust::make_permutation_iterator(polygonSide.cbegin(), event.polygon.cbegin());
     auto polygonStencilBegin = thrust::make_zip_iterator(thrust::make_tuple(splitDimensionBegin, polygonSideBegin));
 
+    auto & eventLeft = event.polygonCountLeft;
+    assert(!(eventLeft.size() < eventCount));
     auto isLeftPolygon = [] __host__ __device__(I splitDimension, I polygonSide) -> bool {
         if (splitDimension < 0) {
             return false;
         }
         return polygonSide < 0;
     };
-    auto eventLeftEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.polygonCountLeft.begin(), thrust::make_zip_function(isLeftPolygon));
-    event.polygonCountLeft.erase(eventLeftEnd, event.polygonCountLeft.end());
+    auto eventLeftEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, eventLeft.begin(), thrust::make_zip_function(isLeftPolygon));
+    eventLeft.erase(eventLeftEnd, eventLeft.end());
     timer(" decoupleEventBoth copy reft");  // 1.033ms
 
+    auto & eventRight = event.polygonCountRight;
+    assert(!(eventRight.size() < eventCount));
     auto isRightPolygon = [] __host__ __device__(I splitDimension, I polygonSide) -> bool {
         if (splitDimension < 0) {
             return false;
         }
         return 0 < polygonSide;
     };
-    auto eventRightEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, event.polygonCountRight.begin(), thrust::make_zip_function(isRightPolygon));
-    event.polygonCountRight.erase(eventRightEnd, event.polygonCountRight.end());
+    auto eventRightEnd = thrust::copy_if(eventBegin, thrust::next(eventBegin, eventCount), polygonStencilBegin, eventRight.begin(), thrust::make_zip_function(isRightPolygon));
+    eventRight.erase(eventRightEnd, eventRight.end());
     timer(" decoupleEventBoth copy right");  // 1.503ms
 }
