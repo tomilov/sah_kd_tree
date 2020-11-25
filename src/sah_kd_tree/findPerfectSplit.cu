@@ -72,7 +72,9 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U layerSize, co
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
         if ((polygonCountLeft == 0) || (polygonCountRight == 0)) {
-            splitCost *= sah.emptinessFactor;
+            if ((min < splitPos) && (splitPos < max)) {
+                splitCost *= sah.emptinessFactor;
+            }
         }
         return {splitCost, splitEvent, splitPos, polygonCountLeft, polygonCountRight};
     };

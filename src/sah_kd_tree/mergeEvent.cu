@@ -118,7 +118,7 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, c
     assert(thrust::next(eventRightPolygonPlanarBegin, splittedPlanarPolygonRightCount) == endsRight.first);
     timer(" mergeEvent 2 * partition_copy");  // 0.030ms
 
-    // calculate event pos
+    // calculate event pos for splitted polygon
 #if 1
     auto eventPolygonBegin = eventLeftPolygonLeftBegin;
     auto eventPolygonEnd = thrust::next(eventLeftPolygonLeftBegin, splittedPolygonCount);
@@ -140,8 +140,9 @@ void SahKdTree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, c
     timer(" mergeEvent transform");
 #endif
 
-    // calculate event node
-    thrust::gather(eventLeftPolygonLeftBegin, event.polygon.end(), polygonNode.cbegin(), thrust::next(event.node.begin(), splittedEventOffset));
+    // calculate event node for splitted polygon
+    [[maybe_unused]] auto splittedEventNodeEnd = thrust::gather(eventLeftPolygonLeftBegin, event.polygon.end(), polygonNode.cbegin(), thrust::next(event.node.begin(), splittedEventOffset));
+    assert(splittedEventNodeEnd == event.node.end());
     timer(" mergeEvent gather");  // 0.003ms
 
     auto eventBegin = thrust::make_zip_iterator(thrust::make_tuple(event.node.begin(), event.pos.begin(), event.kind.begin(), event.polygon.begin()));
