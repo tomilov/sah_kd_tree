@@ -133,7 +133,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     return true;
 }
 
-QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo)
+QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo, QString cachePath)
 {
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
@@ -145,7 +145,7 @@ QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo)
         return {};
     }
     QFileInfo cacheEntryFileInfo;
-    cacheEntryFileInfo.setFile(QDir::temp(), QString::fromUtf8(cryptographicHash.result().toHex()).append(".triangle"));
+    cacheEntryFileInfo.setFile(cachePath.isEmpty() ? QDir::temp() : cachePath, QString::fromUtf8(cryptographicHash.result().toHex()).append(".triangle"));
     return cacheEntryFileInfo;
 }
 
@@ -206,14 +206,14 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     return true;
 }
 
-bool SceneLoader::cachingLoad(QString fileName)
+bool SceneLoader::cachingLoad(QString fileName, QString cachePath)
 {
     QFileInfo sceneFileInfo{fileName};
     if (!sceneFileInfo.exists()) {
         qCCritical(sceneLoader) << QStringLiteral("File %1 does not exist").arg(sceneFileInfo.fileName());
         return false;
     }
-    QFileInfo cacheEntryFileInfo = getCacheEntryFileInfo(fileName);
+    QFileInfo cacheEntryFileInfo = getCacheEntryFileInfo(fileName, cachePath);
     if (cacheEntryFileInfo.exists()) {
         return loadFromCache(cacheEntryFileInfo);
     }

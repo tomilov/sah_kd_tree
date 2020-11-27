@@ -5,11 +5,11 @@
 
 #include <thrust/device_vector.h>
 
-bool build(QString sceneFileName, bool useCache, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
+bool build(QString sceneFileName, bool useCache, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
     SceneLoader sceneLoader;
     if (useCache) {
-        if (!sceneLoader.cachingLoad(sceneFileName)) {
+        if (!sceneLoader.cachingLoad(sceneFileName, cachePath)) {
             return false;
         }
     } else {

@@ -15,6 +15,9 @@ int main(int argc, char * argv[])
     QCommandLineOption useCacheOption("use-cache", "Use cache.");
     commandLineParser.addOption(useCacheOption);
 
+    QCommandLineOption cachePathOption("cache-path", "Cache path.", "cachePath", "");
+    commandLineParser.addOption(cachePathOption);
+
     QCommandLineOption emptinessFactorOption("emptiness-factor", "SAH factor to encourage algorithm to cut off empty space.", "emptinessFactor", "0");
     commandLineParser.addOption(emptinessFactorOption);
 
@@ -30,6 +33,8 @@ int main(int argc, char * argv[])
     commandLineParser.process(application);
 
     const auto buildTree = [&] {
+        bool useCache = commandLineParser.isSet(useCacheOption);
+        QString cachePath = commandLineParser.value(cachePathOption);
         const QStringList args = commandLineParser.positionalArguments();
         if (args.size() < 1) {
             return QCoreApplication::exit(2);
@@ -51,7 +56,7 @@ int main(int argc, char * argv[])
         if (!ok) {
             return QCoreApplication::exit(6);
         }
-        if (build(args.at(0), commandLineParser.isSet(useCacheOption), emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
+        if (build(args.at(0), useCache, cachePath, emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
             return QCoreApplication::quit();
         } else {
             return QCoreApplication::exit(EXIT_FAILURE);
