@@ -7,7 +7,7 @@ add_custom_target(
     --output-on-failure
     --parallel ${N}
   DEPENDS
-    "builder")
+    "Builder")
 
-add_subdirectory("sah_kd_tree")
+add_subdirectory("SahKdTree")
 

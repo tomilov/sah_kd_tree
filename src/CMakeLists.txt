@@ -63,6 +63,6 @@ find_package(
   COMPONENTS
     Core)
 
-add_subdirectory("sah_kd_tree")
-add_subdirectory("scene_loader")
-add_subdirectory("builder")
+add_subdirectory("SahKdTree")
+add_subdirectory("SceneLoader")
+add_subdirectory("Builder")
