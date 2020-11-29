@@ -20,6 +20,7 @@ struct Params
 struct Tree
 {
     // TODO(tomilov):
+    U depth = std::numeric_limits<U>::max();
 };
 
 struct Projection

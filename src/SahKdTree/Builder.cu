@@ -24,6 +24,10 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
     assert(triangleCount == U(y.triangle.a.size()));
     assert(triangleCount == U(z.triangle.a.size()));
 
+    if (triangleCount == 0) {
+        return {};
+    }
+
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
     z.calculateTriangleBbox();
@@ -56,7 +60,8 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
     U layerBase = 0;
     U layerSize = 1;
 
-    for (U depth = 0; depth < sah.maxDepth; ++depth) {
+    Tree tree;
+    for (tree.depth = 0; tree.depth < sah.maxDepth; ++tree.depth) {
         thinLayerNodeOffset(layerBase, layerSize);
         timer("layerNodeOffset");  // 0.074ms
 
@@ -168,11 +173,10 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountLeft.resize(layerBase + layerSize);
         node.polygonCountRight.resize(layerBase + layerSize);
         timer("resizeNode");  // 0.168ms
-        std::cout << depth << std::endl;
+        std::cout << tree.depth << std::endl;
     }
     timerTotal("total");  // 236.149ms
 
-    Tree tree;
     // calculate node parent
     // sort value (polygon) by key (polygon.node)
     // reduce value (counter, 1) by operation (project1st, plus) and key (node) to (key (node), value (offset, count))

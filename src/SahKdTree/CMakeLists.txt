@@ -59,5 +59,5 @@ target_link_libraries(
 target_compile_definitions(
   "${PROJECT_NAME}"
   PUBLIC
-    THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA)
+    THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
 

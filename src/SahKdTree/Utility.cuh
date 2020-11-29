@@ -15,8 +15,12 @@ struct Timer
 
     void operator()(const std::string & description)
     {
+#if 0
         auto now = std::chrono::high_resolution_clock::now();
         std::cout << description << " " << std::fixed << std::setprecision(3) << (double(std::chrono::duration_cast<std::chrono::nanoseconds>(now - std::exchange(start, now)).count()) * 1E-6) << "ms" << std::endl;
+#else
+        (void)description;
+#endif
     }
 };
 

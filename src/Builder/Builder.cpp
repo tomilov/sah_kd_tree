@@ -18,25 +18,26 @@ bool build(QString sceneFileName, bool useCache, QString cachePath, float emptin
         }
     }
     const auto & triangles = sceneLoader.triangle;
-    SahKdTree::Builder builder;
+    using namespace SahKdTree;
+    Builder builder;
     {
-        thrust::device_vector<SahKdTree::Triangle> deviceTriangles{triangles.cbegin(), triangles.cend()};
+        thrust::device_vector<Triangle> deviceTriangles{triangles.cbegin(), triangles.cend()};
         builder.setTriangle(deviceTriangles.data(), deviceTriangles.data() + deviceTriangles.size());
     }  // deviceTriangles.clear() cause link error
-    SahKdTree::Params params;
+    Params params;
     if (emptinessFactor > 0.0f) {
-        params.emptinessFactor = SahKdTree::F(emptinessFactor);
+        params.emptinessFactor = F(emptinessFactor);
     }
     if (traversalCost > 0.0f) {
-        params.traversalCost = SahKdTree::F(traversalCost);
+        params.traversalCost = F(traversalCost);
     }
     if (intersectionCost > 0.0f) {
-        params.intersectionCost = SahKdTree::F(intersectionCost);
+        params.intersectionCost = F(intersectionCost);
     }
     if (maxDepth > 0) {
-        params.maxDepth = SahKdTree::U(maxDepth);
+        params.maxDepth = U(maxDepth);
     }
-    SahKdTree::Tree sahKdTree = builder(params);
+    Tree sahKdTree = builder(params);
     Q_UNUSED(sahKdTree)  // TODO(tomilov): make use it somehow eventually!
     return true;
 }

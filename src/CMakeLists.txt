@@ -66,3 +66,10 @@ find_package(
 add_subdirectory("SahKdTree")
 add_subdirectory("SceneLoader")
 add_subdirectory("Builder")
+if (NOT MSVC)
+  option(BUILD_FUZZ "Whether to build 'Fuzz' target" ON)
+  if(BUILD_FUZZ)
+    add_subdirectory("Fuzz")
+  endif()
+endif()
+

@@ -1,5 +1,7 @@
 ProcessorCount(N)
 
+add_subdirectory("Builder")
+
 add_custom_target(
   "check"
   COMMAND
@@ -8,6 +10,3 @@ add_custom_target(
     --parallel ${N}
   DEPENDS
     "Builder")
-
-add_subdirectory("SahKdTree")
-
