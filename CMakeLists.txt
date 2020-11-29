@@ -21,7 +21,7 @@ if(BUILD_TESTING)
   add_subdirectory("test")
 endif()
 
-option(GENERATE_DOCS "Whether or not to build the Doxygen documentation" OFF)
+option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
 if(GENERATE_DOCS)
   add_subdirectory("docs")
 endif()

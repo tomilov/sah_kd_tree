@@ -129,7 +129,6 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
         }
         Q_ASSERT(triangle.data() + triangleCount == t);
     }
-    importer.FreeScene();
     return true;
 }
 
