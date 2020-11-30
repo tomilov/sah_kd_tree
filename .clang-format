@@ -10,6 +10,7 @@ AllowShortFunctionsOnASingleLine: false
 DerivePointerAlignment: false
 PointerAlignment: Middle
 BreakBeforeBraces: Custom
+IndentCaseLabels: false
 BraceWrapping:
   AfterFunction: true
   AfterCaseLabel: false

@@ -8,6 +8,7 @@ add_compile_options(
   "$<$<CXX_COMPILER_ID:Clang,GNU>:$<BUILD_INTERFACE:-Wall;-Wextra>>")
 
 add_compile_definitions(
+  "$<$<CONFIG:Debug>:_LIBCPP_DEBUG=1>"
   "$<$<CXX_COMPILER_ID:MSVC>:NOMINMAX;_USE_MATH_DEFINES;_VARIADIC_MAX=10;_SCL_SECURE_NO_WARNINGS>")
 
 find_package(OpenMP REQUIRED)

@@ -173,7 +173,6 @@ auto SahKdTree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountLeft.resize(layerBase + layerSize);
         node.polygonCountRight.resize(layerBase + layerSize);
         timer("resizeNode");  // 0.168ms
-        std::cout << tree.depth << std::endl;
     }
     timerTotal("total");  // 236.149ms
 

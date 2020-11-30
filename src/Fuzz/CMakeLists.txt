@@ -19,8 +19,3 @@ target_link_libraries(
   "Fuzz"
   PRIVATE
     -fsanitize=fuzzer)
-
-add_custom_target(
-  "fuzz"
-  COMMAND
-    "Fuzz")
