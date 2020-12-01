@@ -46,9 +46,10 @@ static_assert(std::is_floating_point_v<F>, "!");
 
 namespace
 {
-constexpr size_t maxTriangleCount = 100;
+constexpr size_t maxTriangleCount = 1;
 constexpr int intBboxSize = 5;
 constexpr bool sortTriangles = true;
+constexpr bool fuzzIntegerCoordinate = false;
 
 constexpr int floatDigits = std::numeric_limits<F>::digits;
 
@@ -63,22 +64,24 @@ void SetSeed(unsigned int seed)
     gen.seed(SeedType(seed));
 }
 
-void generateAlmostInteger(F & f)
+void generateComponent(F & f)
 {
     f = F(uniformInt(gen, UniformIntParam(-intBboxSize, +intBboxSize)));
-    const int pow = uniformInt(gen, UniformIntParam(1, floatDigits));
-    auto fuzz = std::generate_canonical<F, floatDigits>(gen);
-    fuzz += fuzz;
-    fuzz -= F(1);  // lost 1 bit of mantissa's randomness
-    f += std::scalbn(fuzz, -pow);
+    if constexpr (fuzzIntegerCoordinate) {
+        const int pow = uniformInt(gen, UniformIntParam(1, floatDigits));
+        auto fuzz = std::generate_canonical<F, floatDigits>(gen);
+        fuzz += fuzz;
+        fuzz -= F(1);  // lost 1 bit of mantissa's randomness
+        f += std::scalbn(fuzz, -pow);
+    }
 }
 
 void generateVertex(Vertex & vertex)
 {
     auto & [x, y, z] = vertex;
-    generateAlmostInteger(x);
-    generateAlmostInteger(y);
-    generateAlmostInteger(z);
+    generateComponent(x);
+    generateComponent(y);
+    generateComponent(z);
 }
 
 void generateTriangle(Triangle & triangle)
@@ -178,7 +181,6 @@ struct TestInput
                 return false;
             }
         }
-        params.maxDepth = U(std::size(triangles)) + 100;
         return true;
     }
 
@@ -207,7 +209,7 @@ struct TestInput
             excluded.resize(std::size(triangles));
             std::iota(std::begin(excluded), std::end(excluded), std::cbegin(triangles));
             std::shuffle(std::begin(excluded), std::end(excluded), gen);
-            excluded.resize(maxCount);
+            excluded.resize(std::size(triangles) - maxCount);
             std::sort(std::begin(excluded), std::end(excluded));
             assert(std::adjacent_find(std::cbegin(excluded), std::cend(excluded)) == std::cend(excluded));
         }
@@ -344,19 +346,21 @@ extern "C"
             std::exit(EXIT_FAILURE);
         }
 
-        auto [p, ec] = std::to_chars(std::next(std::begin(maxLenOption), std::strlen(maxLenOption)), std::end(maxLenOption), TestInput::paramsSize + maxTriangleCount * sizeof(Triangle));
+        const auto maxLen = TestInput::paramsSize + maxTriangleCount * sizeof(Triangle);
+        auto [p, ec] = std::to_chars(std::next(std::begin(maxLenOption), std::strlen(maxLenOption)), std::end(maxLenOption), maxLen);
         if (ec != std::errc{}) {
             std::exit(EXIT_FAILURE);
         }
         *p = '\0';
 
         auto arg = args;
-        for (int i = 0; i < *argc; ++i) {
-            *arg++ = (*argv)[i];
-        }
+        *arg++ = **argv;
         for (char * a : options) {
             *arg++ = a;
             ++*argc;
+        }
+        for (int i = 1; i < *argc; ++i) {
+            *arg++ = (*argv)[i];
         }
         *argv = args;
         return 0;
@@ -367,10 +371,11 @@ extern "C"
         SetSeed(seed);
 
         TestInput testInput;
-        if (!testInput.read(data, size)) {
+        if (testInput.read(data, size)) {
+            testInput.mutate();
+        } else {
             testInput.generate();
         }
-        testInput.mutate();
         return testInput.write(data, maxSize);
     }
 
@@ -403,7 +408,7 @@ extern "C"
         Builder builder;
         builder.setTriangle(thrust::device_pointer_cast(std::data(triangles)), thrust::device_pointer_cast(std::data(triangles) + std::size(triangles)));
         Tree tree = builder(params);
-        if (!(tree.depth < params.maxDepth)) {
+        if (!(tree.depth < std::size(triangles) + 100)) {
             std::abort();
         }
         return 0;

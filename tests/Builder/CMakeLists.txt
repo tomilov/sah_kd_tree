@@ -6,7 +6,7 @@ function(add_sah_kd_tree_test test_file)
     NAME "${test_name}"
     COMMAND
       "Builder"
-      "${CMAKE_CURRENT_SOURCE_DIR}/data/${test_file}")
+      "${CMAKE_SOURCE_DIR}/data/scenes/${test_file}")
 
   if(ARGC GREATER 1)
     set_tests_properties(
@@ -22,6 +22,8 @@ function(add_sah_kd_tree_test test_file)
   endif()
 endfunction()
 
+add_sah_kd_tree_test("pointlike_triangle.obj" NO 1)
+add_sah_kd_tree_test("narrow_triangle.obj")
 add_sah_kd_tree_test("triangle.obj")
 add_sah_kd_tree_test("aa_triangle.obj")
 add_sah_kd_tree_test("coincident_triangles.obj")

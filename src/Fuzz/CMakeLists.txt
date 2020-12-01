@@ -13,9 +13,21 @@ target_link_libraries(
 target_compile_options(
   "Fuzz"
   PRIVATE
-    -fsanitize=fuzzer)
+    "-fsanitize=fuzzer")
 
 target_link_libraries(
   "Fuzz"
   PRIVATE
-    -fsanitize=fuzzer)
+    "-fsanitize=fuzzer")
+
+if(UNIX)
+  add_custom_command(
+    TARGET
+      "Fuzz"
+    POST_BUILD
+    COMMAND
+      ${CMAKE_COMMAND} -E create_symlink "$<TARGET_FILE:Fuzz>" "${CMAKE_SOURCE_DIR}/tools/fuzz/Fuzz"
+    COMMENT
+      "Created symlink to Fuzz")
+endif()
+

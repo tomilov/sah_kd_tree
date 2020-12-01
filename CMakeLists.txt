@@ -18,7 +18,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 add_subdirectory("src")
 
 if(BUILD_TESTING)
-  add_subdirectory("test")
+  add_subdirectory("tests")
 endif()
 
 option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
