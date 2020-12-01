@@ -49,7 +49,7 @@ namespace
 constexpr size_t maxTriangleCount = 1;
 constexpr int intBboxSize = 5;
 constexpr bool sortTriangles = true;
-constexpr bool fuzzIntegerCoordinate = false;
+constexpr bool fuzzIntegerCoordinate = true;
 
 constexpr int floatDigits = std::numeric_limits<F>::digits;
 
@@ -184,7 +184,7 @@ struct TestInput
         return true;
     }
 
-    size_t write(uint8_t * data, size_t maxSize) const  // lossy: tail can be cropped
+    size_t write(uint8_t * data, size_t maxSize) const  // Lossy: tail can be cropped.
     {
         if (maxSize < paramsSize + sizeof(Triangle)) {
             std::exit(EXIT_FAILURE);
@@ -214,7 +214,7 @@ struct TestInput
             assert(std::adjacent_find(std::cbegin(excluded), std::cend(excluded)) == std::cend(excluded));
         }
         auto triangleBeg = std::cbegin(triangles);
-        for (const auto triangleEnd : excluded) {
+        for (const auto & triangleEnd : excluded) {
             if (triangleBeg < triangleEnd) {
                 assert(triangleEnd != std::cend(triangles));
                 const size_t chunkSize = size_t(std::distance(triangleBeg, triangleEnd)) * sizeof(Triangle);
@@ -255,6 +255,10 @@ struct TestInput
 
     void mutate(ptrdiff_t action)
     {
+        const auto getTriangle = [this]
+        {
+            return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+        };
         const auto sortTriangle = [this](const auto t) {
             if constexpr (sortTriangles) {
                 if ((t != std::begin(triangles)) && (*t < *std::prev(t))) {
@@ -265,7 +269,7 @@ struct TestInput
             }
         };
         switch (action) {
-        case 0: {  // remove triangle
+        case 0: {  // Remove triangle.
             if (std::size(triangles) > 1) {
                 triangles.pop_back();
             } else {
@@ -275,16 +279,16 @@ struct TestInput
             }
             break;
         }
-        case 1: {  // add triangle
+        case 1: {  // Add triangle.
             triangles.emplace_back();
             const auto t = std::prev(std::end(triangles));
             generateTriangle(*t);
             sortTriangle(t);
             break;
         }
-        case 2: {  // mutate triangle
+        case 2: {  // Mutate triangle.
             assert(!std::empty(triangles));
-            const auto t = std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+            const auto t = getTriangle();
             generateTriangle(*t);
             sortTriangle(t);
             break;
@@ -294,8 +298,9 @@ struct TestInput
         case 5: {
             return mutateParams(action - 3);
         }
-        case 6: {  // make one or 3 sides of triangle axis perpendicular to an ort
-            const auto t = std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+        case 6: {  // Make one or 3 sides of triangle axis perpendicular to an ort.
+            const auto t = getTriangle();
+
             auto selector = gen();
 
             const bool singleComponent = (selector & 1) == 0;
@@ -325,6 +330,39 @@ struct TestInput
             sortTriangle(t);
             break;
         }
+        case 7: {  // Make vertex or leg common for two triangles.
+            if (std::size(triangles) == 1) {
+                break;
+            }
+            auto srcTriangle = getTriangle();
+            decltype(srcTriangle) dstTriangle;
+            while ((dstTriangle = getTriangle()) == srcTriangle);
+
+            auto selector = gen();
+            std::bitset<2> direction(selector);
+            selector >>= 2;
+
+            const auto src = selector % 3;
+            selector /= 3;
+
+            const auto dst = selector % 3;
+            selector /= 3;
+
+            constexpr Vertex Triangle::*vertices[] = {&Triangle::a, &Triangle::b, &Triangle::c};
+
+            if (direction[0]) {
+                std::swap(srcTriangle, dstTriangle);
+            }
+            (*dstTriangle).*(vertices[dst]) = (*srcTriangle).*(vertices[src]);
+
+            if ((selector & 1) == 0) {
+                if (direction[1]) {
+                    std::swap(srcTriangle, dstTriangle);
+                }
+                (*dstTriangle).*(vertices[(dst + 1) % 3]) = (*srcTriangle).*(vertices[(src + 1) % 3]);
+            }
+            break;
+        }
         default: {
             assert(false);  // no no-op
         }
@@ -338,7 +376,7 @@ struct TestInput
             std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(probabilities));
             return probabilities;
         };
-        constexpr auto action = cdf(std::to_array({1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f, 1.0f}));
+        constexpr auto action = cdf(std::to_array({1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f, 1.0f, 1.0f}));
         const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
         mutate(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
     }
