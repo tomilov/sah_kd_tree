@@ -60,4 +60,3 @@ target_compile_definitions(
   "${PROJECT_NAME}"
   PUBLIC
     THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
-

@@ -30,4 +30,3 @@ if(UNIX)
     COMMENT
       "Created symlink to Fuzz")
 endif()
-

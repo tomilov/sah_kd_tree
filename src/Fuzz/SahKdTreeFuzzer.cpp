@@ -255,8 +255,7 @@ struct TestInput
 
     void mutate(ptrdiff_t action)
     {
-        const auto mutateTriangle = [this](const auto t) {
-            generateTriangle(*t);
+        const auto sortTriangle = [this](const auto t) {
             if constexpr (sortTriangles) {
                 if ((t != std::begin(triangles)) && (*t < *std::prev(t))) {
                     std::rotate(std::upper_bound(std::begin(triangles), t, *t), t, std::next(t));
@@ -270,24 +269,61 @@ struct TestInput
             if (std::size(triangles) > 1) {
                 triangles.pop_back();
             } else {
-                mutateTriangle(std::begin(triangles));
+                const auto t = std::begin(triangles);
+                generateTriangle(*t);
+                sortTriangle(t);
             }
             break;
         }
         case 1: {  // add triangle
             triangles.emplace_back();
-            mutateTriangle(std::prev(std::end(triangles)));
+            const auto t = std::prev(std::end(triangles));
+            generateTriangle(*t);
+            sortTriangle(t);
             break;
         }
         case 2: {  // mutate triangle
             assert(!std::empty(triangles));
-            mutateTriangle(std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1)))));
+            const auto t = std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+            generateTriangle(*t);
+            sortTriangle(t);
             break;
         }
         case 3:
         case 4:
         case 5: {
             return mutateParams(action - 3);
+        }
+        case 6: {  // make one or 3 sides of triangle axis perpendicular to an ort
+            const auto t = std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+            auto selector = gen();
+
+            const bool singleComponent = (selector & 1) == 0;
+            selector >>= 1;
+
+            const bool fullTriangle = (selector & 1) == 0;
+            selector >>= 1;
+
+            Vertex * vertices[] = {&t->a, &t->b, &t->c};
+            std::rotate(std::begin(vertices), std::next(std::begin(vertices), ptrdiff_t(selector % 3)), std::end(vertices));
+            selector /= 3;
+
+            F Vertex::*components[] = {&Vertex::x, &Vertex::y, &Vertex::z};
+            std::rotate(std::begin(components), std::next(std::begin(components), ptrdiff_t(selector % 3)), std::end(components));
+            selector /= 3;
+
+            const auto [a, b, c] = vertices;
+            const auto [x, y, z] = components;
+            if (fullTriangle) {
+                a->*x = b->*x = c->*x;
+            } else {
+                a->*x = b->*x;
+                if (!singleComponent) {
+                    a->*y = b->*y;
+                }
+            }
+            sortTriangle(t);
+            break;
         }
         default: {
             assert(false);  // no no-op
@@ -302,7 +338,7 @@ struct TestInput
             std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(probabilities));
             return probabilities;
         };
-        constexpr auto action = cdf(std::to_array({1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f}));
+        constexpr auto action = cdf(std::to_array({1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f, 1.0f}));
         const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
         mutate(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
     }
