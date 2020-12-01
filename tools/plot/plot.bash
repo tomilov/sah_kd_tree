@@ -1,3 +1,6 @@
+set -e
+[[ $1 ]]
+
 plt="$( mktemp '/tmp/sahkdtree.XXXXXXXXX' )"
 trap 'rm "$plt"' EXIT
 
