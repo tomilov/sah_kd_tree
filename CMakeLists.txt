@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
-
-project("sah_kd_tree" LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
+project("SahKdTree" LANGUAGES CXX CUDA)
 
 list(
-  APPEND CMAKE_MODULE_PATH
+  APPEND
+    CMAKE_MODULE_PATH
   "${PROJECT_SOURCE_DIR}/cmake"
   "${PROJECT_SOURCE_DIR}/cmake/modules")
 

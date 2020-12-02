@@ -10,15 +10,15 @@ target_include_directories(
   INTERFACE
     "include")
 
-add_library("${PROJECT_NAME}" STATIC)
+add_library("SahKdTree" STATIC)
 
 target_compile_options(
-  "${PROJECT_NAME}"
+  "SahKdTree"
   PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 
 target_sources(
-  "${PROJECT_NAME}"
+  "SahKdTree"
   PRIVATE
     "include/SahKdTree.hpp"
     "Utility.cuh"
@@ -42,12 +42,12 @@ target_sources(
     "Builder.cu")
 
 target_include_directories(
-  "${PROJECT_NAME}"
+  "SahKdTree"
   PUBLIC
     "include")
 
 target_link_libraries(
-  "${PROJECT_NAME}"
+  "SahKdTree"
   PUBLIC
     CUDA::toolkit # for Thrust
     OpenMP::OpenMP_CXX
@@ -57,6 +57,6 @@ target_link_libraries(
 # OMP works properly only with gcc due to nvcc uses gcc as host compiler
 # and openmp flags inferred for clang cannot be passed to gcc as is
 target_compile_definitions(
-  "${PROJECT_NAME}"
+  "SahKdTree"
   PUBLIC
-    THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+    "THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_${THRUST_DEVICE_SYSTEM}")

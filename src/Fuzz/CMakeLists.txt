@@ -8,7 +8,7 @@ target_sources(
 target_link_libraries(
   "Fuzz"
   PRIVATE
-    "${PROJECT_NAME}")
+    "SahKdTree")
 
 target_compile_options(
   "Fuzz"

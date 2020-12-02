@@ -64,10 +64,12 @@ find_package(
   COMPONENTS
     Core)
 
+set(THRUST_DEVICE_SYSTEM "CUDA" CACHE STRING "Select one of CUDA, TBB, OMP, CPP as Thrust backend.")
+
 add_subdirectory("SahKdTree")
 add_subdirectory("SceneLoader")
 add_subdirectory("Builder")
-if (NOT MSVC)
+if (NOT MSVC AND NOT THRUST_DEVICE_SYSTEM STREQUAL "CUDA")
   option(BUILD_FUZZ "Whether to build 'Fuzz' target" ON)
   if(BUILD_FUZZ)
     add_subdirectory("Fuzz")

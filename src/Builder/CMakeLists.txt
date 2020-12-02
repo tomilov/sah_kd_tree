@@ -12,5 +12,5 @@ target_link_libraries(
   PRIVATE
     Qt5::Core
     CUDA::toolkit
-    "${PROJECT_NAME}"
+    "SahKdTree"
     "SceneLoader")
