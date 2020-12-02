@@ -236,67 +236,62 @@ struct TestInput
         return size;
     }
 
-    void mutateParams(ptrdiff_t action)
-    {
-        switch (action) {
-        case 0:
-            params.emptinessFactor = std::generate_canonical<F, floatDigits>(gen);
-            break;
-        case 1:
-            params.traversalCost = std::generate_canonical<F, floatDigits>(gen);
-            break;
-        case 2:
-            params.intersectionCost = std::generate_canonical<F, floatDigits>(gen);
-            break;
-        default:
-            break;  // no-op
-        }
-    }
-
     void mutate(ptrdiff_t action)
     {
         const auto getTriangle = [this]
         {
             return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
         };
-        const auto sortTriangle = [this](const auto t) {
+        const auto moveTriangle = [](auto beg, auto mid, auto end) {
+            if ((mid != beg) && (*mid < *std::prev(mid))) {
+                return std::rotate(std::upper_bound(beg, mid, *mid), mid, std::next(mid));
+            } else if ((std::next(mid) != end) && (*std::next(mid) < *mid)) {
+                return std::rotate(mid, std::next(mid), std::upper_bound(std::next(mid), end, *mid));
+            } else {
+                return mid;
+            }
+        };
+        const auto mutateTriangle = [&](auto t)
+        {
+            generateTriangle(*t);
             if constexpr (sortTriangles) {
-                if ((t != std::begin(triangles)) && (*t < *std::prev(t))) {
-                    std::rotate(std::upper_bound(std::begin(triangles), t, *t), t, std::next(t));
-                } else if ((std::next(t) != std::cend(triangles)) && (*std::next(t) < *t)) {
-                    std::rotate(t, std::next(t), std::upper_bound(std::next(t), std::end(triangles), *t));
-                }
+                moveTriangle(std::begin(triangles), t, std::end(triangles));
+                assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
             }
         };
         switch (action) {
-        case 0: {  // Remove triangle.
+        case 0: {
+            params.emptinessFactor = std::generate_canonical<F, floatDigits>(gen);
+            break;
+        }
+        case 1: {
+            params.traversalCost = std::generate_canonical<F, floatDigits>(gen);
+            break;
+        }
+        case 2: {
+            params.intersectionCost = std::generate_canonical<F, floatDigits>(gen);
+            break;
+        }
+        case 3: {  // Remove triangle.
             if (std::size(triangles) > 1) {
                 triangles.pop_back();
             } else {
                 const auto t = std::begin(triangles);
-                generateTriangle(*t);
-                sortTriangle(t);
+                mutateTriangle(t);
             }
             break;
         }
-        case 1: {  // Add triangle.
+        case 4: {  // Add triangle.
             triangles.emplace_back();
             const auto t = std::prev(std::end(triangles));
-            generateTriangle(*t);
-            sortTriangle(t);
+            mutateTriangle(t);
             break;
         }
-        case 2: {  // Mutate triangle.
+        case 5: {  // Mutate triangle.
             assert(!std::empty(triangles));
             const auto t = getTriangle();
-            generateTriangle(*t);
-            sortTriangle(t);
+            mutateTriangle(t);
             break;
-        }
-        case 3:
-        case 4:
-        case 5: {
-            return mutateParams(action - 3);
         }
         case 6: {  // Make one or 3 sides of triangle axis perpendicular to an ort.
             const auto t = getTriangle();
@@ -327,39 +322,69 @@ struct TestInput
                     a->*y = b->*y;
                 }
             }
-            sortTriangle(t);
+            if constexpr (sortTriangles) {
+                moveTriangle(std::begin(triangles), t, std::end(triangles));
+                assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
+            }
             break;
         }
         case 7: {  // Make vertex or leg common for two triangles.
             if (std::size(triangles) == 1) {
                 break;
             }
-            auto srcTriangle = getTriangle();
-            decltype(srcTriangle) dstTriangle;
-            while ((dstTriangle = getTriangle()) == srcTriangle);
+
+            auto src = getTriangle();
+            auto dst = getTriangle();
 
             auto selector = gen();
+            if (src == dst) {
+                if ((selector & 1) == 0) {
+                    if (++dst == std::end(triangles)) {
+                        dst = std::prev(src);
+                    }
+                } else {
+                    if (dst != std::begin(triangles)) {
+                        --dst;
+                    } else {
+                        ++dst;
+                    }
+                }
+                selector >>= 1;
+            }
+
             std::bitset<2> direction(selector);
             selector >>= 2;
 
-            const auto src = selector % 3;
+            const auto s = selector % 3;
             selector /= 3;
 
-            const auto dst = selector % 3;
+            const auto d = selector % 3;
             selector /= 3;
 
             constexpr Vertex Triangle::*vertices[] = {&Triangle::a, &Triangle::b, &Triangle::c};
 
+            auto srcTriangle = &*src;
+            auto triangle = std::move(*dst);
+            auto dstTriangle = &triangle;
             if (direction[0]) {
                 std::swap(srcTriangle, dstTriangle);
             }
-            (*dstTriangle).*(vertices[dst]) = (*srcTriangle).*(vertices[src]);
-
+            dstTriangle->*(vertices[d]) = srcTriangle->*(vertices[s]);
             if ((selector & 1) == 0) {
                 if (direction[1]) {
                     std::swap(srcTriangle, dstTriangle);
                 }
-                (*dstTriangle).*(vertices[(dst + 1) % 3]) = (*srcTriangle).*(vertices[(src + 1) % 3]);
+                dstTriangle->*(vertices[(d + 1) % 3]) = srcTriangle->*(vertices[(s + 1) % 3]);
+            }
+
+            if constexpr (sortTriangles) {
+                assert((src < dst) == (*src < *dst));
+                if (src < dst) {
+                    std::swap(src, dst);
+                }
+                dst = moveTriangle(std::begin(triangles), dst, src);
+                moveTriangle(dst, src, std::end(triangles));
+                assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
             }
             break;
         }
@@ -376,7 +401,7 @@ struct TestInput
             std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(probabilities));
             return probabilities;
         };
-        constexpr auto action = cdf(std::to_array({1.0f, 1.0f, 1.0f, 0.1f, 0.1f, 0.1f, 1.0f, 1.0f}));
+        constexpr auto action = cdf(std::to_array({0.1f, 0.1f, 0.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}));
         const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
         mutate(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
     }
@@ -395,8 +420,8 @@ struct TestInput
         }
 
         decltype(triangles) allTriangles(std::size(triangles) + std::size(testInput.triangles));
-        [[maybe_unused]] const auto tend = std::merge(std::cbegin(triangles), std::cend(triangles), std::cbegin(testInput.triangles), std::cend(testInput.triangles), std::begin(allTriangles));
-        assert(tend == std::end(allTriangles));
+        [[maybe_unused]] const auto trianglesEnd = std::merge(std::cbegin(triangles), std::cend(triangles), std::cbegin(testInput.triangles), std::cend(testInput.triangles), std::begin(allTriangles));
+        assert(trianglesEnd == std::end(allTriangles));
         std::swap(triangles, allTriangles);
     }
 };
