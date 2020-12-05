@@ -14,6 +14,8 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
+#include <limits>
+
 #include <cassert>
 
 void SahKdTree::Projection::findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const Projection & y, const Projection & z)
@@ -51,12 +53,15 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U layerSize, co
     using PerfectSplitType = IteratorValueType<decltype(perfectSplitOutputBegin)>;
     auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
-        F xLeft = splitPos - min;
-        F xRight = max - splitPos;
+        if (!(min < max)) {
+            return {std::numeric_limits<F>::infinity(), splitEvent, splitPos, polygonCountLeft, polygonCountRight};
+        }
+        F l = splitPos - min;
+        F r = max - splitPos;
         if (eventKind < 0) {
             ++splitEvent;
         } else if (eventKind == 0) {
-            if ((xLeft < xRight) ? (polygonCountLeft != 0) : (polygonCountRight == 0)) {
+            if ((l < r) ? (polygonCountLeft != 0) : (polygonCountRight == 0)) {
                 ++polygonCountLeft;
                 ++splitEvent;
             } else {
@@ -68,7 +73,11 @@ void SahKdTree::Projection::findPerfectSplit(const Params & sah, U layerSize, co
         F z = thrust::get<5>(nodeBbox) - thrust::get<4>(nodeBbox);
         F perimeter = y + z;
         F area = y * z;
-        F splitCost = (polygonCountLeft * (area + perimeter * xLeft) + polygonCountRight * (area + perimeter * xRight)) / (area + perimeter * x);
+        if (!(F(0) < perimeter)) {
+            assert(!(F(0) < area));
+            perimeter = F(1);
+        }
+        F splitCost = (polygonCountLeft * (area + perimeter * l) + polygonCountRight * (area + perimeter * r)) / (area + perimeter * x);
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
         if ((polygonCountLeft == 0) || (polygonCountRight == 0)) {

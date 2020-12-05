@@ -184,7 +184,7 @@ struct TestInput
         return true;
     }
 
-    size_t write(uint8_t * data, size_t maxSize) const  // Lossy: tail can be cropped.
+    size_t write(uint8_t * data, size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
     {
         if (maxSize < paramsSize + sizeof(Triangle)) {
             std::exit(EXIT_FAILURE);
@@ -274,23 +274,26 @@ struct TestInput
         }
         case 3: {  // Remove triangle.
             if (std::size(triangles) > 1) {
-                triangles.pop_back();
+                const auto t = getTriangle();
+                if constexpr (sortTriangles) {
+                    triangles.erase(t);
+                } else {
+                    std::iter_swap(t, std::prev(std::end(triangles)));
+                    triangles.pop_back();
+                }
             } else {
-                const auto t = std::begin(triangles);
-                mutateTriangle(t);
+                mutateTriangle(std::begin(triangles));
             }
             break;
         }
         case 4: {  // Add triangle.
             triangles.emplace_back();
-            const auto t = std::prev(std::end(triangles));
-            mutateTriangle(t);
+            mutateTriangle(std::prev(std::end(triangles)));
             break;
         }
         case 5: {  // Mutate triangle.
             assert(!std::empty(triangles));
-            const auto t = getTriangle();
-            mutateTriangle(t);
+            mutateTriangle(getTriangle());
             break;
         }
         case 6: {  // Make one or 3 sides of triangle axis perpendicular to an ort.

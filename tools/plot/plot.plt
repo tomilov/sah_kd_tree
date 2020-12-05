@@ -26,5 +26,7 @@ set print $data
     }
 set print
 
+print $data
+
 splot '$data' using 1:2:3:(column(-2)) notitle with lines linecolor variable
 pause -1
