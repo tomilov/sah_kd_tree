@@ -238,10 +238,7 @@ struct TestInput
 
     void mutate(ptrdiff_t action)
     {
-        const auto getTriangle = [this]
-        {
-            return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
-        };
+        const auto getTriangle = [this] { return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1)))); };
         const auto moveTriangle = [](auto beg, auto mid, auto end) {
             if ((mid != beg) && (*mid < *std::prev(mid))) {
                 return std::rotate(std::upper_bound(beg, mid, *mid), mid, std::next(mid));
@@ -251,8 +248,7 @@ struct TestInput
                 return mid;
             }
         };
-        const auto mutateTriangle = [&](auto t)
-        {
+        const auto mutateTriangle = [&](auto t) {
             generateTriangle(*t);
             if constexpr (sortTriangles) {
                 moveTriangle(std::begin(triangles), t, std::end(triangles));
@@ -444,7 +440,7 @@ extern "C"
 {
     int LLVMFuzzerInitialize(int * argc, char *** argv)
     {
-        if (size_t(*argc) + std::extent_v<decltype(options)> > std::extent_v<decltype(args)>) {
+        if (size_t(*argc) + (std::extent_v<decltype(options)>) > std::extent_v<decltype(args)>) {
             std::exit(EXIT_FAILURE);
         }
 
