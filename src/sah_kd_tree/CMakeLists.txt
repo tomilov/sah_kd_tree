@@ -1,0 +1,40 @@
+project("sah_kd_tree")
+
+add_library("${PROJECT_NAME}")
+generate_export_header("${PROJECT_NAME}")
+target_sources(
+    "${PROJECT_NAME}"
+    PRIVATE
+        "${PROJECT_NAME}_export.h"
+        "${PROJECT_NAME}.hpp"
+        "utility.cuh"
+        "set_triangle.cu"
+        "calculate_triangle_bbox.cu"
+        "calculate_root_node_bbox.cu"
+        "generate_initial_event.cu"
+        "thin_layer_node_offset.cu"
+        "find_perfect_split.cu"
+        "select_node_best_split.cu"
+        "determine_polygon_side.cu"
+        "get_splitted_polygon_count.cu"
+        "separate_splitted_polygon.cu"
+        "decouple_event_both.cu"
+        "update_polygon_node.cu"
+        "split_polygon.cu"
+        "update_splitted_polygon_node.cu"
+        "merge_event.cu"
+        "set_node_count.cu"
+        "split_node.cu"
+        "builder.cu")
+target_link_libraries(
+    "${PROJECT_NAME}"
+    PUBLIC
+        OpenMP::OpenMP_CXX
+        ${TBB_IMPORTED_TARGETS}
+        CUDA::toolkit)
+# OMP works properly only with gcc due to nvcc uses gcc as host compiler
+# and openmp flags inferred for clang cannot be passed to gcc as is
+target_compile_definitions(
+    "${PROJECT_NAME}"
+    PUBLIC
+        "THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_${THRUST_DEVICE_SYSTEM}")

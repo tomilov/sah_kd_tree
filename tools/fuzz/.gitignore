@@ -1,2 +1,2 @@
 fuzz-*.log
-Fuzz
+/fuzzer

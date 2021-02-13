@@ -1,27 +1,30 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
-project("SahKdTree" LANGUAGES CXX CUDA)
+project(
+    "sah_kd_tree"
+    LANGUAGES
+        CXX
+        CUDA)
 
-list(
-  APPEND
-    CMAKE_MODULE_PATH
-  "${PROJECT_SOURCE_DIR}/cmake"
-  "${PROJECT_SOURCE_DIR}/cmake/modules")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(Utils)
 
-include(utils)
+include(GenerateExportHeader)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
-include(CTest)
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-add_subdirectory("src")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_EXTENSIONS ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(BUILD_TESTING)
-  add_subdirectory("tests")
-endif()
+add_subdirectory("src")
 
 option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
 if(GENERATE_DOCS)
-  add_subdirectory("docs")
+    add_subdirectory("docs")
 endif()
