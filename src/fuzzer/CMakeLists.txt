@@ -1,5 +1,14 @@
 project("fuzzer")
 
+if(MSVC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR THRUST_DEVICE_SYSTEM STREQUAL "CUDA")
+    return()
+endif()
+
+option(BUILD_FUZZ "Whether to build 'fuzzer' target" ON)
+if(NOT BUILD_FUZZ)
+    return()
+endif()
+
 add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"

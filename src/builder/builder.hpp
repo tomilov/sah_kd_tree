@@ -4,8 +4,7 @@
 
 #include <QString>
 
-namespace builder
+namespace builder BUILDER_EXPORT
 {
-BUILDER_EXPORT bool build(QString sceneFileName, bool useCache = false, QString cachePath = {}, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0);
-
+bool build(QString sceneFileName, bool useCache = false, QString cachePath = {}, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0);
 }

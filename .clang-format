@@ -43,7 +43,7 @@ ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: ^<(SahKdTree|SceneLoader)
+  - Regex: ^<(sah_kd_tree|scene_loader)/
     Priority: 2
   - Regex: ^<thrust/
     Priority: 4

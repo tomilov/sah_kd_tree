@@ -1,6 +1,7 @@
 project("builder")
 
 add_library("lib${PROJECT_NAME}")
+set_property(TARGET "lib${PROJECT_NAME}" PROPERTY LIBRARY_OUTPUT_NAME "${PROJECT_NAME}")
 generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
 target_sources(
     "lib${PROJECT_NAME}"

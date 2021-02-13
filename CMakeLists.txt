@@ -25,6 +25,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory("src")
 
 option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
-if(GENERATE_DOCS)
-    add_subdirectory("docs")
-endif()
+add_subdirectory("docs")

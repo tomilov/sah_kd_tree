@@ -57,10 +57,5 @@ add_compile_options(
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")
-if(NOT MSVC AND NOT THRUST_DEVICE_SYSTEM STREQUAL "CUDA")
-    option(BUILD_FUZZ "Whether to build 'fuzzer' target" ON)
-    if(BUILD_FUZZ)
-        add_subdirectory("fuzzer")
-    endif()
-endif()
+add_subdirectory("fuzzer")
 
