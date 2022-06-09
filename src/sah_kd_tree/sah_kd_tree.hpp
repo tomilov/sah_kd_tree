@@ -10,7 +10,8 @@
 
 namespace sah_kd_tree
 {
-struct Params
+
+struct SAH_KD_TREE_EXPORT Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
@@ -18,7 +19,7 @@ struct Params
     U maxDepth = std::numeric_limits<U>::max();
 };
 
-struct Tree
+struct SAH_KD_TREE_EXPORT Tree
 {
     // TODO(tomilov):
     U depth = std::numeric_limits<U>::max();
@@ -109,4 +110,5 @@ struct SAH_KD_TREE_EXPORT Builder
 
     Tree operator()(const Params & sah);
 };
+
 }  // namespace sah_kd_tree

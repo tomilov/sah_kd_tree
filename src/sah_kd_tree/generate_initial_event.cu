@@ -34,8 +34,8 @@ void sah_kd_tree::Projection::generateInitialEvent()
     event.polygon.resize(eventCount);
 
     auto eventKindBothBegin = thrust::make_zip_iterator(thrust::make_tuple(event.kind.begin(), event.kind.rbegin()));
-    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right event sequenced before left event if positions are equivalent
-    // thrust::fill_n(thrust::get< 0 >(planarEventKind.get_iterator_tuple()), planarEventCount, I(0));
+    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right events are sequenced before left events if positions are equivalent
+    // thrust::fill_n(thrust::get<0>(planarEventKind.get_iterator_tuple()), planarEventCount, I(0));
     timer(" generateInitialEvent fill_n");  // 2.821ms
 
     auto triangleBegin = thrust::make_counting_iterator<U>(0);

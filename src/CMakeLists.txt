@@ -18,7 +18,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib
 
-set(THRUST_DEVICE_SYSTEM "CUDA" CACHE STRING "Select one of CUDA, TBB, OMP, CPP as Thrust backend.")
+set(THRUST_DEVICE_SYSTEM "CUDA" CACHE STRING "Set one of CUDA, TBB, OMP, CPP as Thrust backend.")
 
 find_package(
     Qt5
@@ -42,17 +42,16 @@ add_compile_definitions(
 
 add_compile_definitions(QT_MESSAGELOGCONTEXT)
 
-include(CTest)
-enable_testing()
-if(BUILD_TESTING)
-    find_package(GTest REQUIRED)
-    include(GoogleTest)
-endif()
-
 include_directories("${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
 add_compile_options(
     "-Wall"
     "-Wextra")
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(GTest REQUIRED)
+    include(GoogleTest)
+endif()
 
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")

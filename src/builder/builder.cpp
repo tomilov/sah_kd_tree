@@ -23,7 +23,8 @@ bool builder::build(QString sceneFileName, bool useCache, QString cachePath, flo
     {
         thrust::device_vector<Triangle> deviceTriangles{triangles.cbegin(), triangles.cend()};
         builder.setTriangle(deviceTriangles.data(), deviceTriangles.data() + deviceTriangles.size());
-    }  // deviceTriangles.clear() cause link error
+        deviceTriangles.clear();
+    }
     Params params;
     if (emptinessFactor > 0.0f) {
         params.emptinessFactor = F(emptinessFactor);

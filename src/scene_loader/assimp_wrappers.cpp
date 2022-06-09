@@ -11,11 +11,12 @@ struct Logger : Assimp::Logger
     using Assimp::Logger::Logger;
 
     virtual bool attachStream(Assimp::LogStream * pStream, unsigned int severity) override;
-    virtual bool detatchStream(Assimp::LogStream * pStream, unsigned int severity) override;
+    virtual bool detachStream(Assimp::LogStream * pStream, unsigned int severity) override;
 
 private:
     friend AssimpLoggerGuard;
 
+    virtual void OnVerboseDebug(const char * message) override;
     virtual void OnDebug(const char * message) override;
     virtual void OnInfo(const char * message) override;
     virtual void OnWarn(const char * message) override;
@@ -45,11 +46,16 @@ bool Logger::attachStream(Assimp::LogStream * pStream, unsigned int severity)
     return true;
 }
 
-bool Logger::detatchStream(Assimp::LogStream * pStream, unsigned int severity)
+bool Logger::detachStream(Assimp::LogStream * pStream, unsigned int severity)
 {
     Q_UNUSED(pStream);
     Q_UNUSED(severity);
     return true;
+}
+
+void Logger::OnVerboseDebug(const char * message)
+{
+    qCDebug(assimpWrappers) << message;
 }
 
 void Logger::OnDebug(const char * message)
@@ -75,7 +81,7 @@ void Logger::OnError(const char * message)
 AssimpLoggerGuard::AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity)
 {
     Assimp::DefaultLogger::set(new Logger{logSeverity});
-}
+}  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 AssimpLoggerGuard::~AssimpLoggerGuard()
 {

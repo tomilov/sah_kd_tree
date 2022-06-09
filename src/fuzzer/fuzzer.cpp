@@ -394,12 +394,11 @@ struct TestInput
 
     void mutate()
     {
-        const auto cdf = [](auto probabilities) constexpr
-        {
+        const auto cdf = [](std::vector<float> probabilities) {
             std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(probabilities));
             return probabilities;
         };
-        constexpr auto action = cdf(std::to_array({0.1f, 0.1f, 0.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}));
+        static const auto action = cdf({0.1f, 0.1f, 0.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
         const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
         mutate(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
     }
