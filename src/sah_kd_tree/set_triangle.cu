@@ -10,7 +10,7 @@ void sah_kd_tree::Builder::setTriangle(thrust::device_ptr<const Triangle> triang
 {
     Timer timer;
     auto triangleCount = thrust::distance(triangleBegin, triangleEnd);
-    auto transposeProjectionTriangle = [triangleCount](auto & projection) {
+    auto transposeProjectionTriangle = [triangleCount](Projection & projection) {
         auto & triangle = projection.triangle;
         triangle.a.resize(size_t(triangleCount));
         triangle.b.resize(size_t(triangleCount));
