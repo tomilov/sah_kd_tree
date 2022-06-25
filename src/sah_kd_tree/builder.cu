@@ -12,10 +12,120 @@
 #include <thrust/transform_scan.h>
 #include <thrust/tuple.h>
 
+#if 0
+#include <thrust/host_vector.h>
+
+#include <thrust/device_vector.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_reference.h>
+
+#include <thrust/system/cuda/vector.h>
+#include <thrust/system/cuda/pointer.h>
+
+#include <thrust/system/cpp/vector.h>
+#include <thrust/system/cpp/pointer.h>
+
+#include <thrust/system/omp/vector.h>
+#include <thrust/system/omp/pointer.h>
+
+#include <thrust/system/tbb/vector.h>
+#include <thrust/system/tbb/pointer.h>
+
+#include <thrust/pair.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/discard_iterator.h>
+#include <thrust/iterator/permutation_iterator.h>
+#include <thrust/iterator/reverse_iterator.h>
+#include <thrust/iterator/transform_input_output_iterator.h>
+#include <thrust/iterator/transform_iterator.h>
+#include <thrust/iterator/transform_output_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/complex.h>
+#include <iostream>
+#endif
+
 #include <cassert>
 
 auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 {
+#if 0
+    {
+        auto pppp = thrust::make_pair(1, 2);
+        auto cccc = thrust::complex<int>(1, 2);
+        {
+            auto ppp = thrust::make_constant_iterator(123);
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_counting_iterator(123);
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_discard_iterator(123);
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_reverse_iterator(thrust::make_constant_iterator(123));
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_transform_input_output_iterator(thrust::make_counting_iterator(123), [](int i) { return i; }, [](int j) { return j; });
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_transform_iterator(thrust::make_counting_iterator(123), [](int i) { return i; });
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            auto ppp = thrust::make_transform_output_iterator(thrust::make_counting_iterator(123), [](int i) { return i; });
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
+            thrust::host_vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            decltype(auto) ppp = v.data();
+            decltype(auto) ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+        {
+            thrust::device_vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            thrust::device_ptr<int> ppp = v.data();
+            thrust::device_reference<int> ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+        {
+            thrust::system::cuda::vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            thrust::system::cuda::pointer<int> ppp = v.data();
+            thrust::system::cuda::reference<int> ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+        {
+            thrust::system::cpp::vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            thrust::system::cpp::pointer<int> ppp = v.data();
+            auto ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+        {
+            thrust::system::omp::vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            thrust::system::omp::pointer<int> ppp = v.data();
+            thrust::system::omp::reference<int> ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+        {
+            thrust::system::tbb::vector<int> v(5);
+            thrust::sequence(v.rbegin(), v.rend());
+            thrust::system::tbb::pointer<int> ppp = v.data();
+            thrust::system::tbb::reference<int> ref = v.front();
+            thrust::sequence(v.rbegin(), v.rend());
+        }
+    }
+#endif
+
     Timer timerTotal;
     Timer timer;
 

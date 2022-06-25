@@ -30,7 +30,7 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PUBLIC
         OpenMP::OpenMP_CXX
-        ${TBB_IMPORTED_TARGETS}
+        TBB::tbb
         CUDA::toolkit)
 # OMP works properly only with gcc due to nvcc uses gcc as host compiler
 # and openmp flags inferred for clang cannot be passed to gcc as is

@@ -1,9 +1,36 @@
+enable_language(CXX)
+
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(GenerateExportHeader)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
+
 find_package(OpenMP REQUIRED)
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp-version=45")  # workaround for clang and OpenMP 5.0+
 endif()
 
 find_package(TBB REQUIRED)
+
+enable_language(CUDA)
+
+if(BUILD_SHARED_LIBS)
+    set(CMAKE_CUDA_RUNTIME_LIBRARY SHARED)
+else()
+    set(CMAKE_CUDA_RUNTIME_LIBRARY STATIC)
+endif()
 
 set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
 find_package(CUDAToolkit REQUIRED)
@@ -11,8 +38,8 @@ find_package(CUDAToolkit REQUIRED)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda")
 
 set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_EXTENSIONS ON)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_EXTENSIONS ON)
 
 #set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON) # required for static lib on MSVC
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
