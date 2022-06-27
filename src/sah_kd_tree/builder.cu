@@ -13,6 +13,7 @@
 #include <thrust/tuple.h>
 
 #if 0
+// clang-format off
 #include <thrust/host_vector.h>
 
 #include <thrust/device_vector.h>
@@ -43,6 +44,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/complex.h>
 #include <iostream>
+// clang-format on
 #endif
 
 #include <cassert>
@@ -174,9 +176,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         thinLayerNodeOffset(layerBase, layerSize);
         timer("layerNodeOffset");  // 0.074ms
 
-        x.findPerfectSplit(sah, layerSize, layerNodeOffset, y, z);
-        y.findPerfectSplit(sah, layerSize, layerNodeOffset, z, x);
-        z.findPerfectSplit(sah, layerSize, layerNodeOffset, x, y);
+        x.findPerfectSplit(sah, layerSize, layerNodeOffset, node.polygonCount, y, z);
+        y.findPerfectSplit(sah, layerSize, layerNodeOffset, node.polygonCount, z, x);
+        z.findPerfectSplit(sah, layerSize, layerNodeOffset, node.polygonCount, x, y);
         timer("findPerfectSplit");  // 20.758ms
 
         selectNodeBestSplit(sah, layerBase, layerSize);

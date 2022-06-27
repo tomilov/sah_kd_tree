@@ -8,6 +8,13 @@ def _dump_pointer(d, value, count=1, is_array=False):
             value = value.members(includeBases=True)[0]
         d.check(value.type.name.startswith('thrust::pointer'))
         iterator = value['m_iterator']
+        p = iterator.pointer()
+        if p == 0 or count == 0:
+            if is_array:
+                d.putItemCount(0)
+            else:
+                d.putEmptyValue()
+            return
         innerType = value.type[0]
         size = innerType.size() * count
         def _dump(p):
@@ -16,14 +23,13 @@ def _dump_pointer(d, value, count=1, is_array=False):
                 d.putPlotData(p, count, innerType)
             else:
                 d.putItem(d.createValue(p, innerType))
-        p = iterator.pointer()
-        if p == 0 or count == 0:
-            d.putEmptyValue()
-        elif value.type[1].name == 'thrust::cuda_cub::tag':
-            h = d.parseAndEvaluate(f'(void *)malloc({size})').pointer()
-            d.parseAndEvaluate(f'(void)cudaMemcpy({h}, {p}, {size}, cudaMemcpyDeviceToHost)')
-            _dump(h)
-            d.parseAndEvaluate(f'(void)free({h})')
+        if value.type[1].name == 'thrust::cuda_cub::tag':
+            h = d.parseAndEvaluate(f'({iterator.type.name})malloc({size})').pointer()
+            try:
+                d.parseAndEvaluate(f'(void)cudaMemcpy({h}, {p}, {size}, cudaMemcpyDeviceToHost)')
+                _dump(h)
+            finally:
+                d.parseAndEvaluate(f'(void)free({h})')
         else:
             _dump(p)
     except Exception as e:
@@ -131,6 +137,11 @@ def qdump__thrust__discard_iterator(d, value):
 
 def qdump__thrust__detail__normal_iterator(d, value):
     _dump_pointer(d, value['m_iterator'])
+    d.putBetterType(value.type)
+
+
+def qdump__thrust__permutation_iterator(d, value):
+    _dump_pointer(d, value['m_element_iterator']['m_iterator'])
     d.putBetterType(value.type)
 
 
