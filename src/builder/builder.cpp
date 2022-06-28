@@ -5,19 +5,10 @@
 
 #include <thrust/device_vector.h>
 
-bool builder::build(QString sceneFileName, bool useCache, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
+namespace {
+
+bool buildSceneFromTriangles(const QVector<sah_kd_tree::Triangle> & triangles, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    SceneLoader sceneLoader;
-    if (useCache) {
-        if (!sceneLoader.cachingLoad(sceneFileName, cachePath)) {
-            return false;
-        }
-    } else {
-        if (!sceneLoader.load(sceneFileName)) {
-            return false;
-        }
-    }
-    const auto & triangles = sceneLoader.triangle;
     using namespace sah_kd_tree;
     Builder builder;
     {
@@ -43,4 +34,24 @@ bool builder::build(QString sceneFileName, bool useCache, QString cachePath, flo
         return false;
     }
     return true;
+}
+
+}  // namespace
+
+bool builder::buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
+{
+    SceneLoader sceneLoader;
+    if (!sceneLoader.load(sceneFileName)) {
+        return false;
+    }
+    return buildSceneFromTriangles(sceneLoader.triangle, emptinessFactor, traversalCost, intersectionCost, maxDepth);
+}
+
+bool builder::buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
+{
+    SceneLoader sceneLoader;
+    if (!sceneLoader.cachingLoad(sceneFileName, cachePath)) {
+        return false;
+    }
+    return buildSceneFromTriangles(sceneLoader.triangle, emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }

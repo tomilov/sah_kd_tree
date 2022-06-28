@@ -1,3 +1,7 @@
+#[[
+to debug some test input run
+with -fork=0 command line option
+]]
 project("fuzzer")
 
 if(MSVC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR THRUST_DEVICE_SYSTEM STREQUAL "CUDA")

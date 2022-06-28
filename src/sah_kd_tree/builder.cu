@@ -212,7 +212,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
             auto nodeLeftEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftBegin, toNodeCount, layerBase + layerSize, thrust::plus<U>{});
 
             auto nodeRightBegin = thrust::next(node.nodeRight.begin(), layerBase);
-            auto toNodeRight = [] __host__ __device__(U nodeLeft) { return nodeLeft + 1; };
+            auto toNodeRight = [] __host__ __device__(U nodeLeft) -> U { return nodeLeft + 1; };
             thrust::transform(nodeLeftBegin, nodeLeftEnd, nodeRightBegin, toNodeRight);
         }
         timer("toNodePairIndices");  // 0.052ms

@@ -47,7 +47,7 @@ static_assert(std::is_floating_point_v<F>, "!");
 namespace
 {
 constexpr size_t maxTriangleCount = 2;
-constexpr int intBboxSize = 5;
+constexpr int intBboxSize = 10;
 constexpr bool sortTriangles = true;
 constexpr bool fuzzIntegerCoordinate = true;
 
@@ -66,7 +66,7 @@ void SetSeed(unsigned int seed)
 
 void generateComponent(F & f)
 {
-    f = F(uniformInt(gen, UniformIntParam(-intBboxSize, +intBboxSize)));
+    f = F(uniformInt(gen, UniformIntParam(0, intBboxSize)));
     if constexpr (fuzzIntegerCoordinate) {
         const int pow = uniformInt(gen, UniformIntParam(1, floatDigits));
         auto fuzz = std::generate_canonical<F, floatDigits>(gen);
@@ -112,10 +112,13 @@ struct TestInput
     static_assert(std::is_standard_layout_v<Params> && std::is_trivially_copyable_v<Params>, "!");
     static_assert(std::is_standard_layout_v<Triangle> && std::is_trivially_copyable_v<Triangle>, "!");
 
-    static constexpr size_t paramsSize = sizeof params.emptinessFactor + sizeof params.traversalCost + sizeof params.intersectionCost;
-
-    void generateTriangles(size_t triangleCount)
+    void generate(size_t triangleCount = 1)
     {
+        params.emptinessFactor = std::generate_canonical<F, floatDigits>(gen);
+        params.traversalCost = std::generate_canonical<F, floatDigits>(gen);
+        params.intersectionCost = std::generate_canonical<F, floatDigits>(gen);
+        params.maxDepth = std::numeric_limits<U>::max();
+
         triangles.resize(triangleCount);
         for (Triangle & triangle : triangles) {
             generateTriangle(triangle);
@@ -125,18 +128,9 @@ struct TestInput
         }
     }
 
-    void generate(size_t triangleCount = 1)
-    {
-        params.emptinessFactor = std::generate_canonical<F, floatDigits>(gen);
-        params.traversalCost = std::generate_canonical<F, floatDigits>(gen);
-        params.intersectionCost = std::generate_canonical<F, floatDigits>(gen);
-
-        return generateTriangles(triangleCount);
-    }
-
     bool read(const uint8_t * data, size_t size)
     {
-        if (size < paramsSize + sizeof(Triangle)) {
+        if (size < sizeof(Params) + sizeof(Triangle)) {
             return false;
         }
 
@@ -161,6 +155,17 @@ struct TestInput
         data += sizeof params.intersectionCost;
         size -= sizeof params.intersectionCost;
 
+        std::memcpy(&params.maxDepth, data, sizeof params.maxDepth);
+        assert(params.maxDepth == std::numeric_limits<U>::max());
+        if (params.maxDepth == 0) {
+            return false;
+        }
+        data += sizeof params.maxDepth;
+        size -= sizeof params.maxDepth;
+
+        if ((size % sizeof(Triangle)) != 0) {
+            return false;
+        }
         triangles.resize(size / sizeof(Triangle));
         std::memcpy(std::data(triangles), data, size);
         for (const Triangle & triangle : triangles) {
@@ -186,7 +191,7 @@ struct TestInput
 
     size_t write(uint8_t * data, size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
     {
-        if (maxSize < paramsSize + sizeof(Triangle)) {
+        if (maxSize < sizeof(Params) + sizeof(Triangle)) {
             std::exit(EXIT_FAILURE);
         }
 
@@ -203,6 +208,11 @@ struct TestInput
         std::memcpy(data, &params.intersectionCost, sizeof params.intersectionCost);
         data += sizeof params.intersectionCost;
         size += sizeof params.intersectionCost;
+
+        assert(params.maxDepth == std::numeric_limits<U>::max());
+        std::memcpy(data, &params.maxDepth, sizeof params.maxDepth);
+        data += sizeof params.maxDepth;
+        size += sizeof params.maxDepth;
 
         std::vector<typename decltype(triangles)::const_iterator> excluded;
         if (const size_t maxCount = (maxSize - size) / sizeof(Triangle); maxCount < std::size(triangles)) {
@@ -229,7 +239,7 @@ struct TestInput
         if (triangleBeg != std::cend(triangles)) {
             const size_t chunkSize = size_t(std::distance(triangleBeg, std::cend(triangles))) * sizeof(Triangle);
             std::memcpy(data, &*triangleBeg, chunkSize);
-            data += chunkSize;
+            data += chunkSize;  // NOLINT(clang-analyzer-deadcode.DeadStores)
             size += chunkSize;
         }
         assert(size <= maxSize);
@@ -394,7 +404,7 @@ struct TestInput
 
     void mutate()
     {
-        const auto cdf = [](std::vector<float> probabilities) {
+        static constexpr auto cdf = [](std::vector<float> probabilities) {
             std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(probabilities));
             return probabilities;
         };
@@ -414,6 +424,9 @@ struct TestInput
         }
         if (selector[2]) {
             params.intersectionCost = testInput.params.intersectionCost;
+        }
+        if (params.maxDepth < testInput.params.maxDepth) {
+            params.maxDepth = testInput.params.maxDepth;
         }
 
         decltype(triangles) allTriangles(std::size(triangles) + std::size(testInput.triangles));
@@ -442,7 +455,7 @@ extern "C"
             std::exit(EXIT_FAILURE);
         }
 
-        const auto maxLen = TestInput::paramsSize + maxTriangleCount * sizeof(Triangle);
+        const auto maxLen = sizeof(Params) + maxTriangleCount * sizeof(Triangle);
         auto [p, ec] = std::to_chars(std::next(std::begin(maxLenOption), std::strlen(maxLenOption)), std::end(maxLenOption), maxLen);
         if (ec != std::errc{}) {
             std::exit(EXIT_FAILURE);

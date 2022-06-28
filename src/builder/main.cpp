@@ -12,9 +12,6 @@ int main(int argc, char * argv[])
 
     commandLineParser.addPositionalArgument("scene", "Scene file name.", "file");
 
-    QCommandLineOption useCacheOption("use-cache", "Use cache.");
-    commandLineParser.addOption(useCacheOption);
-
     QCommandLineOption cachePathOption("cache-path", "Cache path.", "cachePath", "");
     commandLineParser.addOption(cachePathOption);
 
@@ -33,7 +30,6 @@ int main(int argc, char * argv[])
     commandLineParser.process(application);
 
     const auto buildTree = [&] {
-        bool useCache = commandLineParser.isSet(useCacheOption);
         QString cachePath = commandLineParser.value(cachePathOption);
         const QStringList args = commandLineParser.positionalArguments();
         if (args.size() < 1) {
@@ -56,11 +52,16 @@ int main(int argc, char * argv[])
         if (!ok) {
             return QCoreApplication::exit(6);
         }
-        if (builder::build(args.at(0), useCache, cachePath, emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
-            return QCoreApplication::quit();
+        if (cachePath.isEmpty()) {
+            if (!builder::buildSceneFromFile(args.at(0), emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
+                return QCoreApplication::exit(EXIT_FAILURE);
+            }
         } else {
-            return QCoreApplication::exit(EXIT_FAILURE);
+            if (!builder::buildSceneFromFileOrCache(args.at(0), cachePath, emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
+                return QCoreApplication::exit(EXIT_FAILURE);
+            }
         }
+        return QCoreApplication::quit();
     };
     QTimer::singleShot(0, qApp, buildTree);
     return application.exec();
