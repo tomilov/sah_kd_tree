@@ -46,7 +46,7 @@ static_assert(std::is_floating_point_v<F>, "!");
 
 namespace
 {
-constexpr size_t maxTriangleCount = 2;
+constexpr size_t maxTriangleCount = 36 - 1;
 constexpr int intBboxSize = 10;
 constexpr bool sortTriangles = true;
 constexpr bool fuzzIntegerCoordinate = true;
@@ -127,9 +127,51 @@ struct TestInput
         params.intersectionCost = std::generate_canonical<F, floatDigits>(gen);
         params.maxDepth = std::numeric_limits<U>::max();
 
-        triangles.resize(triangleCount);
-        for (Triangle & triangle : triangles) {
-            generateTriangle(triangle);
+        triangles.reserve(triangleCount);
+        while (triangles.size() < triangleCount) {
+            if (triangles.size() + 12 <= triangleCount) {  // add AA paralellotope
+                Vertex vertices[8];
+                generateVertex(vertices[0]);
+                generateVertex(vertices[1]);
+                vertices[2] = vertices[0];
+                vertices[2].x = vertices[1].x;
+                vertices[3] = vertices[0];
+                vertices[3].y = vertices[1].y;
+                vertices[4] = vertices[0];
+                vertices[4].z = vertices[1].z;
+                vertices[5] = vertices[1];
+                vertices[5].x = vertices[0].x;
+                vertices[6] = vertices[1];
+                vertices[6].y = vertices[0].y;
+                vertices[7] = vertices[1];
+                vertices[7].z = vertices[0].z;
+                const auto putTriangle = [this, &vertices](std::size_t (&&indices)[4]) {
+                    triangles.push_back({vertices[indices[0]], vertices[indices[1]], vertices[indices[3]]});
+                    triangles.push_back({vertices[indices[3]], vertices[indices[2]], vertices[indices[0]]});
+                };
+                putTriangle({0, 3, 4, 5});
+                putTriangle({0, 2, 4, 6});
+                putTriangle({0, 2, 3, 7});
+                putTriangle({1, 6, 7, 2});
+                putTriangle({1, 5, 7, 3});
+                putTriangle({1, 5, 6, 4});
+            } else if (triangles.size() + 4 <= triangleCount) {  // add tetrahedron
+                Vertex vertices[4];
+                for (Vertex & vertex : vertices) {
+                    generateVertex(vertex);
+                }
+                const auto putTriangle = [this, &vertices](std::size_t (&&indices)[3]) {
+                    triangles.push_back({vertices[indices[0]], vertices[indices[1]], vertices[indices[2]]});
+                };
+                putTriangle({1, 2, 3});
+                putTriangle({2, 3, 0});
+                putTriangle({3, 0, 1});
+                putTriangle({0, 1, 2});
+            } else {
+                while (triangles.size() < triangleCount) {
+                    generateTriangle(triangles.emplace_back());
+                }
+            }
         }
         if constexpr (sortTriangles) {
             std::sort(std::begin(triangles), std::end(triangles));
