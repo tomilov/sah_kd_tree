@@ -3,7 +3,7 @@
 reset
 
 set table $table
-    plot ARG1 binary skip=16 format='%float32%float32%float32' using 1:2:3 with table
+    plot ARG1 binary skip=16 format='%3float32' using 1:2:3 with table
 unset table
 
 set print $data
@@ -19,6 +19,7 @@ set print
 
 print $data
 
+set angles degrees
 unset key
 set xrange [0:10]
 set yrange [0:10]
@@ -32,7 +33,6 @@ unset tics
 set multiplot layout 2,2 title 'General 3D view and 2D projections of a 3D scene' font ':Bold'
 
 set title 'general view'
-set angles degrees
 set view acos(1/sqrt(3)), 135, 0.97
 set xyplane 0
 

@@ -55,10 +55,8 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
         assert(!(splitPos < min));
         assert(!(max < splitPos));
-        PerfectSplitType perfectSplit{std::numeric_limits<F>::infinity(), splitEvent, splitPos, polygonCountLeft, polygonCountRight};
-        F & splitCost = thrust::get<0>(perfectSplit);
         if (!(min < max)) {
-            return perfectSplit;
+            return {std::numeric_limits<F>::infinity()};
         }
         F l = splitPos - min;
         F r = max - splitPos;
@@ -75,29 +73,27 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         } else {
             assert(0 != polygonCountRight);
         }
+        if ((polygonCountLeft == polygonCount) || (polygonCountRight == polygonCount)) {
+            return {std::numeric_limits<F>::infinity()};
+        }
         F emptinessFactor(1);
         if (polygonCountLeft == 0) {
             assert(polygonCountRight != 0);
-            if (min < splitPos) {
-                emptinessFactor = sah.emptinessFactor;
-            } else {
-                return perfectSplit;
+            if (!(min < splitPos)) {
+                return {std::numeric_limits<F>::infinity()};
             }
-        } else if (polygonCountRight == polygonCount) {
-            return perfectSplit;
+            emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountRight == 0) {
-            if (splitPos < max) {
-                emptinessFactor = sah.emptinessFactor;
-            } else {
-                return perfectSplit;
+            if (!(splitPos < max)) {
+                return {std::numeric_limits<F>::infinity()};
             }
-        } else if (polygonCountLeft == polygonCount) {
-            return perfectSplit;
+            emptinessFactor = sah.emptinessFactor;
         }
         F x = max - min;
         F y = thrust::get<3>(nodeBbox) - thrust::get<2>(nodeBbox);
         F z = thrust::get<5>(nodeBbox) - thrust::get<4>(nodeBbox);
         F area = y * z;  // half area
+        F splitCost;
         if (F(0) < area) {
             F perimeter = y + z;  // half perimeter
             assert(F(0) < perimeter);
@@ -108,7 +104,7 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
         splitCost *= emptinessFactor;
-        return perfectSplit;
+        return {splitCost, splitEvent, splitPos, polygonCountLeft, polygonCountRight};
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(perfectSplitInputBegin, thrust::zip_function(toPerfectSplit));
     [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});

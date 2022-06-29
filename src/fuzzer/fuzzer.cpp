@@ -66,13 +66,21 @@ void SetSeed(unsigned int seed)
 
 void generateComponent(F & f)
 {
-    f = F(uniformInt(gen, UniformIntParam(0, intBboxSize)));
+    int min = 0;
+    int max = intBboxSize;
+    assert(min < max);
+    f = F(uniformInt(gen, UniformIntParam(min, max)));
     if constexpr (fuzzIntegerCoordinate) {
         const int pow = uniformInt(gen, UniformIntParam(1, floatDigits));
         auto fuzz = std::generate_canonical<F, floatDigits>(gen);
         fuzz += fuzz;
         fuzz -= F(1);  // lost 1 bit of mantissa's randomness
         f += std::scalbn(fuzz, -pow);
+        if (f < F(min)) {
+            f += F(max - min);
+        } else if (F(max) < f) {
+            f += F(min - max);
+        }
     }
 }
 
