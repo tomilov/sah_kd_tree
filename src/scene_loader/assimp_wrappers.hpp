@@ -6,7 +6,7 @@
 
 #include <QtCore>
 
-Q_DECLARE_LOGGING_CATEGORY(assimpWrappers)
+Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 
 struct AssimpLoggerGuard
 {

@@ -3,6 +3,9 @@
 #include "builder/builder_export.h"
 
 #include <QString>
+#include <QLoggingCategory>
+
+Q_DECLARE_LOGGING_CATEGORY(builderLog)
 
 namespace builder BUILDER_EXPORT
 {

@@ -49,7 +49,7 @@ namespace
 constexpr size_t maxTriangleCount = 36 - 1;
 constexpr int intBboxSize = 10;
 constexpr bool sortTriangles = true;
-constexpr bool fuzzIntegerCoordinate = true;
+constexpr bool fuzzIntegerCoordinate = false;
 
 constexpr int floatDigits = std::numeric_limits<F>::digits;
 
@@ -219,17 +219,35 @@ struct TestInput
         triangles.resize(size / sizeof(Triangle));
         std::memcpy(std::data(triangles), data, size);
         for (const Triangle & triangle : triangles) {
-            if (std::isnan(triangle.a.x)) return false;
-            if (std::isnan(triangle.a.y)) return false;
-            if (std::isnan(triangle.a.z)) return false;
+            if (std::isnan(triangle.a.x)) {
+                return false;
+            }
+            if (std::isnan(triangle.a.y)) {
+                return false;
+            }
+            if (std::isnan(triangle.a.z)) {
+                return false;
+            }
 
-            if (std::isnan(triangle.b.x)) return false;
-            if (std::isnan(triangle.b.y)) return false;
-            if (std::isnan(triangle.b.z)) return false;
+            if (std::isnan(triangle.b.x)) {
+                return false;
+            }
+            if (std::isnan(triangle.b.y)) {
+                return false;
+            }
+            if (std::isnan(triangle.b.z)) {
+                return false;
+            }
 
-            if (std::isnan(triangle.c.x)) return false;
-            if (std::isnan(triangle.c.y)) return false;
-            if (std::isnan(triangle.c.z)) return false;
+            if (std::isnan(triangle.c.x)) {
+                return false;
+            }
+            if (std::isnan(triangle.c.y)) {
+                return false;
+            }
+            if (std::isnan(triangle.c.z)) {
+                return false;
+            }
         }
         if constexpr (sortTriangles) {
             if (!std::is_sorted(std::cbegin(triangles), std::cend(triangles))) {

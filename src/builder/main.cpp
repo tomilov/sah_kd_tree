@@ -12,6 +12,9 @@ int main(int argc, char * argv[])
 
     commandLineParser.addPositionalArgument("scene", "Scene file name.", "file");
 
+    QCommandLineOption useCacheOption("use-cache", "Use cache.");
+    commandLineParser.addOption(useCacheOption);
+
     QCommandLineOption cachePathOption("cache-path", "Cache path.", "cachePath", "");
     commandLineParser.addOption(cachePathOption);
 
@@ -52,7 +55,8 @@ int main(int argc, char * argv[])
         if (!ok) {
             return QCoreApplication::exit(6);
         }
-        if (cachePath.isEmpty()) {
+        bool useCache = commandLineParser.isSet(useCacheOption);
+        if (!useCache && cachePath.isEmpty()) {
             if (!builder::buildSceneFromFile(args.at(0), emptinessFactor, traversalCost, intersectionCost, maxDepth)) {
                 return QCoreApplication::exit(EXIT_FAILURE);
             }

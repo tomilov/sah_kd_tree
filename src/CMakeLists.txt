@@ -19,6 +19,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQ
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    # requires CMAKE_CUDA_HOST_COMPILER=/usr/bin/clang++
+    # or just -DCMAKE_CUDA_HOST_COMPILER:FILEPATH=%{Compiler:Executable:Cxx}
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp-version=45")  # workaround for clang and OpenMP 5.0+
 endif()
 

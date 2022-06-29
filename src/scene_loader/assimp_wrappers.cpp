@@ -4,7 +4,7 @@
 #include <assimp/IOStream.hpp>
 #include <assimp/Logger.hpp>
 
-Q_LOGGING_CATEGORY(assimpWrappers, "assimpWrappers")
+Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
 
 struct Logger : Assimp::Logger
 {
@@ -55,27 +55,27 @@ bool Logger::detachStream(Assimp::LogStream * pStream, unsigned int severity)
 
 void Logger::OnVerboseDebug(const char * message)
 {
-    qCDebug(assimpWrappers) << message;
+    qCDebug(assimpWrappersLog) << message;
 }
 
 void Logger::OnDebug(const char * message)
 {
-    qCDebug(assimpWrappers) << message;
+    qCDebug(assimpWrappersLog) << message;
 }
 
 void Logger::OnInfo(const char * message)
 {
-    qCInfo(assimpWrappers) << message;
+    qCInfo(assimpWrappersLog) << message;
 }
 
 void Logger::OnWarn(const char * message)
 {
-    qCWarning(assimpWrappers) << message;
+    qCWarning(assimpWrappersLog) << message;
 }
 
 void Logger::OnError(const char * message)
 {
-    qCCritical(assimpWrappers) << message;
+    qCCritical(assimpWrappersLog) << message;
 }
 
 AssimpLoggerGuard::AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity)
@@ -90,7 +90,7 @@ AssimpLoggerGuard::~AssimpLoggerGuard()
 
 bool AssimpProgressHandler::Update(float percentage)
 {
-    qCInfo(assimpWrappers) << QStringLiteral("%1 loaded").arg(qreal(percentage));
+    qCInfo(assimpWrappersLog) << QStringLiteral("%1 loaded").arg(qreal(percentage));
     return true;
 }
 
@@ -104,7 +104,7 @@ size_t AssimpIOStream::Read(void * pvBuffer, size_t pSize, size_t pCount)
 {
     auto readBytes = device->read(static_cast<char *>(pvBuffer), qint64(pSize * pCount));
     if (readBytes < 0) {
-        qCWarning(assimpWrappers) << QStringLiteral("reading failed");
+        qCWarning(assimpWrappersLog) << QStringLiteral("reading failed");
     }
     return size_t(readBytes);
 }
@@ -113,7 +113,7 @@ size_t AssimpIOStream::Write(const void * pvBuffer, size_t pSize, size_t pCount)
 {
     auto writtenBytes = device->write(static_cast<const char *>(pvBuffer), qint64(pSize * pCount));
     if (writtenBytes < 0) {
-        qCWarning(assimpWrappers) << QStringLiteral("writing failed");
+        qCWarning(assimpWrappersLog) << QStringLiteral("writing failed");
     }
     return size_t(writtenBytes);
 }
@@ -129,7 +129,7 @@ aiReturn AssimpIOStream::Seek(size_t pOffset, aiOrigin pOrigin)
     }
 
     if (!device->seek(seekPos)) {
-        qCWarning(assimpWrappers) << QStringLiteral("seeking failed");
+        qCWarning(assimpWrappersLog) << QStringLiteral("seeking failed");
         return aiReturn_FAILURE;
     }
     return aiReturn_SUCCESS;

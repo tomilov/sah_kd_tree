@@ -5,7 +5,7 @@
 
 #include <QtCore>
 
-Q_DECLARE_LOGGING_CATEGORY(sceneLoader)
+Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
 
 struct SCENE_LOADER_EXPORT SceneLoader
 {

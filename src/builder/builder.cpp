@@ -5,6 +5,10 @@
 
 #include <thrust/device_vector.h>
 
+#include <QDebug>
+
+Q_LOGGING_CATEGORY(builderLog, "builder")
+
 namespace {
 
 bool buildSceneFromTriangles(const QVector<sah_kd_tree::Triangle> & triangles, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
@@ -33,6 +37,7 @@ bool buildSceneFromTriangles(const QVector<sah_kd_tree::Triangle> & triangles, f
     if (sahKdTree.depth > U(triangles.size())) {
         return false;
     }
+    qCDebug(builderLog) << QStringLiteral("sahKdTree.depth = %1").arg(sahKdTree.depth);
     return true;
 }
 
