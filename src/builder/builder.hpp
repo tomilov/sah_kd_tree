@@ -1,6 +1,6 @@
 #pragma once
 
-#include "builder/builder_export.h"
+#include <builder/builder_export.h>
 
 #include <QString>
 #include <QLoggingCategory>

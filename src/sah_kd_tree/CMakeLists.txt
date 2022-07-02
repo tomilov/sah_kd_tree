@@ -6,9 +6,9 @@ target_sources(
     "${PROJECT_NAME}"
     PRIVATE
         "${PROJECT_NAME}_export.h"
-        "${PROJECT_NAME}.hpp"
+        "${PROJECT_NAME}.cuh"
+        "types.cuh"
         "utility.cuh"
-        "set_triangle.cu"
         "calculate_triangle_bbox.cu"
         "calculate_root_node_bbox.cu"
         "generate_initial_event.cu"
@@ -25,16 +25,10 @@ target_sources(
         "merge_event.cu"
         "set_node_count.cu"
         "split_node.cu"
-        "builder.cu")
+        "builder.cu"
+        "helpers/setup.cuh")
 target_link_libraries(
     "${PROJECT_NAME}"
     PUBLIC
-        OpenMP::OpenMP_CXX
-        TBB::tbb
-        CUDA::toolkit)
-# OMP works properly only with gcc due to nvcc uses gcc as host compiler
-# and openmp flags inferred for clang cannot be passed to gcc as is
-target_compile_definitions(
-    "${PROJECT_NAME}"
-    PUBLIC
-        "THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_${THRUST_DEVICE_SYSTEM}")
+        CUDA::toolkit
+        Thrust)

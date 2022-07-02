@@ -1,5 +1,5 @@
-#include "sah_kd_tree/sah_kd_tree.hpp"
-#include "sah_kd_tree/utility.cuh"
+#include <sah_kd_tree/sah_kd_tree.cuh>
+#include <sah_kd_tree/utility.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
@@ -131,17 +131,13 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     Timer timerTotal;
     Timer timer;
 
-    auto triangleCount = U(x.triangle.a.size());
-    assert(triangleCount == U(y.triangle.a.size()));
-    assert(triangleCount == U(z.triangle.a.size()));
-
     if (triangleCount == 0) {
         return {};
     }
 
-    x.calculateTriangleBbox();
-    y.calculateTriangleBbox();
-    z.calculateTriangleBbox();
+    x.calculateTriangleBbox(triangleCount);
+    y.calculateTriangleBbox(triangleCount);
+    z.calculateTriangleBbox(triangleCount);
     timer("calculateTriangleBbox");  // 9.330ms
 
     x.calculateRootNodeBbox();
@@ -149,9 +145,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     z.calculateRootNodeBbox();
     timer("calculateRootNodeBbox");  // 2.358ms
 
-    x.generateInitialEvent();
-    y.generateInitialEvent();
-    z.generateInitialEvent();
+    x.generateInitialEvent(triangleCount);
+    y.generateInitialEvent(triangleCount);
+    z.generateInitialEvent(triangleCount);
     timer("generateInitialEvent");  // 141.887ms
 
     polygon.triangle.resize(triangleCount);

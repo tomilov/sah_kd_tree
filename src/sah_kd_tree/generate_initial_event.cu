@@ -1,5 +1,5 @@
-#include "sah_kd_tree/sah_kd_tree.hpp"
-#include "sah_kd_tree/utility.cuh"
+#include <sah_kd_tree/sah_kd_tree.cuh>
+#include <sah_kd_tree/utility.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/count.h>
@@ -14,10 +14,9 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-void sah_kd_tree::Projection::generateInitialEvent()
+void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
 {
     Timer timer;
-    auto triangleCount = U(triangle.a.size());
 
     auto triangleBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.min.cbegin(), polygon.max.cbegin()));
     using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;

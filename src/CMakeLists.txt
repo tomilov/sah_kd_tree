@@ -1,5 +1,3 @@
-enable_language(CXX)
-
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -14,19 +12,8 @@ include(GenerateExportHeader)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
-find_package(OpenMP REQUIRED)
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif()
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    # requires CMAKE_CUDA_HOST_COMPILER=/usr/bin/clang++
-    # or just -DCMAKE_CUDA_HOST_COMPILER:FILEPATH=%{Compiler:Executable:Cxx}
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp-version=45")  # workaround for clang and OpenMP 5.0+
-endif()
-
-find_package(TBB REQUIRED)
-
-enable_language(CUDA)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+add_compile_options("-Wall" "-Wextra")
 
 if(BUILD_SHARED_LIBS)
     set(CMAKE_CUDA_RUNTIME_LIBRARY SHARED)
@@ -47,7 +34,19 @@ set(CMAKE_CUDA_EXTENSIONS ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib
 
-set(THRUST_DEVICE_SYSTEM "CUDA" CACHE STRING "Set one of CUDA, TBB, OMP, CPP as Thrust backend.")
+# CMAKE_CUDA_HOST_COMPILER=/usr/bin/clang++
+# add -Xcompiler -fopenmp-version=45 to CMAKE_CUDA_FLAGS,
+# if Clang has OpenMP 5.0+ and nvcc has problems in it
+find_package(Thrust REQUIRED CONFIG)
+thrust_create_target(Thrust FROM_OPTIONS)
+
+find_package(assimp REQUIRED 5)
+set_target_properties(
+    assimp::assimp
+    PROPERTIES
+        MAP_IMPORTED_CONFIG_DEBUG Release
+        MAP_IMPORTED_CONFIG_MINSIZEREL Release
+        MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 find_package(
     Qt5
@@ -70,16 +69,6 @@ add_compile_definitions(
     QT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
 
 add_compile_definitions(QT_MESSAGELOGCONTEXT)
-
-include_directories("${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
-add_compile_options(
-    "-Wall"
-    "-Wextra")
-
-add_compile_options(
-    -fsanitize=address)
-add_link_options(
-    -fsanitize=address)
 
 include(CTest)
 if(BUILD_TESTING)

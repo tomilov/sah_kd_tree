@@ -1,12 +1,18 @@
-#include "scene_loader/assimp_wrappers.hpp"
+#include <scene_loader/assimp_wrappers.hpp>
 
 #include <assimp/DefaultLogger.hpp>
 #include <assimp/IOStream.hpp>
 #include <assimp/Logger.hpp>
 
+namespace scene_loader
+{
+
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
 
-struct Logger : Assimp::Logger
+namespace
+{
+
+struct AssimpLogger : Assimp::Logger
 {
     using Assimp::Logger::Logger;
 
@@ -39,48 +45,50 @@ private:
     QScopedPointer<QIODevice> const device;
 };
 
-bool Logger::attachStream(Assimp::LogStream * pStream, unsigned int severity)
+bool AssimpLogger::attachStream(Assimp::LogStream * pStream, unsigned int severity)
 {
     Q_UNUSED(pStream);
     Q_UNUSED(severity);
     return true;
 }
 
-bool Logger::detachStream(Assimp::LogStream * pStream, unsigned int severity)
+bool AssimpLogger::detachStream(Assimp::LogStream * pStream, unsigned int severity)
 {
     Q_UNUSED(pStream);
     Q_UNUSED(severity);
     return true;
 }
 
-void Logger::OnVerboseDebug(const char * message)
+void AssimpLogger::OnVerboseDebug(const char * message)
 {
     qCDebug(assimpWrappersLog) << message;
 }
 
-void Logger::OnDebug(const char * message)
+void AssimpLogger::OnDebug(const char * message)
 {
     qCDebug(assimpWrappersLog) << message;
 }
 
-void Logger::OnInfo(const char * message)
+void AssimpLogger::OnInfo(const char * message)
 {
     qCInfo(assimpWrappersLog) << message;
 }
 
-void Logger::OnWarn(const char * message)
+void AssimpLogger::OnWarn(const char * message)
 {
     qCWarning(assimpWrappersLog) << message;
 }
 
-void Logger::OnError(const char * message)
+void AssimpLogger::OnError(const char * message)
 {
     qCCritical(assimpWrappersLog) << message;
 }
 
+}  // namespace
+
 AssimpLoggerGuard::AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity)
 {
-    Assimp::DefaultLogger::set(new Logger{logSeverity});
+    Assimp::DefaultLogger::set(new AssimpLogger{logSeverity});
 }  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 AssimpLoggerGuard::~AssimpLoggerGuard()
@@ -154,16 +162,16 @@ void AssimpIOStream::Flush()
 
 AssimpIOSystem::AssimpIOSystem()
 {
-    openModeMap[QByteArrayLiteral("r")] = QIODevice::ReadOnly;
-    openModeMap[QByteArrayLiteral("rb")] = QIODevice::ReadOnly;
-    openModeMap[QByteArrayLiteral("rt")] = QIODevice::ReadOnly | QIODevice::Text;
-    openModeMap[QByteArrayLiteral("r+")] = QIODevice::ReadWrite;
-    openModeMap[QByteArrayLiteral("w+")] = QIODevice::ReadWrite | QIODevice::Truncate;
-    openModeMap[QByteArrayLiteral("a+")] = QIODevice::ReadWrite | QIODevice::Append;
-    openModeMap[QByteArrayLiteral("wb")] = QIODevice::WriteOnly;
-    openModeMap[QByteArrayLiteral("w")] = QIODevice::WriteOnly | QIODevice::Truncate;
-    openModeMap[QByteArrayLiteral("a")] = QIODevice::WriteOnly | QIODevice::Append;
-    openModeMap[QByteArrayLiteral("wt")] = QIODevice::WriteOnly | QIODevice::Text;
+    openModeMap["r"] = QIODevice::ReadOnly;
+    openModeMap["rb"] = QIODevice::ReadOnly;
+    openModeMap["rt"] = QIODevice::ReadOnly | QIODevice::Text;
+    openModeMap["r+"] = QIODevice::ReadWrite;
+    openModeMap["w+"] = QIODevice::ReadWrite | QIODevice::Truncate;
+    openModeMap["a+"] = QIODevice::ReadWrite | QIODevice::Append;
+    openModeMap["wb"] = QIODevice::WriteOnly;
+    openModeMap["w"] = QIODevice::WriteOnly | QIODevice::Truncate;
+    openModeMap["a"] = QIODevice::WriteOnly | QIODevice::Append;
+    openModeMap["wt"] = QIODevice::WriteOnly | QIODevice::Text;
 }
 
 AssimpIOSystem::~AssimpIOSystem() = default;
@@ -197,3 +205,5 @@ void AssimpIOSystem::Close(Assimp::IOStream * pFile)
     Q_ASSERT(dynamic_cast<AssimpIOStream *>(pFile));
     delete pFile;
 }
+
+}  // namespace scene_loader

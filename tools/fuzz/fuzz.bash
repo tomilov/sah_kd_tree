@@ -3,7 +3,7 @@ data="$dir/../../data/fuzz"
 "$dir/fuzzer" \
     -fork=$(( $( nproc ) / 2 )) \
     -use_value_profile=1 \
-    -rss_limit_mb=128 \
+    -rss_limit_mb=512 \
     -timeout=30 \
     -report_slow_units=30 \
     -print_final_stats=1 \

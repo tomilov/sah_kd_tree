@@ -1,6 +1,6 @@
-#include "scene_loader/scene_loader.hpp"
+#include <scene_loader/scene_loader.hpp>
 
-#include "scene_loader/assimp_wrappers.hpp"
+#include <scene_loader/assimp_wrappers.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -8,7 +8,13 @@
 
 #include <QtCore>
 
+namespace scene_loader
+{
+
 Q_LOGGING_CATEGORY(sceneLoaderLog, "sceneLoader")
+
+namespace
+{
 
 template<typename Type>
 QString toString(const Type & value)
@@ -20,7 +26,7 @@ QString toString(const Type & value)
 
 using LoggingCategory = const QLoggingCategory & (*)();
 
-inline bool checkDataStreamStatus(QDataStream & dataStream, const LoggingCategory loggingCategory, QString description)
+bool checkDataStreamStatus(QDataStream & dataStream, const LoggingCategory loggingCategory, QString description)
 {
     const auto status = dataStream.status();
     if (status != QDataStream::Ok) {
@@ -29,6 +35,8 @@ inline bool checkDataStreamStatus(QDataStream & dataStream, const LoggingCategor
     }
     return true;
 }
+
+}  // namespace
 
 bool SceneLoader::load(QFileInfo sceneFileInfo)
 {
@@ -107,7 +115,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     triangle.resize(int(triangleCount));
     {
         auto t = triangle.data();
-        const auto toVertex = [](const aiVector3D & v) -> sah_kd_tree::Vertex { return {v.x, v.y, v.z}; };
+        const auto toVertex = [](const aiVector3D & v) -> Vertex { return {v.x, v.y, v.z}; };
         for (unsigned int m = 0; m < scene->mNumMeshes; ++m) {
             const aiMesh & mesh = *scene->mMeshes[m];
             // qCDebug(sceneLoader) << mesh.mName.C_Str();
@@ -225,3 +233,5 @@ bool SceneLoader::cachingLoad(QString fileName, QString cachePath)
     }
     return true;
 }
+
+}  // namespace scene_loader

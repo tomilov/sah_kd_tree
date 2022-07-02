@@ -1,7 +1,7 @@
 #pragma once
 
-#include "sah_kd_tree/sah_kd_tree_export.h"
-#include "sah_kd_tree/types.hpp"
+#include <sah_kd_tree/sah_kd_tree_export.h>
+#include <sah_kd_tree/types.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -29,7 +29,7 @@ struct SAH_KD_TREE_EXPORT Projection
 {
     struct
     {
-        thrust::device_vector<F> a, b, c;
+        thrust::device_ptr<const F> a, b, c;
     } triangle;
 
     struct
@@ -61,9 +61,9 @@ struct SAH_KD_TREE_EXPORT Projection
         thrust::device_vector<U> polygonCountLeft, polygonCountRight;
     } layer;
 
-    void calculateTriangleBbox();
+    void calculateTriangleBbox(U triangleCount);
     void calculateRootNodeBbox();
-    void generateInitialEvent();
+    void generateInitialEvent(U triangleCount);
 
     void findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
     void determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide);
@@ -78,6 +78,7 @@ struct SAH_KD_TREE_EXPORT Projection
 
 struct SAH_KD_TREE_EXPORT Builder
 {
+    U triangleCount = 0;
     Projection x, y, z;
 
     struct
@@ -100,7 +101,6 @@ struct SAH_KD_TREE_EXPORT Builder
 
     thrust::device_vector<U> splittedPolygon;
 
-    void setTriangle(thrust::device_ptr<const Triangle> triangleBegin, thrust::device_ptr<const Triangle> triangleEnd);
     void thinLayerNodeOffset(U layerBase, U layerSize);
     void selectNodeBestSplit(const Params & sah, U layerBase, U layerSize);
     U getSplittedPolygonCount(U layerBase, U layerSize);

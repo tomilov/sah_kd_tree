@@ -6,6 +6,9 @@
 
 #include <QtCore>
 
+namespace scene_loader
+{
+
 Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 
 struct AssimpLoggerGuard
@@ -34,3 +37,5 @@ struct AssimpIOSystem : Assimp::IOSystem
 private:
     QMap<QByteArray, QIODevice::OpenMode> openModeMap;
 };
+
+}  // namespace scene_loader
