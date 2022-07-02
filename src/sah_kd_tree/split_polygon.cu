@@ -32,7 +32,9 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonLeftBboxBegin, polygonRightBboxBegin));
     using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
-    auto toSplittedPolygon = [dimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
+    I yDimension = ((dimension + 1) % 3);
+    I zDimension = ((dimension + 2) % 3);
+    auto toSplittedPolygon = [dimension, yDimension, zDimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
         const auto & polygonNode = thrust::get<0>(polygon);
@@ -47,12 +49,12 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
 
         const auto & triangle = thrust::get<1>(polygon);
         F a, b, c;
-        if (nodeSplitDimension == ((dimension + 1) % 3)) {
+        if (nodeSplitDimension == yDimension) {
             a = thrust::get<3>(triangle);
             b = thrust::get<4>(triangle);
             c = thrust::get<5>(triangle);
         } else {
-            assert(nodeSplitDimension == ((dimension + 2) % 3));
+            assert(nodeSplitDimension == zDimension);
             a = thrust::get<6>(triangle);
             b = thrust::get<7>(triangle);
             c = thrust::get<8>(triangle);

@@ -24,14 +24,14 @@ set print
 printerr $data
 printerr 'Params:', $params[1]
 
-set angles degrees
 unset key
-set xrange [-10:10]
-set yrange [-10:10]
-set zrange [-10:10]
+set angles degrees
+#set xrange [-10:10]
+#set yrange [-10:10]
+#set zrange [-10:10]
+set autoscale
 set view equal xyz
 set xyplane 0
-unset autoscale
 
 if (ARG1 eq 'plan') {
     set walls

@@ -76,6 +76,11 @@ add_compile_options(
     "-Wall"
     "-Wextra")
 
+add_compile_options(
+    -fsanitize=address)
+add_link_options(
+    -fsanitize=address)
+
 include(CTest)
 if(BUILD_TESTING)
     find_package(GTest REQUIRED)

@@ -72,7 +72,7 @@ def _obj2fuzz(args):
         crash_file.write(params)
 
         triangles = []
-        scene = pywavefront.Wavefront(args.infile, collect_faces=True)
+        scene = pywavefront.Wavefront(args.infile, create_materials=True, collect_faces=True)
         for mesh in scene.mesh_list:
             for indices in mesh.faces:
                 assert len(indices) == 3
