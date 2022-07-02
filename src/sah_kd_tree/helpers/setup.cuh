@@ -31,8 +31,7 @@ void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, Triangl
 
     using TriangleType = IteratorValueType<TriangleIterator>;
     triangles.triangleCount = U(thrust::distance(triangleBegin, triangleEnd));
-    auto transposeProjection = [triangleCount = triangles.triangleCount](typename Triangles::Projection & projection)
-    {
+    auto transposeProjection = [triangleCount = triangles.triangleCount](typename Triangles::Projection & projection) {
         projection.a.resize(std::size_t(triangleCount));
         projection.b.resize(std::size_t(triangleCount));
         projection.c.resize(std::size_t(triangleCount));

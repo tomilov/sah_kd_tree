@@ -1,7 +1,7 @@
 #pragma once
 
-#include <scene_loader/scene_loader_export.h>
 #include <scene_loader/geometry_types.hpp>
+#include <scene_loader/scene_loader_export.h>
 
 #include <QtCore>
 

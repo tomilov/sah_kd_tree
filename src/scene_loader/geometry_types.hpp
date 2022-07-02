@@ -27,4 +27,4 @@ struct SCENE_LOADER_EXPORT Triangle
     }
 };
 
-}
+}  // namespace scene_loader

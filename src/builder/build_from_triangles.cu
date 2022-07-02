@@ -1,12 +1,12 @@
-#include <builder/build_from_triangles.hpp>
-
 #include <sah_kd_tree/helpers/setup.cuh>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
+#include <builder/build_from_triangles.hpp>
+
 bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBegin, const scene_loader::Triangle * triangleEnd, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    using sah_kd_tree::U;
     using sah_kd_tree::F;
+    using sah_kd_tree::U;
 
     sah_kd_tree::Params params;
     if (emptinessFactor > 0.0f) {
@@ -42,7 +42,7 @@ bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBeg
 
     sah_kd_tree::Tree tree = builder(params);
 
-    //qCDebug(builderLog) << QStringLiteral("SAH k-D tree depth = %1").arg(tree.depth);
+    // qCDebug(builderLog) << QStringLiteral("SAH k-D tree depth = %1").arg(tree.depth);
     if (tree.depth > builder.triangleCount) {
         return false;
     }

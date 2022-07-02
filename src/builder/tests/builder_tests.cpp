@@ -12,7 +12,8 @@ namespace
 class BuilderTest : public ::testing::Test
 {
 public:
-    void SetUp() override {}
+    void SetUp() override
+    {}
     void TearDown() override
     {
         const ::testing::TestInfo * const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
@@ -49,9 +50,9 @@ TEST_F(BuilderTest, Fuzzed)
 
 TEST_F(BuilderTest, AllScenes)
 {
-    //GTEST_SKIP();
+    // GTEST_SKIP();
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
-    for (const auto& fileName : scenes) {  // clazy:exclude=range-loop-detach
+    for (const auto & fileName : scenes) {  // clazy:exclude=range-loop-detach
         EXPECT_TRUE(buildSceneFromFileOrCache(fileName, {}));
     }
 }

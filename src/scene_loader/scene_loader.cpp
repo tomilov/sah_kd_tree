@@ -1,6 +1,5 @@
-#include <scene_loader/scene_loader.hpp>
-
 #include <scene_loader/assimp_wrappers.hpp>
+#include <scene_loader/scene_loader.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -70,14 +69,14 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
         aiMemoryInfo memoryInfo;
         importer.GetMemoryRequirements(memoryInfo);
         qCDebug(sceneLoaderLog) << QStringLiteral("scene memory info (%1 total): textures %2, materials %3, meshes %4, nodes %5, animations %6, cameras %7, lights %8")
-                                    .arg(memoryInfo.total)
-                                    .arg(memoryInfo.textures)
-                                    .arg(memoryInfo.materials)
-                                    .arg(memoryInfo.meshes)
-                                    .arg(memoryInfo.nodes)
-                                    .arg(memoryInfo.animations)
-                                    .arg(memoryInfo.cameras)
-                                    .arg(memoryInfo.lights);
+                                       .arg(memoryInfo.total)
+                                       .arg(memoryInfo.textures)
+                                       .arg(memoryInfo.materials)
+                                       .arg(memoryInfo.meshes)
+                                       .arg(memoryInfo.nodes)
+                                       .arg(memoryInfo.animations)
+                                       .arg(memoryInfo.cameras)
+                                       .arg(memoryInfo.lights);
     }
 
     qCInfo(sceneLoaderLog) << "scene has animations:" << scene->HasAnimations();
