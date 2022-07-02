@@ -6,7 +6,6 @@
 
 namespace scene_loader
 {
-
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
 
 namespace

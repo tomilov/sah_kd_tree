@@ -8,7 +8,6 @@
 
 namespace scene_loader
 {
-
 Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 
 struct AssimpLoggerGuard

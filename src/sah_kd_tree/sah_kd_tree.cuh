@@ -10,7 +10,6 @@
 
 namespace sah_kd_tree
 {
-
 struct SAH_KD_TREE_EXPORT Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]

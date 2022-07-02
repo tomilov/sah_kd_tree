@@ -8,7 +8,9 @@ target_sources(
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp")
+        "${PROJECT_NAME}.cpp"
+        "build_from_triangles.hpp"
+        "build_from_triangles.cu")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE

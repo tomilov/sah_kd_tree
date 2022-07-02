@@ -34,9 +34,10 @@ set(CMAKE_CUDA_EXTENSIONS ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib
 
-# CMAKE_CUDA_HOST_COMPILER=/usr/bin/clang++
-# add -Xcompiler -fopenmp-version=45 to CMAKE_CUDA_FLAGS,
-# if Clang has OpenMP 5.0+ and nvcc has problems in it
+# for CMAKE_CUDA_HOST_COMPILER=/usr/bin/clang++
+# add -Xcompiler -fopenmp-version=45 to CMAKE_CUDA_FLAGS
+# or to OpenMP_CXX_FLAGS, if Clang has OpenMP 5.0+
+# and nvcc has problems with it
 find_package(Thrust REQUIRED CONFIG)
 thrust_create_target(Thrust FROM_OPTIONS)
 

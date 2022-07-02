@@ -21,6 +21,9 @@ struct Triangles
     } x, y, z;
 };
 
+// For non-CUDA THRUST_DEVICE_SYSTEM using the function works fine in pure .cpp,
+// but to conduct with .cpp code in case of CUDA "glue" .hpp+.cu pair is required
+// (.hpp should contains pure C++ interface)
 template<typename TriangleIterator>
 void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, TriangleIterator triangleEnd)
 {
