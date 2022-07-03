@@ -4,11 +4,6 @@ with -fork=0 command line option
 ]]
 project("fuzzer")
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR THRUST_DEVICE_SYSTEM STREQUAL "CUDA")
-    return()
-endif()
-
-option(BUILD_FUZZ "Whether to build 'fuzzer' target" ON)
 if(NOT BUILD_FUZZ)
     return()
 endif()
@@ -26,7 +21,7 @@ target_compile_options(
     "${PROJECT_NAME}"
     PRIVATE
         "-fsanitize=fuzzer")
-target_link_libraries(
+target_link_options(
     "${PROJECT_NAME}"
     PRIVATE
         "-fsanitize=fuzzer")
