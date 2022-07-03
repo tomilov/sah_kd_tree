@@ -30,7 +30,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_EXTENSIONS ON)
 
-#set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON) # required for static lib on MSVC
+#set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON) # required for static lib on MSVC, on Linux leads to CUDA-symbols ODR-violation
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON) # required for static lib
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # required if static lib will be linked into a shared lib
 

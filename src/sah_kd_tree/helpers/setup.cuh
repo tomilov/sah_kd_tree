@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sah_kd_tree/sah_kd_tree_export.h>
 #include <sah_kd_tree/types.cuh>
 #include <sah_kd_tree/utility.cuh>
 
@@ -12,7 +13,7 @@
 
 namespace sah_kd_tree::helpers
 {
-struct Triangles
+struct SAH_KD_TREE_EXPORT Triangles
 {
     U triangleCount = 0;
     struct Projection
@@ -21,16 +22,26 @@ struct Triangles
     } x, y, z;
 };
 
+template<typename TriangleType, typename TransposedTriangleType>
+struct TransposeTriangleFunctor
+{
+    __host__ __device__ TransposedTriangleType operator ()(const TriangleType & t) const
+    {
+        return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
+    }
+};
+
 // For non-CUDA THRUST_DEVICE_SYSTEM using the function works fine in pure .cpp,
 // but to conduct with .cpp code in case of CUDA "glue" .hpp+.cu pair is required
-// (.hpp should contains pure C++ interface)
+// (ideally .hpp should contain only C++)
 template<typename TriangleIterator>
 void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, TriangleIterator triangleEnd)
 {
     Timer timer;
 
     using TriangleType = IteratorValueType<TriangleIterator>;
-    triangles.triangleCount = U(thrust::distance(triangleBegin, triangleEnd));
+    thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
+    triangles.triangleCount = U(t.size());
     auto transposeProjection = [triangleCount = triangles.triangleCount](typename Triangles::Projection & projection) {
         projection.a.resize(std::size_t(triangleCount));
         projection.b.resize(std::size_t(triangleCount));
@@ -39,8 +50,12 @@ void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, Triangl
     };
     auto transposedTriangleBegin = thrust::make_zip_iterator(thrust::make_tuple(transposeProjection(triangles.x), transposeProjection(triangles.y), transposeProjection(triangles.z)));
     using TransposedTriangleType = IteratorValueType<decltype(transposedTriangleBegin)>;
+#if 1
+    thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangleFunctor<TriangleType, TransposedTriangleType>{});
+#else
     auto transposeTriangle = [] __host__ __device__(const TriangleType & t) -> TransposedTriangleType { return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}}; };
-    thrust::transform(triangleBegin, triangleEnd, transposedTriangleBegin, transposeTriangle);
-    timer("setTriangle");  // 5.453ms
+    thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, transposeTriangle);
+#endif
+    timer("setTriangles");  // 5.453ms
 }
 }  // namespace sah_kd_tree::helpers

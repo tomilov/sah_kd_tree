@@ -25,6 +25,7 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
     auto nodeBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeSplitDimension.cbegin(), nodeSplitPos.cbegin()));
     auto polygonNodeBegin = thrust::make_permutation_iterator(nodeBegin, polygonNode.cbegin());
     auto triangleBegin = thrust::make_zip_iterator(thrust::make_tuple(triangle.a, triangle.b, triangle.c, y.triangle.a, y.triangle.b, y.triangle.c, z.triangle.a, z.triangle.b, z.triangle.c));
+    //auto triangleBegin = thrust::make_zip_iterator(thrust::make_tuple(triangle.a.cbegin(), triangle.b.cbegin(), triangle.c.cbegin(), y.triangle.a.cbegin(), y.triangle.b.cbegin(), y.triangle.c.cbegin(), z.triangle.a.cbegin(), z.triangle.b.cbegin(), z.triangle.c.cbegin()));
     auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygonTriangle.cbegin());
     auto polygonBegin = thrust::make_zip_iterator(thrust::make_tuple(polygonNodeBegin, polygonTriangleBegin));
     using PolygonType = IteratorValueType<decltype(polygonBegin)>;

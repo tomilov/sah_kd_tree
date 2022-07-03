@@ -12,10 +12,6 @@
 
 void sah_kd_tree::Projection::calculateTriangleBbox(U triangleCount)
 {
-    assert(triangleCount == U(triangle.a.size()));
-    assert(triangleCount == U(triangle.b.size()));
-    assert(triangleCount == U(triangle.c.size()));
-
     polygon.min.resize(triangleCount);
     polygon.max.resize(triangleCount);
 
