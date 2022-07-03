@@ -15,8 +15,8 @@ void sah_kd_tree::Projection::calculateTriangleBbox(U triangleCount)
     polygon.min.resize(triangleCount);
     polygon.max.resize(triangleCount);
 
-    auto triangleBegin = thrust::make_zip_iterator(thrust::make_tuple(triangle.a, triangle.b, triangle.c));
-    auto polygonBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.min.begin(), polygon.max.begin()));
+    auto triangleBegin = thrust::make_zip_iterator(triangle.a, triangle.b, triangle.c);
+    auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.begin(), polygon.max.begin());
     using PolygonBboxType = IteratorValueType<decltype(polygonBboxBegin)>;
     auto toTriangleBbox = [] __host__ __device__(F a, F b, F c) -> PolygonBboxType { return {thrust::min(a, thrust::min(b, c)), thrust::max(a, thrust::max(b, c))}; };
     thrust::transform(triangleBegin, thrust::next(triangleBegin, triangleCount), polygonBboxBegin, thrust::zip_function(toTriangleBbox));

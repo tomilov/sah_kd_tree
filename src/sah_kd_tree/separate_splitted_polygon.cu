@@ -17,11 +17,11 @@ void sah_kd_tree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, 
     polygon.node.resize(polygonCount + splittedPolygonCount);
     splittedPolygon.resize(splittedPolygonCount);
 
-    auto polygonBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.triangle.begin(), polygon.node.begin()));
-    auto indexedPolygonBegin = thrust::make_zip_iterator(thrust::make_tuple(thrust::make_counting_iterator<U>(0), polygonBegin));
+    auto polygonBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
+    auto indexedPolygonBegin = thrust::make_zip_iterator(thrust::make_counting_iterator<U>(0), polygonBegin);
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
-    auto splittedPolygonStencilBegin = thrust::make_zip_iterator(thrust::make_tuple(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin()));
-    auto splittedPolygonBegin = thrust::make_zip_iterator(thrust::make_tuple(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount)));
+    auto splittedPolygonStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin());
+    auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount));
     auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
         if (polygonNode < layerBase) {
             return false;

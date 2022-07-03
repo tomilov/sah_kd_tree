@@ -12,17 +12,17 @@
 
 void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, U layerSize)
 {
-    auto nodeSplitCostBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin()));
+    auto nodeSplitCostBegin = thrust::make_zip_iterator(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin());
     using NodeBestCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
-    auto nodeSplitPosBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.splitPos.cbegin(), y.layer.splitPos.cbegin(), z.layer.splitPos.cbegin()));
+    auto nodeSplitPosBegin = thrust::make_zip_iterator(x.layer.splitPos.cbegin(), y.layer.splitPos.cbegin(), z.layer.splitPos.cbegin());
     using NodeBestPosType = IteratorValueType<decltype(nodeSplitPosBegin)>;
-    auto nodeLeftPolygonCountBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.polygonCountLeft.cbegin(), y.layer.polygonCountLeft.cbegin(), z.layer.polygonCountLeft.cbegin()));
+    auto nodeLeftPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountLeft.cbegin(), y.layer.polygonCountLeft.cbegin(), z.layer.polygonCountLeft.cbegin());
     using NodePolygonCountType = IteratorValueType<decltype(nodeLeftPolygonCountBegin)>;
-    auto nodeRightPolygonCountBegin = thrust::make_zip_iterator(thrust::make_tuple(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin()));
+    auto nodeRightPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin());
     using NodePolygonCountType = IteratorValueType<decltype(nodeRightPolygonCountBegin)>;
     auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layerBase);
-    auto nodeSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeSplitCostBegin, nodeSplitPosBegin, nodeLeftPolygonCountBegin, nodeRightPolygonCountBegin, nodePolygonCountBegin));
-    auto nodeBestSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin()));
+    auto nodeSplitBegin = thrust::make_zip_iterator(nodeSplitCostBegin, nodeSplitPosBegin, nodeLeftPolygonCountBegin, nodeRightPolygonCountBegin, nodePolygonCountBegin);
+    auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     thrust::advance(nodeBestSplitBegin, layerBase);
     using NodeBestSplitType = IteratorValueType<decltype(nodeBestSplitBegin)>;
     auto toNodeBestSplit = [sah] __host__ __device__(NodeBestCostType nodeSplitCost, NodeBestPosType nodeSplitPos, NodePolygonCountType nodeLeftPolygonCount, NodePolygonCountType nodeRightPolygonCount, U nodePolygonCount) -> NodeBestSplitType {

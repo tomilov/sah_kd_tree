@@ -19,7 +19,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     auto eventCount = U(event.kind.size());
 
     auto splitDimensionBegin = thrust::make_permutation_iterator(nodeSplitDimension.cbegin(), event.node.cbegin());
-    auto eventSideBegin = thrust::make_zip_iterator(thrust::make_tuple(splitDimensionBegin, event.kind.cbegin()));
+    auto eventSideBegin = thrust::make_zip_iterator(splitDimensionBegin, event.kind.cbegin());
 
     auto eventBegin = thrust::make_counting_iterator<U>(0);
 
@@ -44,7 +44,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     };
 
     auto polygonEventRightBegin = thrust::make_permutation_iterator(polygonEventRight.cbegin(), event.polygon.cbegin());
-    auto eventCounterpartBegin = thrust::make_zip_iterator(thrust::make_tuple(eventBegin, polygonEventRightBegin));
+    auto eventCounterpartBegin = thrust::make_zip_iterator(eventBegin, polygonEventRightBegin);
     using EventCounterpartType = IteratorValueType<decltype(eventCounterpartBegin)>;
     auto eventNodeOffsetBegin = thrust::make_transform_iterator(event.node.cbegin(), [layerBase] __host__ __device__(U eventNode) -> U {
         assert(!(eventNode < layerBase));

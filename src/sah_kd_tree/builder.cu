@@ -56,6 +56,10 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         auto pppp = thrust::make_pair(1, 2);
         auto cccc = thrust::complex<int>(1, 2);
         {
+            auto ppp = thrust::make_constant_iterator(100, 200);
+            std::cout << (void*)&ppp << std::endl;
+        }
+        {
             auto ppp = thrust::make_constant_iterator(123);
             std::cout << (void*)&ppp << std::endl;
         }
@@ -260,7 +264,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         z.setNodeCount(layerBase + layerSize);
         timer("setNodeCount");  // 0.174ms
 
-        auto nodeBboxBegin = thrust::make_zip_iterator(thrust::make_tuple(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin()));
+        auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = thrust::next(nodeBboxBegin, layerBasePrev);
         auto layerBboxEnd = thrust::next(nodeBboxBegin, layerBase);
         thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.nodeLeft.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);

@@ -21,7 +21,6 @@ else()
     set(CMAKE_CUDA_RUNTIME_LIBRARY STATIC)
 endif()
 
-set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
 find_package(CUDAToolkit REQUIRED)
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda")
@@ -78,7 +77,7 @@ if(BUILD_TESTING)
 endif()
 
 cmake_dependent_option(
-    BUILD_FUZZ
+    BUILD_FUZZER
     "Whether to build 'fuzzer' target"
     ON
     "CMAKE_CXX_COMPILER_ID STREQUAL Clang AND NOT THRUST_DEVICE_SYSTEM STREQUAL CUDA"

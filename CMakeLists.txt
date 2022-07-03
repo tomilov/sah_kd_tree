@@ -7,6 +7,8 @@ include(Utils)
 cmake_policy(SET CMP0127 NEW)
 include(CMakeDependentOption)
 
+cmake_policy(SET CMP0105 NEW) # link options for device link step
+
 add_subdirectory("src")
 
 option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)

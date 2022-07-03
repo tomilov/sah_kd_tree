@@ -4,7 +4,7 @@ with -fork=0 command line option
 ]]
 project("fuzzer")
 
-if(NOT BUILD_FUZZ)
+if(NOT BUILD_FUZZER)
     return()
 endif()
 

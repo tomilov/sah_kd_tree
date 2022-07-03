@@ -18,7 +18,7 @@ void sah_kd_tree::Projection::decoupleEventBoth(const thrust::device_vector<I> &
 
     auto splitDimensionBegin = thrust::make_permutation_iterator(nodeSplitDimension.cbegin(), event.node.cbegin());
     auto sideBegin = thrust::make_permutation_iterator(polygonSide.cbegin(), event.polygon.cbegin());
-    auto stencilBegin = thrust::make_zip_iterator(thrust::make_tuple(splitDimensionBegin, sideBegin));
+    auto stencilBegin = thrust::make_zip_iterator(splitDimensionBegin, sideBegin);
 
     auto & eventLeft = event.polygonCountLeft;
     assert(!(eventLeft.size() < eventCount));

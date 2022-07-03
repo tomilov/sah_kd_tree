@@ -126,7 +126,11 @@ def qdump__thrust__zip_iterator(d, value):
 
 
 def qdump__thrust__constant_iterator(d, value):
-    d.putItem(value['m_value'])
+    d.putValue(value['m_value'].value())
+    d.putExpandable()
+    if d.isExpanded():
+        with Children(d):
+            d.putSubItem('<iterator>', value['m_iterator'])
     d.putBetterType(value.type)
 
 

@@ -2,6 +2,10 @@
 #from gnuplot: call 'tools/plot/plot.plt' 'plan' 'data/fuzz/artifacts/crash-1234abcd'
 reset
 
+if ("x".ARG3 ne "x" && "x".ARG4 ne "x") {
+    set terminal qt size ARG3,ARG4
+}
+
 set table $params
     plot ARG2 binary format='%float32%float32%float32%uint32' record=1 using 1:2:3:4 with table
 unset table
@@ -77,8 +81,9 @@ if (ARG1 eq 'plan') {
     replot
 
     unset multiplot
-}
-if (ARG1 eq '3d') {
-    set view acos(1/sqrt(3)), 135, 0.97
-    splot '$data' using 1:2:3:(column(-2)) notitle with lines linecolor variable
+} else {
+	if (ARG1 eq '3d') {
+		set view acos(1/sqrt(3)), 135, 0.97
+		splot '$data' using 1:2:3:(column(-2)) notitle with lines linecolor variable
+	}
 }

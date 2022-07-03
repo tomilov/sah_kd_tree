@@ -42,13 +42,13 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
     layer.polygonCountRight.resize(layerSize);
     timer(" findPerfectSplit resize");  // 0.640ms
 
-    auto nodeLimitsBegin = thrust::make_zip_iterator(thrust::make_tuple(node.min.cbegin(), node.max.cbegin(), y.node.min.cbegin(), y.node.max.cbegin(), z.node.min.cbegin(), z.node.max.cbegin()));
+    auto nodeLimitsBegin = thrust::make_zip_iterator(node.min.cbegin(), node.max.cbegin(), y.node.min.cbegin(), y.node.max.cbegin(), z.node.min.cbegin(), z.node.max.cbegin());
     auto nodeBboxBegin = thrust::make_permutation_iterator(nodeLimitsBegin, event.node.cbegin());
     using NodeBboxType = IteratorValueType<decltype(nodeBboxBegin)>;
     auto splitEventBegin = thrust::make_counting_iterator<U>(0);
     auto polygonCount = thrust::make_permutation_iterator(nodePolygonCount.cbegin(), event.node.cbegin());
-    auto perfectSplitInputBegin = thrust::make_zip_iterator(thrust::make_tuple(nodeBboxBegin, event.pos.cbegin(), event.kind.cbegin(), splitEventBegin, polygonCount, event.polygonCountLeft.cbegin(), event.polygonCountRight.cbegin()));
-    auto perfectSplitBegin = thrust::make_zip_iterator(thrust::make_tuple(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin()));
+    auto perfectSplitInputBegin = thrust::make_zip_iterator(nodeBboxBegin, event.pos.cbegin(), event.kind.cbegin(), splitEventBegin, polygonCount, event.polygonCountLeft.cbegin(), event.polygonCountRight.cbegin());
+    auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
     using PerfectSplitType = IteratorValueType<decltype(perfectSplitOutputBegin)>;
     auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCount, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {

@@ -37,9 +37,9 @@ void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, Triangl
         component.a.resize(triangleCount);
         component.b.resize(triangleCount);
         component.c.resize(triangleCount);
-        return thrust::make_zip_iterator(thrust::make_tuple(component.a.begin(), component.b.begin(), component.c.begin()));
+        return thrust::make_zip_iterator(component.a.begin(), component.b.begin(), component.c.begin());
     };
-    auto transposedTriangleBegin = thrust::make_zip_iterator(thrust::make_tuple(transposeProjection(triangles.x), transposeProjection(triangles.y), transposeProjection(triangles.z)));
+    auto transposedTriangleBegin = thrust::make_zip_iterator(transposeProjection(triangles.x), transposeProjection(triangles.y), transposeProjection(triangles.z));
     using TransposedTriangleType = IteratorValueType<decltype(transposedTriangleBegin)>;
     auto transposeTriangle = [] __host__ __device__(const TriangleType & t) -> TransposedTriangleType { return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}}; };
     thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, transposeTriangle);

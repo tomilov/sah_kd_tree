@@ -10,7 +10,7 @@
 
 auto sah_kd_tree::Builder::getSplittedPolygonCount(U layerBase, U layerSize) -> U
 {
-    auto nodePolygonCountBegin = thrust::make_zip_iterator(thrust::make_tuple(node.splitDimension.cbegin(), node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin(), node.polygonCount.cbegin()));
+    auto nodePolygonCountBegin = thrust::make_zip_iterator(node.splitDimension.cbegin(), node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin(), node.polygonCount.cbegin());
     auto toSplittedPolygonCount = [] __host__ __device__(I splitDimension, U polygonCountLeft, U polygonCountRight, U polygonCount) -> U {
         if (splitDimension < 0) {
             return 0;
