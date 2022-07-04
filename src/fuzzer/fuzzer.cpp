@@ -65,10 +65,6 @@ struct Triangle
     }
 };
 
-using sah_kd_tree::Builder;
-using sah_kd_tree::Params;
-using sah_kd_tree::Tree;
-
 namespace
 {
 
@@ -292,10 +288,10 @@ struct TestInput
     static constexpr auto kTrianglesPerItem = kBoxWorld ? kBoxTriangleCount : 1;
     static constexpr auto kItemSize = sizeof(Triangle) * kTrianglesPerItem;
 
-    Params params;
+    sah_kd_tree::Params params;
     std::vector<Triangle> triangles;
 
-    static_assert(std::is_standard_layout_v<Params> && std::is_trivially_copyable_v<Params>, "!");
+    static_assert(std::is_standard_layout_v<sah_kd_tree::Params> && std::is_trivially_copyable_v<sah_kd_tree::Params>, "!");
     static_assert(std::is_standard_layout_v<Triangle> && std::is_trivially_copyable_v<Triangle>, "!");
 
     void generate(size_t triangleCount = kTrianglesPerItem)
@@ -333,10 +329,10 @@ struct TestInput
 
     bool read(const uint8_t * data, size_t size)
     {
-        if (size < sizeof(Params) + kItemSize) {
+        if (size < sizeof(sah_kd_tree::Params) + kItemSize) {
             return false;
         }
-        if (((size - sizeof(Params)) % kItemSize) != 0) {
+        if (((size - sizeof(sah_kd_tree::Params)) % kItemSize) != 0) {
             return false;
         }
 
@@ -734,7 +730,7 @@ extern "C"
             std::exit(EXIT_FAILURE);
         }
 
-        const auto maxLen = sizeof(Params) + kMaxTriangleCount * sizeof(Triangle);
+        const auto maxLen = sizeof(sah_kd_tree::Params) + kMaxTriangleCount * sizeof(Triangle);
         auto [p, ec] = std::to_chars(std::next(std::begin(maxLenOption), std::strlen(maxLenOption)), std::end(maxLenOption), maxLen);
         if (ec != std::errc{}) {
             std::exit(EXIT_FAILURE);
@@ -793,22 +789,10 @@ extern "C"
         sah_kd_tree::helpers::Triangles triangles;
         sah_kd_tree::helpers::setTriangles(triangles, std::cbegin(testInput.triangles), std::cend(testInput.triangles));
 
-        Builder builder;
-        {
-            builder.triangleCount = triangles.triangleCount;
+        sah_kd_tree::Builder builder;
+        sah_kd_tree::helpers::linkTriangles(builder, triangles);
 
-            builder.x.triangle.a = triangles.x.a.data();
-            builder.x.triangle.b = triangles.x.c.data();
-            builder.x.triangle.c = triangles.x.b.data();
-            builder.y.triangle.a = triangles.y.a.data();
-            builder.y.triangle.b = triangles.y.c.data();
-            builder.y.triangle.c = triangles.y.b.data();
-            builder.z.triangle.a = triangles.z.a.data();
-            builder.z.triangle.b = triangles.z.c.data();
-            builder.z.triangle.c = triangles.z.b.data();
-        }
-
-        Tree tree = builder(testInput.params);
+        sah_kd_tree::Tree tree = builder(testInput.params);
         if (std::size(testInput.triangles) < tree.depth) {
             std::abort();
         }

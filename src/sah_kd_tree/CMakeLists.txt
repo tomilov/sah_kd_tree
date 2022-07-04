@@ -26,7 +26,8 @@ target_sources(
         "set_node_count.cu"
         "split_node.cu"
         "builder.cu"
-        "helpers/setup.cuh")
+        "helpers/setup.cuh"
+        "helpers/setup.cu")
 target_link_libraries(
     "${PROJECT_NAME}"
     PUBLIC
