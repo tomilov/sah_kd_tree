@@ -25,16 +25,13 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
     auto nodeBegin = thrust::make_zip_iterator(nodeSplitDimension.cbegin(), nodeSplitPos.cbegin());
     auto polygonNodeBegin = thrust::make_permutation_iterator(nodeBegin, polygonNode.cbegin());
     auto triangleBegin = thrust::make_zip_iterator(triangle.a, triangle.b, triangle.c, y.triangle.a, y.triangle.b, y.triangle.c, z.triangle.a, z.triangle.b, z.triangle.c);
-    //auto triangleBegin = thrust::make_zip_iterator(triangle.a.cbegin(), triangle.b.cbegin(), triangle.c.cbegin(), y.triangle.a.cbegin(), y.triangle.b.cbegin(), y.triangle.c.cbegin(), z.triangle.a.cbegin(), z.triangle.b.cbegin(), z.triangle.c.cbegin());
     auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygonTriangle.cbegin());
     auto polygonBegin = thrust::make_zip_iterator(polygonNodeBegin, polygonTriangleBegin);
     using PolygonType = IteratorValueType<decltype(polygonBegin)>;
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
-    I yDimension = ((dimension + 1) % 3);
-    I zDimension = ((dimension + 2) % 3);
-    auto toSplittedPolygon = [dimension, yDimension, zDimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
+    auto toSplittedPolygon = [dimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
         const auto & polygonNode = thrust::get<0>(polygon);
@@ -49,12 +46,12 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
 
         const auto & triangle = thrust::get<1>(polygon);
         F a, b, c;
-        if (nodeSplitDimension == yDimension) {
+        if (nodeSplitDimension == ((dimension + 1) % 3)) {
             a = thrust::get<3>(triangle);
             b = thrust::get<4>(triangle);
             c = thrust::get<5>(triangle);
         } else {
-            assert(nodeSplitDimension == zDimension);
+            assert(nodeSplitDimension == ((dimension + 2) % 3));
             a = thrust::get<6>(triangle);
             b = thrust::get<7>(triangle);
             c = thrust::get<8>(triangle);

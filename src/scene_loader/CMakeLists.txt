@@ -1,9 +1,14 @@
 project("scene_loader")
 
-add_library("${PROJECT_NAME}")
-generate_export_header("${PROJECT_NAME}")
+add_library("lib${PROJECT_NAME}")
+set_target_properties(
+    "lib${PROJECT_NAME}"
+    PROPERTIES
+        LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
+        ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
+generate_export_header("lib${PROJECT_NAME}")
 target_sources(
-    "${PROJECT_NAME}"
+    "lib${PROJECT_NAME}"
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
@@ -11,7 +16,7 @@ target_sources(
         "assimp_wrappers.hpp"
         "assimp_wrappers.cpp")
 target_link_libraries(
-    "${PROJECT_NAME}"
+    "lib${PROJECT_NAME}"
     PRIVATE
         assimp::assimp
     PUBLIC

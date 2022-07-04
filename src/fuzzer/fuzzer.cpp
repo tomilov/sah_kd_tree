@@ -68,7 +68,7 @@ struct Triangle
 namespace
 {
 
-constexpr bool kBoxWorld = false;
+constexpr bool kBoxWorld = true;
 constexpr size_t kBoxTriangleCount = 12;
 constexpr size_t kMaxTriangleCount = kBoxTriangleCount * 6;  // 2082 low poly deer
 static_assert(!kBoxWorld || ((kMaxTriangleCount % kBoxTriangleCount) == 0));
@@ -395,7 +395,7 @@ struct TestInput
 
     size_t write(uint8_t * data, size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
     {
-        assert(!(maxSize < sizeof(Params) + kItemSize));
+        assert(!(maxSize < sizeof(sah_kd_tree::Params) + kItemSize));
         assert(checkItems(std::cbegin(triangles), std::cend(triangles)));
 
         size_t size = 0;

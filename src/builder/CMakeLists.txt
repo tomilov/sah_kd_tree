@@ -1,7 +1,11 @@
 project("builder")
 
 add_library("lib${PROJECT_NAME}")
-set_property(TARGET "lib${PROJECT_NAME}" PROPERTY LIBRARY_OUTPUT_NAME "${PROJECT_NAME}")
+set_target_properties(
+    "lib${PROJECT_NAME}"
+    PROPERTIES
+        LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
+        ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
 generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
 target_sources(
     "lib${PROJECT_NAME}"
@@ -14,8 +18,8 @@ target_sources(
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "sah_kd_tree"
-        "scene_loader"
+        "libsah_kd_tree"
+        "libscene_loader"
     PUBLIC
         Qt6::Core)
 

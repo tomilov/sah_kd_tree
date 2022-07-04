@@ -4,7 +4,7 @@ ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 BUILD_DIR ?= "/tmp/build-sah_kd_tree"
 NPROC ?= $(shell nproc)
 FUZZ_FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
-FUZZ_DURATION ?= 30
+FUZZ_DURATION ?= 0
 
 # format: "800 600"
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | awk -F x '{ print $$1, $$2 }')
@@ -48,7 +48,6 @@ fuzz:
 		--target fuzzer
 	@tools/fuzz/fuzzer \
 		-fork=$(FUZZ_FORK) \
-		-use_value_profile=1 \
 		-rss_limit_mb=512 \
 		-timeout=30 \
 		-report_slow_units=30 \
@@ -62,6 +61,17 @@ fuzz:
 		-prefer_small=1 \
 		-artifact_prefix="$(ROOT_DIR)/data/fuzz/artifacts/" \
 		"$(ROOT_DIR)/data/fuzz/CORPUS/" \
+		"$(ROOT_DIR)/data/fuzz/artifacts/"
+
+.PHONY: fuzz-merge
+fuzz-merge:
+	@nice cmake --build "$(BUILD_DIR)" \
+		--parallel $(NPROC) \
+		--target fuzzer
+	@tools/fuzz/fuzzer \
+		-fork=$(FUZZ_FORK) \
+		-merge=1 \
+		"$(ROOT_DIR)/data/fuzz/CORPUS"*/ \
 		"$(ROOT_DIR)/data/fuzz/artifacts/"
 
 .PHONY: plan 3d

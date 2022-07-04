@@ -1,9 +1,14 @@
 project("sah_kd_tree")
 
-add_library("${PROJECT_NAME}")
-generate_export_header("${PROJECT_NAME}")
+add_library("lib${PROJECT_NAME}")
+set_target_properties(
+    "lib${PROJECT_NAME}"
+    PROPERTIES
+        LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
+        ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
+generate_export_header("lib${PROJECT_NAME}")
 target_sources(
-    "${PROJECT_NAME}"
+    "lib${PROJECT_NAME}"
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
@@ -29,7 +34,24 @@ target_sources(
         "helpers/setup.cuh"
         "helpers/setup.cu")
 target_link_libraries(
-    "${PROJECT_NAME}"
+    "lib${PROJECT_NAME}"
     PUBLIC
-        CUDA::toolkit
         Thrust)
+if(BUILD_FUZZER)
+    target_compile_options(
+        "lib${PROJECT_NAME}"
+        PRIVATE
+            "-fsanitize=fuzzer-no-link")
+    target_link_options(
+        "lib${PROJECT_NAME}"
+        PRIVATE
+            "-fsanitize=fuzzer-no-link")
+    target_link_directories(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            "/usr/lib/clang/${CMAKE_CXX_COMPILER_VERSION}/lib/linux/")
+    target_link_libraries(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            "clang_rt.fuzzer_no_main-${CMAKE_SYSTEM_PROCESSOR}")
+endif()
