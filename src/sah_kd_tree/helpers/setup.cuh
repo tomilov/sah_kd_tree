@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sah_kd_tree/sah_kd_tree.cuh>
 #include <sah_kd_tree/sah_kd_tree_export.h>
 #include <sah_kd_tree/types.cuh>
 #include <sah_kd_tree/utility.cuh>

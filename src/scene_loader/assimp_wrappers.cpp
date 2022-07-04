@@ -192,11 +192,11 @@ Assimp::IOStream * AssimpIOSystem::Open(const char * pFile, const char * pMode)
 
     const QIODevice::OpenMode openMode = openModeMap.value(cleanedMode, QIODevice::NotOpen);
 
-    QScopedPointer<QFile> file{new QFile(fileName)};
+    std::unique_ptr<QFile> file{new QFile(fileName)};
     if (!file->open(openMode)) {
         return {};
     }
-    return new AssimpIOStream{file.take()};
+    return new AssimpIOStream{file.release()};
 }
 
 void AssimpIOSystem::Close(Assimp::IOStream * pFile)

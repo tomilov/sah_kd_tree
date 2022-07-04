@@ -23,32 +23,29 @@ cmake:
 		-DTHRUST_DEVICE_SYSTEM=CPP
 
 .PHONY: build
-build: cmake
+build:
 	@nice cmake --build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
-		--target all \
-		--config release
+		--target all
 
-.PHONY: rebuild
+.PHONY:
 rebuild: cmake
 	@nice cmake --build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
 		--target all \
-		--clean-first \
-		--config release
+		--clean-first
 
 .PHONY: clean
-clean: cmake
+clean:
 	@nice cmake --build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
 		--target clean
 
 .PHONY: fuzz
-fuzz: build
+fuzz:
 	@nice cmake --build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
-		--target fuzzer \
-		--config release
+		--target fuzzer
 	@tools/fuzz/fuzzer \
 		-fork=$(FUZZ_FORK) \
 		-use_value_profile=1 \

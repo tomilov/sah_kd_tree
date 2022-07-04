@@ -7,7 +7,7 @@
 
 #include <thrust/device_vector.h>
 
-#include <QDebug>
+#include <QtCore>
 
 namespace builder
 {
@@ -16,7 +16,8 @@ Q_LOGGING_CATEGORY(builderLog, "builder")
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
     scene_loader::SceneLoader sceneLoader;
-    if (!sceneLoader.load(sceneFileName)) {
+    QFileInfo sceneFileInfo{sceneFileName};
+    if (!sceneLoader.load(sceneFileInfo)) {
         return false;
     }
     auto trianglesBegin = std::data(sceneLoader.triangles);
@@ -27,7 +28,8 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
 bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
     scene_loader::SceneLoader sceneLoader;
-    if (!sceneLoader.cachingLoad(sceneFileName, cachePath)) {
+    QFileInfo sceneFileInfo{sceneFileName};
+    if (!sceneLoader.cachingLoad(sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
         return false;
     }
     auto trianglesBegin = std::data(sceneLoader.triangles);

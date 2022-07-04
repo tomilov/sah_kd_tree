@@ -226,7 +226,7 @@ void sortItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator en
                 return std::lexicographical_compare(lhsBeg, lhsEnd, rhsBeg, rhsEnd);
             };
             std::sort(std::begin(boxes), std::end(boxes), boxLess);
-            for (size_t i = 0; i < boxes.size(); ++i) {
+            for (size_t i = 0; i < std::size(boxes); ++i) {
                 for (size_t j = i; j != boxes[j]; std::swap(j, boxes[j])) {
                     auto lhsBeg = std::next(beg, j * kBoxTriangleCount);
                     auto lhsEnd = std::next(lhsBeg, kBoxTriangleCount);
@@ -309,11 +309,11 @@ struct TestInput
 
         triangles.reserve(triangleCount);
         triangles.clear();
-        while (triangles.size() < triangleCount) {
-            if (triangles.size() + kBoxTriangleCount <= triangleCount) {  // add AA paralellotope
+        while (std::size(triangles) < triangleCount) {
+            if (std::size(triangles) + kBoxTriangleCount <= triangleCount) {  // add AA paralellotope
                 generateBox(std::back_inserter(triangles));
                 assert(std::is_sorted(std::prev(std::cend(triangles), kBoxTriangleCount), std::cend(triangles)));
-            } else if (triangles.size() + 4 <= triangleCount) {  // add tetrahedron
+            } else if (std::size(triangles) + 4 <= triangleCount) {  // add tetrahedron
                 assert(!kBoxWorld);
                 Vertex v[4];
                 for (Vertex & vertex : v) {
@@ -426,7 +426,7 @@ struct TestInput
             }
             assert(((size - sizeof params) % kItemSize) == 0);
         } else {
-            const auto chunkSize = triangles.size() * sizeof(Triangle);
+            const auto chunkSize = std::size(triangles) * sizeof(Triangle);
             std::memcpy(data, std::data(triangles), chunkSize);
             data += chunkSize;  // NOLINT(clang-analyzer-deadcode.DeadStores)
             size += chunkSize;
@@ -439,7 +439,7 @@ struct TestInput
     {
         assert(!kBoxWorld);
         if (kSortItems) {
-            INVARIANT(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
+            assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
         }
         const auto getTriangle = [this] {
             assert(!std::empty(triangles));
@@ -602,8 +602,8 @@ struct TestInput
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex {
             const Vertex * vertices[] = {&box[0].a, &box[0].b, &box[2].b, &box[2].c, &box[4].b, &box[4].c, &box[5].c, &box[6].c};
-            //[[maybe_unused]] const auto vertexLess = [](auto l, auto r) { return *l < *r; };
-            // assert(std::adjacent_find(std::cbegin(vertices), std::cend(vertices), std::not_fn(vertexLess)) == std::cend(vertices));  // fair only for non-degenerate boxes
+            [[maybe_unused]] const auto vertexLess = [](auto l, auto r) { return *l < *r; };
+            assert(std::adjacent_find(std::cbegin(vertices), std::cend(vertices), std::not_fn(vertexLess)) == std::cend(vertices));
             if (anchor) {
                 std::shuffle(std::begin(vertices), std::end(vertices), gen);
                 for (auto v : vertices) {
@@ -692,7 +692,7 @@ struct TestInput
         if (kBoxWorld) {
             allTriangles.reserve((std::size(triangles) + std::size(testInput.triangles)));
             std::vector<typename decltype(triangles)::const_iterator> mergedItems;
-            mergedItems.reserve((triangles.size() + testInput.triangles.size()) / kTrianglesPerItem);
+            mergedItems.reserve((std::size(triangles) + std::size(testInput.triangles)) / kTrianglesPerItem);
             for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, kTrianglesPerItem)) {
                 mergedItems.push_back(t);
             }

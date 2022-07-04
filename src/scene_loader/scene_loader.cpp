@@ -136,7 +136,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     return true;
 }
 
-QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo, QString cachePath)
+QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
 {
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
@@ -148,7 +148,7 @@ QFileInfo SceneLoader::getCacheEntryFileInfo(QFileInfo sceneFileInfo, QString ca
         return {};
     }
     QFileInfo cacheEntryFileInfo;
-    cacheEntryFileInfo.setFile(cachePath.isEmpty() ? QDir::temp() : cachePath, QString::fromUtf8(cryptographicHash.result().toHex()).append(".triangle"));
+    cacheEntryFileInfo.setFile(cacheDir, QString::fromUtf8(cryptographicHash.result().toHex()).append(".triangle"));
     return cacheEntryFileInfo;
 }
 
@@ -209,16 +209,19 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     return true;
 }
 
-bool SceneLoader::cachingLoad(QString fileName, QString cachePath)
+bool SceneLoader::cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir)
 {
-    QFileInfo sceneFileInfo{fileName};
     if (!sceneFileInfo.exists()) {
         qCCritical(sceneLoaderLog) << QStringLiteral("File %1 does not exist").arg(sceneFileInfo.fileName());
         return false;
     }
-    QFileInfo cacheEntryFileInfo = getCacheEntryFileInfo(fileName, cachePath);
+    if (!cacheDir.exists()) {
+        qCCritical(sceneLoaderLog) << QStringLiteral("Dir %1 does not exist").arg(cacheDir.path());
+        return false;
+    }
+    QFileInfo cacheEntryFileInfo = getCacheEntryFileInfo(sceneFileInfo, cacheDir);
     if (cacheEntryFileInfo.exists()) {
-        qCInfo(sceneLoaderLog) << QStringLiteral("triangles file for scene %1 exists").arg(fileName);
+        qCInfo(sceneLoaderLog) << QStringLiteral("triangles file for scene %1 exists").arg(sceneFileInfo.filePath());
         return loadFromCache(cacheEntryFileInfo);
     }
     if (!load(sceneFileInfo)) {

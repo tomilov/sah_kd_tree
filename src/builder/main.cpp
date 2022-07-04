@@ -35,7 +35,7 @@ int main(int argc, char * argv[])
     const auto buildTree = [&] {
         QString cachePath = commandLineParser.value(cachePathOption);
         const QStringList args = commandLineParser.positionalArguments();
-        if (args.size() < 1) {
+        if (args.count() < 1) {
             return QCoreApplication::exit(2);
         }
         bool ok = false;

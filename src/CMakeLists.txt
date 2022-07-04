@@ -49,10 +49,9 @@ set_target_properties(
         MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
 find_package(
-    Qt5
-    COMPONENTS
-        Core
-    REQUIRED)
+    Qt6
+    REQUIRED COMPONENTS
+        Core)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)

@@ -6,7 +6,6 @@
 
 namespace scene_loader
 {
-
 struct SCENE_LOADER_EXPORT Vertex
 {
     float x, y, z;
@@ -26,5 +25,4 @@ struct SCENE_LOADER_EXPORT Triangle
         return std::tie(a, b, c) < std::tie(rhs.a, rhs.b, rhs.c);
     }
 };
-
 }  // namespace scene_loader

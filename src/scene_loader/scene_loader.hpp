@@ -15,12 +15,12 @@ struct SCENE_LOADER_EXPORT SceneLoader
 {
     bool load(QFileInfo sceneFileInfo);
 
-    QFileInfo getCacheEntryFileInfo(QFileInfo sceneFileInfo, QString cachePath);
+    QFileInfo getCacheEntryFileInfo(QFileInfo sceneFileInfo, QDir cacheDir);
 
     bool loadFromCache(QFileInfo cacheEntryFileInfo);
     bool storeToCache(QFileInfo cacheEntryFileInfo);
 
-    bool cachingLoad(QString fileName, QString cachePath);
+    bool cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir);
 
     QVector<Triangle> triangles;
 };

@@ -17,7 +17,7 @@ target_link_libraries(
         "sah_kd_tree"
         "scene_loader"
     PUBLIC
-        Qt5::Core)
+        Qt6::Core)
 
 add_executable("${PROJECT_NAME}")
 target_sources(
