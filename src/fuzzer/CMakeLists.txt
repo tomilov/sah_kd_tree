@@ -12,11 +12,14 @@ add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"
     PRIVATE
+        "${PROJECT_NAME}.hpp"
+        "${PROJECT_NAME}.cu"
         "${PROJECT_NAME}.cpp")
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
-        "libsah_kd_tree")
+        "libsah_kd_tree"
+        fmt::fmt)
 target_compile_options(
     "${PROJECT_NAME}"
     PRIVATE
@@ -26,13 +29,11 @@ target_link_options(
     PRIVATE
         "-fsanitize=fuzzer")
 
-if(UNIX)
-    add_custom_command(
-        TARGET
-            "${PROJECT_NAME}"
-        POST_BUILD
-        COMMAND
-            "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_SOURCE_DIR}/tools/fuzz/fuzzer"
-        COMMENT
-            "Created symlink to fuzzer")
-endif()
+add_custom_command(
+    TARGET
+        "${PROJECT_NAME}"
+    POST_BUILD
+    COMMAND
+        "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_SOURCE_DIR}/tools/fuzz/fuzzer"
+    COMMENT
+        "Created symlink to fuzzer")

@@ -53,5 +53,5 @@ if(BUILD_FUZZER)
     target_link_libraries(
         "lib${PROJECT_NAME}"
         PUBLIC
-            "clang_rt.fuzzer_no_main-${CMAKE_SYSTEM_PROCESSOR}")
+            "clang_rt.fuzzer_no_main-${CMAKE_SYSTEM_PROCESSOR}")  # not needed for 'fuzzer' target, but works fine
 endif()

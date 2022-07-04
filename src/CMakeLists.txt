@@ -69,6 +69,8 @@ add_compile_definitions(
 
 add_compile_definitions(QT_MESSAGELOGCONTEXT)
 
+find_package(fmt REQUIRED)
+
 include(CTest)
 if(BUILD_TESTING)
     find_package(GTest REQUIRED)
@@ -80,7 +82,6 @@ cmake_dependent_option(
     "Whether to build 'fuzzer' target"
     ON
     "CMAKE_CXX_COMPILER_ID STREQUAL Clang
-    AND NOT THRUST_DEVICE_SYSTEM STREQUAL CUDA
     AND NOT (
         CMAKE_BUILD_TYPE STREQUAL Release
         OR CMAKE_BUILD_TYPE STREQUAL MinSizeRel)"

@@ -1,88 +1,46 @@
-#include <sah_kd_tree/helpers/setup.cuh>
-#include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/types.cuh>
+#include <fuzzer/fuzzer.hpp>
+
+#include <fmt/color.h>
+#include <fmt/format.h>
 
 #include <algorithm>
 #include <array>
 #include <bitset>
 #include <charconv>
-#include <cmath>
-#include <cstdint>
-#include <cstring>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <numeric>
-#include <optional>
 #include <random>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <cassert>
-#include <cstdlib>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 
-#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
-#error "CUDA backend is not supported"
-#endif
+using namespace std::rel_ops;
 
-#define INVARIANT(condition)            \
-    {                                   \
-        if (!(condition)) std::abort(); \
-    }
-
-using sah_kd_tree::F;
-using sah_kd_tree::I;
-using sah_kd_tree::U;
-
-struct Vertex
+namespace fuzzer
 {
-    F x, y, z;
-
-    bool operator<(const Vertex & rhs) const
-    {
-        return std::tie(x, y, z) < std::tie(rhs.x, rhs.y, rhs.z);
-    }
-
-    bool operator==(const Vertex & rhs) const  // legal for non-calculated floating-point values
-    {
-        return std::tie(x, y, z) == std::tie(rhs.x, rhs.y, rhs.z);
-    }
-};
-
-struct Triangle
-{
-    Vertex a, b, c;
-
-    bool operator<(const Triangle & rhs) const
-    {
-        return std::tie(a, b, c) < std::tie(rhs.a, rhs.b, rhs.c);
-    }
-
-    bool operator==(const Triangle & rhs) const
-    {
-        return std::tie(a, b, c) == std::tie(rhs.a, rhs.b, rhs.c);
-    }
-};
-
 namespace
 {
-
-constexpr bool kBoxWorld = true;
 constexpr size_t kBoxTriangleCount = 12;
-constexpr size_t kMaxTriangleCount = kBoxTriangleCount * 6;  // 2082 low poly deer
-static_assert(!kBoxWorld || ((kMaxTriangleCount % kBoxTriangleCount) == 0));
-
-constexpr bool kSortItems = false;
 
 constexpr int kIntBboxSize = 10;
-constexpr bool kFuzzIntegerCoordinate = false;
+constexpr bool kFuzzIntegerCoordinate = true;
 
 constexpr int kFloatDigits = std::numeric_limits<F>::digits;
 
 using RandomValueType = typename std::mt19937::result_type;
 using UniformIntDistribution = std::uniform_int_distribution<>;
 using UniformIntParam = typename UniformIntDistribution::param_type;
+
+bool boxWorld = false;
 
 std::mt19937 gen;                   // clazy:exclude=non-pod-global-static
 UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
@@ -137,16 +95,14 @@ void genTriangle(Triangle & triangle)
     genVertex(b);
     genVertex(c);
 
-    if (kSortItems) {
-        if (b < a) {
-            std::swap(a, b);
-        }
-        if (c < a) {
-            std::swap(a, c);
-        }
-        if (c < b) {
-            std::swap(b, c);
-        }
+    if (b < a) {
+        std::swap(a, b);
+    }
+    if (c < a) {
+        std::swap(a, c);
+    }
+    if (c < b) {
+        std::swap(b, c);
     }
 }
 
@@ -201,47 +157,9 @@ TriangleOutputIterator generateBox(TriangleOutputIterator out)
 }
 
 template<typename TriangleRandomAccessIterator>
-void sortItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator end)
-{
-    if (kBoxWorld) {
-        assert((std::distance(beg, end) % kBoxTriangleCount) == 0);
-#ifndef NDEBUG
-        for (auto box = beg; box != end; std::advance(box, kBoxTriangleCount)) {
-            assert(std::is_sorted(box, std::next(box, kBoxTriangleCount)));
-        }
-#endif
-        if (kSortItems) {
-            size_t boxCount = size_t(std::distance(beg, end)) / kBoxTriangleCount;
-            std::vector<size_t> boxes(boxCount);
-            std::iota(std::begin(boxes), std::end(boxes), 0);
-            const auto boxLess = [beg](size_t lhs, size_t rhs) -> bool {
-                auto lhsBeg = std::next(beg, lhs * kBoxTriangleCount);
-                auto lhsEnd = std::next(lhsBeg, kBoxTriangleCount);
-                auto rhsBeg = std::next(beg, rhs * kBoxTriangleCount);
-                auto rhsEnd = std::next(rhsBeg, kBoxTriangleCount);
-                return std::lexicographical_compare(lhsBeg, lhsEnd, rhsBeg, rhsEnd);
-            };
-            std::sort(std::begin(boxes), std::end(boxes), boxLess);
-            for (size_t i = 0; i < std::size(boxes); ++i) {
-                for (size_t j = i; j != boxes[j]; std::swap(j, boxes[j])) {
-                    auto lhsBeg = std::next(beg, j * kBoxTriangleCount);
-                    auto lhsEnd = std::next(lhsBeg, kBoxTriangleCount);
-                    auto rhsBeg = std::next(beg, boxes[j] * kBoxTriangleCount);
-                    std::swap_ranges(lhsBeg, lhsEnd, rhsBeg);
-                }
-            }
-        }
-    } else {
-        if (kSortItems) {
-            std::sort(beg, end);
-        }
-    }
-}
-
-template<typename TriangleRandomAccessIterator>
 bool checkItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator end)
 {
-    if (kBoxWorld) {
+    if (boxWorld) {
         assert((std::distance(beg, end) % kBoxTriangleCount) == 0);
         for (auto box = beg; box != end; std::advance(box, kBoxTriangleCount)) {
             if (!std::is_sorted(box, std::next(box, kBoxTriangleCount))) {
@@ -258,46 +176,38 @@ bool checkItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator e
                 return false;
             }
         }
-        if (kSortItems) {
-            size_t boxCount = size_t(std::distance(beg, end)) / kBoxTriangleCount;
-            std::vector<size_t> boxes(boxCount);
-            std::iota(std::begin(boxes), std::end(boxes), 0);
-            const auto boxLess = [beg](size_t lhs, size_t rhs) -> bool {
-                auto lhsBeg = std::next(beg, lhs * kBoxTriangleCount);
-                auto lhsEnd = std::next(lhsBeg, kBoxTriangleCount);
-                auto rhsBeg = std::next(beg, rhs * kBoxTriangleCount);
-                auto rhsEnd = std::next(rhsBeg, kBoxTriangleCount);
-                return std::lexicographical_compare(lhsBeg, lhsEnd, rhsBeg, rhsEnd);
-            };
-            if (!std::is_sorted(std::begin(boxes), std::end(boxes), boxLess)) {
-                return false;
-            }
-        }
-    } else {
-        if (kSortItems) {
-            if (!std::is_sorted(beg, end)) {
-                return false;
-            }
-        }
     }
     return true;
 }
 
+
+size_t trianglesPerItem()
+{
+    return boxWorld ? kBoxTriangleCount : 1;
+}
+
+size_t itemSize()
+{
+    return sizeof(Triangle) * trianglesPerItem();
+}
+
+const char * primitiveName()
+{
+    return boxWorld ? "boxes" : "triangles";
+}
+
 struct TestInput
 {
-    static constexpr auto kTrianglesPerItem = kBoxWorld ? kBoxTriangleCount : 1;
-    static constexpr auto kItemSize = sizeof(Triangle) * kTrianglesPerItem;
-
-    sah_kd_tree::Params params;
+    Params params;
     std::vector<Triangle> triangles;
 
-    static_assert(std::is_standard_layout_v<sah_kd_tree::Params> && std::is_trivially_copyable_v<sah_kd_tree::Params>, "!");
+    static_assert(std::is_standard_layout_v<Params> && std::is_trivially_copyable_v<Params>, "!");
     static_assert(std::is_standard_layout_v<Triangle> && std::is_trivially_copyable_v<Triangle>, "!");
 
-    void generate(size_t triangleCount = kTrianglesPerItem)
+    void generate(size_t triangleCount = trianglesPerItem())
     {
         assert(0 < triangleCount);
-        assert((triangleCount % kTrianglesPerItem) == 0);
+        assert((triangleCount % trianglesPerItem()) == 0);
         params.emptinessFactor = genFloat();
         params.traversalCost = genFloat();
         params.intersectionCost = genFloat();
@@ -310,7 +220,7 @@ struct TestInput
                 generateBox(std::back_inserter(triangles));
                 assert(std::is_sorted(std::prev(std::cend(triangles), kBoxTriangleCount), std::cend(triangles)));
             } else if (std::size(triangles) + 4 <= triangleCount) {  // add tetrahedron
-                assert(!kBoxWorld);
+                assert(!boxWorld);
                 Vertex v[4];
                 for (Vertex & vertex : v) {
                     genVertex(vertex);
@@ -320,19 +230,18 @@ struct TestInput
                 triangles.push_back({v[3], v[0], v[1]});
                 triangles.push_back({v[0], v[1], v[2]});
             } else {
-                assert(!kBoxWorld);
+                assert(!boxWorld);
                 triangles.emplace_back(genTriangle());
             }
         }
-        sortItems(std::begin(triangles), std::end(triangles));
     }
 
     bool read(const uint8_t * data, size_t size)
     {
-        if (size < sizeof(sah_kd_tree::Params) + kItemSize) {
+        if (size < sizeof(Params) + itemSize()) {
             return false;
         }
-        if (((size - sizeof(sah_kd_tree::Params)) % kItemSize) != 0) {
+        if (((size - sizeof(Params)) % itemSize()) != 0) {
             return false;
         }
 
@@ -395,7 +304,7 @@ struct TestInput
 
     size_t write(uint8_t * data, size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
     {
-        assert(!(maxSize < sizeof(sah_kd_tree::Params) + kItemSize));
+        assert(!(maxSize < sizeof(Params) + itemSize()));
         assert(checkItems(std::cbegin(triangles), std::cend(triangles)));
 
         size_t size = 0;
@@ -404,23 +313,20 @@ struct TestInput
         data += sizeof params;
         size += sizeof params;
 
-        if (const size_t maxItemCount = (maxSize - size) / kItemSize; maxItemCount < std::size(triangles) / kTrianglesPerItem) {
+        if (const size_t maxItemCount = (maxSize - size) / itemSize(); maxItemCount < std::size(triangles) / trianglesPerItem()) {
             std::vector<typename decltype(triangles)::const_iterator> servived;
-            servived.reserve(std::size(triangles) / kTrianglesPerItem);
-            for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, kTrianglesPerItem)) {
+            servived.reserve(std::size(triangles) / trianglesPerItem());
+            for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, trianglesPerItem())) {
                 servived.push_back(t);
             }
             std::shuffle(std::begin(servived), std::end(servived), gen);
             servived.resize(maxItemCount);
-            if (kSortItems) {
-                std::sort(std::begin(servived), std::end(servived));
-            }
             for (auto t : servived) {
-                std::memcpy(data, &*t, kItemSize);
-                data += kItemSize;
-                size += kItemSize;
+                std::memcpy(data, &*t, itemSize());
+                data += itemSize();
+                size += itemSize();
             }
-            assert(((size - sizeof params) % kItemSize) == 0);
+            assert(((size - sizeof params) % itemSize()) == 0);
         } else {
             const auto chunkSize = std::size(triangles) * sizeof(Triangle);
             std::memcpy(data, std::data(triangles), chunkSize);
@@ -433,29 +339,13 @@ struct TestInput
 
     void mutateTriangles(ptrdiff_t action)
     {
-        assert(!kBoxWorld);
-        if (kSortItems) {
-            assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
-        }
+        assert(!boxWorld);
         const auto getTriangle = [this] {
             assert(!std::empty(triangles));
             return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
         };
-        const auto adjustTriangle = [](auto beg, auto mid, auto end) {
-            if ((mid != beg) && (*mid < *std::prev(mid))) {
-                return std::rotate(std::upper_bound(beg, mid, *mid), mid, std::next(mid));
-            } else if ((std::next(mid) != end) && (*std::next(mid) < *mid)) {
-                return std::rotate(mid, std::next(mid), std::upper_bound(std::next(mid), end, *mid));
-            } else {
-                return mid;
-            }
-        };
         const auto mutateTriangle = [&](auto t) {
             genTriangle(*t);
-            if (kSortItems) {
-                adjustTriangle(std::begin(triangles), t, std::end(triangles));
-                assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
-            }
         };
         switch (action) {
         case 0: {
@@ -473,12 +363,8 @@ struct TestInput
         case 3: {  // Remove triangle.
             if (std::size(triangles) > 1) {
                 const auto t = getTriangle();
-                if (kSortItems) {
-                    triangles.erase(t);
-                } else {
-                    std::iter_swap(t, std::prev(std::end(triangles)));
-                    triangles.pop_back();
-                }
+                std::iter_swap(t, std::prev(std::end(triangles)));
+                triangles.pop_back();
             } else {
                 mutateTriangle(std::begin(triangles));
             }
@@ -521,10 +407,6 @@ struct TestInput
                 if (!singleComponent) {
                     a->*y = b->*y;
                 }
-            }
-            if (kSortItems) {
-                adjustTriangle(std::begin(triangles), t, std::end(triangles));
-                assert(std::is_sorted(std::cbegin(triangles), std::cend(triangles)));
             }
             break;
         }
@@ -576,10 +458,6 @@ struct TestInput
                 }
                 dstTriangle->*(vertices[(d + 1) % 3]) = srcTriangle->*(vertices[(s + 1) % 3]);
             }
-
-            if (kSortItems) {
-                std::sort(std::begin(triangles), std::end(triangles));
-            }
             break;
         }
         default: {
@@ -590,7 +468,7 @@ struct TestInput
 
     void mutateBoxes(ptrdiff_t action)
     {
-        assert(kBoxWorld);
+        assert(boxWorld);
         const auto getBox = [this] {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
@@ -603,7 +481,7 @@ struct TestInput
             if (anchor) {
                 std::shuffle(std::begin(vertices), std::end(vertices), gen);
                 for (auto v : vertices) {
-                    if (((v->x < anchor->x) || (anchor->x < v->x)) && ((v->y < anchor->y) || (anchor->y < v->y)) && ((v->z < anchor->z) || (anchor->z < v->z))) {
+                    if (*anchor != *v) {
                         return *v;
                     }
                 }
@@ -657,7 +535,7 @@ struct TestInput
 
     void mutate()
     {
-        if (kBoxWorld) {
+        if (boxWorld) {
             static const auto action = cdf({1.0f});
             const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
             mutateBoxes(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
@@ -684,77 +562,118 @@ struct TestInput
             params.maxDepth = testInput.params.maxDepth;
         }
 
-        decltype(triangles) allTriangles;
-        if (kBoxWorld) {
-            allTriangles.reserve((std::size(triangles) + std::size(testInput.triangles)));
-            std::vector<typename decltype(triangles)::const_iterator> mergedItems;
-            mergedItems.reserve((std::size(triangles) + std::size(testInput.triangles)) / kTrianglesPerItem);
-            for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, kTrianglesPerItem)) {
-                mergedItems.push_back(t);
-            }
-            for (auto t = std::begin(testInput.triangles); t != std::end(testInput.triangles); std::advance(t, kTrianglesPerItem)) {
-                mergedItems.push_back(t);
-            }
-            const auto itemLess = [](auto lhs, auto rhs) -> bool { return std::lexicographical_compare(lhs, std::next(lhs, kTrianglesPerItem), rhs, std::next(rhs, kTrianglesPerItem)); };
-            std::sort(std::begin(mergedItems), std::end(mergedItems), itemLess);
-            auto out = std::back_inserter(allTriangles);
-            for (auto item : mergedItems) {
-                out = std::move(item, std::next(item, kTrianglesPerItem), out);
-            }
-        } else {
-            allTriangles.resize((std::size(triangles) + std::size(testInput.triangles)));
-            [[maybe_unused]] const auto trianglesEnd = std::merge(std::cbegin(triangles), std::cend(triangles), std::cbegin(testInput.triangles), std::cend(testInput.triangles), std::begin(allTriangles));
-            assert(trianglesEnd == std::end(allTriangles));
-        }
-        std::swap(triangles, allTriangles);
+        triangles.reserve(std::size(triangles) + std::size(testInput.triangles));
+        triangles.insert(std::cend(triangles), std::make_move_iterator(std::begin(testInput.triangles)), std::make_move_iterator(std::end(testInput.triangles)));
         assert(checkItems(std::cbegin(triangles), std::cend(triangles)));
     }
 };
 
-char * args[100];
-char maxLenOption[100] = "-max_len=";
-[[maybe_unused]] char timeoutOption[] = "-timeout=1";
-char * options[] = {
-    maxLenOption,
-#ifdef NDEBUG
-    timeoutOption,
-#endif
-};
+char ** findArg(char ** beg, char ** end, const char * arg)
+{
+    size_t argLen = std::strlen(arg);
+    for (; beg != end; ++beg) {
+        if (std::strncmp(*beg, arg, argLen) == 0) {
+            return beg;
+        }
+    }
+    return nullptr;
+}
+
+size_t readIntArg(char * arg, size_t argSize)
+{
+    size_t result = 0;
+    auto argBeg = arg + argSize;
+    auto argEnd = argBeg + std::strlen(arg + argSize);
+    auto [p, ec] = std::from_chars(argBeg, argEnd, result);
+    if ((ec != std::errc{}) || (p != argEnd)) {
+        fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} to size_t\n", fmt::string_view{arg + argSize}, fmt::string_view{arg + 1, argSize - 2});
+        std::exit(EXIT_FAILURE);
+    }
+    return result;
+}
+
+void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
+{
+    arg.resize(argSize + std::numeric_limits<decltype(argValue)>::digits10 + 1);
+    char * s = arg.data();
+    auto [p, ec] = std::to_chars(std::next(s, argSize), std::next(s, arg.size()), argValue);
+    if (ec != std::errc{}) {
+        fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} from size_t to string\n", argValue, fmt::string_view{arg.data() + 1, argSize - 2});
+        std::exit(EXIT_FAILURE);
+    }
+    assert(*p == '\0');
+}
 }  // namespace
+}  // namespace fuzzer
 
 extern "C"
 {
     int LLVMFuzzerInitialize(int * argc, char *** argv)
     {
-        if (size_t(*argc) + (std::extent_v<decltype(options)>) > std::extent_v<decltype(args)>) {
+        static std::string maxLenOption = "-max_len=";
+        static const size_t maxLenSize = maxLenOption.size();
+        char ** maxLenArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxLenOption.c_str());
+
+        static std::string maxPrimitiveCountOption = "-max_primitive_count=";
+        static const size_t maxPrimitiveCountSize = maxPrimitiveCountOption.size();
+        char ** maxPrimitiveCountArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxPrimitiveCountOption.c_str());
+
+        static std::string boxWorldOption = "-box_world=";
+        static const size_t boxWorldSize = boxWorldOption.size();
+        char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
+
+        if (boxWorldArg) {
+            fuzzer::boxWorld = fuzzer::readIntArg(*boxWorldArg, boxWorldSize) != 0;
+            fmt::print(stderr, "INFO(sah_kd_tree): generating of {} enabled\n", fuzzer::primitiveName());
+        }
+
+        if (!maxLenArg && !maxPrimitiveCountArg) {
+            fmt::print(stderr, "INFO(sah_kd_tree): no primitive count limiting command line options are provided; number of {} is not limited\n", fuzzer::primitiveName());
+            return 0;
+        }
+
+        if (maxLenArg && maxPrimitiveCountArg) {
+            fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): max_len and max_primitive_count should not be set both at once\n");
             std::exit(EXIT_FAILURE);
         }
 
-        const auto maxLen = sizeof(sah_kd_tree::Params) + kMaxTriangleCount * sizeof(Triangle);
-        auto [p, ec] = std::to_chars(std::next(std::begin(maxLenOption), std::strlen(maxLenOption)), std::end(maxLenOption), maxLen);
-        if (ec != std::errc{}) {
-            std::exit(EXIT_FAILURE);
+        if (maxLenArg) {
+            size_t maxLen = fuzzer::readIntArg(*maxLenArg, maxLenSize);
+            size_t itemCount = (std::max(maxLen, sizeof(fuzzer::Params)) - sizeof(fuzzer::Params)) / fuzzer::itemSize();
+            fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), itemCount);
+            if (itemCount == 0) {
+                fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
+                std::exit(EXIT_FAILURE);
+            }
+            return 0;
         }
-        *p = '\0';
 
-        auto arg = args;
-        *arg++ = **argv;
-        for (char * a : options) {
-            *arg++ = a;
-            ++*argc;
+        if (maxPrimitiveCountArg) {
+            size_t maxPrimitiveCount = fuzzer::readIntArg(*maxPrimitiveCountArg, maxPrimitiveCountSize);
+            fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), maxPrimitiveCount);
+            if (maxPrimitiveCount == 0) {
+                fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
+                std::exit(EXIT_FAILURE);
+            }
+            size_t maxLen = sizeof(fuzzer::Params) + maxPrimitiveCount * fuzzer::itemSize();
+            fuzzer::writeIntArg(maxLenOption, maxLenSize, maxLen);
+            *maxPrimitiveCountArg = maxLenOption.data();
+        } else {
+            INVARIANT(false);
         }
-        for (int i = 1; i < *argc; ++i) {
-            *arg++ = (*argv)[i];
+
+        if (boxWorldArg) {
+            *argv = std::rotate(*argv, boxWorldArg, std::next(boxWorldArg));
+            --*argc;
         }
-        *argv = args;
         return 0;
     }
 
     size_t LLVMFuzzerCustomMutator(uint8_t * data, size_t size, size_t maxSize, unsigned int seed)
     {
-        setSeed(seed);
+        fuzzer::setSeed(seed);
 
-        TestInput testInput;
+        fuzzer::TestInput testInput;
         if (testInput.read(data, size)) {
             testInput.mutate();
         } else {
@@ -765,13 +684,13 @@ extern "C"
 
     size_t LLVMFuzzerCustomCrossOver(const uint8_t * data1, size_t size1, const uint8_t * data2, size_t size2, uint8_t * out, size_t maxOutSize, unsigned int seed)
     {
-        setSeed(seed);
+        fuzzer::setSeed(seed);
 
-        TestInput testInput1;
+        fuzzer::TestInput testInput1;
         if (!testInput1.read(data1, size1)) {
             testInput1.generate();
         }
-        TestInput testInput2;
+        fuzzer::TestInput testInput2;
         if (!testInput2.read(data2, size2)) {
             testInput2.generate();
         }
@@ -781,21 +700,13 @@ extern "C"
 
     int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
     {
-        TestInput testInput;
+        fuzzer::TestInput testInput;
         if (!testInput.read(data, size)) {
             return 0;
         }
 
-        sah_kd_tree::helpers::Triangles triangles;
-        sah_kd_tree::helpers::setTriangles(triangles, std::cbegin(testInput.triangles), std::cend(testInput.triangles));
+        fuzzer::testOneInput(testInput.params, testInput.triangles);
 
-        sah_kd_tree::Builder builder;
-        sah_kd_tree::helpers::linkTriangles(builder, triangles);
-
-        sah_kd_tree::Tree tree = builder(testInput.params);
-        if (std::size(testInput.triangles) < tree.depth) {
-            std::abort();
-        }
         return 0;
     }
-}
+}  // extern "C"
