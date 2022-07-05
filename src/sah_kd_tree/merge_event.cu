@@ -27,18 +27,16 @@
 
 void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon)
 {
-    Timer timer;
     auto eventCount = U(event.kind.size());
 
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
-    auto isPlanarPolygon = thrust::zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
+    const auto isPlanarPolygon = thrust::zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
     auto splittedPolygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     auto splittedPolygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
 
     auto splittedPlanarPolygonLeftCount = U(thrust::count_if(splittedPolygonLeftBboxBegin, thrust::next(splittedPolygonLeftBboxBegin, splittedPolygonCount), isPlanarPolygon));
     auto splittedPlanarPolygonRightCount = U(thrust::count_if(splittedPolygonRightBboxBegin, thrust::next(splittedPolygonRightBboxBegin, splittedPolygonCount), isPlanarPolygon));
-    timer(" mergeEvent 2 * count_if");  // 0.164ms
 
     U splittedEventLeftCount = splittedPolygonCount * 2 - splittedPlanarPolygonLeftCount;
     U splittedEventRightCount = splittedPolygonCount * 2 - splittedPlanarPolygonRightCount;
@@ -75,7 +73,6 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto eventBothKeyBegin = thrust::next(event.node.begin(), eventStorageSize);
     auto eventBothValueBegin = thrust::next(eventValueBegin, eventStorageSize);
     thrust::merge_by_key(eventKeyLeftBegin, thrust::next(eventKeyLeftBegin, eventLeftCount), eventKeyRightBegin, thrust::next(eventKeyRightBegin, eventRightCount), eventValueLeftBegin, eventValueRightBegin, eventBothKeyBegin, eventBothValueBegin);
-    timer(" mergeEvent merge_by_key");  // 12.407ms
 
     auto splittedEventOffset = eventStorageSize + eventLeftCount + eventRightCount;
 
@@ -91,7 +88,6 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto kindBoth = thrust::make_tuple(+1, -1);
     thrust::fill_n(eventLeftKindBothBegin, splittedPolygonCount - splittedPlanarPolygonLeftCount, kindBoth);
     thrust::fill_n(eventRightKindBothBegin, splittedPolygonCount - splittedPlanarPolygonRightCount, kindBoth);
-    timer(" mergeEvent 2 * fill_n");  // 0.012ms
 
     // calculate left and right polygon for event of splitted polygon
     auto eventLeftPolygonLeftBegin = thrust::next(event.polygon.begin(), splittedEventOffset);
@@ -115,7 +111,6 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     assert(thrust::next(eventLeftPolygonPlanarBegin, splittedPlanarPolygonLeftCount) == endsLeft.first);
     [[maybe_unused]] auto endsRight = thrust::partition_copy(polygonRightBegin, thrust::next(polygonRightBegin, splittedPolygonCount), splittedPolygonRightBboxBegin, eventRightPolygonPlanarBegin, eventRightPolygonBothOutputBegin, isPlanarPolygon);
     assert(thrust::next(eventRightPolygonPlanarBegin, splittedPlanarPolygonRightCount) == endsRight.first);
-    timer(" mergeEvent 2 * partition_copy");  // 0.030ms
 
     // calculate event pos for splitted polygon
 #if 1
@@ -130,19 +125,16 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     assert(event.polygon.end() == thrust::next(eventPolygonBegin, splittedPolygonCount - splittedPlanarPolygonRightCount));
     eventPosBegin = thrust::gather(eventPolygonBegin, event.polygon.end(), polygon.max.cbegin(), eventPosBegin);
     assert(eventPosBegin == event.pos.end());
-    timer(" mergeEvent 4 * gather");  // 0.005ms
 #else
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, eventLeftPolygonLeftBegin);
     using BboxType = IteratorValueType<decltype(polygonBboxBegin)>;
-    auto toEventPos = [] __host__ __device__(I eventKind, BboxType bbox) -> F { return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox); };
+    const auto toEventPos = [] __host__ __device__(I eventKind, BboxType bbox) -> F { return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox); };
     thrust::transform(eventLeftKindLeftBegin, event.kind.end(), eventPolygonBboxBegin, thrust::next(event.pos.begin(), splittedEventOffset), toEventPos);
-    timer(" mergeEvent transform");
 #endif
 
     // calculate event node for splitted polygon
     [[maybe_unused]] auto splittedEventNodeEnd = thrust::gather(eventLeftPolygonLeftBegin, event.polygon.end(), polygonNode.cbegin(), thrust::next(event.node.begin(), splittedEventOffset));
     assert(splittedEventNodeEnd == event.node.end());
-    timer(" mergeEvent gather");  // 0.003ms
 
     auto eventBegin = thrust::make_zip_iterator(event.node.begin(), event.pos.begin(), event.kind.begin(), event.polygon.begin());
 
@@ -150,12 +142,10 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto splittedEventBegin = thrust::next(eventBegin, splittedEventOffset);
     auto splittedEventEnd = thrust::next(splittedEventBegin, splittedEventCount);
     thrust::sort(splittedEventBegin, splittedEventEnd);
-    timer(" mergeEvent sort");  // 0.005ms
 
     // cleanup repeating planar events
     if (std::is_floating_point_v<F>) {
         auto cleanSplittedEventEnd = thrust::unique(splittedEventBegin, splittedEventEnd);
-        timer(" mergeEvent unique");  // 0.203ms
         eventCount -= U(thrust::distance(cleanSplittedEventEnd, splittedEventEnd));
         splittedEventEnd = cleanSplittedEventEnd;
     }
@@ -164,7 +154,6 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto eventBothBegin = thrust::next(eventBegin, eventStorageSize);
     [[maybe_unused]] auto eventEnd = thrust::merge(eventBothBegin, splittedEventBegin, splittedEventBegin, splittedEventEnd, eventBegin);
     assert(thrust::next(eventBegin, eventCount) == eventEnd);
-    timer(" mergeEvent merge");  // 2.489ms
 
     assert(thrust::is_sorted(eventBegin, eventEnd));
 
@@ -173,7 +162,6 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     event.pos.resize(eventCount);
     event.kind.resize(eventCount);
     event.polygon.resize(eventCount);
-    timer(" mergeEvent crop");  // 0.010ms
 
     assert(thrust::equal(event.node.cbegin(), event.node.cend(), thrust::make_permutation_iterator(polygonNode.cbegin(), event.polygon.cbegin())));
 }

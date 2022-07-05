@@ -81,10 +81,7 @@ cmake_dependent_option(
     BUILD_FUZZER
     "Whether to build 'fuzzer' target"
     ON
-    "CMAKE_CXX_COMPILER_ID STREQUAL Clang
-    AND NOT (
-        CMAKE_BUILD_TYPE STREQUAL Release
-        OR CMAKE_BUILD_TYPE STREQUAL MinSizeRel)"
+    "CMAKE_CXX_COMPILER_ID STREQUAL Clang"
     OFF)
 
 add_subdirectory("sah_kd_tree")

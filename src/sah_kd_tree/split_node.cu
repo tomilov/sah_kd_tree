@@ -1,5 +1,4 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/utility.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/scatter.h>
@@ -10,7 +9,7 @@ void sah_kd_tree::Projection::splitNode(I dimension, U layerBasePrev, U layerBas
     auto nodeSplitPosBegin = thrust::next(nodeSplitPos.cbegin(), layerBasePrev);
     auto nodeSplitPosEnd = thrust::next(nodeSplitPos.cbegin(), layerBase);
     auto nodeSplitDimensionBegin = thrust::next(nodeSplitDimension.cbegin(), layerBasePrev);
-    auto isX = [dimension] __host__ __device__(I nodeSplitDimension) -> bool { return nodeSplitDimension == dimension; };
+    const auto isX = [dimension] __host__ __device__(I nodeSplitDimension) -> bool { return nodeSplitDimension == dimension; };
     thrust::scatter_if(nodeSplitPosBegin, nodeSplitPosEnd, thrust::next(nodeLeft.cbegin(), layerBasePrev), nodeSplitDimensionBegin, node.max.begin(), isX);
     thrust::scatter_if(nodeSplitPosBegin, nodeSplitPosEnd, thrust::next(nodeRight.cbegin(), layerBasePrev), nodeSplitDimensionBegin, node.min.begin(), isX);
 }

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <sah_kd_tree/types.cuh>
-
 #include <limits>
 #include <tuple>
 #include <vector>
@@ -15,9 +13,8 @@
 
 namespace fuzzer
 {
-using sah_kd_tree::F;
-using sah_kd_tree::I;
-using sah_kd_tree::U;
+using U = unsigned int;
+using F = float;
 
 struct Params
 {

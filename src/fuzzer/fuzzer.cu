@@ -1,5 +1,4 @@
 #include <fuzzer/fuzzer.hpp>
-
 #include <sah_kd_tree/helpers/setup.cuh>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 

@@ -1,8 +1,5 @@
 #include <fuzzer/fuzzer.hpp>
 
-#include <fmt/color.h>
-#include <fmt/format.h>
-
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -22,6 +19,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+
+#include <fmt/color.h>
+#include <fmt/format.h>
 
 using namespace std::rel_ops;
 
@@ -81,13 +81,6 @@ void genVertex(Vertex & vertex)
     genComponent(z);
 }
 
-Vertex genVertex()
-{
-    Vertex vertex;
-    genVertex(vertex);
-    return vertex;
-}
-
 void genTriangle(Triangle & triangle)
 {
     auto & [a, b, c] = triangle;
@@ -104,13 +97,6 @@ void genTriangle(Triangle & triangle)
     if (c < b) {
         std::swap(b, c);
     }
-}
-
-Triangle genTriangle()
-{
-    Triangle triangle;
-    genTriangle(triangle);
-    return triangle;
 }
 
 template<typename TriangleOutputIterator>
@@ -146,8 +132,8 @@ TriangleOutputIterator generateBox(TriangleOutputIterator out)
 {
     Vertex min, max;
     do {
-        min = genVertex();
-        max = genVertex();
+        genVertex(min);
+        genVertex(max);
         std::tie(min.x, max.x) = std::minmax({min.x, max.x});
         std::tie(min.y, max.y) = std::minmax({min.y, max.y});
         std::tie(min.z, max.z) = std::minmax({min.z, max.z});
@@ -179,7 +165,6 @@ bool checkItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator e
     }
     return true;
 }
-
 
 size_t trianglesPerItem()
 {
@@ -231,7 +216,7 @@ struct TestInput
                 triangles.push_back({v[0], v[1], v[2]});
             } else {
                 assert(!boxWorld);
-                triangles.emplace_back(genTriangle());
+                genTriangle(triangles.emplace_back());
             }
         }
     }
@@ -344,9 +329,7 @@ struct TestInput
             assert(!std::empty(triangles));
             return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
         };
-        const auto mutateTriangle = [&](auto t) {
-            genTriangle(*t);
-        };
+        const auto mutateTriangle = [&](auto t) { genTriangle(*t); };
         switch (action) {
         case 0: {
             params.emptinessFactor = genFloat();

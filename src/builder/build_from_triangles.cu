@@ -7,16 +7,16 @@ bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBeg
 {
     sah_kd_tree::Params params;
     if (emptinessFactor > 0.0f) {
-        params.emptinessFactor = sah_kd_tree::F(emptinessFactor);
+        params.emptinessFactor = emptinessFactor;
     }
     if (traversalCost > 0.0f) {
-        params.traversalCost = sah_kd_tree::F(traversalCost);
+        params.traversalCost = traversalCost;
     }
     if (intersectionCost > 0.0f) {
-        params.intersectionCost = sah_kd_tree::F(intersectionCost);
+        params.intersectionCost = intersectionCost;
     }
     if (maxDepth > 0) {
-        params.maxDepth = sah_kd_tree::U(maxDepth);
+        params.maxDepth = maxDepth;
     }
 
     sah_kd_tree::helpers::Triangles triangles;

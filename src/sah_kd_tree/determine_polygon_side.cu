@@ -15,7 +15,6 @@
 
 void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide)
 {
-    Timer timer;
     auto eventCount = U(event.kind.size());
 
     auto splitDimensionBegin = thrust::make_permutation_iterator(nodeSplitDimension.cbegin(), event.node.cbegin());
@@ -26,7 +25,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     {  // find event counterpart
         auto eventEnd = thrust::next(eventBegin, eventCount);
 
-        auto isNotLeftEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
+        const auto isNotLeftEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
                 return false;
             }
@@ -34,9 +33,8 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
         };
         thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::zip_function(isNotLeftEvent));
     }
-    timer(" determinePolygonSide scatter_if");  // 1.958ms
 
-    auto isNotRightEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
+    const auto isNotRightEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
         if (nodeSplitDimension != dimension) {
             return false;
         }
@@ -46,13 +44,13 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     auto polygonEventRightBegin = thrust::make_permutation_iterator(polygonEventRight.cbegin(), event.polygon.cbegin());
     auto eventCounterpartBegin = thrust::make_zip_iterator(eventBegin, polygonEventRightBegin);
     using EventCounterpartType = IteratorValueType<decltype(eventCounterpartBegin)>;
-    auto eventNodeOffsetBegin = thrust::make_transform_iterator(event.node.cbegin(), [layerBase] __host__ __device__(U eventNode) -> U {
+    const auto eventNodeOffsetBegin = thrust::make_transform_iterator(event.node.cbegin(), [layerBase] __host__ __device__(U eventNode) -> U {
         assert(!(eventNode < layerBase));
         return eventNode - layerBase;
     });
     auto splitEventBegin = thrust::make_permutation_iterator(layer.splitEvent.cbegin(), eventNodeOffsetBegin);
     auto polygonSideBegin = thrust::make_permutation_iterator(polygonSide.begin(), event.polygon.cbegin());
-    auto toPolygonSide = [] __host__ __device__(EventCounterpartType eventBoth, U splitEvent) -> I {
+    const auto toPolygonSide = [] __host__ __device__(EventCounterpartType eventBoth, U splitEvent) -> I {
         U eventLeft = thrust::get<0>(eventBoth);
         U eventRight = thrust::get<1>(eventBoth);
         assert(!(eventRight < eventLeft));
@@ -65,5 +63,4 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
         }
     };
     thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, eventCount), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::zip_function(isNotRightEvent));
-    timer(" determinePolygonSide transform_if");  // 3.002ms
 }

@@ -29,12 +29,10 @@ struct SAH_KD_TREE_EXPORT Triangles
 template<typename TriangleIterator>
 void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, TriangleIterator triangleEnd)
 {
-    Timer timer;
-
     using TriangleType = IteratorValueType<TriangleIterator>;
     thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
     triangles.triangleCount = U(t.size());
-    auto transposeComponent = [triangleCount = triangles.triangleCount](typename Triangles::Component & component) {
+    const auto transposeComponent = [triangleCount = triangles.triangleCount](typename Triangles::Component & component) {
         component.a.resize(triangleCount);
         component.b.resize(triangleCount);
         component.c.resize(triangleCount);
@@ -42,9 +40,8 @@ void setTriangles(Triangles & triangles, TriangleIterator triangleBegin, Triangl
     };
     auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(triangles.x), transposeComponent(triangles.y), transposeComponent(triangles.z));
     using TransposedTriangleType = IteratorValueType<decltype(transposedTriangleBegin)>;
-    auto transposeTriangle = [] __host__ __device__(const TriangleType & t) -> TransposedTriangleType { return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}}; };
+    const auto transposeTriangle = [] __host__ __device__(const TriangleType & t) -> TransposedTriangleType { return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}}; };
     thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, transposeTriangle);
-    timer("setTriangles");  // 5.453ms
 }
 
 void linkTriangles(Builder & builder, const Triangles & triangles) SAH_KD_TREE_EXPORT;

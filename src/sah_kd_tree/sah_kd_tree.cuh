@@ -26,22 +26,22 @@ struct SAH_KD_TREE_EXPORT Tree
 
 struct SAH_KD_TREE_EXPORT Projection
 {
-    struct
+    struct Triangle
     {
         thrust::device_ptr<const F> a, b, c;
     } triangle;
 
-    struct
+    struct Polygon
     {
         thrust::device_vector<F> min, max;
     } polygon;
 
-    struct
+    struct Node
     {
         thrust::device_vector<F> min, max;
     } node;
 
-    struct
+    struct Event
     {
         thrust::device_vector<U> node;
         thrust::device_vector<F> pos;
@@ -51,7 +51,7 @@ struct SAH_KD_TREE_EXPORT Projection
         thrust::device_vector<U> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
     } event;
 
-    struct
+    struct Layer
     {
         thrust::device_vector<F> splitCost;
         thrust::device_vector<U> splitEvent;
@@ -78,9 +78,10 @@ struct SAH_KD_TREE_EXPORT Projection
 struct SAH_KD_TREE_EXPORT Builder
 {
     U triangleCount = 0;
+
     Projection x, y, z;
 
-    struct
+    struct Polygon
     {
         thrust::device_vector<U> triangle;
         thrust::device_vector<U> node;
@@ -88,7 +89,7 @@ struct SAH_KD_TREE_EXPORT Builder
         thrust::device_vector<U> eventRight;  // right event in diverse best dimensions
     } polygon;
 
-    struct
+    struct Node
     {
         thrust::device_vector<I> splitDimension;
         thrust::device_vector<F> splitPos;
@@ -100,7 +101,7 @@ struct SAH_KD_TREE_EXPORT Builder
 
     thrust::device_vector<U> splittedPolygon;
 
-    void thinLayerNodeOffset(U layerBase, U layerSize);
+    void filterLayerNodeOffset(U layerBase, U layerSize);
     void selectNodeBestSplit(const Params & sah, U layerBase, U layerSize);
     U getSplittedPolygonCount(U layerBase, U layerSize);
     void separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount);

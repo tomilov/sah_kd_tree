@@ -1,5 +1,4 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/utility.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
@@ -22,7 +21,7 @@ void sah_kd_tree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, 
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto splittedPolygonStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin());
     auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount));
-    auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
+    const auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
         if (polygonNode < layerBase) {
             return false;
         }

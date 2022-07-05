@@ -2,20 +2,23 @@ default: build
 
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 BUILD_DIR ?= "/tmp/build-sah_kd_tree"
-BUILD_TYPE ?= Release
+BUILD_TYPE ?= Debug
 BUILD_SHARED_LIBS ?= ON
+CC ?= $(shell which clang)
+CXX ?= $(shell which clang++)
+CXX_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls -fopenmp-version=45
 THRUST_DEVICE_SYSTEM ?= CPP
 NPROC ?= $(shell nproc)
-FUZZ_FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
+FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
 FUZZ_DURATION ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
 
 # format: "800 600"
-SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | awk -F x '{ print $$1, $$2 }')
+SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
 
-.PHONY: cmake
-cmake:
+.PHONY: configure
+configure:
 	@cmake -E make_directory "$(BUILD_DIR)"
 	@nice cmake \
 		-S "$(ROOT_DIR)" \
@@ -23,37 +26,43 @@ cmake:
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
 		-DCMAKE_CUDA_ARCHITECTURES=86 \
-		-DCMAKE_CXX_COMPILER="$$( which clang++ )" \
-		-DCMAKE_CXX_FLAGS="-march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls" \
-		-DCMAKE_CUDA_HOST_COMPILER="$$( which clang++ )" \
+		-DCMAKE_C_COMPILER=$(CC) \
+		-DCMAKE_CXX_COMPILER=$(CXX) \
+		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
+		-DCMAKE_CUDA_HOST_COMPILER=$(CXX) \
 		-DCMAKE_VERBOSE_MAKEFILE=ON \
-		-DCMAKE_CUDA_FLAGS="-Xcompiler -fopenmp-version=45" \
 		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM)
 
 .PHONY: build
-build: cmake
+build: configure
 	@nice cmake \
 		--build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
 		--target all
 
 .PHONY:
-rebuild: cmake
+rebuild: configure
 	@nice cmake \
 		--build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
-		--target all \
-		--clean-first
+		--clean-first \
+		--target all
 
 .PHONY: clean
-clean:
+clean: configure
 	@nice cmake \
 		--build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
 		--target clean
 
+.PHONY: test
+test: build
+	@ctest \
+		--parallel $(NPROC) \
+		--test-dir "$(BUILD_DIR)/src/"
+
 .PHONY: fuzz
-fuzz:
+fuzz: configure
 	@nice cmake \
 		--build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
@@ -61,7 +70,7 @@ fuzz:
 	@tools/fuzz/fuzzer \
 		-max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
 		-box_world=$(FUZZ_BOX_WORLD) \
-		-fork=$(FUZZ_FORK) \
+		-fork=$(FORK) \
 		-rss_limit_mb=512 \
 		-timeout=30 \
 		-report_slow_units=30 \
@@ -78,13 +87,13 @@ fuzz:
 		"$(ROOT_DIR)/data/fuzz/artifacts/"
 
 .PHONY: fuzz-merge
-fuzz-merge:
+fuzz-merge: configure
 	@nice cmake \
 		--build "$(BUILD_DIR)" \
 		--parallel $(NPROC) \
 		--target fuzzer
 	@tools/fuzz/fuzzer \
-		-fork=$(FUZZ_FORK) \
+		-fork=$(FORK) \
 		-merge=1 \
 		"$(ROOT_DIR)/data/fuzz/CORPUS"*/ \
 		"$(ROOT_DIR)/data/fuzz/artifacts/"

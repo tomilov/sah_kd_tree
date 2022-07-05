@@ -19,20 +19,18 @@
 
 void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
 {
-    Timer timer;
     auto eventCount = U(event.kind.size());
 
     {
         event.polygonCountLeft.resize(eventCount);
         event.polygonCountRight.resize(eventCount);
 
-        auto leftTriangleCountBegin = thrust::make_transform_iterator(event.kind.cbegin(), [] __host__ __device__(I eventKind) -> U { return (eventKind < 0) ? 0 : 1; });
+        const auto leftTriangleCountBegin = thrust::make_transform_iterator(event.kind.cbegin(), [] __host__ __device__(I eventKind) -> U { return (eventKind < 0) ? 0 : 1; });
         thrust::exclusive_scan_by_key(event.node.cbegin(), event.node.cend(), leftTriangleCountBegin, event.polygonCountLeft.begin());
 
-        auto rightTriangleCountBegin = thrust::make_transform_iterator(event.kind.crbegin(), [] __host__ __device__(I eventKind) -> U { return (0 < eventKind) ? 0 : 1; });
+        const auto rightTriangleCountBegin = thrust::make_transform_iterator(event.kind.crbegin(), [] __host__ __device__(I eventKind) -> U { return (0 < eventKind) ? 0 : 1; });
         thrust::exclusive_scan_by_key(event.node.crbegin(), event.node.crend(), rightTriangleCountBegin, event.polygonCountRight.rbegin());
     }
-    timer(" findPerfectSplit 2 * exclusive_scan_by_key");  // 4.131ms
 
     layer.splitCost.resize(layerSize);
     layer.splitEvent.resize(layerSize);
@@ -40,7 +38,6 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
 
     layer.polygonCountLeft.resize(layerSize);
     layer.polygonCountRight.resize(layerSize);
-    timer(" findPerfectSplit resize");  // 0.640ms
 
     auto nodeLimitsBegin = thrust::make_zip_iterator(node.min.cbegin(), node.max.cbegin(), y.node.min.cbegin(), y.node.max.cbegin(), z.node.min.cbegin(), z.node.max.cbegin());
     auto nodeBboxBegin = thrust::make_permutation_iterator(nodeLimitsBegin, event.node.cbegin());
@@ -51,7 +48,7 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splitEvent.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
     using PerfectSplitType = IteratorValueType<decltype(perfectSplitOutputBegin)>;
-    auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCount, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
+    const auto toPerfectSplit = [sah] __host__ __device__(NodeBboxType nodeBbox, F splitPos, I eventKind, U splitEvent, U polygonCount, U polygonCountLeft, U polygonCountRight) -> PerfectSplitType {
         F min = thrust::get<0>(nodeBbox), max = thrust::get<1>(nodeBbox);
         assert(!(splitPos < min));
         assert(!(max < splitPos));
@@ -109,5 +106,4 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
     auto perfectSplitValueBegin = thrust::make_transform_iterator(perfectSplitInputBegin, thrust::zip_function(toPerfectSplit));
     [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
     assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
-    timer(" findPerfectSplit reduce_by_key");  // 2.897ms
 }

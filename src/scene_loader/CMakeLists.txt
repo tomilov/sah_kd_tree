@@ -6,7 +6,7 @@ set_target_properties(
     PROPERTIES
         LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
         ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
-generate_export_header("lib${PROJECT_NAME}")
+generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE

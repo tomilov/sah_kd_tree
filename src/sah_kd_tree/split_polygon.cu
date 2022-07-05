@@ -31,7 +31,7 @@ void sah_kd_tree::Projection::splitPolygon(I dimension, const thrust::device_vec
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
-    auto toSplittedPolygon = [dimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
+    const auto toSplittedPolygon = [dimension] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
         const auto & polygonNode = thrust::get<0>(polygon);

@@ -5,9 +5,9 @@
 #include <builder/build_from_triangles.hpp>
 #include <builder/builder.hpp>
 
-#include <QtCore>
-
 #include <thrust/device_vector.h>
+
+#include <QtCore>
 
 namespace builder
 {

@@ -6,7 +6,7 @@ set_target_properties(
     PROPERTIES
         LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
         ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
-generate_export_header("lib${PROJECT_NAME}")
+generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -17,7 +17,7 @@ target_sources(
         "calculate_triangle_bbox.cu"
         "calculate_root_node_bbox.cu"
         "generate_initial_event.cu"
-        "thin_layer_node_offset.cu"
+        "filter_layer_node_offset.cu"
         "find_perfect_split.cu"
         "select_node_best_split.cu"
         "determine_polygon_side.cu"
