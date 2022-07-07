@@ -30,7 +30,7 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto eventCount = U(event.kind.size());
 
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
-    const auto isPlanarPolygon = thrust::zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
+    const auto isPlanarPolygon = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
     auto splittedPolygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     auto splittedPolygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);

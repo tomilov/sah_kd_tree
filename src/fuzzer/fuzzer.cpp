@@ -566,7 +566,7 @@ size_t readIntArg(char * arg, size_t argSize)
 {
     size_t result = 0;
     auto argBeg = arg + argSize;
-    auto argEnd = argBeg + std::strlen(arg + argSize);
+    auto argEnd = std::next(argBeg, std::strlen(arg + argSize));
     auto [p, ec] = std::from_chars(argBeg, argEnd, result);
     if ((ec != std::errc{}) || (p != argEnd)) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} to size_t\n", fmt::string_view{arg + argSize}, fmt::string_view{arg + 1, argSize - 2});

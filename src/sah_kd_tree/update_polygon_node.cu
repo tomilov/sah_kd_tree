@@ -28,5 +28,5 @@ void sah_kd_tree::Builder::updatePolygonNode(U layerBase)
         // assert(!(polygonNode < layerBase)); ???
         return true;
     };
-    thrust::transform_if(polygon.side.cbegin(), polygon.side.cend(), polygonNodeBothBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::zip_function(isCurrentLayer));
+    thrust::transform_if(polygon.side.cbegin(), polygon.side.cend(), polygonNodeBothBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::make_zip_function(isCurrentLayer));
 }

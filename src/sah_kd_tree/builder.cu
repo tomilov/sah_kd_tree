@@ -4,6 +4,7 @@
 #include <thrust/copy.h>
 #include <thrust/count.h>
 #include <thrust/functional.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
@@ -46,6 +47,8 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     // layer
     U layerBase = 0;
     U layerSize = 1;
+
+    const auto isNotLeaf = [] __host__ __device__(I nodeSplitDimension) -> bool { return !(nodeSplitDimension < 0); };
 
     Tree tree;
     for (tree.depth = 0; tree.depth < sah.maxDepth; ++tree.depth) {
@@ -111,8 +114,6 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 
         node.polygonCount.resize(layerBase + layerSize);
 
-        const auto isNotLeaf = [] __host__ __device__(I layerSplitDimension) -> bool { return !(layerSplitDimension < 0); };
-
         auto nodePolygonCountLeftBegin = thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev);
         auto nodePolygonCountLeftEnd = thrust::next(node.polygonCountLeft.cbegin(), layerBase);
         thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.nodeLeft.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
@@ -142,7 +143,12 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountRight.resize(layerBase + layerSize);
     }
 
-    // calculate node parent
+    // calculate node parent (needed for ropes calculation step)
+    auto nodeCount = node.splitPos.size();
+    node.parentNode.resize(nodeCount);
+    auto nodeBegin = thrust::make_counting_iterator<U>(0);
+    thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeLeft.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+    thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeRight.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
     // sort value (polygon) by key (polygon.node)
     // reduce value (counter, 1) by operation (project1st, plus) and key (node) to (key (node), value (offset, count))
     // scatter value (offset, count) to (node.nodeLeft, node.nodeRight) at key (node)

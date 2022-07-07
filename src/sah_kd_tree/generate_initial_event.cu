@@ -18,7 +18,7 @@ void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
 {
     auto triangleBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;
-    const auto isPlanarEvent = thrust::zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
+    const auto isPlanarEvent = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
     auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangleCount), isPlanarEvent));
 

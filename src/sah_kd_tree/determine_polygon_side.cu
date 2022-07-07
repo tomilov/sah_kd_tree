@@ -31,7 +31,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
             }
             return !(0 < eventKind);
         };
-        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::zip_function(isNotLeftEvent));
+        thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::make_zip_function(isNotLeftEvent));
     }
 
     const auto isNotRightEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
@@ -62,5 +62,5 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
             return +1;  // goes to right child node
         }
     };
-    thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, eventCount), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::zip_function(isNotRightEvent));
+    thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, eventCount), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::make_zip_function(isNotRightEvent));
 }

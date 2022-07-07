@@ -30,6 +30,6 @@ void sah_kd_tree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, 
         }
         return polygonSide == 0;
     };
-    [[maybe_unused]] auto splittedPolygonEnd = thrust::copy_if(indexedPolygonBegin, thrust::next(indexedPolygonBegin, polygonCount), splittedPolygonStencilBegin, splittedPolygonBegin, thrust::zip_function(isSplittedPolygon));
+    [[maybe_unused]] auto splittedPolygonEnd = thrust::copy_if(indexedPolygonBegin, thrust::next(indexedPolygonBegin, polygonCount), splittedPolygonStencilBegin, splittedPolygonBegin, thrust::make_zip_function(isSplittedPolygon));
     assert(thrust::next(splittedPolygonBegin, splittedPolygonCount) == splittedPolygonEnd);
 }

@@ -21,6 +21,6 @@ RUN echo 'set_target_properties(assimp::assimp PROPERTIES IMPORTED_LOCATION_RELE
         >>/usr/lib/x86_64-linux-gnu/cmake/assimp-5.2/assimpConfig.cmake
 
 WORKDIR /root/sah_kd_tree/
-RUN git clone https://github.com/tomilov/sah_kd_tree .
+RUN git clone --single-branch https://github.com/tomilov/sah_kd_tree .
 RUN bash -ic 'make BUILD_DIR=../build-sah_kd_tree/ BUILD_SHARED_LIBS=ON LINKER=/usr/bin/lld-13 CC=/usr/bin/clang-13 CXX=/usr/bin/clang++-13 THRUST_DEVICE_SYSTEM=CUDA build'
 RUN bash -ic 'history -s ../build-sah_kd_tree/bin/builder data/scenes/triangle.obj'

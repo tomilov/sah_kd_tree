@@ -92,9 +92,10 @@ struct SAH_KD_TREE_EXPORT Builder
     struct Node
     {
         thrust::device_vector<I> splitDimension;
-        thrust::device_vector<F> splitPos;
+        thrust::device_vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
         thrust::device_vector<U> nodeLeft, nodeRight;                                // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
+        thrust::device_vector<U> parentNode;                                         // temporarily needed for build of ropes
     } node;                                                                          // TODO: optimize out node.nodeLeft
 
     thrust::device_vector<U> layerNodeOffset;
