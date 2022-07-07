@@ -1,15 +1,18 @@
 default: build
 
+NPROC ?= $(shell nproc)
+FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 BUILD_DIR ?= "/tmp/build-sah_kd_tree"
 BUILD_TYPE ?= Debug
 BUILD_SHARED_LIBS ?= ON
+LINKER ?= $(shell which lld)
 CC ?= $(shell which clang)
 CXX ?= $(shell which clang++)
-CXX_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls -fopenmp-version=45
+CXX_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+CUDA_FLAGS ?= -Xcompiler -fopenmp -Xcompiler -fopenmp-version=45
+CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | grep __CUDA_ARCH__ | awk '{ print $$3 / 10 }')
 THRUST_DEVICE_SYSTEM ?= CPP
-NPROC ?= $(shell nproc)
-FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
 FUZZ_DURATION ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
@@ -25,11 +28,13 @@ configure:
 		-B "$(BUILD_DIR)" \
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
-		-DCMAKE_CUDA_ARCHITECTURES=86 \
+		-DCMAKE_LINKER=$(LINKER) \
 		-DCMAKE_C_COMPILER=$(CC) \
 		-DCMAKE_CXX_COMPILER=$(CXX) \
 		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
 		-DCMAKE_CUDA_HOST_COMPILER=$(CXX) \
+		-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH) \
+		-DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)" \
 		-DCMAKE_VERBOSE_MAKEFILE=ON \
 		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM)
 
