@@ -3,15 +3,15 @@ default: build
 NPROC ?= $(shell nproc)
 FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-BUILD_DIR ?= "/tmp/build-sah_kd_tree"
+BUILD_DIR ?= /tmp/build-sah_kd_tree
 BUILD_TYPE ?= Debug
 BUILD_SHARED_LIBS ?= ON
 LINKER ?= $(shell which lld)
 CC ?= $(shell which clang)
 CXX ?= $(shell which clang++)
-CXX_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls
-CUDA_FLAGS ?= -Xcompiler -fopenmp -Xcompiler -fopenmp-version=45
-CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | grep __CUDA_ARCH__ | awk '{ print $$3 / 10 }')
+CXX_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fopenmp-version=45
+CUDA_FLAGS ?=
+CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | awk '/__CUDA_ARCH__/ { print $$3 / 10 }')
 THRUST_DEVICE_SYSTEM ?= CPP
 FUZZ_DURATION ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
@@ -22,10 +22,10 @@ SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' '
 
 .PHONY: configure
 configure:
-	@cmake -E make_directory "$(BUILD_DIR)"
+	@cmake -E make_directory $(BUILD_DIR)
 	@nice cmake \
-		-S "$(ROOT_DIR)" \
-		-B "$(BUILD_DIR)" \
+		-S $(ROOT_DIR) \
+		-B $(BUILD_DIR) \
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
 		-DCMAKE_LINKER=$(LINKER) \
@@ -41,14 +41,14 @@ configure:
 .PHONY: build
 build: configure
 	@nice cmake \
-		--build "$(BUILD_DIR)" \
+		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target all
 
 .PHONY:
 rebuild: configure
 	@nice cmake \
-		--build "$(BUILD_DIR)" \
+		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--clean-first \
 		--target all
@@ -56,7 +56,7 @@ rebuild: configure
 .PHONY: clean
 clean: configure
 	@nice cmake \
-		--build "$(BUILD_DIR)" \
+		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target clean
 
@@ -64,12 +64,12 @@ clean: configure
 test: build
 	@ctest \
 		--parallel $(NPROC) \
-		--test-dir "$(BUILD_DIR)/src/"
+		--test-dir $(BUILD_DIR)/src/
 
 .PHONY: fuzz
 fuzz: configure
 	@nice cmake \
-		--build "$(BUILD_DIR)" \
+		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target fuzzer
 	@tools/fuzz/fuzzer \
@@ -87,28 +87,28 @@ fuzz: configure
 		-reduce_inputs=1 \
 		-shrink=1 \
 		-prefer_small=1 \
-		-artifact_prefix="$(ROOT_DIR)/data/fuzz/artifacts/" \
-		"$(ROOT_DIR)/data/fuzz/CORPUS/" \
-		"$(ROOT_DIR)/data/fuzz/artifacts/"
+		-artifact_prefix=$(ROOT_DIR)/data/fuzz/artifacts/ \
+		$(ROOT_DIR)/data/fuzz/CORPUS/ \
+		$(ROOT_DIR)/data/fuzz/artifacts/
 
 .PHONY: fuzz-merge
 fuzz-merge: configure
 	@nice cmake \
-		--build "$(BUILD_DIR)" \
+		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target fuzzer
 	@tools/fuzz/fuzzer \
 		-fork=$(FORK) \
 		-merge=1 \
-		"$(ROOT_DIR)/data/fuzz/CORPUS"*/ \
-		"$(ROOT_DIR)/data/fuzz/artifacts/"
+		$(ROOT_DIR)/data/fuzz/CORPUS*/ \
+		$(ROOT_DIR)/data/fuzz/artifacts/
 
 .PHONY: plan 3d
 plan 3d: $(CRASH_FILE)
 	@gnuplot \
 		-persist \
-		-c "$(ROOT_DIR)/tools/plot/plot.plt" \
+		-c $(ROOT_DIR)/tools/plot/plot.plt \
 		$@ \
-		"$(CRASH_FILE)" \
+		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
