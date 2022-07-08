@@ -16,6 +16,14 @@
 
 #include <cassert>
 
+
+
+
+
+#include <thrust/iterator/discard_iterator.h>
+#include <cstdio>
+#include <thrust/execution_policy.h>
+
 auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 {
     if (triangleCount == 0) {
@@ -34,15 +42,16 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     y.generateInitialEvent(triangleCount);
     z.generateInitialEvent(triangleCount);
 
-    polygon.triangle.resize(triangleCount);
+    U polygonCount = triangleCount;
+    polygon.triangle.resize(polygonCount);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
-    polygon.node.assign(triangleCount, U(0));
+    polygon.node.assign(polygonCount, U(0));
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
     node.nodeLeft.resize(1);
     node.nodeRight.resize(1);
-    node.polygonCount.assign(1, triangleCount);
+    node.polygonCount.assign(1, polygonCount);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
@@ -70,8 +79,6 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         if (layerLeafNodeCount == layerSize) {
             break;
         }
-
-        auto polygonCount = U(polygon.triangle.size());
 
         polygon.side.resize(polygonCount);
         polygon.eventRight.resize(polygonCount);
@@ -145,6 +152,8 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         node.nodeRight.resize(layerBase + layerSize);
         node.polygonCountLeft.resize(layerBase + layerSize);
         node.polygonCountRight.resize(layerBase + layerSize);
+
+        polygonCount += splittedPolygonCount;
     }
 
     populateLeafNodeTriangles(leafNodeCount);
@@ -155,6 +164,74 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     auto nodeBegin = thrust::make_counting_iterator<U>(0);
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeLeft.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeRight.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+
+    auto yMins = y.node.min.data().get();
+    auto yMaxs = y.node.max.data().get();
+    auto zMins = z.node.min.data().get();
+    auto zMaxs = z.node.max.data().get();
+    auto parentNodes = node.parentNode.data().get();
+    auto leftChildren = node.nodeLeft.data().get();
+    auto rightChildren = node.nodeRight.data().get();
+    auto splitDimensions = node.splitDimension.data().get();
+    auto splitPositions = node.splitPos.data().get();
+    constexpr I dimension = 0;
+    const auto getRopeRight = [yMins, yMaxs, zMins, zMaxs, parentNodes, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U
+    {
+        //assert(splitDimensions[node] < 0);
+        U siblingNode = node;
+        for (;;) {
+            if (siblingNode == 0) {
+                return 0;
+            }
+            U parentNode = parentNodes[siblingNode];
+            if (splitDimensions[parentNode] == dimension) {
+                if (siblingNode == leftChildren[parentNode]) {
+                    if (siblingNode == node) {
+                        return rightChildren[parentNode];
+                    }
+                    siblingNode = rightChildren[parentNode];
+                    break;
+                }
+            }
+            siblingNode = parentNode;
+        }
+        F yMin = yMins[node];
+        F yMax = yMaxs[node];
+        F zMin = zMins[node];
+        F zMax = zMaxs[node];
+        for (;;) {
+            I siblingSplitDimension = splitDimensions[siblingNode];
+            if (siblingSplitDimension < 0) {
+                return siblingNode;
+            } else if (siblingSplitDimension == dimension) {
+                siblingNode = leftChildren[siblingNode];
+            } else if (siblingSplitDimension == ((dimension + 1) % 3)) {
+                F siblingSplitPosition = splitPositions[siblingNode];
+                if (!(siblingSplitPosition < yMax)) {
+                    siblingNode = leftChildren[siblingNode];
+                } else if (!(yMin < siblingSplitPosition)) {
+                    siblingNode = rightChildren[siblingNode];
+                } else {
+                    return siblingNode;
+                }
+            } else if (siblingSplitDimension == ((dimension + 2) % 3)) {
+                F siblingSplitPosition = splitPositions[siblingNode];
+                if (!(siblingSplitPosition < zMax)) {
+                    siblingNode = leftChildren[siblingNode];
+                } else if (!(zMin < siblingSplitPosition)) {
+                    siblingNode = rightChildren[siblingNode];
+                } else {
+                    return siblingNode;
+                }
+            }
+        }
+        return node;
+    };
+    thrust::device_vector<U> ropeRight(nodeCount);
+    //thrust::transform(node.leafNode.cbegin(), node.leafNode.cend(), ropeRight.begin(), getRopeRight);
+    thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), ropeRight.begin(), getRopeRight);
+
+    asm volatile("nop;");
 
     return tree;
 }
