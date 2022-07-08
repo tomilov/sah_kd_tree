@@ -13,7 +13,10 @@
 
 #include <cassert>
 
-void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide)
+namespace sah_kd_tree
+{
+template<I dimension>
+void Projection::determinePolygonSide(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide)
 {
     auto eventCount = U(event.kind.size());
 
@@ -25,7 +28,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     {  // find event counterpart
         auto eventEnd = thrust::next(eventBegin, eventCount);
 
-        const auto isNotLeftEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
+        const auto isNotLeftEvent = [] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
                 return false;
             }
@@ -34,7 +37,7 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
         thrust::scatter_if(eventBegin, eventEnd, event.polygon.cbegin(), eventSideBegin, polygonEventRight.begin(), thrust::make_zip_function(isNotLeftEvent));
     }
 
-    const auto isNotRightEvent = [dimension] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
+    const auto isNotRightEvent = [] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
         if (nodeSplitDimension != dimension) {
             return false;
         }
@@ -64,3 +67,8 @@ void sah_kd_tree::Projection::determinePolygonSide(I dimension, const thrust::de
     };
     thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, eventCount), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::make_zip_function(isNotRightEvent));
 }
+
+template void Projection::determinePolygonSide<0>(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide) SAH_KD_TREE_EXPORT;
+template void Projection::determinePolygonSide<1>(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide) SAH_KD_TREE_EXPORT;
+template void Projection::determinePolygonSide<2>(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide) SAH_KD_TREE_EXPORT;
+}  // namespace sah_kd_tree

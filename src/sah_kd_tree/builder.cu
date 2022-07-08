@@ -6,8 +6,10 @@
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/reduce.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
+#include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
 #include <thrust/tuple.h>
@@ -48,6 +50,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     U layerBase = 0;
     U layerSize = 1;
 
+    U leafNodeCount = 0;
     const auto isNotLeaf = [] __host__ __device__(I nodeSplitDimension) -> bool { return !(nodeSplitDimension < 0); };
 
     Tree tree;
@@ -62,8 +65,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layerBase);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layerSize);
-        auto completedNodeCount = U(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
-        if (completedNodeCount == layerSize) {
+        auto layerLeafNodeCount = U(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
+        leafNodeCount += layerLeafNodeCount;
+        if (layerLeafNodeCount == layerSize) {
             break;
         }
 
@@ -72,9 +76,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         polygon.side.resize(polygonCount);
         polygon.eventRight.resize(polygonCount);
 
-        x.determinePolygonSide(0, node.splitDimension, layerBase, polygon.eventRight, polygon.side);
-        y.determinePolygonSide(1, node.splitDimension, layerBase, polygon.eventRight, polygon.side);
-        z.determinePolygonSide(2, node.splitDimension, layerBase, polygon.eventRight, polygon.side);
+        x.template determinePolygonSide<0>(node.splitDimension, layerBase, polygon.eventRight, polygon.side);
+        y.template determinePolygonSide<1>(node.splitDimension, layerBase, polygon.eventRight, polygon.side);
+        z.template determinePolygonSide<2>(node.splitDimension, layerBase, polygon.eventRight, polygon.side);
 
         U splittedPolygonCount = getSplittedPolygonCount(layerBase, layerSize);
 
@@ -97,9 +101,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         assert(polygon.side.size() == polygonCount);
         updatePolygonNode(layerBase);
 
-        x.splitPolygon(0, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, y, z);
-        y.splitPolygon(1, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x);
-        z.splitPolygon(2, node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y);
+        x.template splitPolygon<0>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, y, z);
+        y.template splitPolygon<1>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x);
+        z.template splitPolygon<2>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y);
 
         updateSplittedPolygonNode(polygonCount, splittedPolygonCount);
 
@@ -109,7 +113,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 
         U layerBasePrev = layerBase;
         layerBase += layerSize;
-        layerSize -= completedNodeCount;
+        layerSize -= layerLeafNodeCount;
         layerSize += layerSize;
 
         node.polygonCount.resize(layerBase + layerSize);
@@ -131,9 +135,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.nodeLeft.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
         thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.nodeRight.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
 
-        x.splitNode(0, layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
-        y.splitNode(1, layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
-        z.splitNode(2, layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        x.template splitNode<0>(layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        y.template splitNode<1>(layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
+        z.template splitNode<2>(layerBasePrev, layerBase, node.splitDimension, node.splitPos, node.nodeLeft, node.nodeRight);
 
         node.splitDimension.resize(layerBase + layerSize, I(-1));
         node.splitPos.resize(layerBase + layerSize);
@@ -143,14 +147,14 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountRight.resize(layerBase + layerSize);
     }
 
-    // calculate node parent (needed for ropes calculation step)
-    auto nodeCount = node.splitPos.size();
+    populateLeafNodeTriangles(leafNodeCount);
+
+    U nodeCount = layerBase + layerSize;
     node.parentNode.resize(nodeCount);
+
     auto nodeBegin = thrust::make_counting_iterator<U>(0);
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeLeft.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.nodeRight.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
-    // sort value (polygon) by key (polygon.node)
-    // reduce value (counter, 1) by operation (project1st, plus) and key (node) to (key (node), value (offset, count))
-    // scatter value (offset, count) to (node.nodeLeft, node.nodeRight) at key (node)
+
     return tree;
 }
