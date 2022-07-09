@@ -16,16 +16,17 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
     using NodeBestCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
     auto nodeSplitPosBegin = thrust::make_zip_iterator(x.layer.splitPos.cbegin(), y.layer.splitPos.cbegin(), z.layer.splitPos.cbegin());
     using NodeBestPosType = IteratorValueType<decltype(nodeSplitPosBegin)>;
-    auto nodeLeftPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountLeft.cbegin(), y.layer.polygonCountLeft.cbegin(), z.layer.polygonCountLeft.cbegin());
-    using NodePolygonCountType = IteratorValueType<decltype(nodeLeftPolygonCountBegin)>;
-    auto nodeRightPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin());
-    using NodePolygonCountType = IteratorValueType<decltype(nodeRightPolygonCountBegin)>;
+    auto nodeLeftChildPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountLeft.cbegin(), y.layer.polygonCountLeft.cbegin(), z.layer.polygonCountLeft.cbegin());
+    using NodePolygonCountType = IteratorValueType<decltype(nodeLeftChildPolygonCountBegin)>;
+    auto nodeRightChildPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin());
+    using NodePolygonCountType = IteratorValueType<decltype(nodeRightChildPolygonCountBegin)>;
     auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layerBase);
-    auto nodeSplitBegin = thrust::make_zip_iterator(nodeSplitCostBegin, nodeSplitPosBegin, nodeLeftPolygonCountBegin, nodeRightPolygonCountBegin, nodePolygonCountBegin);
+    auto nodeSplitBegin = thrust::make_zip_iterator(nodeSplitCostBegin, nodeSplitPosBegin, nodeLeftChildPolygonCountBegin, nodeRightChildPolygonCountBegin, nodePolygonCountBegin);
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     thrust::advance(nodeBestSplitBegin, layerBase);
     using NodeBestSplitType = IteratorValueType<decltype(nodeBestSplitBegin)>;
-    const auto toNodeBestSplit = [sah] __host__ __device__(NodeBestCostType nodeSplitCost, NodeBestPosType nodeSplitPos, NodePolygonCountType nodeLeftPolygonCount, NodePolygonCountType nodeRightPolygonCount, U nodePolygonCount) -> NodeBestSplitType {
+    const auto toNodeBestSplit = [sah] __host__ __device__(NodeBestCostType nodeSplitCost, NodeBestPosType nodeSplitPos, NodePolygonCountType nodeLeftChildPolygonCount, NodePolygonCountType nodeRightChildPolygonCount,
+                                                           U nodePolygonCount) -> NodeBestSplitType {
         assert(nodePolygonCount != 0);
         F x = thrust::get<0>(nodeSplitCost);
         F y = thrust::get<1>(nodeSplitCost);
@@ -33,11 +34,11 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
         F t = sah.intersectionCost * nodePolygonCount;
         F bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
         if (!(bestNodeSplitCost < x)) {
-            return {0, thrust::get<0>(nodeSplitPos), thrust::get<0>(nodeLeftPolygonCount), thrust::get<0>(nodeRightPolygonCount)};
+            return {0, thrust::get<0>(nodeSplitPos), thrust::get<0>(nodeLeftChildPolygonCount), thrust::get<0>(nodeRightChildPolygonCount)};
         } else if (!(bestNodeSplitCost < y)) {
-            return {1, thrust::get<1>(nodeSplitPos), thrust::get<1>(nodeLeftPolygonCount), thrust::get<1>(nodeRightPolygonCount)};
+            return {1, thrust::get<1>(nodeSplitPos), thrust::get<1>(nodeLeftChildPolygonCount), thrust::get<1>(nodeRightChildPolygonCount)};
         } else if (!(bestNodeSplitCost < z)) {
-            return {2, thrust::get<2>(nodeSplitPos), thrust::get<2>(nodeLeftPolygonCount), thrust::get<2>(nodeRightPolygonCount)};
+            return {2, thrust::get<2>(nodeSplitPos), thrust::get<2>(nodeLeftChildPolygonCount), thrust::get<2>(nodeRightChildPolygonCount)};
         } else {
             assert(!(bestNodeSplitCost < t));
             return {-1};  // terminate

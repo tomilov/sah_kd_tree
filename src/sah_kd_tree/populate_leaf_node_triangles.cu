@@ -22,6 +22,6 @@ void sah_kd_tree::Builder::populateLeafNodeTriangles(U leafNodeCount)
     thrust::exclusive_scan(leafPolygonCount.cbegin(), leafPolygonCount.cend(), leafPolygonOffset.begin());
 
     auto leafPolygonBegin = thrust::make_zip_iterator(leafPolygonOffset.cbegin(), leafPolygonCount.cbegin());
-    auto leafPolygonOutputBegin = thrust::make_zip_iterator(node.nodeLeft.begin(), node.nodeRight.begin());
+    auto leafPolygonOutputBegin = thrust::make_zip_iterator(node.leftChild.begin(), node.rightChild.begin());
     thrust::scatter(leafPolygonBegin, thrust::next(leafPolygonBegin, leafNodeCount), node.leafNode.cbegin(), leafPolygonOutputBegin);
 }

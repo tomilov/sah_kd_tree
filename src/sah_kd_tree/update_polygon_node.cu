@@ -10,7 +10,7 @@
 
 void sah_kd_tree::Builder::updatePolygonNode(U layerBase)
 {
-    auto nodeBothBegin = thrust::make_zip_iterator(node.nodeLeft.cbegin(), node.nodeRight.cbegin());
+    auto nodeBothBegin = thrust::make_zip_iterator(node.leftChild.cbegin(), node.rightChild.cbegin());
     auto polygonNodeBothBegin = thrust::make_permutation_iterator(nodeBothBegin, polygon.node.cbegin());
     using PolygonNodeBothType = IteratorValueType<decltype(polygonNodeBothBegin)>;
     const auto toPolygonNode = [] __host__ __device__(I polygonSide, PolygonNodeBothType polygonNodeBoth) -> U {

@@ -75,7 +75,7 @@ struct SAH_KD_TREE_EXPORT Projection
     void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
     void setNodeCount(U layerSize);
     template<I dimension>
-    void splitNode(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft, const thrust::device_vector<U> & nodeRight);
+    void splitNode(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & leftChild, const thrust::device_vector<U> & rightChild);
 };
 
 extern template void Projection::determinePolygonSide<0>(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide) SAH_KD_TREE_EXPORT;
@@ -89,12 +89,12 @@ extern template void Projection::splitPolygon<1>(const thrust::device_vector<I> 
 extern template void Projection::splitPolygon<2>(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & polygonTriangle, const thrust::device_vector<U> & polygonNode,
                                                  U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z) SAH_KD_TREE_EXPORT;
 
-extern template void Projection::splitNode<0>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft,
-                                              const thrust::device_vector<U> & nodeRight) SAH_KD_TREE_EXPORT;
-extern template void Projection::splitNode<1>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft,
-                                              const thrust::device_vector<U> & nodeRight) SAH_KD_TREE_EXPORT;
-extern template void Projection::splitNode<2>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & nodeLeft,
-                                              const thrust::device_vector<U> & nodeRight) SAH_KD_TREE_EXPORT;
+extern template void Projection::splitNode<0>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & leftChild,
+                                              const thrust::device_vector<U> & rightChild) SAH_KD_TREE_EXPORT;
+extern template void Projection::splitNode<1>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & leftChild,
+                                              const thrust::device_vector<U> & rightChild) SAH_KD_TREE_EXPORT;
+extern template void Projection::splitNode<2>(U layerBasePrev, U layerBase, const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & leftChild,
+                                              const thrust::device_vector<U> & rightChild) SAH_KD_TREE_EXPORT;
 
 struct SAH_KD_TREE_EXPORT Builder
 {
@@ -114,11 +114,11 @@ struct SAH_KD_TREE_EXPORT Builder
     {
         thrust::device_vector<I> splitDimension;
         thrust::device_vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
-        thrust::device_vector<U> nodeLeft, nodeRight;                                // left child node and right child node if not leaf, polygon range otherwise
+        thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         thrust::device_vector<U> parentNode;                                         // temporarily needed to build  ropes
         thrust::device_vector<U> leafNode;
-    } node;  // TODO: optimize out node.nodeLeft
+    } node;  // TODO: optimize out node.rightChild
 
     thrust::device_vector<U> layerNodeOffset;
 
