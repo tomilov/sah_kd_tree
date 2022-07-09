@@ -16,12 +16,6 @@
 
 #include <cassert>
 
-// clang-format off
-#include <thrust/execution_policy.h>
-#include <thrust/iterator/discard_iterator.h>
-#include <cstdio>
-// clang-format on
-
 auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 {
     if (triangleCount == 0) {
@@ -154,7 +148,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         polygonCount += splittedPolygonCount;
     }
 
-    populateLeafNodeTriangles(leafNodeCount);
+    populateLeafNodeTriangle(leafNodeCount);
 
     U nodeCount = layerBase + layerSize;
     node.parentNode.resize(nodeCount);
@@ -163,70 +157,12 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
     thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
 
-    auto yMins = y.node.min.data().get();
-    auto yMaxs = y.node.max.data().get();
-    auto zMins = z.node.min.data().get();
-    auto zMaxs = z.node.max.data().get();
-    auto parentNodes = node.parentNode.data().get();
-    auto leftChildren = node.leftChild.data().get();
-    auto rightChildren = node.rightChild.data().get();
-    auto splitDimensions = node.splitDimension.data().get();
-    auto splitPositions = node.splitPos.data().get();
-    constexpr I dimension = 0;
-    const auto getRopeRight = [yMins, yMaxs, zMins, zMaxs, parentNodes, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
-        // assert(splitDimensions[node] < 0);
-        U siblingNode = node;
-        for (;;) {
-            if (siblingNode == 0) {
-                return 0;
-            }
-            U parentNode = parentNodes[siblingNode];
-            if (splitDimensions[parentNode] == dimension) {
-                if (siblingNode == leftChildren[parentNode]) {
-                    if (siblingNode == node) {
-                        return rightChildren[parentNode];
-                    }
-                    siblingNode = rightChildren[parentNode];
-                    break;
-                }
-            }
-            siblingNode = parentNode;
-        }
-        F yMin = yMins[node];
-        F yMax = yMaxs[node];
-        F zMin = zMins[node];
-        F zMax = zMaxs[node];
-        for (;;) {
-            I siblingSplitDimension = splitDimensions[siblingNode];
-            if (siblingSplitDimension < 0) {
-                return siblingNode;
-            } else if (siblingSplitDimension == dimension) {
-                siblingNode = leftChildren[siblingNode];
-            } else if (siblingSplitDimension == ((dimension + 1) % 3)) {
-                F siblingSplitPosition = splitPositions[siblingNode];
-                if (!(siblingSplitPosition < yMax)) {
-                    siblingNode = leftChildren[siblingNode];
-                } else if (!(yMin < siblingSplitPosition)) {
-                    siblingNode = rightChildren[siblingNode];
-                } else {
-                    return siblingNode;
-                }
-            } else if (siblingSplitDimension == ((dimension + 2) % 3)) {
-                F siblingSplitPosition = splitPositions[siblingNode];
-                if (!(siblingSplitPosition < zMax)) {
-                    siblingNode = leftChildren[siblingNode];
-                } else if (!(zMin < siblingSplitPosition)) {
-                    siblingNode = rightChildren[siblingNode];
-                } else {
-                    return siblingNode;
-                }
-            }
-        }
-        return node;
-    };
-    thrust::device_vector<U> rope(nodeCount);
-    // thrust::transform(node.leafNode.cbegin(), node.leafNode.cend(), rope.begin(), getRopeRight);
-    thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), rope.begin(), getRopeRight);
+    calculateRope<0>(nodeCount, node.rightChild, node.leftChild, y, z, x.node.leftRope);
+    calculateRope<0>(nodeCount, node.leftChild, node.rightChild, y, z, x.node.rightRope);
+    calculateRope<1>(nodeCount, node.rightChild, node.leftChild, z, x, y.node.leftRope);
+    calculateRope<1>(nodeCount, node.leftChild, node.rightChild, z, x, y.node.rightRope);
+    calculateRope<2>(nodeCount, node.rightChild, node.leftChild, x, y, z.node.leftRope);
+    calculateRope<2>(nodeCount, node.leftChild, node.rightChild, x, y, z.node.rightRope);
 
     asm volatile("nop;");
 

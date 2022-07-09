@@ -9,7 +9,7 @@
 #include <thrust/scatter.h>
 #include <thrust/sort.h>
 
-void sah_kd_tree::Builder::populateLeafNodeTriangles(U leafNodeCount)
+void sah_kd_tree::Builder::populateLeafNodeTriangle(U leafNodeCount)
 {
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 

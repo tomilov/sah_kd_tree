@@ -39,6 +39,7 @@ struct SAH_KD_TREE_EXPORT Projection
     struct Node
     {
         thrust::device_vector<F> min, max;
+        thrust::device_vector<U> leftRope, rightRope;
     } node;
 
     struct Event
@@ -130,9 +131,17 @@ struct SAH_KD_TREE_EXPORT Builder
     void separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount);
     void updatePolygonNode(U layerBase);
     void updateSplittedPolygonNode(U polygonCount, U splittedPolygonCount);
-    void populateLeafNodeTriangles(U leafNodeCount);
+    void populateLeafNodeTriangle(U leafNodeCount);
+    template<I dimension>
+    void calculateRope(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
 
     Tree operator()(const Params & sah);
 };
 
+extern template void Builder::calculateRope<0>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
+                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<1>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
+                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<2>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
+                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

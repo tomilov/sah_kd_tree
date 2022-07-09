@@ -30,7 +30,8 @@ target_sources(
         "merge_event.cu"
         "set_node_count.cu"
         "split_node.cu"
-        "populate_leaf_node_triangles.cu"
+        "populate_leaf_node_triangle.cu"
+        "calculate_rope.cu"
         "builder.cu"
         "helpers/setup.cuh"
         "helpers/setup.cu")
