@@ -69,9 +69,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         polygon.side.resize(polygonCount);
         polygon.eventRight.resize(polygonCount);
 
-        x.template determinePolygonSide<0>(node.splitDimension, layer.base, polygon.eventRight, polygon.side);
-        y.template determinePolygonSide<1>(node.splitDimension, layer.base, polygon.eventRight, polygon.side);
-        z.template determinePolygonSide<2>(node.splitDimension, layer.base, polygon.eventRight, polygon.side);
+        determinePolygonSide<0>(x);
+        determinePolygonSide<1>(y);
+        determinePolygonSide<2>(z);
 
         U splittedPolygonCount = getSplittedPolygonCount();
 

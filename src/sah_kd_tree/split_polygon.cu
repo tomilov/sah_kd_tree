@@ -140,7 +140,7 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
 template void Projection::splitPolygon<0>(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & polygonTriangle, const thrust::device_vector<U> & polygonNode,
                                           U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z);
 template void Projection::splitPolygon<1>(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & polygonTriangle, const thrust::device_vector<U> & polygonNode,
-                                          U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z);
+                                          U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & z, const Projection & x);
 template void Projection::splitPolygon<2>(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<F> & nodeSplitPos, const thrust::device_vector<U> & polygonTriangle, const thrust::device_vector<U> & polygonNode,
-                                          U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & y, const Projection & z);
+                                          U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, const Projection & x, const Projection & y);
 }  // namespace sah_kd_tree
