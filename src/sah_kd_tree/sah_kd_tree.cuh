@@ -120,20 +120,26 @@ struct SAH_KD_TREE_EXPORT Builder
         thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         thrust::device_vector<U> parentNode;                                         // temporarily needed to build  ropes
+        U leafCount = 0;
         thrust::device_vector<U> leafNode;
     } node;  // TODO: optimize out node.rightChild
 
-    thrust::device_vector<U> layerNodeOffset;
+    struct tex1DLayered
+    {
+        U base = 0;
+        U size = 1;
+        thrust::device_vector<U> nodeOffset;
+    } layer;
 
     thrust::device_vector<U> splittedPolygon;
 
-    void filterLayerNodeOffset(U layerBase, U layerSize);
-    void selectNodeBestSplit(const Params & sah, U layerBase, U layerSize);
-    U getSplittedPolygonCount(U layerBase, U layerSize);
-    void separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount);
-    void updatePolygonNode(U layerBase);
+    void filterLayerNodeOffset();
+    void selectNodeBestSplit(const Params & sah);
+    U getSplittedPolygonCount();
+    void separateSplittedPolygon(U polygonCount, U splittedPolygonCount);
+    void updatePolygonNode();
     void updateSplittedPolygonNode(U polygonCount, U splittedPolygonCount);
-    void populateLeafNodeTriangleRange(U leafNodeCount);
+    void populateLeafNodeTriangleRange();
     bool checkTree(U triangleCount, U polygonCount, U nodeCount) const;
     template<I dimension>
     void calculateRope(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);

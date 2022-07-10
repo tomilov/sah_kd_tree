@@ -10,7 +10,7 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, U layerSize)
+void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah)
 {
     auto nodeSplitCostBegin = thrust::make_zip_iterator(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin());
     using NodeSplitCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
@@ -20,10 +20,10 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
     using NodePolygonCountType = IteratorValueType<decltype(nodeLeftChildPolygonCountBegin)>;
     auto nodeRightChildPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin());
     using NodePolygonCountType = IteratorValueType<decltype(nodeRightChildPolygonCountBegin)>;
-    auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layerBase);
+    auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layer.base);
     auto nodeSplitBegin = thrust::make_zip_iterator(nodeSplitCostBegin, nodeSplitPosBegin, nodeLeftChildPolygonCountBegin, nodeRightChildPolygonCountBegin, nodePolygonCountBegin);
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
-    thrust::advance(nodeBestSplitBegin, layerBase);
+    thrust::advance(nodeBestSplitBegin, layer.base);
     using NodeBestSplitType = IteratorValueType<decltype(nodeBestSplitBegin)>;
     const auto toNodeBestSplit = [sah] __host__ __device__(NodeSplitCostType nodeSplitCost, NodeSplitPosType nodeSplitPos, NodePolygonCountType nodeLeftChildPolygonCount, NodePolygonCountType nodeRightChildPolygonCount,
                                                            U nodePolygonCount) -> NodeBestSplitType {
@@ -45,5 +45,5 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
         }
     };
     const auto isNodeNotEmpty = [] __host__ __device__(U nodePolygonCount) -> bool { return nodePolygonCount != 0; };
-    thrust::transform_if(nodeSplitBegin, thrust::next(nodeSplitBegin, layerSize), nodePolygonCountBegin, nodeBestSplitBegin, thrust::make_zip_function(toNodeBestSplit), isNodeNotEmpty);
+    thrust::transform_if(nodeSplitBegin, thrust::next(nodeSplitBegin, layer.size), nodePolygonCountBegin, nodeBestSplitBegin, thrust::make_zip_function(toNodeBestSplit), isNodeNotEmpty);
 }

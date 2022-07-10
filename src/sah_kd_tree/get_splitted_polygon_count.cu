@@ -6,7 +6,7 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/zip_function.h>
 
-auto sah_kd_tree::Builder::getSplittedPolygonCount(U layerBase, U layerSize) -> U
+auto sah_kd_tree::Builder::getSplittedPolygonCount() -> U
 {
     auto nodePolygonCountBegin = thrust::make_zip_iterator(node.splitDimension.cbegin(), node.polygonCountLeft.cbegin(), node.polygonCountRight.cbegin(), node.polygonCount.cbegin());
     const auto toSplittedPolygonCount = [] __host__ __device__(I splitDimension, U polygonCountLeft, U polygonCountRight, U polygonCount) -> U {
@@ -15,6 +15,6 @@ auto sah_kd_tree::Builder::getSplittedPolygonCount(U layerBase, U layerSize) -> 
         }
         return polygonCountLeft + polygonCountRight - polygonCount;
     };
-    auto splittedPolygonCountBegin = thrust::next(nodePolygonCountBegin, layerBase);
-    return thrust::transform_reduce(splittedPolygonCountBegin, thrust::next(splittedPolygonCountBegin, layerSize), thrust::make_zip_function(toSplittedPolygonCount), U(0), thrust::plus<U>{});
+    auto splittedPolygonCountBegin = thrust::next(nodePolygonCountBegin, layer.base);
+    return thrust::transform_reduce(splittedPolygonCountBegin, thrust::next(splittedPolygonCountBegin, layer.size), thrust::make_zip_function(toSplittedPolygonCount), U(0), thrust::plus<U>{});
 }

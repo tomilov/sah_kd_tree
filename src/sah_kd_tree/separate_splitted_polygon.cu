@@ -9,7 +9,7 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount)
+void sah_kd_tree::Builder::separateSplittedPolygon(U polygonCount, U splittedPolygonCount)
 {
     polygon.triangle.resize(polygonCount + splittedPolygonCount);
     polygon.node.resize(polygonCount + splittedPolygonCount);
@@ -20,6 +20,7 @@ void sah_kd_tree::Builder::separateSplittedPolygon(U layerBase, U polygonCount, 
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto splittedPolygonStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin());
     auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount));
+    U layerBase = layer.base;
     const auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
         if (polygonNode < layerBase) {
             return false;

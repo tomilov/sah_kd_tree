@@ -8,7 +8,7 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-void sah_kd_tree::Builder::updatePolygonNode(U layerBase)
+void sah_kd_tree::Builder::updatePolygonNode()
 {
     auto nodeBothBegin = thrust::make_zip_iterator(node.leftChild.cbegin(), node.rightChild.cbegin());
     auto polygonNodeBothBegin = thrust::make_permutation_iterator(nodeBothBegin, polygon.node.cbegin());
@@ -18,6 +18,7 @@ void sah_kd_tree::Builder::updatePolygonNode(U layerBase)
     };
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto nodeStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin);
+    U layerBase = layer.base;
     const auto isCurrentLayer = [layerBase] __host__ __device__(U polygonNode, I splitDimension) -> bool {
         if (polygonNode < layerBase) {
             return false;

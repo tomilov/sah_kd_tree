@@ -9,12 +9,12 @@
 #include <thrust/scatter.h>
 #include <thrust/sort.h>
 
-void sah_kd_tree::Builder::populateLeafNodeTriangleRange(U leafNodeCount)
+void sah_kd_tree::Builder::populateLeafNodeTriangleRange()
 {
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 
-    node.leafNode.resize(leafNodeCount);
-    thrust::device_vector<U> leafPolygonCount(leafNodeCount);
+    node.leafNode.resize(node.leafCount);
+    thrust::device_vector<U> leafPolygonCount(node.leafCount);
     auto leafPolygonCountEnd = thrust::reduce_by_key(polygon.node.begin(), polygon.node.end(), thrust::make_constant_iterator<U>(1), node.leafNode.begin(), leafPolygonCount.begin());
     // erase window for empty leaf nodes:
     node.leafNode.erase(leafPolygonCountEnd.first, node.leafNode.end());

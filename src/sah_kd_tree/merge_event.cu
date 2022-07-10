@@ -111,7 +111,7 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     assert(thrust::next(eventRightPolygonPlanarBegin, splittedPlanarPolygonRightCount) == endsRight.first);
 
     // calculate event pos for splitted polygon
-#if 1
+#if 0
     auto eventPolygonBegin = eventLeftPolygonLeftBegin;
     auto eventPolygonEnd = thrust::next(eventLeftPolygonLeftBegin, splittedPolygonCount);
     auto eventPosBegin = thrust::next(event.pos.begin(), splittedEventOffset);
