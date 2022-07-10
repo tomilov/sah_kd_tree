@@ -4,7 +4,6 @@
 #include <thrust/functional.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
 auto sah_kd_tree::Builder::getSplittedPolygonCount(U layerBase, U layerSize) -> U

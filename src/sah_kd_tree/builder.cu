@@ -12,7 +12,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
-#include <thrust/tuple.h>
 
 #include <cassert>
 
@@ -148,23 +147,22 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         polygonCount += splittedPolygonCount;
     }
 
-    populateLeafNodeTriangle(leafNodeCount);
-
     U nodeCount = layerBase + layerSize;
+
     node.parentNode.resize(nodeCount);
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
 
-    auto nodeBegin = thrust::make_counting_iterator<U>(0);
-    thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
-    thrust::scatter_if(nodeBegin, thrust::next(nodeBegin, nodeCount), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+    assert(checkTree(triangleCount, polygonCount, nodeCount));
 
-    calculateRope<0>(nodeCount, node.rightChild, node.leftChild, y, z, x.node.leftRope);
-    calculateRope<0>(nodeCount, node.leftChild, node.rightChild, y, z, x.node.rightRope);
-    calculateRope<1>(nodeCount, node.rightChild, node.leftChild, z, x, y.node.leftRope);
-    calculateRope<1>(nodeCount, node.leftChild, node.rightChild, z, x, y.node.rightRope);
-    calculateRope<2>(nodeCount, node.rightChild, node.leftChild, x, y, z.node.leftRope);
-    calculateRope<2>(nodeCount, node.leftChild, node.rightChild, x, y, z.node.rightRope);
+    populateLeafNodeTriangleRange(leafNodeCount);
 
-    asm volatile("nop;");
+    calculateRope<0>(nodeCount, true, y, z, x.node.leftRope);
+    calculateRope<0>(nodeCount, false, y, z, x.node.rightRope);
+    calculateRope<1>(nodeCount, true, z, x, y.node.leftRope);
+    calculateRope<1>(nodeCount, false, z, x, y.node.rightRope);
+    calculateRope<2>(nodeCount, true, x, y, z.node.leftRope);
+    calculateRope<2>(nodeCount, false, x, y, z.node.rightRope);
 
     return tree;
 }

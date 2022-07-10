@@ -22,12 +22,12 @@ void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
 
     auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangleCount), isPlanarEvent));
 
-    auto eventCount = triangleCount - planarEventCount + triangleCount;
+    event.count = triangleCount - planarEventCount + triangleCount;
 
-    event.node.resize(eventCount, U(0));
-    event.pos.resize(eventCount);
-    event.kind.resize(eventCount, I(0));
-    event.polygon.resize(eventCount);
+    event.node.resize(event.count, U(0));
+    event.pos.resize(event.count);
+    event.kind.resize(event.count, I(0));
+    event.polygon.resize(event.count);
 
     auto eventKindBothBegin = thrust::make_zip_iterator(event.kind.begin(), event.kind.rbegin());
     [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right events are sequenced before left events if positions are equivalent
@@ -44,5 +44,5 @@ void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
     thrust::transform(event.kind.cbegin(), event.kind.cend(), eventPolygonBboxBegin, event.pos.begin(), toEventPos);
 
     auto eventBegin = thrust::make_zip_iterator(event.pos.begin(), event.kind.begin(), event.polygon.begin());
-    thrust::sort(eventBegin, thrust::next(eventBegin, eventCount));
+    thrust::sort(eventBegin, thrust::next(eventBegin, event.count));
 }

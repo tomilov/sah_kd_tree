@@ -5,7 +5,6 @@
 #include <thrust/extrema.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
-#include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
 void sah_kd_tree::Projection::calculateTriangleBbox(U triangleCount)

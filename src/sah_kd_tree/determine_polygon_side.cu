@@ -18,15 +18,13 @@ namespace sah_kd_tree
 template<I dimension>
 void Projection::determinePolygonSide(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide)
 {
-    auto eventCount = U(event.kind.size());
-
     auto splitDimensionBegin = thrust::make_permutation_iterator(nodeSplitDimension.cbegin(), event.node.cbegin());
     auto eventSideBegin = thrust::make_zip_iterator(splitDimensionBegin, event.kind.cbegin());
 
     auto eventBegin = thrust::make_counting_iterator<U>(0);
 
     {  // find event counterpart
-        auto eventEnd = thrust::next(eventBegin, eventCount);
+        auto eventEnd = thrust::next(eventBegin, event.count);
 
         const auto isNotLeftEvent = [] __host__ __device__(I nodeSplitDimension, I eventKind) -> bool {
             if (nodeSplitDimension != dimension) {
@@ -65,7 +63,7 @@ void Projection::determinePolygonSide(const thrust::device_vector<I> & nodeSplit
             return +1;  // goes to right child node
         }
     };
-    thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, eventCount), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::make_zip_function(isNotRightEvent));
+    thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, event.count), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::make_zip_function(isNotRightEvent));
 }
 
 template void Projection::determinePolygonSide<0>(const thrust::device_vector<I> & nodeSplitDimension, U layerBase, thrust::device_vector<U> & polygonEventRight, thrust::device_vector<I> & polygonSide);

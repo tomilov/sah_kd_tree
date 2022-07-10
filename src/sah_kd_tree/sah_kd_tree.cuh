@@ -44,6 +44,7 @@ struct SAH_KD_TREE_EXPORT Projection
 
     struct Event
     {
+        U count = 0;
         thrust::device_vector<U> node;
         thrust::device_vector<F> pos;
         thrust::device_vector<I> kind;
@@ -59,6 +60,7 @@ struct SAH_KD_TREE_EXPORT Projection
         thrust::device_vector<F> splitPos;
 
         thrust::device_vector<U> polygonCountLeft, polygonCountRight;
+        thrust::device_vector<U> splittedPolygonCount;  // can be optimized out
     } layer;
 
     void calculateTriangleBbox(U triangleCount);
@@ -131,17 +133,15 @@ struct SAH_KD_TREE_EXPORT Builder
     void separateSplittedPolygon(U layerBase, U polygonCount, U splittedPolygonCount);
     void updatePolygonNode(U layerBase);
     void updateSplittedPolygonNode(U polygonCount, U splittedPolygonCount);
-    void populateLeafNodeTriangle(U leafNodeCount);
+    void populateLeafNodeTriangleRange(U leafNodeCount);
+    bool checkTree(U triangleCount, U polygonCount, U nodeCount) const;
     template<I dimension>
-    void calculateRope(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
+    void calculateRope(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
 
     Tree operator()(const Params & sah);
 };
 
-extern template void Builder::calculateRope<0>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
-                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<1>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
-                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<2>(U nodeCount, const thrust::device_vector<U> & nodeLeftChild, const thrust::device_vector<U> & nodeRightChild, const Projection & y, const Projection & z,
-                                               thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<0>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<1>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<2>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

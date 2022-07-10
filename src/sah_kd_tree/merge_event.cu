@@ -27,8 +27,6 @@
 
 void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon)
 {
-    auto eventCount = U(event.kind.size());
-
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     const auto isPlanarPolygon = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
@@ -49,16 +47,16 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto eventLeftCount = U(eventLeft.size());
     auto eventRightCount = U(eventRight.size());
 
-    U eventStorageSize = std::exchange(eventCount, eventLeftCount + eventRightCount + splittedEventCount);
-    if (eventStorageSize < eventCount) {
-        eventStorageSize = eventCount;
+    U eventStorageSize = std::exchange(event.count, eventLeftCount + eventRightCount + splittedEventCount);
+    if (eventStorageSize < event.count) {
+        eventStorageSize = event.count;
     }
 
     // grant additional storage for all merge operations
-    event.node.resize(eventStorageSize + eventCount);
-    event.pos.resize(eventStorageSize + eventCount);
-    event.kind.resize(eventStorageSize + eventCount, I(0));
-    event.polygon.resize(eventStorageSize + eventCount);
+    event.node.resize(eventStorageSize + event.count);
+    event.pos.resize(eventStorageSize + event.count);
+    event.kind.resize(eventStorageSize + event.count, I(0));
+    event.polygon.resize(eventStorageSize + event.count);
 
     // merge l and r event
     auto eventNodeBegin = thrust::make_permutation_iterator(polygonNode.cbegin(), event.polygon.cbegin());
@@ -146,22 +144,22 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     // cleanup repeating planar events
     if (std::is_floating_point_v<F>) {
         auto cleanSplittedEventEnd = thrust::unique(splittedEventBegin, splittedEventEnd);
-        eventCount -= U(thrust::distance(cleanSplittedEventEnd, splittedEventEnd));
+        event.count -= U(thrust::distance(cleanSplittedEventEnd, splittedEventEnd));
         splittedEventEnd = cleanSplittedEventEnd;
     }
 
     // merge splitted event w/ lr event
     auto eventBothBegin = thrust::next(eventBegin, eventStorageSize);
     [[maybe_unused]] auto eventEnd = thrust::merge(eventBothBegin, splittedEventBegin, splittedEventBegin, splittedEventEnd, eventBegin);
-    assert(thrust::next(eventBegin, eventCount) == eventEnd);
+    assert(thrust::next(eventBegin, event.count) == eventEnd);
 
     assert(thrust::is_sorted(eventBegin, eventEnd));
 
     // crop
-    event.node.resize(eventCount);
-    event.pos.resize(eventCount);
-    event.kind.resize(eventCount);
-    event.polygon.resize(eventCount);
+    event.node.resize(event.count);
+    event.pos.resize(event.count);
+    event.kind.resize(event.count);
+    event.polygon.resize(event.count);
 
     assert(thrust::equal(event.node.cbegin(), event.node.cend(), thrust::make_permutation_iterator(polygonNode.cbegin(), event.polygon.cbegin())));
 }

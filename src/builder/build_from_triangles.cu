@@ -20,16 +20,11 @@ bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBeg
     }
 
     sah_kd_tree::helpers::Triangles triangles;
-    sah_kd_tree::helpers::setTriangles(triangles, triangleBegin, triangleEnd);
+    triangles.setTriangles(triangleBegin, triangleEnd);
 
     sah_kd_tree::Builder builder;
     sah_kd_tree::helpers::linkTriangles(builder, triangles);
 
     sah_kd_tree::Tree tree = builder(params);
-
-    // qCDebug(builderLog) << QStringLiteral("SAH k-D tree depth = %1").arg(tree.depth);
-    if (builder.triangleCount < tree.depth) {
-        return false;
-    }
     return true;
 }

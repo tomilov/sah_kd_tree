@@ -19,4 +19,4 @@ gtest_discover_tests(
     WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}/data/scenes"
     PROPERTIES
-        TIMEOUT 1)
+        TIMEOUT 10)

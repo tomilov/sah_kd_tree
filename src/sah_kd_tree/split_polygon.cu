@@ -25,11 +25,11 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.begin(), polygon.max.begin());
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     using PolygonBboxInputType = IteratorValueType<decltype(polygonLeftBboxBegin)>;
-    auto nodeBegin = thrust::make_zip_iterator(nodeSplitDimension.cbegin(), nodeSplitPos.cbegin());
-    auto polygonNodeBegin = thrust::make_permutation_iterator(nodeBegin, polygonNode.cbegin());
+    auto nodeSplitBegin = thrust::make_zip_iterator(nodeSplitDimension.cbegin(), nodeSplitPos.cbegin());
+    auto polygonSplitBegin = thrust::make_permutation_iterator(nodeSplitBegin, polygonNode.cbegin());
     auto triangleBegin = thrust::make_zip_iterator(triangle.a, triangle.b, triangle.c, y.triangle.a, y.triangle.b, y.triangle.c, z.triangle.a, z.triangle.b, z.triangle.c);
     auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygonTriangle.cbegin());
-    auto polygonBegin = thrust::make_zip_iterator(polygonNodeBegin, polygonTriangleBegin);
+    auto polygonBegin = thrust::make_zip_iterator(polygonSplitBegin, polygonTriangleBegin);
     using PolygonType = IteratorValueType<decltype(polygonBegin)>;
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
@@ -37,32 +37,32 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
     const auto toSplittedPolygon = [] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
-        const auto & polygonNode = thrust::get<0>(polygon);
-        I nodeSplitDimension = thrust::get<0>(polygonNode);
-        F nodeSplitPos = thrust::get<1>(polygonNode);
-        if (nodeSplitDimension == dimension) {
-            assert(!(nodeSplitPos < min) && !(max < nodeSplitPos));
-            return {{min, nodeSplitPos}, {nodeSplitPos, max}};
+        const auto & polygonSplit = thrust::get<0>(polygon);
+        I polygonSplitDimension = thrust::get<0>(polygonSplit);
+        F polygonSplitPos = thrust::get<1>(polygonSplit);
+        if (polygonSplitDimension == dimension) {
+            assert(!(polygonSplitPos < min) && !(max < polygonSplitPos));
+            return {{min, polygonSplitPos}, {polygonSplitPos, max}};
         } else if (!(min < max)) {
             return {bbox, bbox};
         }
 
         const auto & triangle = thrust::get<1>(polygon);
         F a, b, c;
-        if (nodeSplitDimension == ((dimension + 1) % 3)) {
+        if (polygonSplitDimension == ((dimension + 1) % 3)) {
             a = thrust::get<3>(triangle);
             b = thrust::get<4>(triangle);
             c = thrust::get<5>(triangle);
         } else {
-            assert(nodeSplitDimension == ((dimension + 2) % 3));
+            assert(polygonSplitDimension == ((dimension + 2) % 3));
             a = thrust::get<6>(triangle);
             b = thrust::get<7>(triangle);
             c = thrust::get<8>(triangle);
         }
 
-        bool aSide = (a < nodeSplitPos);
-        bool bSide = (b < nodeSplitPos);
-        bool cSide = (c < nodeSplitPos);
+        bool aSide = (a < polygonSplitPos);
+        bool bSide = (b < polygonSplitPos);
+        bool cSide = (c < polygonSplitPos);
 
         F ax = thrust::get<0>(triangle);
         F bx = thrust::get<1>(triangle);
@@ -74,7 +74,6 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
             thrust::swap(ax, cx);
             thrust::swap(a, c);
         } else if (aSide == cSide) {
-            assert(aSide != bSide);
             thrust::swap(aSide, bSide);
             thrust::swap(ax, bx);
             thrust::swap(a, b);
@@ -87,9 +86,9 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
         }
 
         assert((b < a) || (a < b));
-        F lpos = ax + (bx - ax) * (nodeSplitPos - a) / (b - a);
+        F lpos = ax + (bx - ax) * (polygonSplitPos - a) / (b - a);
         assert((c < a) || (a < c));
-        F rpos = ax + (cx - ax) * (nodeSplitPos - a) / (c - a);
+        F rpos = ax + (cx - ax) * (polygonSplitPos - a) / (c - a);
 
         if (std::is_floating_point_v<F>) {
             if (max < lpos) {
@@ -103,7 +102,6 @@ void Projection::splitPolygon(const thrust::device_vector<I> & nodeSplitDimensio
                 rpos = lpos = (lpos + rpos) / F(2);
             }
         }
-
         assert(!(rpos < lpos));
 
         F lmin, rmin;

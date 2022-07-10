@@ -32,7 +32,7 @@ namespace
 constexpr size_t kBoxTriangleCount = 12;
 
 constexpr int kIntBboxSize = 10;
-constexpr bool kFuzzIntegerCoordinate = true;
+constexpr bool kFuzzIntegerCoordinate = false;
 
 constexpr int kFloatDigits = std::numeric_limits<F>::digits;
 
@@ -55,7 +55,7 @@ F genFloat()
     return std::generate_canonical<F, kFloatDigits>(gen);
 }
 
-void genComponent(F & f, int min = -kIntBboxSize, int max = +kIntBboxSize)
+void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
 {
     assert(!(max < min));
     f = F(uniformInt(gen, UniformIntParam(min, max)));

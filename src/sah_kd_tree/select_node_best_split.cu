@@ -13,9 +13,9 @@
 void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, U layerSize)
 {
     auto nodeSplitCostBegin = thrust::make_zip_iterator(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin());
-    using NodeBestCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
+    using NodeSplitCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;
     auto nodeSplitPosBegin = thrust::make_zip_iterator(x.layer.splitPos.cbegin(), y.layer.splitPos.cbegin(), z.layer.splitPos.cbegin());
-    using NodeBestPosType = IteratorValueType<decltype(nodeSplitPosBegin)>;
+    using NodeSplitPosType = IteratorValueType<decltype(nodeSplitPosBegin)>;
     auto nodeLeftChildPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountLeft.cbegin(), y.layer.polygonCountLeft.cbegin(), z.layer.polygonCountLeft.cbegin());
     using NodePolygonCountType = IteratorValueType<decltype(nodeLeftChildPolygonCountBegin)>;
     auto nodeRightChildPolygonCountBegin = thrust::make_zip_iterator(x.layer.polygonCountRight.cbegin(), y.layer.polygonCountRight.cbegin(), z.layer.polygonCountRight.cbegin());
@@ -25,14 +25,14 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     thrust::advance(nodeBestSplitBegin, layerBase);
     using NodeBestSplitType = IteratorValueType<decltype(nodeBestSplitBegin)>;
-    const auto toNodeBestSplit = [sah] __host__ __device__(NodeBestCostType nodeSplitCost, NodeBestPosType nodeSplitPos, NodePolygonCountType nodeLeftChildPolygonCount, NodePolygonCountType nodeRightChildPolygonCount,
+    const auto toNodeBestSplit = [sah] __host__ __device__(NodeSplitCostType nodeSplitCost, NodeSplitPosType nodeSplitPos, NodePolygonCountType nodeLeftChildPolygonCount, NodePolygonCountType nodeRightChildPolygonCount,
                                                            U nodePolygonCount) -> NodeBestSplitType {
         assert(nodePolygonCount != 0);
-        F x = thrust::get<0>(nodeSplitCost);
-        F y = thrust::get<1>(nodeSplitCost);
-        F z = thrust::get<2>(nodeSplitCost);
-        F t = sah.intersectionCost * nodePolygonCount;
-        F bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
+        thrust::tuple<F, U> x{thrust::get<0>(nodeSplitCost), thrust::get<0>(nodeLeftChildPolygonCount) + thrust::get<0>(nodeRightChildPolygonCount) - nodePolygonCount};
+        thrust::tuple<F, U> y{thrust::get<1>(nodeSplitCost), thrust::get<1>(nodeLeftChildPolygonCount) + thrust::get<1>(nodeRightChildPolygonCount) - nodePolygonCount};
+        thrust::tuple<F, U> z{thrust::get<2>(nodeSplitCost), thrust::get<2>(nodeLeftChildPolygonCount) + thrust::get<2>(nodeRightChildPolygonCount) - nodePolygonCount};
+        thrust::tuple<F, U> t{sah.intersectionCost * nodePolygonCount, 0};
+        thrust::tuple<F, U> bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
         if (!(bestNodeSplitCost < x)) {
             return {0, thrust::get<0>(nodeSplitPos), thrust::get<0>(nodeLeftChildPolygonCount), thrust::get<0>(nodeRightChildPolygonCount)};
         } else if (!(bestNodeSplitCost < y)) {
@@ -41,7 +41,7 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, U layerBase, 
             return {2, thrust::get<2>(nodeSplitPos), thrust::get<2>(nodeLeftChildPolygonCount), thrust::get<2>(nodeRightChildPolygonCount)};
         } else {
             assert(!(bestNodeSplitCost < t));
-            return {-1};  // terminate
+            return {-1};  // leaf
         }
     };
     const auto isNodeNotEmpty = [] __host__ __device__(U nodePolygonCount) -> bool { return nodePolygonCount != 0; };

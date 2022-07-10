@@ -83,6 +83,13 @@ if (ARG1 eq 'plan') {
     unset multiplot
 } else {
 	if (ARG1 eq '3d') {
+        set arrow 1 from graph -1,  0,  0 to graph 1, 0, 0 filled size graph 0.05, 15
+        set arrow 2 from graph  0, -1,  0 to graph 0, 1, 0 filled size graph 0.05, 15
+        set arrow 3 from graph  0,  0, -1 to graph 0, 0, 1 filled size graph 0.05, 15
+        set label 1 at graph 1.05,    0,    0 'X' center
+        set label 2 at graph    0, 1.05,    0 'Y' center
+        set label 3 at graph    0,    0, 1.05 'Z' center
+
 		set view acos(1/sqrt(3)), 135, 0.97
 		splot '$data' using 1:2:3:(column(-2)) notitle with lines linecolor variable
 	}
