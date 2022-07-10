@@ -101,7 +101,8 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
         splitCost *= emptinessFactor;
-        return {splitCost, polygonCountLeft + polygonCountRight - polygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+        U splittedPolygonCount = polygonCountLeft + polygonCountRight - polygonCount;
+        return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(perfectSplitInputBegin, thrust::make_zip_function(toPerfectSplit));
     [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});

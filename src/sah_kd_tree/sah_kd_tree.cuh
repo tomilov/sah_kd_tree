@@ -130,7 +130,7 @@ struct SAH_KD_TREE_EXPORT Builder
     void separateSplittedPolygon();
     void updatePolygonNode();
     template<I dimension>
-    void splitPolygon(const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z);
+    void splitPolygon(Projection & x, const Projection & y, const Projection & z);
     void updateSplittedPolygonNode();
     void setNodeCount(Projection & x, Projection & y, Projection & z);
     void populateLeafNodeTriangleRange();
@@ -140,7 +140,7 @@ struct SAH_KD_TREE_EXPORT Builder
     enum class Direction
     {
         kPositive,
-        kNegative
+        kNegative,
     };
 
     template<I dimension>
@@ -153,9 +153,9 @@ extern template void Builder::determinePolygonSide<0>(const Projection & x) SAH_
 extern template void Builder::determinePolygonSide<1>(const Projection & y) SAH_KD_TREE_EXPORT;
 extern template void Builder::determinePolygonSide<2>(const Projection & z) SAH_KD_TREE_EXPORT;
 
-extern template void Builder::splitPolygon<0>(const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z) SAH_KD_TREE_EXPORT;
-extern template void Builder::splitPolygon<1>(const thrust::device_vector<U> & splittedPolygon, Projection & y, const Projection & z, const Projection & x) SAH_KD_TREE_EXPORT;
-extern template void Builder::splitPolygon<2>(const thrust::device_vector<U> & splittedPolygon, Projection & z, const Projection & x, const Projection & y) SAH_KD_TREE_EXPORT;
+extern template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z) SAH_KD_TREE_EXPORT;
+extern template void Builder::splitPolygon<1>(Projection & y, const Projection & z, const Projection & x) SAH_KD_TREE_EXPORT;
+extern template void Builder::splitPolygon<2>(Projection & z, const Projection & x, const Projection & y) SAH_KD_TREE_EXPORT;
 
 extern template void Builder::calculateRope<0>(Direction direction, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
 extern template void Builder::calculateRope<1>(Direction direction, const Projection & z, const Projection & x, thrust::device_vector<U> & nodeRightRope) SAH_KD_TREE_EXPORT;
