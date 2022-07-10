@@ -94,9 +94,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         assert(polygon.side.size() == polygonCount);
         updatePolygonNode();
 
-        x.template splitPolygon<0>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, y, z);
-        y.template splitPolygon<1>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x);
-        z.template splitPolygon<2>(node.splitDimension, node.splitPos, polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y);
+        splitPolygon<0>(polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, x, y, z);
+        splitPolygon<1>(polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, y, z, x);
+        splitPolygon<2>(polygon.triangle, polygon.node, polygonCount, splittedPolygonCount, splittedPolygon, z, x, y);
 
         updateSplittedPolygonNode(polygonCount, splittedPolygonCount);
 
