@@ -2,18 +2,23 @@
 
 namespace sah_kd_tree::helpers
 {
-void linkTriangles(Builder & builder, const Triangles & triangles)
+void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
 {
-    builder.triangleCount = triangles.triangleCount;
+    builder.polygon.count = triangle.count;
 
-    builder.x.triangle.a = triangles.x.a.data();
-    builder.x.triangle.b = triangles.x.b.data();
-    builder.x.triangle.c = triangles.x.c.data();
-    builder.y.triangle.a = triangles.y.a.data();
-    builder.y.triangle.b = triangles.y.b.data();
-    builder.y.triangle.c = triangles.y.c.data();
-    builder.z.triangle.a = triangles.z.a.data();
-    builder.z.triangle.b = triangles.z.b.data();
-    builder.z.triangle.c = triangles.z.c.data();
+    x.triangle.count = triangle.count;
+    x.triangle.a = triangle.x.a.data();
+    x.triangle.b = triangle.x.b.data();
+    x.triangle.c = triangle.x.c.data();
+
+    y.triangle.count = triangle.count;
+    y.triangle.a = triangle.y.a.data();
+    y.triangle.b = triangle.y.b.data();
+    y.triangle.c = triangle.y.c.data();
+
+    z.triangle.count = triangle.count;
+    z.triangle.a = triangle.z.a.data();
+    z.triangle.b = triangle.z.b.data();
+    z.triangle.c = triangle.z.c.data();
 }
 }  // namespace sah_kd_tree::helpers

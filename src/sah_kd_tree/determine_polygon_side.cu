@@ -67,7 +67,7 @@ void Builder::determinePolygonSide(const Projection & projection)
     thrust::transform_if(eventCounterpartBegin, thrust::next(eventCounterpartBegin, projection.event.count), splitEventBegin, eventSideBegin, polygonSideBegin, toPolygonSide, thrust::make_zip_function(isNotRightEvent));
 }
 
-template void Builder::determinePolygonSide<0>(const Projection & x);
-template void Builder::determinePolygonSide<1>(const Projection & y);
-template void Builder::determinePolygonSide<2>(const Projection & z);
+template void Builder::determinePolygonSide<0>(const Projection & x) SAH_KD_TREE_EXPORT;
+template void Builder::determinePolygonSide<1>(const Projection & y) SAH_KD_TREE_EXPORT;
+template void Builder::determinePolygonSide<2>(const Projection & z) SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

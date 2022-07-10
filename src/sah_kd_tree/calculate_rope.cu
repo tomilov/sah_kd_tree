@@ -8,7 +8,7 @@
 namespace sah_kd_tree
 {
 template<I dimension>
-void Builder::calculateRope(Direction direction, Projection & x, const Projection & y, const Projection & z)
+void Builder::calculateRope(Direction direction, Projection & x, const Projection & y, const Projection & z) const
 {
     auto & nodeRope = (direction == Direction::kPositive) ? x.node.rightRope : x.node.leftRope;
     nodeRope.resize(node.count);
@@ -80,7 +80,7 @@ void Builder::calculateRope(Direction direction, Projection & x, const Projectio
     thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRope.begin(), getRightRope);
 }
 
-template void Builder::calculateRope<0>(Direction direction, Projection & x, const Projection & y, const Projection & z);
-template void Builder::calculateRope<1>(Direction direction, Projection & y, const Projection & z, const Projection & x);
-template void Builder::calculateRope<2>(Direction direction, Projection & z, const Projection & x, const Projection & y);
+template void Builder::calculateRope<0>(Direction direction, Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<1>(Direction direction, Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<2>(Direction direction, Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

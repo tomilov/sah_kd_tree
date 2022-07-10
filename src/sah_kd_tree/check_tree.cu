@@ -35,7 +35,7 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 }
 }  // namespace
 
-bool Builder::checkTree() const
+bool Builder::checkTree(const Projection & x, const Projection & y, const Projection & z) const
 {
     auto nodeXMins = x.node.min.data().get();
     auto nodeXMaxs = x.node.max.data().get();
@@ -88,7 +88,7 @@ bool Builder::checkTree() const
 
         return true;
     };
-    if (!thrust::all_of(thrust::make_counting_iterator<U>(triangleCount), thrust::make_counting_iterator<U>(polygon.count), checkPolygon)) {
+    if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygon)) {
         return false;
     }
 

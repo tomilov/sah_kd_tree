@@ -14,15 +14,15 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
+void sah_kd_tree::Projection::generateInitialEvent()
 {
     auto triangleBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;
     const auto isPlanarEvent = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
-    auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangleCount), isPlanarEvent));
+    auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangle.count), isPlanarEvent));
 
-    event.count = triangleCount - planarEventCount + triangleCount;
+    event.count = triangle.count - planarEventCount + triangle.count;
 
     event.node.resize(event.count, U(0));
     event.pos.resize(event.count);
@@ -30,14 +30,14 @@ void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
     event.polygon.resize(event.count);
 
     auto eventKindBothBegin = thrust::make_zip_iterator(event.kind.begin(), event.kind.rbegin());
-    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangleCount - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right events are sequenced before left events if positions are equivalent
+    [[maybe_unused]] auto planarEventKind = thrust::fill_n(eventKindBothBegin, triangle.count - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right events are sequenced before left events if positions are equivalent
     // thrust::fill_n(thrust::get<0>(planarEventKind.get_iterator_tuple()), planarEventCount, I(0));
 
     auto triangleBegin = thrust::make_counting_iterator<U>(0);
-    auto planarEventBegin = thrust::next(event.polygon.begin(), triangleCount - planarEventCount);
+    auto planarEventBegin = thrust::next(event.polygon.begin(), triangle.count - planarEventCount);
     auto eventPairBegin = thrust::make_zip_iterator(event.polygon.begin(), event.polygon.rbegin());
     auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, Doubler<U>{});
-    thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangleCount), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
+    thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangle.count), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
 
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(triangleBboxBegin, event.polygon.cbegin());
     const auto toEventPos = [] __host__ __device__(I eventKind, BboxType bbox) -> F { return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox); };

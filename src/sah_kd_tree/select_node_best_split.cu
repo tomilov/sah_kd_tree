@@ -10,7 +10,7 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah)
+void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Projection & x, const Projection & y, const Projection & z)
 {
     auto nodeSplitCostBegin = thrust::make_zip_iterator(x.layer.splitCost.cbegin(), y.layer.splitCost.cbegin(), z.layer.splitCost.cbegin());
     using NodeSplitCostType = IteratorValueType<decltype(nodeSplitCostBegin)>;

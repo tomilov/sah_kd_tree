@@ -13,9 +13,10 @@
 
 namespace sah_kd_tree::helpers
 {
-struct SAH_KD_TREE_EXPORT Triangles
+struct SAH_KD_TREE_EXPORT Triangle
 {
-    U triangleCount = 0;
+    U count = 0;
+
     struct Component
     {
         thrust::device_vector<F> a, b, c;
@@ -25,15 +26,15 @@ struct SAH_KD_TREE_EXPORT Triangles
     // but to conduct with .cpp code in case of CUDA "glue" .hpp+.cu pair is required
     // (ideally .hpp should contain only C++)
     template<typename TriangleIterator>
-    void setTriangles(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
+    void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
     {
         using TriangleType = IteratorValueType<TriangleIterator>;
         thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
-        triangleCount = U(t.size());
-        const auto transposeComponent = [this](typename Triangles::Component & component) {
-            component.a.resize(triangleCount);
-            component.b.resize(triangleCount);
-            component.c.resize(triangleCount);
+        count = U(t.size());
+        const auto transposeComponent = [this](typename Triangle::Component & component) {
+            component.a.resize(count);
+            component.b.resize(count);
+            component.c.resize(count);
             return thrust::make_zip_iterator(component.a.begin(), component.b.begin(), component.c.begin());
         };
         auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
@@ -43,5 +44,5 @@ struct SAH_KD_TREE_EXPORT Triangles
     }
 };
 
-void linkTriangles(Builder & builder, const Triangles & triangles) SAH_KD_TREE_EXPORT;
+void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree::helpers

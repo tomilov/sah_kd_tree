@@ -14,7 +14,7 @@
 namespace sah_kd_tree
 {
 template<I dimension>
-void Builder::splitPolygon(Projection & x, const Projection & y, const Projection & z)
+void Builder::splitPolygon(Projection & x, const Projection & y, const Projection & z) const
 {
     // node of right part of splitted polygon (starting from polygon.count) is still node from previous layer
 
@@ -136,7 +136,7 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
     thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, polygon.splittedCount), thrust::next(polygonBegin, polygon.count), splittedPolygonBboxBegin, toSplittedPolygon);
 }
 
-template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z);
-template void Builder::splitPolygon<1>(Projection & y, const Projection & z, const Projection & x);
-template void Builder::splitPolygon<2>(Projection & z, const Projection & x, const Projection & y);
+template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+template void Builder::splitPolygon<1>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+template void Builder::splitPolygon<2>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

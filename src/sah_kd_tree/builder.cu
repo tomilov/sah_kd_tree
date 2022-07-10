@@ -15,25 +15,20 @@
 
 #include <cassert>
 
-auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
+auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projection & y, Projection & z) -> Tree
 {
-    if (triangleCount == 0) {
-        return {};
-    }
-
-    x.calculateTriangleBbox(triangleCount);
-    y.calculateTriangleBbox(triangleCount);
-    z.calculateTriangleBbox(triangleCount);
+    x.calculateTriangleBbox();
+    y.calculateTriangleBbox();
+    z.calculateTriangleBbox();
 
     x.calculateRootNodeBbox();
     y.calculateRootNodeBbox();
     z.calculateRootNodeBbox();
 
-    x.generateInitialEvent(triangleCount);
-    y.generateInitialEvent(triangleCount);
-    z.generateInitialEvent(triangleCount);
+    x.generateInitialEvent();
+    y.generateInitialEvent();
+    z.generateInitialEvent();
 
-    polygon.count = triangleCount;
     polygon.triangle.resize(polygon.count);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
     polygon.node.assign(polygon.count, U(0));
@@ -54,7 +49,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         y.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, z, x);
         z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
 
-        selectNodeBestSplit(sah);
+        selectNodeBestSplit(sah, x, y, z);
 
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
@@ -144,7 +139,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
     thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
 
-    assert(checkTree());
+    assert(checkTree(x, y, z));
 
     populateLeafNodeTriangleRange();
 
