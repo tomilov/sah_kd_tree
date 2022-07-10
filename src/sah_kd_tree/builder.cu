@@ -46,8 +46,6 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
-    const auto isNotLeaf = [] __host__ __device__(I nodeSplitDimension) -> bool { return !(nodeSplitDimension < 0); };
-
     Tree tree;
     for (tree.depth = 0; tree.depth < sah.maxDepth; ++tree.depth) {
         filterLayerNodeOffset();
@@ -115,22 +113,22 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
 
         auto nodePolygonCountLeftBegin = thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev);
         auto nodePolygonCountLeftEnd = thrust::next(node.polygonCountLeft.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
+        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), IsNotLeaf{});
         auto nodePolygonCountRightBegin = thrust::next(node.polygonCountRight.cbegin(), layerBasePrev);
         auto nodePolygonCountRightEnd = thrust::next(node.polygonCountRight.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
+        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), IsNotLeaf{});
 
         setNodeCount(x, y, z);
 
         auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = thrust::next(nodeBboxBegin, layerBasePrev);
         auto layerBboxEnd = thrust::next(nodeBboxBegin, layer.base);
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, IsNotLeaf{});
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, IsNotLeaf{});
 
-        x.template splitNode<0>(layerBasePrev, layer.base, node.splitDimension, node.splitPos, node.leftChild, node.rightChild);
-        y.template splitNode<1>(layerBasePrev, layer.base, node.splitDimension, node.splitPos, node.leftChild, node.rightChild);
-        z.template splitNode<2>(layerBasePrev, layer.base, node.splitDimension, node.splitPos, node.leftChild, node.rightChild);
+        splitNode<0>(layerBasePrev, x);
+        splitNode<1>(layerBasePrev, y);
+        splitNode<2>(layerBasePrev, z);
 
         node.splitDimension.resize(node.count, I(-1));
         node.splitPos.resize(node.count);
@@ -142,22 +140,22 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         polygon.count += polygon.splittedCount;
     }
 
-    node.parentNode.resize(node.count);
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+    node.parent.resize(node.count);
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
 
     assert(checkTree());
 
     populateLeafNodeTriangleRange();
 
-    calculateRope<0>(Direction::kNegative, y, z, x.node.leftRope);
-    calculateRope<0>(Direction::kPositive, y, z, x.node.rightRope);
+    calculateRope<0>(Direction::kNegative, x, y, z);
+    calculateRope<0>(Direction::kPositive, x, y, z);
 
-    calculateRope<1>(Direction::kNegative, z, x, y.node.leftRope);
-    calculateRope<1>(Direction::kPositive, z, x, y.node.rightRope);
+    calculateRope<1>(Direction::kNegative, y, z, x);
+    calculateRope<1>(Direction::kPositive, y, z, x);
 
-    calculateRope<2>(Direction::kNegative, x, y, z.node.leftRope);
-    calculateRope<2>(Direction::kPositive, x, y, z.node.rightRope);
+    calculateRope<2>(Direction::kNegative, z, x, y);
+    calculateRope<2>(Direction::kPositive, z, x, y);
 
     return tree;
 }

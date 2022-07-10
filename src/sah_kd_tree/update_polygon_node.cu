@@ -1,5 +1,5 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/utility.cuh>
+#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/iterator/permutation_iterator.h>

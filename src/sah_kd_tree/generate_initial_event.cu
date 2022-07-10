@@ -1,5 +1,5 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/utility.cuh>
+#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/count.h>
@@ -36,7 +36,7 @@ void sah_kd_tree::Projection::generateInitialEvent(U triangleCount)
     auto triangleBegin = thrust::make_counting_iterator<U>(0);
     auto planarEventBegin = thrust::next(event.polygon.begin(), triangleCount - planarEventCount);
     auto eventPairBegin = thrust::make_zip_iterator(event.polygon.begin(), event.polygon.rbegin());
-    auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, doubler<U>{});
+    auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, Doubler<U>{});
     thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangleCount), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
 
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(triangleBboxBegin, event.polygon.cbegin());

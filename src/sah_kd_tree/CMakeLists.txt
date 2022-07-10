@@ -13,7 +13,7 @@ target_sources(
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
         "types.cuh"
-        "utility.cuh"
+        "type_traits.cuh"
         "calculate_triangle_bbox.cu"
         "calculate_root_node_bbox.cu"
         "generate_initial_event.cu"

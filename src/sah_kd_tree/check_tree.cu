@@ -92,23 +92,23 @@ bool Builder::checkTree() const
         return false;
     }
 
-    auto parentNodes = node.parentNode.data().get();
+    auto parents = node.parent.data().get();
     auto leftChildren = node.leftChild.data().get();
     auto rightChildren = node.rightChild.data().get();
     auto splitDimensions = node.splitDimension.data().get();
     auto splitPositions = node.splitPos.data().get();
 
-    const auto checkNode = [parentNodes, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool {
+    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool {
         I splitDimension = splitDimensions[node];
         if (splitDimension < 0) {
             return true;
         }
         U leftChild = leftChildren[node];
         U rightChild = rightChildren[node];
-        if (parentNodes[leftChild] != node) {
+        if (parents[leftChild] != node) {
             return false;
         }
-        if (parentNodes[rightChild] != node) {
+        if (parents[rightChild] != node) {
             return false;
         }
         F splitPos = splitPositions[node];
