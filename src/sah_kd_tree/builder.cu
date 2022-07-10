@@ -109,7 +109,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         layer.size -= layerLeafNodeCount;
         layer.size += layer.size;
 
-        node.polygonCount.resize(layer.base + layer.size);
+        node.count = layer.base + layer.size;
+
+        node.polygonCount.resize(node.count);
 
         auto nodePolygonCountLeftBegin = thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev);
         auto nodePolygonCountLeftEnd = thrust::next(node.polygonCountLeft.cbegin(), layer.base);
@@ -118,9 +120,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         auto nodePolygonCountRightEnd = thrust::next(node.polygonCountRight.cbegin(), layer.base);
         thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
 
-        x.setNodeCount(layer.base + layer.size);
-        y.setNodeCount(layer.base + layer.size);
-        z.setNodeCount(layer.base + layer.size);
+        setNodeCount(x, y, z);
 
         auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = thrust::next(nodeBboxBegin, layerBasePrev);
@@ -132,32 +132,32 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         y.template splitNode<1>(layerBasePrev, layer.base, node.splitDimension, node.splitPos, node.leftChild, node.rightChild);
         z.template splitNode<2>(layerBasePrev, layer.base, node.splitDimension, node.splitPos, node.leftChild, node.rightChild);
 
-        node.splitDimension.resize(layer.base + layer.size, I(-1));
-        node.splitPos.resize(layer.base + layer.size);
-        node.leftChild.resize(layer.base + layer.size);
-        node.rightChild.resize(layer.base + layer.size);
-        node.polygonCountLeft.resize(layer.base + layer.size);
-        node.polygonCountRight.resize(layer.base + layer.size);
+        node.splitDimension.resize(node.count, I(-1));
+        node.splitPos.resize(node.count);
+        node.leftChild.resize(node.count);
+        node.rightChild.resize(node.count);
+        node.polygonCountLeft.resize(node.count);
+        node.polygonCountRight.resize(node.count);
 
         polygon.count += polygon.splittedCount;
     }
 
-    U nodeCount = layer.base + layer.size;
+    node.parentNode.resize(node.count);
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
+    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
 
-    node.parentNode.resize(nodeCount);
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
-
-    assert(checkTree(nodeCount));
+    assert(checkTree());
 
     populateLeafNodeTriangleRange();
 
-    calculateRope<0>(nodeCount, true, y, z, x.node.leftRope);
-    calculateRope<0>(nodeCount, false, y, z, x.node.rightRope);
-    calculateRope<1>(nodeCount, true, z, x, y.node.leftRope);
-    calculateRope<1>(nodeCount, false, z, x, y.node.rightRope);
-    calculateRope<2>(nodeCount, true, x, y, z.node.leftRope);
-    calculateRope<2>(nodeCount, false, x, y, z.node.rightRope);
+    calculateRope<0>(Direction::kNegative, y, z, x.node.leftRope);
+    calculateRope<0>(Direction::kPositive, y, z, x.node.rightRope);
+
+    calculateRope<1>(Direction::kNegative, z, x, y.node.leftRope);
+    calculateRope<1>(Direction::kPositive, z, x, y.node.rightRope);
+
+    calculateRope<2>(Direction::kNegative, x, y, z.node.leftRope);
+    calculateRope<2>(Direction::kPositive, x, y, z.node.rightRope);
 
     return tree;
 }

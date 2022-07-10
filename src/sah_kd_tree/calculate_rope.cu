@@ -8,9 +8,9 @@
 namespace sah_kd_tree
 {
 template<I dimension>
-void Builder::calculateRope(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope)
+void Builder::calculateRope(Direction direction, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope)
 {
-    nodeRightRope.resize(nodeCount);
+    nodeRightRope.resize(node.count);
 
     auto yMins = y.node.min.data().get();
     auto yMaxs = y.node.max.data().get();
@@ -21,7 +21,7 @@ void Builder::calculateRope(U nodeCount, bool swap, const Projection & y, const 
     auto rightChildren = node.rightChild.data().get();
     auto splitDimensions = node.splitDimension.data().get();
     auto splitPositions = node.splitPos.data().get();
-    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parentNodes, swap, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
+    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parentNodes, direction, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
         U siblingNode = node;
         for (;;) {
             if (siblingNode == 0) {
@@ -29,11 +29,11 @@ void Builder::calculateRope(U nodeCount, bool swap, const Projection & y, const 
             }
             U parentNode = parentNodes[siblingNode];
             if (splitDimensions[parentNode] == dimension) {
-                if (siblingNode == (swap ? rightChildren : leftChildren)[parentNode]) {
+                if (siblingNode == ((direction == Direction::kPositive) ? leftChildren : rightChildren)[parentNode]) {
                     if (siblingNode == node) {
-                        return (swap ? leftChildren : rightChildren)[parentNode];
+                        return ((direction == Direction::kNegative) ? leftChildren : rightChildren)[parentNode];
                     }
-                    siblingNode = (swap ? leftChildren : rightChildren)[parentNode];
+                    siblingNode = ((direction == Direction::kNegative) ? leftChildren : rightChildren)[parentNode];
                     break;
                 }
             }
@@ -53,7 +53,7 @@ void Builder::calculateRope(U nodeCount, bool swap, const Projection & y, const 
             assert(!(zMin < zMins[siblingNode]));
             assert(!(zMaxs[siblingNode] < zMax));
             if (siblingSplitDimension == dimension) {
-                siblingNode = (swap ? rightChildren : leftChildren)[siblingNode];
+                siblingNode = ((direction == Direction::kPositive) ? leftChildren : rightChildren)[siblingNode];
             } else if (siblingSplitDimension == ((dimension + 1) % 3)) {
                 F siblingSplitPosition = splitPositions[siblingNode];
                 if (!(siblingSplitPosition < yMax)) {
@@ -76,10 +76,10 @@ void Builder::calculateRope(U nodeCount, bool swap, const Projection & y, const 
         }
         return siblingNode;
     };
-    thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), nodeRightRope.begin(), getRightRope);
+    thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRightRope.begin(), getRightRope);
 }
 
-template void Builder::calculateRope<0>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
-template void Builder::calculateRope<1>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
-template void Builder::calculateRope<2>(U nodeCount, bool swap, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
+template void Builder::calculateRope<0>(Direction direction, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
+template void Builder::calculateRope<1>(Direction direction, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
+template void Builder::calculateRope<2>(Direction direction, const Projection & y, const Projection & z, thrust::device_vector<U> & nodeRightRope);
 }  // namespace sah_kd_tree
