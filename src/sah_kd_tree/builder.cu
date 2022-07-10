@@ -73,7 +73,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         determinePolygonSide<1>(y);
         determinePolygonSide<2>(z);
 
-        U splittedPolygonCount = getSplittedPolygonCount();
+        updateSplittedPolygonCount();
 
         {  // generate index for child node
             auto nodeLeftChildBegin = thrust::next(node.leftChild.begin(), layer.base);
@@ -85,7 +85,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
             thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, nodeRightChildBegin, toNodeRightChild);
         }
 
-        separateSplittedPolygon(splittedPolygonCount);
+        separateSplittedPolygon();
 
         x.decoupleEventBoth(node.splitDimension, polygon.side);
         y.decoupleEventBoth(node.splitDimension, polygon.side);
@@ -94,15 +94,15 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         assert(polygon.side.size() == polygon.count);
         updatePolygonNode();
 
-        splitPolygon<0>(splittedPolygonCount, splittedPolygon, x, y, z);
-        splitPolygon<1>(splittedPolygonCount, splittedPolygon, y, z, x);
-        splitPolygon<2>(splittedPolygonCount, splittedPolygon, z, x, y);
+        splitPolygon<0>(splittedPolygon, x, y, z);
+        splitPolygon<1>(splittedPolygon, y, z, x);
+        splitPolygon<2>(splittedPolygon, z, x, y);
 
-        updateSplittedPolygonNode(splittedPolygonCount);
+        updateSplittedPolygonNode();
 
-        x.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
-        y.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
-        z.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
+        x.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
+        y.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
+        z.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
 
         U layerBasePrev = layer.base;
         layer.base += layer.size;
@@ -139,7 +139,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountLeft.resize(layer.base + layer.size);
         node.polygonCountRight.resize(layer.base + layer.size);
 
-        polygon.count += splittedPolygonCount;
+        polygon.count += polygon.splittedCount;
     }
 
     U nodeCount = layer.base + layer.size;

@@ -6,11 +6,11 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::updateSplittedPolygonNode(U splittedPolygonCount)
+void sah_kd_tree::Builder::updateSplittedPolygonNode()
 {
-    polygon.node.resize(polygon.count + splittedPolygonCount * 2);
+    polygon.node.resize(polygon.count + polygon.splittedCount * 2);
     auto splittedPolygonNodeBegin = thrust::next(polygon.node.begin(), polygon.count);
-    auto splittedPolygonNodeEnd = thrust::next(splittedPolygonNodeBegin, splittedPolygonCount);
+    auto splittedPolygonNodeEnd = thrust::next(splittedPolygonNodeBegin, polygon.splittedCount);
     if (thrust::gather(splittedPolygonNodeBegin, splittedPolygonNodeEnd, node.rightChild.cbegin(), splittedPolygonNodeEnd) != polygon.node.end()) {
         assert(false);
     }
