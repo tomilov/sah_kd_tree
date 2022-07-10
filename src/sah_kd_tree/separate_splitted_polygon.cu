@@ -9,17 +9,17 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::separateSplittedPolygon(U polygonCount, U splittedPolygonCount)
+void sah_kd_tree::Builder::separateSplittedPolygon(U splittedPolygonCount)
 {
-    polygon.triangle.resize(polygonCount + splittedPolygonCount);
-    polygon.node.resize(polygonCount + splittedPolygonCount);
+    polygon.triangle.resize(polygon.count + splittedPolygonCount);
+    polygon.node.resize(polygon.count + splittedPolygonCount);
     splittedPolygon.resize(splittedPolygonCount);
 
     auto polygonBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
     auto indexedPolygonBegin = thrust::make_zip_iterator(thrust::make_counting_iterator<U>(0), polygonBegin);
     auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
     auto splittedPolygonStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin, polygon.side.cbegin());
-    auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonBegin, polygonCount));
+    auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonBegin, polygon.count));
     U layerBase = layer.base;
     const auto isSplittedPolygon = [layerBase] __host__ __device__(U polygonNode, I splitDimension, I polygonSide) -> bool {
         if (polygonNode < layerBase) {
@@ -30,6 +30,6 @@ void sah_kd_tree::Builder::separateSplittedPolygon(U polygonCount, U splittedPol
         }
         return polygonSide == 0;
     };
-    [[maybe_unused]] auto splittedPolygonEnd = thrust::copy_if(indexedPolygonBegin, thrust::next(indexedPolygonBegin, polygonCount), splittedPolygonStencilBegin, splittedPolygonBegin, thrust::make_zip_function(isSplittedPolygon));
+    [[maybe_unused]] auto splittedPolygonEnd = thrust::copy_if(indexedPolygonBegin, thrust::next(indexedPolygonBegin, polygon.count), splittedPolygonStencilBegin, splittedPolygonBegin, thrust::make_zip_function(isSplittedPolygon));
     assert(thrust::next(splittedPolygonBegin, splittedPolygonCount) == splittedPolygonEnd);
 }

@@ -14,12 +14,12 @@
 namespace sah_kd_tree
 {
 template<I dimension>
-void Builder::splitPolygon(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z)
+void Builder::splitPolygon(U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z)
 {
-    // node of right part of splitted polygon (starting from polygonCount) is still node from previous layer
+    // node of right part of splitted polygon (starting from polygon.count) is still node from previous layer
 
-    x.polygon.min.resize(polygonCount + splittedPolygonCount);
-    x.polygon.max.resize(polygonCount + splittedPolygonCount);
+    x.polygon.min.resize(polygon.count + splittedPolygonCount);
+    x.polygon.max.resize(polygon.count + splittedPolygonCount);
 
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
@@ -30,7 +30,7 @@ void Builder::splitPolygon(U polygonCount, U splittedPolygonCount, const thrust:
     auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygon.triangle.cbegin());
     auto polygonBegin = thrust::make_zip_iterator(polygonSplitBegin, polygonTriangleBegin);
     using PolygonType = IteratorValueType<decltype(polygonBegin)>;
-    auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
+    auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygon.count);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
     const auto toSplittedPolygon = [] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
@@ -133,10 +133,10 @@ void Builder::splitPolygon(U polygonCount, U splittedPolygonCount, const thrust:
         assert(!(rmax < rmin));
         return {{lmin, lmax}, {rmin, rmax}};
     };
-    thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, splittedPolygonCount), thrust::next(polygonBegin, polygonCount), splittedPolygonBboxBegin, toSplittedPolygon);
+    thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, splittedPolygonCount), thrust::next(polygonBegin, polygon.count), splittedPolygonBboxBegin, toSplittedPolygon);
 }
 
-template void Builder::splitPolygon<0>(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z);
-template void Builder::splitPolygon<1>(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & y, const Projection & z, const Projection & x);
-template void Builder::splitPolygon<2>(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & z, const Projection & x, const Projection & y);
+template void Builder::splitPolygon<0>(U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & x, const Projection & y, const Projection & z);
+template void Builder::splitPolygon<1>(U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & y, const Projection & z, const Projection & x);
+template void Builder::splitPolygon<2>(U splittedPolygonCount, const thrust::device_vector<U> & splittedPolygon, Projection & z, const Projection & x, const Projection & y);
 }  // namespace sah_kd_tree

@@ -35,7 +35,7 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 }
 }  // namespace
 
-bool Builder::checkTree(U triangleCount, U polygonCount, U nodeCount) const
+bool Builder::checkTree(U nodeCount) const
 {
     auto nodeXMins = x.node.min.data().get();
     auto nodeXMaxs = x.node.max.data().get();
@@ -53,7 +53,7 @@ bool Builder::checkTree(U triangleCount, U polygonCount, U nodeCount) const
     auto polygonZMins = z.polygon.min.data().get();
     auto polygonZMaxs = z.polygon.max.data().get();
 
-    const auto checkPolygon = [triangleCount, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
+    const auto checkPolygon = [polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
         F polygonXMin = polygonXMins[polygon];
         F polygonXMax = polygonXMaxs[polygon];
         assert(!(polygonXMax < polygonXMin));
@@ -88,7 +88,7 @@ bool Builder::checkTree(U triangleCount, U polygonCount, U nodeCount) const
 
         return true;
     };
-    if (!thrust::all_of(thrust::make_counting_iterator<U>(triangleCount), thrust::make_counting_iterator<U>(polygonCount), checkPolygon)) {
+    if (!thrust::all_of(thrust::make_counting_iterator<U>(triangleCount), thrust::make_counting_iterator<U>(polygon.count), checkPolygon)) {
         return false;
     }
 

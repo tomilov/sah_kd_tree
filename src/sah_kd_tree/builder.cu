@@ -33,16 +33,16 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     y.generateInitialEvent(triangleCount);
     z.generateInitialEvent(triangleCount);
 
-    U polygonCount = triangleCount;
-    polygon.triangle.resize(polygonCount);
+    polygon.count = triangleCount;
+    polygon.triangle.resize(polygon.count);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
-    polygon.node.assign(polygonCount, U(0));
+    polygon.node.assign(polygon.count, U(0));
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
     node.leftChild.resize(1);
     node.rightChild.resize(1);
-    node.polygonCount.assign(1, polygonCount);
+    node.polygonCount.assign(1, polygon.count);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
@@ -66,8 +66,8 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
             break;
         }
 
-        polygon.side.resize(polygonCount);
-        polygon.eventRight.resize(polygonCount);
+        polygon.side.resize(polygon.count);
+        polygon.eventRight.resize(polygon.count);
 
         determinePolygonSide<0>(x);
         determinePolygonSide<1>(y);
@@ -85,24 +85,24 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
             thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, nodeRightChildBegin, toNodeRightChild);
         }
 
-        separateSplittedPolygon(polygonCount, splittedPolygonCount);
+        separateSplittedPolygon(splittedPolygonCount);
 
         x.decoupleEventBoth(node.splitDimension, polygon.side);
         y.decoupleEventBoth(node.splitDimension, polygon.side);
         z.decoupleEventBoth(node.splitDimension, polygon.side);
 
-        assert(polygon.side.size() == polygonCount);
+        assert(polygon.side.size() == polygon.count);
         updatePolygonNode();
 
-        splitPolygon<0>(polygonCount, splittedPolygonCount, splittedPolygon, x, y, z);
-        splitPolygon<1>(polygonCount, splittedPolygonCount, splittedPolygon, y, z, x);
-        splitPolygon<2>(polygonCount, splittedPolygonCount, splittedPolygon, z, x, y);
+        splitPolygon<0>(splittedPolygonCount, splittedPolygon, x, y, z);
+        splitPolygon<1>(splittedPolygonCount, splittedPolygon, y, z, x);
+        splitPolygon<2>(splittedPolygonCount, splittedPolygon, z, x, y);
 
-        updateSplittedPolygonNode(polygonCount, splittedPolygonCount);
+        updateSplittedPolygonNode(splittedPolygonCount);
 
-        x.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
-        y.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
-        z.mergeEvent(polygonCount, splittedPolygonCount, polygon.node, splittedPolygon);
+        x.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
+        y.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
+        z.mergeEvent(polygon.count, splittedPolygonCount, polygon.node, splittedPolygon);
 
         U layerBasePrev = layer.base;
         layer.base += layer.size;
@@ -139,7 +139,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
         node.polygonCountLeft.resize(layer.base + layer.size);
         node.polygonCountRight.resize(layer.base + layer.size);
 
-        polygonCount += splittedPolygonCount;
+        polygon.count += splittedPolygonCount;
     }
 
     U nodeCount = layer.base + layer.size;
@@ -148,7 +148,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah) -> Tree
     thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
     thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(nodeCount), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parentNode.begin(), isNotLeaf);
 
-    assert(checkTree(triangleCount, polygonCount, nodeCount));
+    assert(checkTree(nodeCount));
 
     populateLeafNodeTriangleRange();
 
