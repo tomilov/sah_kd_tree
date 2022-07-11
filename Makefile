@@ -1,5 +1,3 @@
-default: build
-
 NPROC ?= $(shell nproc)
 FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
@@ -7,18 +5,21 @@ BUILD_DIR ?= /tmp/build-sah_kd_tree
 BUILD_TYPE ?= Debug
 BUILD_SHARED_LIBS ?= ON
 LINKER ?= $(shell which lld)
-CC ?= $(shell which clang)
-CXX ?= $(shell which clang++)
-CXX_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fopenmp-version=45
-CUDA_FLAGS ?=
+C_COMPILER ?= $(shell which clang)
+C_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+CXX_COMPILER ?= $(shell which clang++)
+CXX_FLAGS ?= -march=x86-64 -fno-omit-frame-pointer -fno-optimize-sibling-calls
+CUDA_FLAGS ?= -fopenmp-version=45 -fno-omit-frame-pointer -fno-optimize-sibling-calls 
 CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | awk '/__CUDA_ARCH__/ { print $$3 / 10 }')
 THRUST_DEVICE_SYSTEM ?= CPP
-FUZZ_DURATION ?= 0
+FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
 
 # format: "800 600"
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
+
+.DEFAULT_GOAL := build
 
 .PHONY: configure
 configure:
@@ -29,10 +30,11 @@ configure:
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
 		-DCMAKE_LINKER=$(LINKER) \
-		-DCMAKE_C_COMPILER=$(CC) \
-		-DCMAKE_CXX_COMPILER=$(CXX) \
+		-DCMAKE_C_COMPILER=$(C_COMPILER) \
+		-DCMAKE_C_FLAGS="$(C_FLAGS)" \
+		-DCMAKE_CXX_COMPILER=$(CXX_COMPILER) \
 		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
-		-DCMAKE_CUDA_HOST_COMPILER=$(CXX) \
+		-DCMAKE_CUDA_HOST_COMPILER=$(CXX_COMPILER) \
 		-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH) \
 		-DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)" \
 		-DCMAKE_VERBOSE_MAKEFILE=ON \
@@ -64,6 +66,7 @@ clean: configure
 test: build
 	@ctest \
 		--parallel $(NPROC) \
+		--output-on-failure \
 		--test-dir $(BUILD_DIR)/src/
 
 .PHONY: fuzz
@@ -73,13 +76,13 @@ fuzz: configure
 		--parallel $(NPROC) \
 		--target fuzzer
 	@tools/fuzz/fuzzer \
-		-max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
 		-box_world=$(FUZZ_BOX_WORLD) \
+		-max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
+		-max_total_time=$(FUZZ_MAX_TOTAL_TIME) \
 		-fork=$(FORK) \
 		-rss_limit_mb=512 \
 		-timeout=30 \
 		-report_slow_units=30 \
-		-max_total_time=$(FUZZ_DURATION) \
 		-print_final_stats=1 \
 		-print_corpus_stats=1 \
 		-print_pcs=1 \

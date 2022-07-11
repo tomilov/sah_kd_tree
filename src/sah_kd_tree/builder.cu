@@ -54,7 +54,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
         auto layerLeafNodeCount = U(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
-        node.leafCount += layerLeafNodeCount;
+        leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
             break;
         }
@@ -108,18 +108,18 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
 
         auto nodePolygonCountLeftBegin = thrust::next(node.polygonCountLeft.cbegin(), layerBasePrev);
         auto nodePolygonCountLeftEnd = thrust::next(node.polygonCountLeft.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), IsNotLeaf{});
+        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
         auto nodePolygonCountRightBegin = thrust::next(node.polygonCountRight.cbegin(), layerBasePrev);
         auto nodePolygonCountRightEnd = thrust::next(node.polygonCountRight.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), IsNotLeaf{});
+        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
 
         setNodeCount(x, y, z);
 
         auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = thrust::next(nodeBboxBegin, layerBasePrev);
         auto layerBboxEnd = thrust::next(nodeBboxBegin, layer.base);
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, IsNotLeaf{});
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, IsNotLeaf{});
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
 
         splitNode<0>(layerBasePrev, x);
         splitNode<1>(layerBasePrev, y);
@@ -135,9 +135,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
         polygon.count += polygon.splittedCount;
     }
 
-    node.parent.resize(node.count);
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.leftChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
-    thrust::scatter_if(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), node.rightChild.cbegin(), node.splitDimension.cbegin(), node.parent.begin(), IsNotLeaf{});
+    populateNodeParent();
 
     assert(checkTree(x, y, z));
 

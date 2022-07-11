@@ -4,8 +4,6 @@ namespace sah_kd_tree::helpers
 {
 void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
 {
-    builder.polygon.count = triangle.count;
-
     x.triangle.count = triangle.count;
     x.triangle.a = triangle.x.a.data();
     x.triangle.b = triangle.x.b.data();
@@ -20,5 +18,7 @@ void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Pr
     z.triangle.a = triangle.z.a.data();
     z.triangle.b = triangle.z.b.data();
     z.triangle.c = triangle.z.c.data();
+
+    builder.polygon.count = triangle.count;
 }
 }  // namespace sah_kd_tree::helpers

@@ -27,14 +27,21 @@ struct SAH_KD_TREE_EXPORT Tree
 
 struct SAH_KD_TREE_EXPORT Projection
 {
-    template<typename Type>
     struct Doubler
     {
-        __host__ __device__ thrust::tuple<Type, Type> operator()(Type value) const
+        __host__ __device__ thrust::tuple<U, U> operator()(U value) const
         {
             return {value, value};
         }
-    };
+    } doubler;
+
+    struct ToEventPos
+    {
+        __host__ __device__ F operator()(I eventKind, thrust::tuple<F, F> bbox)
+        {
+            return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox);
+        }
+    } toEventPos;
 
     struct Triangle
     {
@@ -92,7 +99,7 @@ struct SAH_KD_TREE_EXPORT Builder
         {
             return !(nodeSplitDimension < 0);
         }
-    };
+    } isNotLeaf;
 
     struct Polygon
     {
@@ -108,16 +115,20 @@ struct SAH_KD_TREE_EXPORT Builder
     struct Node
     {
         U count = 1;  // always equal layer.base + layer.size
-        U leafCount = 0;
 
         thrust::device_vector<I> splitDimension;
         thrust::device_vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
         thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         thrust::device_vector<U> parent;                                             // temporarily needed to build  ropes
-
-        thrust::device_vector<U> leafNode;
     } node;  // TODO: optimize out node.rightChild
+
+    struct Leaf
+    {
+        U count = 0;
+
+        thrust::device_vector<U> node;
+    } leaf;
 
     struct Layer
     {
@@ -142,6 +153,7 @@ struct SAH_KD_TREE_EXPORT Builder
     void setNodeCount(Projection & x, Projection & y, Projection & z) const;
     template<I dimension>
     void splitNode(U layerBasePrev, Projection & projection) const;
+    void populateNodeParent();
     void populateLeafNodeTriangleRange();
 
     bool checkTree(const Projection & x, const Projection & y, const Projection & z) const;
