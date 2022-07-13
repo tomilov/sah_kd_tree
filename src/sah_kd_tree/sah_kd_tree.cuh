@@ -37,7 +37,7 @@ struct SAH_KD_TREE_EXPORT Projection
 
     struct ToEventPos
     {
-        __host__ __device__ F operator()(I eventKind, thrust::tuple<F, F> bbox)
+        __host__ __device__ F operator()(I eventKind, thrust::tuple<F, F> bbox) const
         {
             return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox);
         }
@@ -95,11 +95,20 @@ struct SAH_KD_TREE_EXPORT Builder
 {
     struct IsNotLeaf
     {
-        __host__ __device__ bool operator()(I nodeSplitDimension)
+        __host__ __device__ bool operator()(I nodeSplitDimension) const
         {
             return !(nodeSplitDimension < 0);
         }
     } isNotLeaf;
+
+
+    struct IsNodeNotEmpty
+    {
+        __host__ __device__ bool operator()(U nodePolygonCount) const
+        {
+            return nodePolygonCount != 0;
+        }
+    } isNodeNotEmpty;
 
     struct Polygon
     {

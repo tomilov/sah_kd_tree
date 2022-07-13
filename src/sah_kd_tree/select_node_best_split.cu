@@ -44,6 +44,5 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
             return {-1};  // leaf
         }
     };
-    const auto isNodeNotEmpty = [] __host__ __device__(U nodePolygonCount) -> bool { return nodePolygonCount != 0; };
     thrust::transform_if(nodeSplitBegin, thrust::next(nodeSplitBegin, layer.size), nodePolygonCountBegin, nodeBestSplitBegin, thrust::make_zip_function(toNodeBestSplit), isNodeNotEmpty);
 }
