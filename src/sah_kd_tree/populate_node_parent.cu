@@ -1,7 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-#include <thrust/scatter.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/scatter.h>
 
 void sah_kd_tree::Builder::populateNodeParent()
 {
