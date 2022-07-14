@@ -1,17 +1,13 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 #include <sah_kd_tree/type_traits.cuh>
 
-#include <thrust/extrema.h>
-#include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
-#include <thrust/reduce.h>
 #include <thrust/scan.h>
-#include <thrust/tuple.h>
-#include <thrust/zip_function.h>
+#include <thrust/reduce.h>
 
 #include <limits>
 

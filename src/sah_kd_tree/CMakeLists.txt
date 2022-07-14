@@ -21,7 +21,7 @@ target_sources(
         "find_perfect_split.cu"
         "select_node_best_split.cu"
         "determine_polygon_side.cu"
-        "get_splitted_polygon_count.cu"
+        "update_splitted_polygon_count.cu"
         "separate_splitted_polygon.cu"
         "decouple_event_both.cu"
         "update_polygon_node.cu"

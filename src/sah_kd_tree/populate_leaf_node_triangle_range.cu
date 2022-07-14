@@ -1,6 +1,5 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-#include <thrust/advance.h>
 #include <thrust/device_vector.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
