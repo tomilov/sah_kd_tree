@@ -46,6 +46,7 @@ void Builder::determinePolygonSide(const Projection & projection)
             return -1;  // goes to left child node
         } else if (eventLeft < splitEvent) {
             assert(eventKinds[eventLeft] != 0);
+            static_cast<void>(eventKinds);
             return 0;  // goes to both left child node and right child node (splitted)
         } else {
             return +1;  // goes to right child node

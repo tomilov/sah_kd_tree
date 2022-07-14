@@ -15,6 +15,8 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);
 
+    auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layer.base);
+
     auto nodeXSplitCosts = x.layer.splitCost.data().get();
     auto nodeYSplitCosts = y.layer.splitCost.data().get();
     auto nodeZSplitCosts = z.layer.splitCost.data().get();
@@ -67,5 +69,5 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
             return {-1};  // leaf
         }
     };
-    thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCounts, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
+    thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
 }
