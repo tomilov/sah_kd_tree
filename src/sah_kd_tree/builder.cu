@@ -1,15 +1,11 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 #include <thrust/advance.h>
-#include <thrust/copy.h>
 #include <thrust/count.h>
 #include <thrust/functional.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
-#include <thrust/reduce.h>
 #include <thrust/scatter.h>
 #include <thrust/sequence.h>
-#include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
 
@@ -125,12 +121,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
         splitNode<1>(layerBasePrev, y);
         splitNode<2>(layerBasePrev, z);
 
-        node.splitDimension.resize(node.count, I(-1));
-        node.splitPos.resize(node.count);
-        node.leftChild.resize(node.count);
-        node.rightChild.resize(node.count);
-        node.polygonCountLeft.resize(node.count);
-        node.polygonCountRight.resize(node.count);
+        resizeNode();
 
         polygon.count += polygon.splittedCount;
     }
@@ -141,14 +132,14 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
 
     populateLeafNodeTriangleRange();
 
-    calculateRope<0>(Direction::kNegative, x, y, z);
-    calculateRope<0>(Direction::kPositive, x, y, z);
+    calculateRope<0, false>(x, y, z);
+    calculateRope<0, true>(x, y, z);
 
-    calculateRope<1>(Direction::kNegative, y, z, x);
-    calculateRope<1>(Direction::kPositive, y, z, x);
+    calculateRope<1, false>(y, z, x);
+    calculateRope<1, true>(y, z, x);
 
-    calculateRope<2>(Direction::kNegative, z, x, y);
-    calculateRope<2>(Direction::kPositive, z, x, y);
+    calculateRope<2, false>(z, x, y);
+    calculateRope<2, true>(z, x, y);
 
     return tree;
 }

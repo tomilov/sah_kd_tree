@@ -101,7 +101,6 @@ struct SAH_KD_TREE_EXPORT Builder
         }
     } isNotLeaf;
 
-
     struct IsNodeNotEmpty
     {
         __host__ __device__ bool operator()(U nodePolygonCount) const
@@ -162,19 +161,14 @@ struct SAH_KD_TREE_EXPORT Builder
     void setNodeCount(Projection & x, Projection & y, Projection & z) const;
     template<I dimension>
     void splitNode(U layerBasePrev, Projection & projection) const;
+    void resizeNode();
     void populateNodeParent();
     void populateLeafNodeTriangleRange();
 
     bool checkTree(const Projection & x, const Projection & y, const Projection & z) const;
 
-    enum class Direction
-    {
-        kPositive,
-        kNegative,
-    };
-
-    template<I dimension>
-    void calculateRope(Direction direction, Projection & x, const Projection & y, const Projection & z) const;
+    template<I dimension, bool forth>
+    void calculateRope(Projection & x, const Projection & y, const Projection & z) const;
 
     Tree operator()(const Params & sah, Projection & x, Projection & y, Projection & z);
 };
@@ -191,7 +185,10 @@ extern template void Builder::splitNode<0>(U layerBasePrev, Projection & x) cons
 extern template void Builder::splitNode<1>(U layerBasePrev, Projection & y) const SAH_KD_TREE_EXPORT;
 extern template void Builder::splitNode<2>(U layerBasePrev, Projection & z) const SAH_KD_TREE_EXPORT;
 
-extern template void Builder::calculateRope<0>(Direction direction, Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<1>(Direction direction, Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<2>(Direction direction, Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<0, false>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<0, true>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<1, false>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

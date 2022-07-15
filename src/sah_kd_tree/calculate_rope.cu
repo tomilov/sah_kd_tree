@@ -7,10 +7,10 @@
 
 namespace sah_kd_tree
 {
-template<I dimension>
-void Builder::calculateRope(Direction direction, Projection & x, const Projection & y, const Projection & z) const
+template<I dimension, bool forth>
+void Builder::calculateRope(Projection & x, const Projection & y, const Projection & z) const
 {
-    auto & nodeRope = (direction == Direction::kPositive) ? x.node.rightRope : x.node.leftRope;
+    auto & nodeRope = forth ? x.node.rightRope : x.node.leftRope;
     nodeRope.resize(node.count);
 
     auto yMins = y.node.min.data().get();
@@ -22,7 +22,7 @@ void Builder::calculateRope(Direction direction, Projection & x, const Projectio
     auto rightChildren = node.rightChild.data().get();
     auto splitDimensions = node.splitDimension.data().get();
     auto splitPositions = node.splitPos.data().get();
-    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, direction, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
+    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
         U siblingNode = node;
         for (;;) {
             if (siblingNode == 0) {
@@ -30,11 +30,11 @@ void Builder::calculateRope(Direction direction, Projection & x, const Projectio
             }
             U parent = parents[siblingNode];
             if (splitDimensions[parent] == dimension) {
-                if (siblingNode == ((direction == Direction::kPositive) ? leftChildren : rightChildren)[parent]) {
+                if (siblingNode == (forth ? leftChildren : rightChildren)[parent]) {
                     if (siblingNode == node) {
-                        return ((direction == Direction::kNegative) ? leftChildren : rightChildren)[parent];
+                        return (forth ? rightChildren : leftChildren)[parent];
                     }
-                    siblingNode = ((direction == Direction::kNegative) ? leftChildren : rightChildren)[parent];
+                    siblingNode = (forth ? rightChildren : leftChildren)[parent];
                     break;
                 }
             }
@@ -54,7 +54,7 @@ void Builder::calculateRope(Direction direction, Projection & x, const Projectio
             assert(!(zMin < zMins[siblingNode]));
             assert(!(zMaxs[siblingNode] < zMax));
             if (siblingSplitDimension == dimension) {
-                siblingNode = ((direction == Direction::kPositive) ? leftChildren : rightChildren)[siblingNode];
+                siblingNode = (forth ? leftChildren : rightChildren)[siblingNode];
             } else if (siblingSplitDimension == ((dimension + 1) % 3)) {
                 F siblingSplitPosition = splitPositions[siblingNode];
                 if (!(siblingSplitPosition < yMax)) {
@@ -80,7 +80,10 @@ void Builder::calculateRope(Direction direction, Projection & x, const Projectio
     thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRope.begin(), getRightRope);
 }
 
-template void Builder::calculateRope<0>(Direction direction, Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
-template void Builder::calculateRope<1>(Direction direction, Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
-template void Builder::calculateRope<2>(Direction direction, Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<0, false>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<0, true>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<1, false>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree
