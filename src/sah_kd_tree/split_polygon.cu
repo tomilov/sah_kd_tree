@@ -21,24 +21,37 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
     x.polygon.min.resize(polygon.count + polygon.splittedCount);
     x.polygon.max.resize(polygon.count + polygon.splittedCount);
 
+    auto nodeSplitDimensions = node.splitDimension.data().get();
+    auto nodeSplitPositions = node.splitPos.data().get();
+    auto polygonNodes = polygon.node.data().get();
+
+    auto polygonTriangles = polygon.triangle.data().get();
+
+    auto AX = x.triangle.a.get();
+    auto BX = x.triangle.b.get();
+    auto CX = x.triangle.c.get();
+
+    auto AY = y.triangle.a.get();
+    auto BY = y.triangle.b.get();
+    auto CY = y.triangle.c.get();
+
+    auto AZ = z.triangle.a.get();
+    auto BZ = z.triangle.b.get();
+    auto CZ = z.triangle.c.get();
+
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
+    using PolygonBboxInputType = IteratorValueType<decltype(polygonBboxBegin)>;
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
-    using PolygonBboxInputType = IteratorValueType<decltype(polygonLeftBboxBegin)>;
-    auto nodeSplitBegin = thrust::make_zip_iterator(node.splitDimension.cbegin(), node.splitPos.cbegin());
-    auto polygonSplitBegin = thrust::make_permutation_iterator(nodeSplitBegin, polygon.node.cbegin());
-    auto triangleBegin = thrust::make_zip_iterator(x.triangle.a, x.triangle.b, x.triangle.c, y.triangle.a, y.triangle.b, y.triangle.c, z.triangle.a, z.triangle.b, z.triangle.c);
-    auto polygonTriangleBegin = thrust::make_permutation_iterator(triangleBegin, polygon.triangle.cbegin());
-    auto polygonBegin = thrust::make_zip_iterator(polygonSplitBegin, polygonTriangleBegin);
-    using PolygonType = IteratorValueType<decltype(polygonBegin)>;
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygon.count);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
-    const auto toSplittedPolygon = [] __host__ __device__(PolygonBboxInputType bbox, PolygonType polygon) -> SplittedPolygonBboxType {
+
+    const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
-        const auto & polygonSplit = thrust::get<0>(polygon);
-        I polygonSplitDimension = thrust::get<0>(polygonSplit);
-        F polygonSplitPos = thrust::get<1>(polygonSplit);
+        U polygonNode = polygonNodes[polygon];
+        I polygonSplitDimension = nodeSplitDimensions[polygonNode];
+        F polygonSplitPos = nodeSplitPositions[polygonNode];
         if (polygonSplitDimension == dimension) {
             assert(!(polygonSplitPos < min) && !(max < polygonSplitPos));
             return {{min, polygonSplitPos}, {polygonSplitPos, max}};
@@ -46,26 +59,26 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
             return {bbox, bbox};
         }
 
-        const auto & triangle = thrust::get<1>(polygon);
+        U triangle = polygonTriangles[polygon];
         F a, b, c;
         if (polygonSplitDimension == ((dimension + 1) % 3)) {
-            a = thrust::get<3>(triangle);
-            b = thrust::get<4>(triangle);
-            c = thrust::get<5>(triangle);
+            a = AY[triangle];
+            b = BY[triangle];
+            c = CY[triangle];
         } else {
             assert(polygonSplitDimension == ((dimension + 2) % 3));
-            a = thrust::get<6>(triangle);
-            b = thrust::get<7>(triangle);
-            c = thrust::get<8>(triangle);
+            a = AZ[triangle];
+            b = BZ[triangle];
+            c = CZ[triangle];
         }
 
         bool aSide = (a < polygonSplitPos);
         bool bSide = (b < polygonSplitPos);
         bool cSide = (c < polygonSplitPos);
 
-        F ax = thrust::get<0>(triangle);
-        F bx = thrust::get<1>(triangle);
-        F cx = thrust::get<2>(triangle);
+        F ax = AX[triangle];
+        F bx = BX[triangle];
+        F cx = CX[triangle];
 
         if (aSide == bSide) {
             assert(aSide != cSide);
@@ -133,7 +146,8 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
         assert(!(rmax < rmin));
         return {{lmin, lmax}, {rmin, rmax}};
     };
-    thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, polygon.splittedCount), thrust::next(polygonBegin, polygon.count), splittedPolygonBboxBegin, toSplittedPolygon);
+    auto polygonBegin = thrust::make_counting_iterator<U>(polygon.count);
+    thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, toSplittedPolygon);
 }
 
 template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
