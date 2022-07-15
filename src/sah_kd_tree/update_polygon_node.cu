@@ -1,33 +1,37 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
-#include <thrust/advance.h>
-#include <thrust/iterator/permutation_iterator.h>
-#include <thrust/iterator/zip_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
-#include <thrust/tuple.h>
-#include <thrust/zip_function.h>
 
 void sah_kd_tree::Builder::updatePolygonNode()
 {
-    auto nodeBothBegin = thrust::make_zip_iterator(node.leftChild.cbegin(), node.rightChild.cbegin());
-    auto polygonNodeBothBegin = thrust::make_permutation_iterator(nodeBothBegin, polygon.node.cbegin());
-    using PolygonNodeBothType = IteratorValueType<decltype(polygonNodeBothBegin)>;
-    const auto toPolygonNode = [] __host__ __device__(I polygonSide, PolygonNodeBothType polygonNodeBoth) -> U {
-        return (0 < polygonSide) ? thrust::get<1>(polygonNodeBoth) : thrust::get<0>(polygonNodeBoth);  // splitted polygon assigned to left node
-    };
-    auto splitDimensionBegin = thrust::make_permutation_iterator(node.splitDimension.cbegin(), polygon.node.cbegin());
-    auto nodeStencilBegin = thrust::make_zip_iterator(polygon.node.cbegin(), splitDimensionBegin);
+    auto polygonBegin = thrust::make_counting_iterator<U>(0);
+    auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);
+
+    auto polygonSides = polygon.side.data().get();
+    auto polygonNodes = polygon.node.data().get();
+
+    auto nodeLeftChilds = node.leftChild.data().get();
+    auto nodeRightChilds = node.rightChild.data().get();
+
+    auto nodeSplitDimensions = node.splitDimension.data().get();
+
     U layerBase = layer.base;
-    const auto isCurrentLayer = [layerBase] __host__ __device__(U polygonNode, I splitDimension) -> bool {
+
+    const auto toPolygonNode = [polygonSides, polygonNodes, nodeLeftChilds, nodeRightChilds] __host__ __device__(U polygon) -> U {
+        I polygonSide = polygonSides[polygon];
+        U polygonNode = polygonNodes[polygon];
+        return ((0 < polygonSide) ? nodeRightChilds : nodeLeftChilds)[polygonNode];  // splitted polygon assigned to left node
+    };
+    const auto isCurrentLayer = [polygonNodes, layerBase, nodeSplitDimensions] __host__ __device__(U polygon) -> bool {
+        U polygonNode = polygonNodes[polygon];
         if (polygonNode < layerBase) {
             return false;
         }
-        if (splitDimension < 0) {
+        if (nodeSplitDimensions[polygonNode] < 0) {
             return false;
         }
-        // assert(!(polygonNode < layerBase)); ???
         return true;
     };
-    thrust::transform_if(polygon.side.cbegin(), polygon.side.cend(), polygonNodeBothBegin, nodeStencilBegin, polygon.node.begin(), toPolygonNode, thrust::make_zip_function(isCurrentLayer));
+    thrust::transform_if(polygonBegin, polygonEnd, polygon.node.begin(), toPolygonNode, isCurrentLayer);
 }

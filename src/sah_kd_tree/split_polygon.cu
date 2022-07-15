@@ -4,6 +4,7 @@
 #include <thrust/advance.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/swap.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 

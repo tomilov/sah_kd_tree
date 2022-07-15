@@ -16,7 +16,6 @@ void sah_kd_tree::Builder::separateSplittedPolygon()
     splittedPolygon.resize(polygon.splittedCount);
 
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
-    auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);
 
     auto polygonNodes = polygon.node.data().get();
     auto nodeSplitDimensions = node.splitDimension.data().get();
@@ -34,10 +33,11 @@ void sah_kd_tree::Builder::separateSplittedPolygon()
     };
     auto polygonTriangles = polygon.triangle.data().get();
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
-    auto splittedPolygonBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
-    using SplittedPolygonType = IteratorValueType<decltype(splittedPolygonBegin)>;
-    const auto toSplittedPolygon = [polygonTriangles, polygonNodes](U polygon) -> SplittedPolygonType { return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}}; };
-    auto splittedPolygonOutputBegin = thrust::make_transform_output_iterator(splittedPolygonBegin, toSplittedPolygon);
-    [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(polygonBegin, polygonEnd, splittedPolygonOutputBegin, isSplittedPolygon);
+    auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
+    using SplittedPolygonType = IteratorValueType<decltype(splittedPolygonOutputBegin)>;
+    const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType { return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}}; };
+    auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
+    auto splittedPolygonInputEnd = thrust::next(splittedPolygonInputBegin, polygon.count);
+    [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(splittedPolygonInputBegin, splittedPolygonInputEnd, polygonBegin, splittedPolygonOutputBegin, isSplittedPolygon);
     assert(thrust::next(splittedPolygonOutputBegin, polygon.splittedCount) == splittedPolygonOutputEnd);
 }
