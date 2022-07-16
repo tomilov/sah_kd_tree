@@ -65,7 +65,7 @@ struct SAH_KD_TREE_EXPORT Projection
         U count = 0;
         thrust::device_vector<U> node;
         thrust::device_vector<F> pos;
-        thrust::device_vector<I> kind;
+        thrust::device_vector<I> kind;  // scale event kind by polygon value
         thrust::device_vector<U> polygon;
 
         thrust::device_vector<U> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
