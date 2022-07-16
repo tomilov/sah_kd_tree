@@ -1,10 +1,10 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/count.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/transform_output_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -17,7 +17,7 @@
 void sah_kd_tree::Projection::generateInitialEvent()
 {
     auto triangleBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
-    using BboxType = IteratorValueType<decltype(triangleBboxBegin)>;
+    using BboxType = thrust::iterator_value_t<decltype(triangleBboxBegin)>;
     const auto isPlanarEvent = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
     auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangle.count), isPlanarEvent));
@@ -36,7 +36,7 @@ void sah_kd_tree::Projection::generateInitialEvent()
     auto triangleBegin = thrust::make_counting_iterator<U>(0);
     auto planarEventBegin = thrust::next(event.polygon.begin(), triangle.count - planarEventCount);
     auto eventPairBegin = thrust::make_zip_iterator(event.polygon.begin(), event.polygon.rbegin());
-    auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, doubler);
+    auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, toPair);
     thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangle.count), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
 
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(triangleBboxBegin, event.polygon.cbegin());

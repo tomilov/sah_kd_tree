@@ -1,9 +1,9 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/extrema.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
@@ -36,7 +36,7 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
     auto nodeZSplitPositions = z.layer.splitPos.data().get();
 
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
-    using NodeBestSplitType = IteratorValueType<decltype(nodeBestSplitBegin)>;
+    using NodeBestSplitType = thrust::iterator_value_t<decltype(nodeBestSplitBegin)>;
     const auto toNodeBestSplit = [sah, nodeXSplitCosts, nodeYSplitCosts, nodeZSplitCosts, nodeXLeftChildPolygonCounts, nodeYLeftChildPolygonCounts, nodeZLeftChildPolygonCounts, nodeXRightChildPolygonCounts, nodeYRightChildPolygonCounts,
                                   nodeZRightChildPolygonCounts, nodePolygonCounts, nodeXSplitPositions, nodeYSplitPositions, nodeZSplitPositions] __host__
                                  __device__(U layerNode) -> NodeBestSplitType {

@@ -1,6 +1,6 @@
-#include <sah_kd_tree/helpers/setup.cuh>
+#include <sah_kd_tree/sah_kd_tree.cuh>
 
-namespace sah_kd_tree::helpers
+namespace sah_kd_tree
 {
 void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
 {
@@ -21,4 +21,4 @@ void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Pr
 
     builder.polygon.count = triangle.count;
 }
-}  // namespace sah_kd_tree::helpers
+}  // namespace sah_kd_tree

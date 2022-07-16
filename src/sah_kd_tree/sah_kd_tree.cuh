@@ -1,7 +1,6 @@
 #pragma once
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
-#include <sah_kd_tree/types.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -11,6 +10,10 @@
 
 namespace sah_kd_tree
 {
+using I = int;           // signed integral
+using U = unsigned int;  // unsigned integral
+using F = float;         // floating point
+
 struct SAH_KD_TREE_EXPORT Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]
@@ -21,19 +24,18 @@ struct SAH_KD_TREE_EXPORT Params
 
 struct SAH_KD_TREE_EXPORT Tree
 {
-    // TODO(tomilov):
     U depth = std::numeric_limits<U>::max();
 };
 
 struct SAH_KD_TREE_EXPORT Projection
 {
-    struct Doubler
+    struct ToPair
     {
-        __host__ __device__ thrust::tuple<U, U> operator()(U value) const
+        __host__ __device__ thrust::pair<U, U> operator()(U value) const
         {
             return {value, value};
         }
-    } doubler;
+    } toPair;
 
     struct ToEventPos
     {
@@ -65,7 +67,7 @@ struct SAH_KD_TREE_EXPORT Projection
         U count = 0;
         thrust::device_vector<U> node;
         thrust::device_vector<F> pos;
-        thrust::device_vector<I> kind;  // scale event kind by polygon value
+        thrust::device_vector<I> kind;  // TODO: scale event kind by polygon value
         thrust::device_vector<U> polygon;
 
         thrust::device_vector<U> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
@@ -129,7 +131,7 @@ struct SAH_KD_TREE_EXPORT Builder
         thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         thrust::device_vector<U> parent;                                             // temporarily needed to build  ropes
-    } node;  // TODO: optimize out node.rightChild
+    } node;                                                                          // TODO: optimize out node.rightChild
 
     struct Leaf
     {
@@ -191,4 +193,47 @@ extern template void Builder::calculateRope<1, false>(Projection & y, const Proj
 extern template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
 extern template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
 extern template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+
+struct SAH_KD_TREE_EXPORT Triangle
+{
+    template<typename TriangleType, typename TransposedTriangleType>
+    struct TransposeTriangle
+    {
+        __host__ __device__ TransposedTriangleType operator()(const TriangleType & t) const
+        {
+            return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
+        }
+    };
+
+    U count = 0;
+
+    struct Component
+    {
+        thrust::device_vector<F> a, b, c;
+    } x, y, z;
+
+    // For non-CUDA THRUST_DEVICE_SYSTEM using the function works fine in pure .cpp,
+    // but to conduct with .cpp code in case of CUDA "glue" .hpp+.cu pair is required
+    // (ideally .hpp should contain only C++). Even so there is a bug in CUDA:
+    // https://forums.developer.nvidia.com/t/cuda-separable-compilation-shared-libraries-invalid-function-error/188476
+    // Thus dlink the library only once or use static linking.
+    template<typename TriangleIterator>
+    void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
+    {
+        using TriangleType = thrust::iterator_value_t<TriangleIterator>;
+        thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
+        count = U(t.size());
+        const auto transposeComponent = [this](typename Triangle::Component & component) {
+            component.a.resize(count);
+            component.b.resize(count);
+            component.c.resize(count);
+            return thrust::make_zip_iterator(component.a.begin(), component.b.begin(), component.c.begin());
+        };
+        auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
+        using TransposedTriangleType = thrust::iterator_value_t<decltype(transposedTriangleBegin)>;
+        thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangle<TriangleType, TransposedTriangleType>{});
+    }
+};
+
+void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
 }  // namespace sah_kd_tree

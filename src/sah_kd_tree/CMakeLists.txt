@@ -12,8 +12,6 @@ target_sources(
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
-        "types.cuh"
-        "type_traits.cuh"
         "calculate_triangle_bbox.cu"
         "calculate_root_node_bbox.cu"
         "generate_initial_event.cu"
@@ -36,8 +34,7 @@ target_sources(
         "check_tree.cu"
         "calculate_rope.cu"
         "builder.cu"
-        "helpers/setup.cuh"
-        "helpers/setup.cu")
+        "link_triangle.cu")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC

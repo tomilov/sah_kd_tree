@@ -1,8 +1,8 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -50,7 +50,7 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
 
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splittedPolygonCount.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin(), layer.splitEvent.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
-    using PerfectSplitType = IteratorValueType<decltype(perfectSplitOutputBegin)>;
+    using PerfectSplitType = thrust::iterator_value_t<decltype(perfectSplitOutputBegin)>;
     const auto toPerfectSplit =
         [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U event) -> PerfectSplitType {
         U eventNode = eventNodes[event];

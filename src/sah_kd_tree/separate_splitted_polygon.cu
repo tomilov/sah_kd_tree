@@ -1,9 +1,9 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 
@@ -34,7 +34,7 @@ void sah_kd_tree::Builder::separateSplittedPolygon()
     auto polygonTriangles = polygon.triangle.data().get();
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
     auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
-    using SplittedPolygonType = IteratorValueType<decltype(splittedPolygonOutputBegin)>;
+    using SplittedPolygonType = thrust::iterator_value_t<decltype(splittedPolygonOutputBegin)>;
     const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType { return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}}; };
     auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
     auto splittedPolygonInputEnd = thrust::next(splittedPolygonInputBegin, polygon.count);

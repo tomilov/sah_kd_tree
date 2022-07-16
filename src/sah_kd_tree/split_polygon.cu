@@ -1,7 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/swap.h>
@@ -41,11 +41,11 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
     auto CZ = z.triangle.c.get();
 
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
-    using PolygonBboxInputType = IteratorValueType<decltype(polygonBboxBegin)>;
+    using PolygonBboxInputType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygon.count);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
-    using SplittedPolygonBboxType = IteratorValueType<decltype(splittedPolygonBboxBegin)>;
+    using SplittedPolygonBboxType = thrust::iterator_value_t<decltype(splittedPolygonBboxBegin)>;
 
     const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygon) -> SplittedPolygonBboxType {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);

@@ -1,5 +1,4 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <sah_kd_tree/type_traits.cuh>
 
 #include <thrust/advance.h>
 #include <thrust/count.h>
@@ -8,6 +7,7 @@
 #include <thrust/fill.h>
 #include <thrust/gather.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/reverse_iterator.h>
 #include <thrust/iterator/transform_output_iterator.h>
@@ -96,8 +96,8 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     auto eventLeftPolygonBothBegin = thrust::make_zip_iterator(eventLeftPolygonLeftBegin, eventLeftPolygonRightBegin);
     auto eventRightPolygonBothBegin = thrust::make_zip_iterator(eventRightPolygonLeftBegin, eventRightPolygonRightBegin);
 
-    auto eventLeftPolygonBothOutputBegin = thrust::make_transform_output_iterator(eventLeftPolygonBothBegin, doubler);
-    auto eventRightPolygonBothOutputBegin = thrust::make_transform_output_iterator(eventRightPolygonBothBegin, doubler);
+    auto eventLeftPolygonBothOutputBegin = thrust::make_transform_output_iterator(eventLeftPolygonBothBegin, toPair);
+    auto eventRightPolygonBothOutputBegin = thrust::make_transform_output_iterator(eventRightPolygonBothBegin, toPair);
 
     auto eventLeftPolygonPlanarBegin = thrust::next(eventLeftPolygonLeftBegin, splittedPolygonCount - splittedPlanarPolygonLeftCount);
     auto eventRightPolygonPlanarBegin = thrust::next(eventRightPolygonLeftBegin, splittedPolygonCount - splittedPlanarPolygonRightCount);
@@ -125,7 +125,7 @@ void sah_kd_tree::Projection::mergeEvent(U polygonCount, U splittedPolygonCount,
     assert(eventPosBegin == event.pos.end());
 #else
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, eventLeftPolygonLeftBegin);
-    using BboxType = IteratorValueType<decltype(polygonBboxBegin)>;
+    using BboxType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;
     thrust::transform(eventLeftKindLeftBegin, event.kind.end(), eventPolygonBboxBegin, thrust::next(event.pos.begin(), splittedEventOffset), toEventPos);
 #endif
 

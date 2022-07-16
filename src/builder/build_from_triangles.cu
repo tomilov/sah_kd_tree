@@ -1,4 +1,3 @@
-#include <sah_kd_tree/helpers/setup.cuh>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 #include <builder/build_from_triangles.hpp>
@@ -19,13 +18,13 @@ bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBeg
         params.maxDepth = maxDepth;
     }
 
-    sah_kd_tree::helpers::Triangle triangle;
+    sah_kd_tree::Triangle triangle;
     triangle.setTriangle(triangleBegin, triangleEnd);
 
     sah_kd_tree::Projection x, y, z;
     sah_kd_tree::Builder builder;
 
-    sah_kd_tree::helpers::linkTriangles(triangle, x, y, z, builder);
+    sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
 
     sah_kd_tree::Tree tree = builder(params, x, y, z);
     return true;
