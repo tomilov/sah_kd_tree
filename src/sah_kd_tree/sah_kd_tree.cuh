@@ -4,6 +4,8 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/pair.h>
 #include <thrust/tuple.h>
 
 #include <limits>
@@ -24,7 +26,7 @@ struct SAH_KD_TREE_EXPORT Params
 
 struct SAH_KD_TREE_EXPORT Tree
 {
-    U depth = std::numeric_limits<U>::max();
+    thrust::host_vector<U> layer_depth;
 };
 
 struct SAH_KD_TREE_EXPORT Projection

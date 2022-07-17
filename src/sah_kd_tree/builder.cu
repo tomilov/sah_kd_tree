@@ -38,7 +38,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
     node.polygonCountRight.resize(1);
 
     Tree tree;
-    for (tree.depth = 0; tree.depth < sah.maxDepth; ++tree.depth) {
+    for (;tree.layer_depth.size() < sah.maxDepth; tree.layer_depth.push_back(node.count)) {
         filterLayerNodeOffset();
 
         x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
@@ -120,10 +120,9 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
         splitNode<0>(layerBasePrev, x);
         splitNode<1>(layerBasePrev, y);
         splitNode<2>(layerBasePrev, z);
+        polygon.count += polygon.splittedCount;
 
         resizeNode();
-
-        polygon.count += polygon.splittedCount;
     }
 
     populateNodeParent();
