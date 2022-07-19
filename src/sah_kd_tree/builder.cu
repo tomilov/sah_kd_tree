@@ -9,6 +9,8 @@
 #include <thrust/transform.h>
 #include <thrust/transform_scan.h>
 
+#include <utility>
+
 #include <cassert>
 
 auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projection & y, Projection & z) -> Tree
@@ -38,7 +40,7 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
     node.polygonCountRight.resize(1);
 
     Tree tree;
-    for (;tree.layer_depth.size() < sah.maxDepth; tree.layer_depth.push_back(node.count)) {
+    for (; tree.layerDepth.size() < sah.maxDepth; tree.layerDepth.push_back(node.count)) {
         filterLayerNodeOffset();
 
         x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
@@ -139,6 +141,30 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
 
     calculateRope<2, false>(z, x, y);
     calculateRope<2, true>(z, x, y);
+
+    {
+        tree.x.node.min = std::move(x.node.min);
+        tree.x.node.max = std::move(x.node.max);
+        tree.y.node.min = std::move(y.node.min);
+        tree.y.node.max = std::move(y.node.max);
+        tree.z.node.min = std::move(z.node.min);
+        tree.z.node.max = std::move(z.node.max);
+
+        tree.x.node.leftRope = std::move(x.node.leftRope);
+        tree.x.node.rightRope = std::move(x.node.rightRope);
+        tree.y.node.leftRope = std::move(y.node.leftRope);
+        tree.y.node.rightRope = std::move(y.node.rightRope);
+        tree.z.node.leftRope = std::move(z.node.leftRope);
+        tree.z.node.rightRope = std::move(z.node.rightRope);
+
+        tree.polygon.triangle = std::move(polygon.triangle);
+
+        tree.node.splitDimension = std::move(node.splitDimension);
+        tree.node.splitPos = std::move(node.splitPos);
+        tree.node.leftChild = std::move(node.leftChild);
+        tree.node.rightChild = std::move(node.rightChild);
+        tree.node.parent = std::move(node.parent);
+    }
 
     return tree;
 }

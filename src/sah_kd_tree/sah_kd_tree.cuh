@@ -26,7 +26,29 @@ struct SAH_KD_TREE_EXPORT Params
 
 struct SAH_KD_TREE_EXPORT Tree
 {
-    thrust::host_vector<U> layer_depth;
+    thrust::host_vector<U> layerDepth;
+
+    struct Projection
+    {
+        struct Node
+        {
+            thrust::device_vector<F> min, max;
+            thrust::device_vector<U> leftRope, rightRope;
+        } node;
+    } x, y, z;
+
+    struct Polygon
+    {
+        thrust::device_vector<U> triangle;
+    } polygon;
+
+    struct Node
+    {
+        thrust::device_vector<I> splitDimension;
+        thrust::device_vector<F> splitPos;
+        thrust::device_vector<U> leftChild, rightChild;
+        thrust::device_vector<U> parent;
+    } node;
 };
 
 struct SAH_KD_TREE_EXPORT Projection

@@ -4,6 +4,8 @@
 #include <assimp/IOStream.hpp>
 #include <assimp/Logger.hpp>
 
+#include <memory>
+
 namespace scene_loader
 {
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
@@ -101,7 +103,8 @@ bool AssimpProgressHandler::Update(float percentage)
     return true;
 }
 
-AssimpIOStream::AssimpIOStream(QIODevice * device) : device{device}
+AssimpIOStream::AssimpIOStream(QIODevice * device)
+    : device{device}
 {}
 
 AssimpIOStream::~AssimpIOStream() = default;

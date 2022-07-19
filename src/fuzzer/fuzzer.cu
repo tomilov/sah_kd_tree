@@ -1,6 +1,8 @@
 #include <fuzzer/fuzzer.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
+#include <iterator>
+
 namespace fuzzer
 {
 void testOneInput(const Params & p, const std::vector<Triangle> & t)

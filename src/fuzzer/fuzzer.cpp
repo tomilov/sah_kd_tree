@@ -509,7 +509,7 @@ struct TestInput
     }
 
     template<size_t N>
-    static constexpr auto cdf(float (&&probabilities)[N])
+    static constexpr auto cdf(float(&&probabilities)[N])
     {
         std::array<float, N> result;
         std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(result));

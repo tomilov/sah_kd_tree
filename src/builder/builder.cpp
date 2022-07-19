@@ -7,6 +7,8 @@
 
 #include <QtCore>
 
+#include <iterator>
+
 namespace builder
 {
 Q_LOGGING_CATEGORY(builderLog, "builder")
