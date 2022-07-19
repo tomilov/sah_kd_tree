@@ -16,7 +16,7 @@ void Builder::splitNode(U layerBasePrev, Projection & projection) const
     thrust::scatter_if(nodeSplitPosBegin, nodeSplitPosEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), nodeSplitDimensionBegin, projection.node.min.begin(), isCurrentProjection);
 }
 
-template void Builder::splitNode<0>(U layerBasePrev, Projection & x) const SAH_KD_TREE_EXPORT;
-template void Builder::splitNode<1>(U layerBasePrev, Projection & y) const SAH_KD_TREE_EXPORT;
-template void Builder::splitNode<2>(U layerBasePrev, Projection & z) const SAH_KD_TREE_EXPORT;
+template void Builder::splitNode<0>(U layerBasePrev, Projection & x) const;
+template void Builder::splitNode<1>(U layerBasePrev, Projection & y) const;
+template void Builder::splitNode<2>(U layerBasePrev, Projection & z) const;
 }  // namespace sah_kd_tree

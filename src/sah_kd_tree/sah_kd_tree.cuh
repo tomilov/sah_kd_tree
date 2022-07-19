@@ -10,13 +10,13 @@
 
 #include <limits>
 
-namespace sah_kd_tree
+namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
 {
-using I = int;           // signed integral
-using U = unsigned int;  // unsigned integral
-using F = float;         // floating point
+using I = int;
+using U = unsigned int;
+using F = float;
 
-struct SAH_KD_TREE_EXPORT Params
+struct Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
@@ -24,7 +24,7 @@ struct SAH_KD_TREE_EXPORT Params
     U maxDepth = std::numeric_limits<U>::max();
 };
 
-struct SAH_KD_TREE_EXPORT Tree
+struct Tree
 {
     thrust::host_vector<U> layerDepth;
 
@@ -51,7 +51,7 @@ struct SAH_KD_TREE_EXPORT Tree
     } node;
 };
 
-struct SAH_KD_TREE_EXPORT Projection
+struct Projection
 {
     struct ToPair
     {
@@ -117,7 +117,7 @@ struct SAH_KD_TREE_EXPORT Projection
     void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
 };
 
-struct SAH_KD_TREE_EXPORT Builder
+struct Builder
 {
     struct IsNotLeaf
     {
@@ -154,7 +154,7 @@ struct SAH_KD_TREE_EXPORT Builder
         thrust::device_vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
         thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
-        thrust::device_vector<U> parent;                                             // temporarily needed to build  ropes
+        thrust::device_vector<U> parent;                                             // temporarily needed to build ropes
     } node;                                                                          // TODO: optimize out node.rightChild
 
     struct Leaf
@@ -196,29 +196,29 @@ struct SAH_KD_TREE_EXPORT Builder
     template<I dimension, bool forth>
     void calculateRope(Projection & x, const Projection & y, const Projection & z) const;
 
-    Tree operator()(const Params & sah, Projection & x, Projection & y, Projection & z);
+    SAH_KD_TREE_EXPORT Tree operator()(const Params & sah, Projection & x, Projection & y, Projection & z);
 };
 
-extern template void Builder::determinePolygonSide<0>(const Projection & x) SAH_KD_TREE_EXPORT;
-extern template void Builder::determinePolygonSide<1>(const Projection & y) SAH_KD_TREE_EXPORT;
-extern template void Builder::determinePolygonSide<2>(const Projection & z) SAH_KD_TREE_EXPORT;
+extern template void Builder::determinePolygonSide<0>(const Projection & x);
+extern template void Builder::determinePolygonSide<1>(const Projection & y);
+extern template void Builder::determinePolygonSide<2>(const Projection & z);
 
-extern template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
-extern template void Builder::splitPolygon<1>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
-extern template void Builder::splitPolygon<2>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+extern template void Builder::splitPolygon<0>(Projection & x, const Projection & y, const Projection & z) const;
+extern template void Builder::splitPolygon<1>(Projection & y, const Projection & z, const Projection & x) const;
+extern template void Builder::splitPolygon<2>(Projection & z, const Projection & x, const Projection & y) const;
 
-extern template void Builder::splitNode<0>(U layerBasePrev, Projection & x) const SAH_KD_TREE_EXPORT;
-extern template void Builder::splitNode<1>(U layerBasePrev, Projection & y) const SAH_KD_TREE_EXPORT;
-extern template void Builder::splitNode<2>(U layerBasePrev, Projection & z) const SAH_KD_TREE_EXPORT;
+extern template void Builder::splitNode<0>(U layerBasePrev, Projection & x) const;
+extern template void Builder::splitNode<1>(U layerBasePrev, Projection & y) const;
+extern template void Builder::splitNode<2>(U layerBasePrev, Projection & z) const;
 
-extern template void Builder::calculateRope<0, false>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<0, true>(Projection & x, const Projection & y, const Projection & z) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<1, false>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
-extern template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const SAH_KD_TREE_EXPORT;
+extern template void Builder::calculateRope<0, false>(Projection & x, const Projection & y, const Projection & z) const;
+extern template void Builder::calculateRope<0, true>(Projection & x, const Projection & y, const Projection & z) const;
+extern template void Builder::calculateRope<1, false>(Projection & y, const Projection & z, const Projection & x) const;
+extern template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const;
+extern template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const;
+extern template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const;
 
-struct SAH_KD_TREE_EXPORT Triangle
+struct Triangle
 {
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
@@ -259,5 +259,5 @@ struct SAH_KD_TREE_EXPORT Triangle
     }
 };
 
-void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
+SAH_KD_TREE_EXPORT void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder);
 }  // namespace sah_kd_tree

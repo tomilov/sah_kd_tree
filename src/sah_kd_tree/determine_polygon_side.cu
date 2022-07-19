@@ -66,7 +66,7 @@ void Builder::determinePolygonSide(const Projection & projection)
 #endif
 }
 
-template void Builder::determinePolygonSide<0>(const Projection & x) SAH_KD_TREE_EXPORT;
-template void Builder::determinePolygonSide<1>(const Projection & y) SAH_KD_TREE_EXPORT;
-template void Builder::determinePolygonSide<2>(const Projection & z) SAH_KD_TREE_EXPORT;
+template void Builder::determinePolygonSide<0>(const Projection & x);
+template void Builder::determinePolygonSide<1>(const Projection & y);
+template void Builder::determinePolygonSide<2>(const Projection & z);
 }  // namespace sah_kd_tree

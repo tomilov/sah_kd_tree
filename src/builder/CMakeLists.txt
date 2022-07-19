@@ -15,6 +15,9 @@ target_sources(
         "${PROJECT_NAME}.cpp"
         "build_from_triangles.hpp"
         "build_from_triangles.cu")
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions("lib${PROJECT_NAME}" PUBLIC SAH_KD_TREE_STATIC_DEFINE)
+endif()
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
