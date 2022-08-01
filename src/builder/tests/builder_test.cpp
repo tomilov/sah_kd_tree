@@ -7,7 +7,7 @@
 using builder::buildSceneFromFile;
 using builder::buildSceneFromFileOrCache;
 
-TEST(BuilderTest, SimpleGeometry)
+TEST(Builder, SimpleGeometry)
 {
     EXPECT_TRUE(buildSceneFromFile("pointlike_triangle.obj"));
     EXPECT_TRUE(buildSceneFromFile("narrow_triangle.obj"));
@@ -22,7 +22,7 @@ TEST(BuilderTest, SimpleGeometry)
     EXPECT_TRUE(buildSceneFromFile("box_inside_box.obj"));
 }
 
-TEST(BuilderTest, Fuzzed)
+TEST(Builder, Fuzzed)
 {
     EXPECT_TRUE(buildSceneFromFile("test0.obj", 0.285076, 0.0657117, 0.914504));
     EXPECT_TRUE(buildSceneFromFile("test1.obj", 0x1.a538900000000p-2, 0x1.ddf3b40000000p-5, 0x1.ecdd120000000p-4));
@@ -31,15 +31,10 @@ TEST(BuilderTest, Fuzzed)
     EXPECT_TRUE(buildSceneFromFile("triangle_of_degenerate_triangles.obj", 0x1.2222aa0000000p-1, 0x1.5464960000000p-3, 0x1.152a640000000p-1));
 }
 
-TEST(BuilderTest, NewFuzzed)
-{
-    GTEST_SKIP();
-}
-
-TEST(BuilderTest, DISABLED_AllScenes)
+TEST(Builder, DISABLED_AllScenes)
 {
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
     for (const auto & fileName : scenes) {  // clazy:exclude=range-loop-detach
-        EXPECT_TRUE(buildSceneFromFileOrCache(fileName, {}));
+        EXPECT_TRUE(buildSceneFromFileOrCache(fileName, {} /* cachePath */));
     }
 }

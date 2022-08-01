@@ -12,23 +12,23 @@ PointerAlignment: Middle
 BreakBeforeBraces: Custom
 IndentCaseLabels: false
 BraceWrapping:
-  AfterFunction: true
-  AfterCaseLabel: false
-  AfterClass: true
-  AfterControlStatement: MultiLine
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: true
-  AfterUnion: true
-  AfterExternBlock: true
-  BeforeCatch: false
-  BeforeElse: false
-  #BeforeLambdaBody: true
-  #BeforeWhile: false
-  SplitEmptyFunction: false
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
+    AfterFunction: true
+    AfterCaseLabel: false
+    AfterClass: true
+    AfterControlStatement: MultiLine
+    AfterEnum: true
+    AfterFunction: true
+    AfterNamespace: true
+    AfterStruct: true
+    AfterUnion: true
+    AfterExternBlock: true
+    BeforeCatch: false
+    BeforeElse: false
+    #BeforeLambdaBody: true
+    #BeforeWhile: false
+    SplitEmptyFunction: false
+    SplitEmptyRecord: true
+    SplitEmptyNamespace: true
 UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true
@@ -38,6 +38,7 @@ BreakStringLiterals: true
 DeriveLineEnding: false
 UseCRLF: false
 FixNamespaceComments: true
+ShortNamespaceLines: 0
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false

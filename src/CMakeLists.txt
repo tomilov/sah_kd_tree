@@ -88,4 +88,5 @@ add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")
 add_subdirectory("fuzzer")
+add_subdirectory("renderer")
 
