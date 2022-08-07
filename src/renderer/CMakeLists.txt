@@ -23,7 +23,8 @@ target_link_libraries(
         "libsah_kd_tree"
         "libscene_loader"
     PUBLIC
-        "VulkanHeaders")
+        "VulkanHeaders"
+        "gliInterface")
 
 add_executable("${PROJECT_NAME}")
 target_sources(

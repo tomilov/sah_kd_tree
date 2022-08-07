@@ -7,3 +7,8 @@
 	path = external/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
 	shallow = true
+[submodule "external/gli"]
+	path = external/gli
+	url = https://github.com/g-truc/gli.git
+	branch = 8.0.2
+	shallow = true
