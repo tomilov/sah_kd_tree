@@ -236,9 +236,10 @@ struct Triangle
         thrust::device_vector<F> a, b, c;
     } x, y, z;
 
-    // For non-CUDA THRUST_DEVICE_SYSTEM using the function works fine in pure .cpp,
-    // but to conduct with .cpp code in case of CUDA "glue" .hpp+.cu pair is required
-    // (ideally .hpp should contain only C++). Even so there is a bug in CUDA:
+    // For non-CUDA THRUST_DEVICE_SYSTEM a using of the function works fine in pure .cpp,
+    // but to conduct with .cpp code in case of CUDA THRUST_DEVICE_SYSTEM
+    // a "glue" .hpp+.cu pair is required (ideally .hpp should contain only C++).
+    // Even so there is a bug in CUDA:
     // https://forums.developer.nvidia.com/t/cuda-separable-compilation-shared-libraries-invalid-function-error/188476
     // Thus dlink the library only once or use static linking.
     template<typename TriangleIterator>

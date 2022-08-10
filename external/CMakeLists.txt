@@ -51,6 +51,7 @@ target_compile_definitions(
     "glmInterface"
     INTERFACE
         GLM_ENABLE_EXPERIMENTAL
+        GLM_FORCE_EXPLICIT_CTOR
         GLM_FORCE_PURE)
 
 

@@ -70,6 +70,7 @@ add_compile_definitions(
 add_compile_definitions(QT_MESSAGELOGCONTEXT)
 
 find_package(fmt REQUIRED)
+link_libraries(fmt::fmt)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -84,6 +85,7 @@ cmake_dependent_option(
     "CMAKE_CXX_COMPILER_ID STREQUAL Clang"
     OFF)
 
+add_subdirectory("utils")
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")

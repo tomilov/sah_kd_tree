@@ -17,6 +17,14 @@ target_sources(
         "build_from_triangles.cu")
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions("lib${PROJECT_NAME}" PUBLIC SAH_KD_TREE_STATIC_DEFINE)
+    #[[
+    $<STREQUAL:$<TARGET_PROPERTY:lib${PROJECT_NAME},TYPE>,STATIC_LIBRARY>
+
+    set_source_files_properties(
+        "build_from_triangles.cu"
+        PROPERTIES
+            COMPILE_DEFINITIONS SAH_KD_TREE_STATIC_DEFINE)
+    ]]
 endif()
 target_link_libraries(
     "lib${PROJECT_NAME}"

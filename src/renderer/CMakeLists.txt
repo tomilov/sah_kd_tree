@@ -16,15 +16,19 @@ target_sources(
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp")
+        "${PROJECT_NAME}.cpp"
+        "vma.hpp"
+        "vma.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
         "libscene_loader"
     PUBLIC
+        "libutils"
         "VulkanHeaders"
-        "gliInterface")
+        "gliInterface"
+        "VulkanMemoryAllocator")
 
 add_executable("${PROJECT_NAME}")
 target_sources(
