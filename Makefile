@@ -115,3 +115,17 @@ plan 3d: $(CRASH_FILE)
 		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
+.PHONY: cmake-graphviz
+cmake-graphviz:
+	@cmake -E make_directory $(BUILD_DIR)
+	@cd $(BUILD_DIR) && \
+	cmake \
+		--graphviz=sah_kd_tree.dot \
+		-S $(ROOT_DIR) \
+		-B $(BUILD_DIR) \
+		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
+		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
+		$(ROOT_DIR) && \
+	dot -Tpng -o sah_kd_tree.png sah_kd_tree.dot && \
+	xdg-open sah_kd_tree.png
