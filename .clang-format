@@ -43,20 +43,29 @@ CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false
 IncludeBlocks: Regroup
+IncludeIsMainRegex: (_test)?$
 IncludeCategories:
-  - Regex: ^<(sah_kd_tree|scene_loader|fuzzer)/
+  - Regex: ^<(sah_kd_tree|builder|scene_loader|fuzzer|renderer|utils)/
     Priority: 2
   - Regex: ^<thrust/
     Priority: 4
+  - Regex: ^<vulkan/.*\.hpp>$
+    Priority: 5
   - Regex: ^<assimp/
+    Priority: 5
+  - Regex: ^<fmt/
     Priority: 5
   - Regex: ^<(Q[A-Z]|Qt)
     Priority: 6
   - Regex: \.hpp>$
     Priority: 3
+  - Regex: ^<vk_mem_alloc.h>$
+    Priority: 8
+  - Regex: ^<vulkan/.*\.h>$
+    Priority: 8
   - Regex: \.h>$
     Priority: 9
-  - Regex: ^<c(assert|stdlib|stdint|string|math)>$
+  - Regex: ^<c(assert|stdlib|stdint|string|math|stddef)>$
     Priority: 8
   - Regex: ^<[[:alnum:]_]+>$
     Priority: 7

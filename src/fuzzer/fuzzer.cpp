@@ -1,5 +1,8 @@
 #include <fuzzer/fuzzer.hpp>
 
+#include <fmt/color.h>
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -19,9 +22,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-
-#include <fmt/color.h>
-#include <fmt/format.h>
 
 using namespace std::rel_ops;
 
@@ -509,7 +509,7 @@ struct TestInput
     }
 
     template<size_t N>
-    static constexpr auto cdf(float(&&probabilities)[N])
+    static constexpr auto cdf(float (&&probabilities)[N])
     {
         std::array<float, N> result;
         std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(result));

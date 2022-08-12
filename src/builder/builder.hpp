@@ -1,9 +1,9 @@
 #pragma once
 
+#include <builder/builder_export.h>
+
 #include <QLoggingCategory>
 #include <QString>
-
-#include <builder/builder_export.h>
 
 namespace builder
 {

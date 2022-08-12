@@ -38,10 +38,10 @@ MemoryAllocator::MemoryAllocator(const Features & features, vk::Instance instanc
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
 
     if (features.physicalDeviceProperties2Enabled && features.memoryBudgetEnabled) {
-         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
     if (features.memoryRequirements2Enabled && features.dedicatedAllocationEnabled) {
-         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     }
     if (features.bindMemory2Enabled) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;

@@ -59,18 +59,15 @@ set(CMAKE_AUTORCC ON)
 
 add_compile_definitions(
     QT_NO_KEYWORDS
-    QT_NO_FOREACH)
-
-add_compile_definitions(
+    QT_NO_FOREACH
     QT_RESTRICTED_CAST_FROM_ASCII
     QT_NO_CAST_TO_ASCII
     QT_NO_CAST_FROM_BYTEARRAY
-    QT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
-
-add_compile_definitions(QT_MESSAGELOGCONTEXT)
+    QT_NO_NARROWING_CONVERSIONS_IN_CONNECT
+    QT_MESSAGELOGCONTEXT)
 
 find_package(fmt REQUIRED)
-link_libraries(fmt::fmt)
+link_libraries(fmt::fmt-header-only)
 
 include(CTest)
 if(BUILD_TESTING)

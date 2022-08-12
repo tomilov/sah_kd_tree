@@ -1,6 +1,5 @@
-#include <sah_kd_tree/sah_kd_tree.cuh>
-
 #include <builder/build_from_triangles.hpp>
+#include <sah_kd_tree/sah_kd_tree.cuh>
 
 bool builder::buildSceneFromTriangles(const scene_loader::Triangle * triangleBegin, const scene_loader::Triangle * triangleEnd, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {

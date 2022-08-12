@@ -1,7 +1,6 @@
-#include <scene_loader/scene_loader.hpp>
-
 #include <builder/build_from_triangles.hpp>
 #include <builder/builder.hpp>
+#include <scene_loader/scene_loader.hpp>
 
 #include <thrust/device_vector.h>
 

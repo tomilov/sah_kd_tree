@@ -11,7 +11,7 @@ namespace renderer
 
 class MemoryAllocator
 {
-public :
+public:
     struct Features
     {
         bool physicalDeviceProperties2Enabled = false;

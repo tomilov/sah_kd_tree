@@ -18,8 +18,7 @@ target_sources(
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
-        "libsah_kd_tree"
-        fmt::fmt)
+        "libsah_kd_tree")
 target_compile_options(
     "${PROJECT_NAME}"
     PRIVATE
