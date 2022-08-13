@@ -11,9 +11,7 @@ target_compile_definitions(
     INTERFACE
         VK_ENABLE_BETA_EXTENSIONS
         VULKAN_HPP_NO_DEFAULT_DISPATCHER
-        VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
-        VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
-        VULKAN_HPP_NO_EXCEPTIONS)
+        VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
         "VulkanInterface"

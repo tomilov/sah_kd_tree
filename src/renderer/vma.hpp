@@ -4,15 +4,21 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <cstdint>
 
 namespace renderer
 {
 
-class MemoryAllocator
+class MemoryAllocator final
 {
 public:
-    struct Features
+    struct MemoryAllocatorCreateInfo
     {
         bool physicalDeviceProperties2Enabled = false;
         bool memoryRequirements2Enabled = false;
@@ -21,15 +27,89 @@ public:
         bool memoryBudgetEnabled = false;
         bool bufferDeviceAddressEnabled = false;
         bool memoryPriorityEnabled = false;
+
+        void appendRequiredDeviceExtensions(std::vector<std::string_view> & deviceExtensions);
     };
 
-    MemoryAllocator(const Features & features, vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t deviceApiVersion, const vk::DispatchLoaderDynamic & dispatcher);
+    struct AllocationCreateInfo;
+
+    class Buffer;
+    class Image;
+
+    MemoryAllocator(const MemoryAllocatorCreateInfo & features, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device);
     ~MemoryAllocator();
+
+    vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
+    vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
+
+    void setCurrentFrameIndex(uint32_t frameIndex);
+
+    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
+    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
+    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
+
+    Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
+    Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
+    Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
+
+    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit);
 
 private:
     struct Impl;
+    struct Resource;
 
-    utils::FastPimpl<Impl, 8, 8> impl_;
+    utils::FastPimpl<Impl, 16, 8> impl_;
+};
+
+struct MemoryAllocator::AllocationCreateInfo
+{
+    enum class AllocationType
+    {
+        kAuto,
+        kStaging,
+        kReadback,
+    };
+
+    enum class DefragmentationMoveOperation
+    {
+        kCopy,
+        kIgnore,
+        kDestroy,
+    };
+
+    std::string name;
+    AllocationType type;
+    DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
+};
+
+class MemoryAllocator::Buffer final
+{
+public:
+    Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    ~Buffer();
+
+    vk::Buffer getBuffer() const;
+    vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
+
+private:
+    std::unique_ptr<Resource> impl_;
+};
+
+class MemoryAllocator::Image final
+{
+public:
+    Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    ~Image();
+
+    vk::Image getImage() const;
+    vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
+
+    vk::ImageLayout exchangeLayout(vk::ImageLayout layout);
+
+    static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
+
+private:
+    std::unique_ptr<Resource> impl_;
 };
 
 }  // namespace renderer

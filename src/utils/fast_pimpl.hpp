@@ -14,15 +14,15 @@ class FastPimpl final
 {
 public:
     template<typename... Args>
-    explicit FastPimpl(Args &&... args) noexcept(noexcept(T(std::declval<Args>()...)))
+    explicit FastPimpl(Args &&... args) noexcept(noexcept(T{std::declval<Args>()...}))
     {
         new (operator->()) T{std::forward<Args>(args)...};
     }
 
-    FastPimpl(FastPimpl && v) noexcept(noexcept(T(std::declval<T>()))) : FastPimpl{std::move(*v)}
+    FastPimpl(const FastPimpl & v) noexcept(noexcept(T{std::declval<const T &>()})) : FastPimpl{*v}
     {}
 
-    FastPimpl(const FastPimpl & v) noexcept(noexcept(T{std::declval<const T &>()})) : FastPimpl{*v}
+    FastPimpl(FastPimpl && v) noexcept(noexcept(T(std::declval<T>()))) : FastPimpl{std::move(*v)}
     {}
 
     FastPimpl & operator=(const FastPimpl & rhs) noexcept(noexcept(std::declval<T &>() = std::declval<const T &>()))
@@ -47,6 +47,7 @@ public:
     {
         return reinterpret_cast<T *>(&storage_);
     }
+
     const T * operator->() const noexcept
     {
         return reinterpret_cast<const T *>(&storage_);
@@ -56,6 +57,7 @@ public:
     {
         return *operator->();
     }
+
     const T & operator*() const noexcept
     {
         return *operator->();

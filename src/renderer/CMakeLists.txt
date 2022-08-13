@@ -25,7 +25,11 @@ target_sources(
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
         "vma.hpp"
-        "vma.cpp")
+        "vma.cpp"
+        "exception.hpp"
+        "exception.cpp"
+        "debug_utils.hpp"
+        "debug_utils.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -36,6 +40,15 @@ target_link_libraries(
         "VulkanMemoryAllocator"
     PUBLIC
         "libutils")
+
+set_property(
+    SOURCE
+        "vma.cpp"
+    PROPERTY
+        COMPILE_DEFINITIONS
+            VMA_IMPLEMENTATION
+            VMA_STATIC_VULKAN_FUNCTIONS=0
+            VMA_DYNAMIC_VULKAN_FUNCTIONS=0)
 
 add_executable("${PROJECT_NAME}")
 target_sources(

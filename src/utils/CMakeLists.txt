@@ -21,4 +21,11 @@ target_sources(
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
         "fast_pimpl.hpp"
-        "fast_pimpl.cpp")
+        "fast_pimpl.cpp"
+        "overloaded.hpp"
+        "overloaded.cpp"
+        "assert.hpp"
+        "assert.cpp"
+        "exception.hpp"
+        "exception.cpp")
+
