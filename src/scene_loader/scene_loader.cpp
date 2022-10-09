@@ -5,10 +5,20 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
-#include <QtCore>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QString>
+#include <QtCore/QDataStream>
+#include <QtCore/QDebug>
+#include <QtCore/QFileInfo>
+#include <QtCore/QFile>
+#include <QtCore/QDir>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QElapsedTimer>
+#include <QtCore/QCryptographicHash>
 
 namespace scene_loader
 {
+Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
 Q_LOGGING_CATEGORY(sceneLoaderLog, "sceneLoader")
 
 namespace

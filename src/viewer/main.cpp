@@ -1,12 +1,25 @@
 #include <viewer/viewer.hpp>
 
-#include <QGuiApplication>
+#include <QtCore/QByteArrayAlgorithms>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDebug>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QObject>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QString>
+#include <QtCore/QTimer>
+#include <QtCore/QUrl>
+#include <QtGui/QGuiApplication>
+#include <QtQml/QQmlApplicationEngine>
+#include <QtQml/QQmlContext>
 #include <QtQuick/QQuickView>
-#include <QtQml>
-#include <QtCore>
-#include <QApplication>
+#include <QtQuick/QQuickWindow>
+#include <QtQuick/QSGRendererInterface>
+#include <QtWidgets/QApplication>
 
 #include <new>
+
+#include <cstdlib>
 
 Q_DECLARE_LOGGING_CATEGORY(viewerCategoryMain)
 Q_LOGGING_CATEGORY(viewerCategoryMain, "viewerMain")

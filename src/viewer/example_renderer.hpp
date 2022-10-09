@@ -2,14 +2,15 @@
 
 #include <viewer/viewer_export.h>
 
-#include <QLoggingCategory>
+#include <QtCore/QByteArray>
+#include <QtCore/QObject>
+#include <QtCore/QSize>
+#include <QtGui/QVulkanDeviceFunctions>
+#include <QtGui/QVulkanFunctions>
 #include <QtQuick/QQuickWindow>
-#include <QVulkanFunctions>
 
 namespace viewer
 {
-Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
-
 class ExampleRenderer : public QObject
 {
     Q_OBJECT

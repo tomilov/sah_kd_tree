@@ -4,12 +4,15 @@
 
 #include <thrust/device_vector.h>
 
-#include <QtCore>
+#include <QtCore/QString>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QFileInfo>
 
 #include <iterator>
 
 namespace builder
 {
+Q_DECLARE_LOGGING_CATEGORY(builderLog)
 Q_LOGGING_CATEGORY(builderLog, "builder")
 
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)

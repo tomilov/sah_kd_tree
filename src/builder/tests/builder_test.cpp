@@ -1,6 +1,7 @@
 #include <builder/builder.hpp>
 
-#include <QDir>
+#include <QtCore/QDir>
+#include <QtCore/QString>
 
 #include <gtest/gtest.h>
 

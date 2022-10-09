@@ -4,10 +4,21 @@
 #include <assimp/IOStream.hpp>
 #include <assimp/Logger.hpp>
 
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QDebug>
+#include <QtCore/QString>
+#include <QtCore/QFileDevice>
+#include <QtCore/QFileInfo>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QByteArray>
+
 #include <memory>
 
 namespace scene_loader
 {
+Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
 
 namespace

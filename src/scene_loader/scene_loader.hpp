@@ -3,14 +3,14 @@
 #include <scene_loader/geometry_types.hpp>
 #include <scene_loader/scene_loader_export.h>
 
-#include <QtCore>
+#include <QtCore/QVector>
+#include <QtCore/QFileInfo>
+#include <QtCore/QDir>
 
 #include <tuple>
 
 namespace scene_loader
 {
-Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
-
 struct SCENE_LOADER_EXPORT SceneLoader
 {
     bool load(QFileInfo sceneFileInfo);

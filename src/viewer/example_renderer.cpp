@@ -1,11 +1,18 @@
 #include <viewer/example_renderer.hpp>
 
-#include <QtCore/QRunnable>
+#include <QtCore/QByteArray>
+#include <QtCore/QDebug>
 #include <QtCore/QFile>
+#include <QtCore/QIODevice>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QRunnable>
+#include <QtCore/QString>
 #include <QtGui/QVulkanInstance>
+#include <QtQuick/QSGRendererInterface>
 
 namespace viewer
 {
+Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
 Q_LOGGING_CATEGORY(exampleRendererCategory, "example_renderer")
 
 ExampleRenderer::~ExampleRenderer()

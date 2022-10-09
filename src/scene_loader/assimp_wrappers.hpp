@@ -4,12 +4,11 @@
 #include <assimp/Logger.hpp>
 #include <assimp/ProgressHandler.hpp>
 
-#include <QtCore>
+#include <QtCore/QMap>
+#include <QtCore/QIODevice>
 
 namespace scene_loader
 {
-Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
-
 struct AssimpLoggerGuard
 {
     AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity = Assimp::Logger::LogSeverity::NORMAL);

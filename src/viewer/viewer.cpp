@@ -2,7 +2,10 @@
 
 #include <viewer/example_renderer.hpp>
 
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QRunnable>
+#include <QtQuick/QQuickItem>
+#include <QtQuick/QQuickWindow>
 
 namespace viewer
 {

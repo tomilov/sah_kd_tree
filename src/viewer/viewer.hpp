@@ -5,8 +5,6 @@
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 
-#include <QLoggingCategory>
-
 namespace viewer
 {
 class ExampleRenderer;
