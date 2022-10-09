@@ -1,7 +1,6 @@
 #pragma once
 
 #include <renderer/renderer_export.h>
-
 #include <utils/fast_pimpl.hpp>
 
 #include <vulkan/vulkan.hpp>

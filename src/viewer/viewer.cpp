@@ -1,6 +1,5 @@
-#include <viewer/viewer.hpp>
-
 #include <viewer/example_renderer.hpp>
+#include <viewer/viewer.hpp>
 
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRunnable>
@@ -19,15 +18,13 @@ Viewer::Viewer()
 
 void Viewer::setT(qreal t)
 {
-    if (t == m_t)
-        return;
+    if (t == m_t) return;
     m_t = t;
     Q_EMIT tChanged();
-    if (window())
-        window()->update();
+    if (window()) window()->update();
 }
 
-void Viewer::handleWindowChanged(QQuickWindow *win)
+void Viewer::handleWindowChanged(QQuickWindow * win)
 {
     if (win) {
         connect(win, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::DirectConnection);
@@ -53,10 +50,15 @@ void Viewer::cleanup()
 class CleanupJob : public QRunnable
 {
 public:
-    CleanupJob(ExampleRenderer *renderer) : m_renderer(renderer) { }
-    void run() override { delete m_renderer; }
+    CleanupJob(ExampleRenderer * renderer) : m_renderer(renderer)
+    {}
+    void run() override
+    {
+        delete m_renderer;
+    }
+
 private:
-    ExampleRenderer *m_renderer;
+    ExampleRenderer * m_renderer;
 };
 
 void Viewer::releaseResources()

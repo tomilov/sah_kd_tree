@@ -24,7 +24,7 @@
 Q_DECLARE_LOGGING_CATEGORY(viewerCategoryMain)
 Q_LOGGING_CATEGORY(viewerCategoryMain, "viewerMain")
 
-inline QGuiApplication * createApplication(int & argc, char * argv [])
+inline QGuiApplication * createApplication(int & argc, char * argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (!qstrcmp(argv[i], "--no-widgets")) {
@@ -53,16 +53,11 @@ int main(int argc, char * argv[])
     const auto rootContext = engine.rootContext();
     rootContext->setContextProperty("qApp", qApp);
 
-    const auto onObjectCreated = [&] (QObject * const object, QUrl url)
-    {
+    const auto onObjectCreated = [&](QObject * const object, QUrl url) {
         if (object) {
-            qCInfo(viewerCategoryMain)
-                    << QStringLiteral("Object from URL %1 successfully created")
-                       .arg(url.toString());
+            qCInfo(viewerCategoryMain) << QStringLiteral("Object from URL %1 successfully created").arg(url.toString());
         } else {
-            qCCritical(viewerCategoryMain)
-                    << QStringLiteral("Unable to create object from URL %1")
-                       .arg(url.toString());
+            qCCritical(viewerCategoryMain) << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
             QTimer::singleShot(0, qApp, [] { QCoreApplication::exit(EXIT_FAILURE); });
         }
     };

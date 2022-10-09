@@ -4,15 +4,15 @@
 #include <assimp/IOStream.hpp>
 #include <assimp/Logger.hpp>
 
-#include <QtCore/QLoggingCategory>
-#include <QtCore/QScopedPointer>
+#include <QtCore/QByteArray>
 #include <QtCore/QDebug>
-#include <QtCore/QString>
-#include <QtCore/QFileDevice>
-#include <QtCore/QFileInfo>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
-#include <QtCore/QByteArray>
+#include <QtCore/QFileDevice>
+#include <QtCore/QFileInfo>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QScopedPointer>
+#include <QtCore/QString>
 
 #include <memory>
 

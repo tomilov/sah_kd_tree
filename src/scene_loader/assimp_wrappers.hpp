@@ -4,8 +4,8 @@
 #include <assimp/Logger.hpp>
 #include <assimp/ProgressHandler.hpp>
 
-#include <QtCore/QMap>
 #include <QtCore/QIODevice>
+#include <QtCore/QMap>
 
 namespace scene_loader
 {

@@ -17,16 +17,26 @@ class ExampleRenderer : public QObject
 public:
     ~ExampleRenderer();
 
-    void setT(qreal t) { m_t = t; }
-    void setViewportSize(const QSize &size) { m_viewportSize = size; }
-    void setWindow(QQuickWindow *window) { m_window = window; }
+    void setT(qreal t)
+    {
+        m_t = t;
+    }
+    void setViewportSize(const QSize & size)
+    {
+        m_viewportSize = size;
+    }
+    void setWindow(QQuickWindow * window)
+    {
+        m_window = window;
+    }
 
 public Q_SLOTS:
     void frameStart();
     void mainPassRecordingStart();
 
 private:
-    enum Stage {
+    enum Stage
+    {
         VertexStage,
         FragmentStage
     };
@@ -35,7 +45,7 @@ private:
 
     QSize m_viewportSize;
     qreal m_t = 0;
-    QQuickWindow *m_window;
+    QQuickWindow * m_window;
 
     QByteArray m_vert;
     QByteArray m_frag;
@@ -43,8 +53,8 @@ private:
     bool m_initialized = false;
     VkPhysicalDevice m_physDev = VK_NULL_HANDLE;
     VkDevice m_dev = VK_NULL_HANDLE;
-    QVulkanDeviceFunctions *m_devFuncs = nullptr;
-    QVulkanFunctions *m_funcs = nullptr;
+    QVulkanDeviceFunctions * m_devFuncs = nullptr;
+    QVulkanFunctions * m_funcs = nullptr;
 
     VkBuffer m_vbuf = VK_NULL_HANDLE;
     VkDeviceMemory m_vbufMem = VK_NULL_HANDLE;
@@ -62,4 +72,4 @@ private:
     VkDescriptorSet m_ubufDescriptor = VK_NULL_HANDLE;
 };
 
-}
+}  // namespace viewer

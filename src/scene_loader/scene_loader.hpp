@@ -3,9 +3,9 @@
 #include <scene_loader/geometry_types.hpp>
 #include <scene_loader/scene_loader_export.h>
 
-#include <QtCore/QVector>
-#include <QtCore/QFileInfo>
 #include <QtCore/QDir>
+#include <QtCore/QFileInfo>
+#include <QtCore/QVector>
 
 #include <tuple>
 

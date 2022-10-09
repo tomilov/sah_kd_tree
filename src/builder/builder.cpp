@@ -4,9 +4,9 @@
 
 #include <thrust/device_vector.h>
 
-#include <QtCore/QString>
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QFileInfo>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QString>
 
 #include <iterator>
 

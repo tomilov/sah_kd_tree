@@ -18,7 +18,10 @@ class VIEWER_EXPORT Viewer : public QQuickItem
 public:
     Viewer();
 
-    qreal t() const { return m_t; }
+    qreal t() const
+    {
+        return m_t;
+    }
     void setT(qreal t);
 
 Q_SIGNALS:
@@ -29,14 +32,13 @@ public Q_SLOTS:
     void cleanup();
 
 private Q_SLOTS:
-    void handleWindowChanged(QQuickWindow *win);
+    void handleWindowChanged(QQuickWindow * win);
 
 private:
     void releaseResources() override;
 
     qreal m_t = 0;
-    ExampleRenderer *m_renderer = nullptr;
+    ExampleRenderer * m_renderer = nullptr;
 };
 
 }  // namespace viewer
-

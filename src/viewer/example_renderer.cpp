@@ -18,8 +18,7 @@ Q_LOGGING_CATEGORY(exampleRendererCategory, "example_renderer")
 ExampleRenderer::~ExampleRenderer()
 {
     qDebug("cleanup");
-    if (!m_devFuncs)
-        return;
+    if (!m_devFuncs) return;
 
     m_devFuncs->vkDestroyPipeline(m_dev, m_pipeline, nullptr);
     m_devFuncs->vkDestroyPipelineLayout(m_dev, m_pipelineLayout, nullptr);
@@ -40,26 +39,18 @@ ExampleRenderer::~ExampleRenderer()
 
 void ExampleRenderer::frameStart()
 {
-    QSGRendererInterface *rif = m_window->rendererInterface();
+    QSGRendererInterface * rif = m_window->rendererInterface();
 
     // We are not prepared for anything other than running with the RHI and its Vulkan backend.
     Q_ASSERT(rif->graphicsApi() == QSGRendererInterface::Vulkan);
 
-    if (m_vert.isEmpty())
-        prepareShader(VertexStage);
-    if (m_frag.isEmpty())
-        prepareShader(FragmentStage);
+    if (m_vert.isEmpty()) prepareShader(VertexStage);
+    if (m_frag.isEmpty()) prepareShader(FragmentStage);
 
-    if (!m_initialized)
-        init(m_window->graphicsStateInfo().framesInFlight);
+    if (!m_initialized) init(m_window->graphicsStateInfo().framesInFlight);
 }
 
-static const float vertices[] = {
-    -1, -1,
-    1, -1,
-    -1, 1,
-    1, 1
-};
+static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 const int UBUF_SIZE = 4;
 
@@ -69,14 +60,13 @@ void ExampleRenderer::mainPassRecordingStart()
     // the scenegraph's main renderpass. It does not create its own passes,
     // rendertargets, etc. so no synchronization is needed.
 
-    const QQuickWindow::GraphicsStateInfo &stateInfo(m_window->graphicsStateInfo());
-    QSGRendererInterface *rif = m_window->rendererInterface();
+    const QQuickWindow::GraphicsStateInfo & stateInfo(m_window->graphicsStateInfo());
+    QSGRendererInterface * rif = m_window->rendererInterface();
 
     VkDeviceSize ubufOffset = stateInfo.currentFrameSlot * m_allocPerUbuf;
-    void *p = nullptr;
+    void * p = nullptr;
     VkResult err = m_devFuncs->vkMapMemory(m_dev, m_ubufMem, ubufOffset, m_allocPerUbuf, 0, &p);
-    if (err != VK_SUCCESS || !p)
-        qFatal("Failed to map uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) qFatal("Failed to map uniform buffer memory: %d", err);
     float t = m_t;
     memcpy(p, &t, 4);
     m_devFuncs->vkUnmapMemory(m_dev, m_ubufMem);
@@ -86,8 +76,7 @@ void ExampleRenderer::mainPassRecordingStart()
     // Must query the command buffer _after_ beginExternalCommands(), this is
     // actually important when running on Vulkan because what we get here is a
     // new secondary command buffer, not the primary one.
-    VkCommandBuffer cb = *reinterpret_cast<VkCommandBuffer *>(
-                rif->getResource(m_window, QSGRendererInterface::CommandListResource));
+    VkCommandBuffer cb = *reinterpret_cast<VkCommandBuffer *>(rif->getResource(m_window, QSGRendererInterface::CommandListResource));
     Q_ASSERT(cb);
 
     // Do not assume any state persists on the command buffer. (it may be a
@@ -99,12 +88,11 @@ void ExampleRenderer::mainPassRecordingStart()
     m_devFuncs->vkCmdBindVertexBuffers(cb, 0, 1, &m_vbuf, &vbufOffset);
 
     uint32_t dynamicOffset = m_allocPerUbuf * stateInfo.currentFrameSlot;
-    m_devFuncs->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                                        &m_ubufDescriptor, 1, &dynamicOffset);
+    m_devFuncs->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_ubufDescriptor, 1, &dynamicOffset);
 
-    VkViewport vp = { 0, 0, float(m_viewportSize.width()), float(m_viewportSize.height()), 0.0f, 1.0f };
+    VkViewport vp = {0, 0, float(m_viewportSize.width()), float(m_viewportSize.height()), 0.0f, 1.0f};
     m_devFuncs->vkCmdSetViewport(cb, 0, 1, &vp);
-    VkRect2D scissor = { { 0, 0 }, { uint32_t(m_viewportSize.width()), uint32_t(m_viewportSize.height()) } };
+    VkRect2D scissor = {{0, 0}, {uint32_t(m_viewportSize.width()), uint32_t(m_viewportSize.height())}};
     m_devFuncs->vkCmdSetScissor(cb, 0, 1, &scissor);
 
     m_devFuncs->vkCmdDraw(cb, 4, 1, 0, 0);
@@ -122,8 +110,7 @@ void ExampleRenderer::prepareShader(Stage stage)
         filename = QLatin1String(":/qml/imports/SahKdTreeViewer/fullscreen_triangle.frag.spv");
     }
     QFile f(filename);
-    if (!f.open(QIODevice::ReadOnly))
-        qFatal("Failed to read shader %s", qPrintable(filename));
+    if (!f.open(QIODevice::ReadOnly)) qFatal("Failed to read shader %s", qPrintable(filename));
 
     const QByteArray contents = f.readAll();
 
@@ -148,9 +135,8 @@ void ExampleRenderer::init(int framesInFlight)
     Q_ASSERT(framesInFlight <= 3);
     m_initialized = true;
 
-    QSGRendererInterface *rif = m_window->rendererInterface();
-    QVulkanInstance *inst = reinterpret_cast<QVulkanInstance *>(
-                rif->getResource(m_window, QSGRendererInterface::VulkanInstanceResource));
+    QSGRendererInterface * rif = m_window->rendererInterface();
+    QVulkanInstance * inst = reinterpret_cast<QVulkanInstance *>(rif->getResource(m_window, QSGRendererInterface::VulkanInstanceResource));
     Q_ASSERT(inst && inst->isValid());
 
     m_physDev = *reinterpret_cast<VkPhysicalDevice *>(rif->getResource(m_window, QSGRendererInterface::PhysicalDeviceResource));
@@ -161,8 +147,7 @@ void ExampleRenderer::init(int framesInFlight)
     m_funcs = inst->functions();
     Q_ASSERT(m_devFuncs && m_funcs);
 
-    VkRenderPass rp = *reinterpret_cast<VkRenderPass *>(
-                rif->getResource(m_window, QSGRendererInterface::RenderPassResource));
+    VkRenderPass rp = *reinterpret_cast<VkRenderPass *>(rif->getResource(m_window, QSGRendererInterface::RenderPassResource));
     Q_ASSERT(rp);
 
     // For simplicity we just use host visible buffers instead of device local + staging.
@@ -179,8 +164,7 @@ void ExampleRenderer::init(int framesInFlight)
     bufferInfo.size = sizeof(vertices);
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     VkResult err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_vbuf);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create vertex buffer: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements memReq;
     m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_vbuf, &memReq);
@@ -190,34 +174,28 @@ void ExampleRenderer::init(int framesInFlight)
     allocInfo.allocationSize = memReq.size;
 
     uint32_t memTypeIndex = uint32_t(-1);
-    const VkMemoryType *memType = physDevMemProps.memoryTypes;
+    const VkMemoryType * memType = physDevMemProps.memoryTypes;
     for (uint32_t i = 0; i < physDevMemProps.memoryTypeCount; ++i) {
         if (memReq.memoryTypeBits & (1 << i)) {
-            if ((memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-                    && (memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-            {
-                    memTypeIndex = i;
-                    break;
+            if ((memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && (memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+                memTypeIndex = i;
+                break;
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1))
-        qFatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) qFatal("Failed to find host visible and coherent memory type");
 
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_vbufMem);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) qFatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
-    void *p = nullptr;
+    void * p = nullptr;
     err = m_devFuncs->vkMapMemory(m_dev, m_vbufMem, 0, allocInfo.allocationSize, 0, &p);
-    if (err != VK_SUCCESS || !p)
-        qFatal("Failed to map vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) qFatal("Failed to map vertex buffer memory: %d", err);
     memcpy(p, vertices, sizeof(vertices));
     m_devFuncs->vkUnmapMemory(m_dev, m_vbufMem);
     err = m_devFuncs->vkBindBufferMemory(m_dev, m_vbuf, m_vbufMem, 0);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to bind vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to bind vertex buffer memory: %d", err);
 
     // Now have a uniform buffer with enough space for the buffer data for each
     // (potentially) in-flight frame. (as we will write the contents every
@@ -237,32 +215,26 @@ void ExampleRenderer::init(int framesInFlight)
     bufferInfo.size = framesInFlight * m_allocPerUbuf;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_ubuf);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create uniform buffer: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create uniform buffer: %d", err);
     m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_ubuf, &memReq);
     memTypeIndex = -1;
     for (uint32_t i = 0; i < physDevMemProps.memoryTypeCount; ++i) {
         if (memReq.memoryTypeBits & (1 << i)) {
-            if ((memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-                    && (memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT))
-            {
-                    memTypeIndex = i;
-                    break;
+            if ((memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && (memType[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+                memTypeIndex = i;
+                break;
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1))
-        qFatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) qFatal("Failed to find host visible and coherent memory type");
 
     allocInfo.allocationSize = framesInFlight * m_allocPerUbuf;
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_ubufMem);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) qFatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     err = m_devFuncs->vkBindBufferMemory(m_dev, m_ubuf, m_ubufMem, 0);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to bind uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to bind uniform buffer memory: %d", err);
 
     // Now onto the pipeline.
 
@@ -270,8 +242,7 @@ void ExampleRenderer::init(int framesInFlight)
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     err = m_devFuncs->vkCreatePipelineCache(m_dev, &pipelineCacheInfo, nullptr, &m_pipelineCache);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create pipeline cache: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create pipeline cache: %d", err);
 
     VkDescriptorSetLayoutBinding descLayoutBinding;
     memset(&descLayoutBinding, 0, sizeof(descLayoutBinding));
@@ -285,8 +256,7 @@ void ExampleRenderer::init(int framesInFlight)
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings = &descLayoutBinding;
     err = m_devFuncs->vkCreateDescriptorSetLayout(m_dev, &layoutInfo, nullptr, &m_resLayout);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create descriptor set layout: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create descriptor set layout: %d", err);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo;
     memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
@@ -294,8 +264,7 @@ void ExampleRenderer::init(int framesInFlight)
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &m_resLayout;
     err = m_devFuncs->vkCreatePipelineLayout(m_dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
-    if (err != VK_SUCCESS)
-        qWarning("Failed to create pipeline layout: %d", err);
+    if (err != VK_SUCCESS) qWarning("Failed to create pipeline layout: %d", err);
 
     VkGraphicsPipelineCreateInfo pipelineInfo;
     memset(&pipelineInfo, 0, sizeof(pipelineInfo));
@@ -308,15 +277,13 @@ void ExampleRenderer::init(int framesInFlight)
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_vert.constData());
     VkShaderModule vertShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &vertShaderModule);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create vertex shader module: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create vertex shader module: %d", err);
 
     shaderInfo.codeSize = m_frag.size();
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_frag.constData());
     VkShaderModule fragShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &fragShaderModule);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create fragment shader module: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create fragment shader module: %d", err);
 
     VkPipelineShaderStageCreateInfo stageInfo[2];
     memset(&stageInfo, 0, sizeof(stageInfo));
@@ -331,16 +298,14 @@ void ExampleRenderer::init(int framesInFlight)
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = stageInfo;
 
-    VkVertexInputBindingDescription vertexBinding = {
-        0, // binding
-        2 * sizeof(float), // stride
-        VK_VERTEX_INPUT_RATE_VERTEX
-    };
+    VkVertexInputBindingDescription vertexBinding = {0,                  // binding
+                                                     2 * sizeof(float),  // stride
+                                                     VK_VERTEX_INPUT_RATE_VERTEX};
     VkVertexInputAttributeDescription vertexAttr = {
-        0, // location
-        0, // binding
-        VK_FORMAT_R32G32_SFLOAT, // 'vertices' only has 2 floats per vertex
-        0 // offset
+        0,                        // location
+        0,                        // binding
+        VK_FORMAT_R32G32_SFLOAT,  // 'vertices' only has 2 floats per vertex
+        0                         // offset
     };
     VkPipelineVertexInputStateCreateInfo vertexInputInfo;
     memset(&vertexInputInfo, 0, sizeof(vertexInputInfo));
@@ -351,7 +316,7 @@ void ExampleRenderer::init(int framesInFlight)
     vertexInputInfo.pVertexAttributeDescriptions = &vertexAttr;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
-    VkDynamicState dynStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamicInfo;
     memset(&dynamicInfo, 0, sizeof(dynamicInfo));
     dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -401,8 +366,7 @@ void ExampleRenderer::init(int framesInFlight)
     blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     blend.alphaBlendOp = VK_BLEND_OP_ADD;
-    blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
-            | VK_COLOR_COMPONENT_A_BIT;
+    blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     blendInfo.attachmentCount = 1;
     blendInfo.pAttachments = &blend;
     pipelineInfo.pColorBlendState = &blendInfo;
@@ -416,23 +380,19 @@ void ExampleRenderer::init(int framesInFlight)
     m_devFuncs->vkDestroyShaderModule(m_dev, vertShaderModule, nullptr);
     m_devFuncs->vkDestroyShaderModule(m_dev, fragShaderModule, nullptr);
 
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create graphics pipeline: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create graphics pipeline: %d", err);
 
     // Now just need some descriptors.
-    VkDescriptorPoolSize descPoolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1 }
-    };
+    VkDescriptorPoolSize descPoolSizes[] = {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1}};
     VkDescriptorPoolCreateInfo descPoolInfo;
     memset(&descPoolInfo, 0, sizeof(descPoolInfo));
     descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descPoolInfo.flags = 0; // won't use vkFreeDescriptorSets
+    descPoolInfo.flags = 0;  // won't use vkFreeDescriptorSets
     descPoolInfo.maxSets = 1;
     descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
     descPoolInfo.pPoolSizes = descPoolSizes;
     err = m_devFuncs->vkCreateDescriptorPool(m_dev, &descPoolInfo, nullptr, &m_descriptorPool);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create descriptor pool: %d", err);
+    if (err != VK_SUCCESS) qFatal("Failed to create descriptor pool: %d", err);
 
     VkDescriptorSetAllocateInfo descAllocInfo;
     memset(&descAllocInfo, 0, sizeof(descAllocInfo));
@@ -441,8 +401,7 @@ void ExampleRenderer::init(int framesInFlight)
     descAllocInfo.descriptorSetCount = 1;
     descAllocInfo.pSetLayouts = &m_resLayout;
     err = m_devFuncs->vkAllocateDescriptorSets(m_dev, &descAllocInfo, &m_ubufDescriptor);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to allocate descriptor set");
+    if (err != VK_SUCCESS) qFatal("Failed to allocate descriptor set");
 
     VkWriteDescriptorSet writeInfo;
     memset(&writeInfo, 0, sizeof(writeInfo));
@@ -453,10 +412,10 @@ void ExampleRenderer::init(int framesInFlight)
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     VkDescriptorBufferInfo bufInfo;
     bufInfo.buffer = m_ubuf;
-    bufInfo.offset = 0; // dynamic offset is used so this is ignored
+    bufInfo.offset = 0;  // dynamic offset is used so this is ignored
     bufInfo.range = UBUF_SIZE;
     writeInfo.pBufferInfo = &bufInfo;
     m_devFuncs->vkUpdateDescriptorSets(m_dev, 1, &writeInfo, 0, nullptr);
 }
 
-}
+}  // namespace viewer
