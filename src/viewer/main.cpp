@@ -21,24 +21,29 @@
 
 #include <cstdlib>
 
+namespace
+{
+
 Q_DECLARE_LOGGING_CATEGORY(viewerCategoryMain)
 Q_LOGGING_CATEGORY(viewerCategoryMain, "viewerMain")
 
-inline QGuiApplication * createApplication(int & argc, char * argv[])
+QGuiApplication * CreateApplication(int & argc, char * argv[])
 {
     for (int i = 1; i < argc; ++i) {
-        if (!qstrcmp(argv[i], "--no-widgets")) {
+        if (qstrcmp(argv[i], "--no-widgets") == 0) {
             return new QGuiApplication{argc, argv};
         }
     }
     return new QApplication{argc, argv};
 }
 
+}
+
 int main(int argc, char * argv[])
 {
-    QScopedPointer<QGuiApplication> application{createApplication(argc, argv)};
+    QScopedPointer<QGuiApplication> application{CreateApplication(argc, argv)};
     if (!application) {
-        qFatal("Unable to create application object");
+        QT_MESSAGE_LOGGER_COMMON(viewerCategoryMain, QtCriticalMsg).fatal("Unable to create application object");
     }
 
     if (!QObject::connect(application.get(), &QCoreApplication::aboutToQuit, [] { qCInfo(viewerCategoryMain) << "Application is about to quit"; })) {
@@ -49,6 +54,9 @@ int main(int argc, char * argv[])
 
     QQmlApplicationEngine engine;
     engine.addImportPath(":/qml/imports");
+
+    volatile auto registration = &qml_register_types_SahKdTree;
+    Q_UNUSED(registration);
 
     const auto rootContext = engine.rootContext();
     rootContext->setContextProperty("qApp", qApp);

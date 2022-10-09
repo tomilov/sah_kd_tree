@@ -104,10 +104,10 @@ void ExampleRenderer::prepareShader(Stage stage)
 {
     QString filename;
     if (stage == VertexStage) {
-        filename = QLatin1String(":/qml/imports/SahKdTreeViewer/fullscreen_triangle.vert.spv");
+        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.vert.spv");
     } else {
         Q_ASSERT(stage == FragmentStage);
-        filename = QLatin1String(":/qml/imports/SahKdTreeViewer/fullscreen_triangle.frag.spv");
+        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.frag.spv");
     }
     QFile f(filename);
     if (!f.open(QIODevice::ReadOnly)) qFatal("Failed to read shader %s", qPrintable(filename));

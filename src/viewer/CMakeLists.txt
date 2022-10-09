@@ -66,12 +66,13 @@ target_sources(
 
 qt6_add_qml_module(
     "lib${PROJECT_NAME}"
-    URI SahKdTreeViewer
+    URI SahKdTree
     VERSION 1.0
     RESOURCES
         "fullscreen_triangle.vert.spv"
         "fullscreen_triangle.frag.spv"
     RESOURCE_PREFIX "/qml/imports")
+
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(
@@ -96,6 +97,8 @@ qt6_add_resources(
     FILES
         "ui.qml")
 
-source_group("UI Files" REGULAR_EXPRESSION "\.ui$")
+set(QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/src/viewer")
+
+source_group("UI Files" REGULAR_EXPRESSION "ui.qml$")
 
 add_subdirectory("tests")
