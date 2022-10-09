@@ -1,13 +1,14 @@
 #pragma once
 
+#include <renderer/renderer_export.h>
+
 #include <utils/fast_pimpl.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 namespace renderer
 {
-
-class Renderer
+class RENDERER_EXPORT Renderer
 {
 public:
     Renderer();

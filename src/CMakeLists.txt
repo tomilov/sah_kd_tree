@@ -51,7 +51,12 @@ set_target_properties(
 find_package(
     Qt6
     REQUIRED COMPONENTS
-        Core)
+        Core
+        Gui
+        Widgets
+        Qml
+        Quick
+        QuickControls2)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -82,10 +87,48 @@ cmake_dependent_option(
     "CMAKE_CXX_COMPILER_ID STREQUAL Clang"
     OFF)
 
+find_package(Vulkan 1.3 REQUIRED)
+
+find_program(GLSLANG_EXECUTABLE "glslangValidator" HINTS "$ENV{VULKAN_SDK}/bin")
+find_program(SPIRV_OPT_EXECUTABLE "spirv-opt" HINTS "$ENV{VULKAN_SDK}/bin")
+find_program(SPIRV_VAL_EXECUTABLE "spirv-val" HINTS "$ENV{VULKAN_SDK}/bin")
+function(compile_shader_to_spirv shader_file)
+    #cmake_path(ABSOLUTE_PATH shader_file)
+    cmake_path(REPLACE_EXTENSION shader_file LAST_ONLY ".debug.spv" OUTPUT_VARIABLE debug_output_file)
+    cmake_path(REPLACE_EXTENSION shader_file LAST_ONLY ".spv" OUTPUT_VARIABLE release_output_file)
+    add_custom_command(
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        MAIN_DEPENDENCY "${shader_file}"
+        DEPENDS "${GLSLANG_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
+        VERBATIM
+        COMMAND "${GLSLANG_EXECUTABLE}" -g --target-env vulkan1.3 "${shader_file}" -o "${debug_output_file}"
+        COMMAND "${SPIRV_VAL_EXECUTABLE}" --scalar-block-layout "${debug_output_file}"
+        OUTPUT "${debug_output_file}")
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "Default")
+        add_custom_command(
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            MAIN_DEPENDENCY "${debug_output_file}"
+            DEPENDS "${SPIRV_OPT_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
+            VERBATIM
+            COMMAND ${CMAKE_COMMAND} -E rename "${debug_output_file}" "${release_output_file}"
+            OUTPUT "${release_output_file}")
+    else()
+        add_custom_command(
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            MAIN_DEPENDENCY "${debug_output_file}"
+            DEPENDS "${SPIRV_OPT_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
+            VERBATIM
+            COMMAND "${SPIRV_OPT_EXECUTABLE}" --skip-validation -O --strip-debug "${debug_output_file}" -o "${release_output_file}"
+            COMMAND "${SPIRV_VAL_EXECUTABLE}" --scalar-block-layout "${release_output_file}"
+            OUTPUT "${release_output_file}")
+    endif()
+endfunction()
+
 add_subdirectory("utils")
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_loader")
 add_subdirectory("builder")
 add_subdirectory("fuzzer")
 add_subdirectory("renderer")
+add_subdirectory("viewer")
 

@@ -19,7 +19,7 @@ void ScopedDebugUtilsLabel<Object>::insert(const VULKAN_HPP_DEFAULT_DISPATCHER_T
     debugUtilsGuard.dispatcher = &dispatcher;
     debugUtilsGuard.object = object;
     debugUtilsGuard.debugUtilsLabel.pLabelName = labelName;
-    std::copy_n(color, std::size(defaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
+    std::copy_n(color, std::size(kDefaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
     object.insertDebugUtilsLabelEXT(debugUtilsGuard.debugUtilsLabel, dispatcher);
 }
 
@@ -30,7 +30,7 @@ auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_T
     debugUtilsGuard.dispatcher = &dispatcher;
     debugUtilsGuard.object = object;
     debugUtilsGuard.debugUtilsLabel.pLabelName = labelName;
-    std::copy_n(color, std::size(defaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
+    std::copy_n(color, std::size(kDefaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
     object.beginDebugUtilsLabelEXT(debugUtilsGuard.debugUtilsLabel, dispatcher);
     return debugUtilsGuard;
 }

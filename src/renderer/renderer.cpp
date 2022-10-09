@@ -11,7 +11,6 @@
 
 namespace renderer
 {
-
 struct Renderer::Impl final
 {
     static MemoryAllocator::MemoryAllocatorCreateInfo GetMemoryAllocatorCreateInfo()

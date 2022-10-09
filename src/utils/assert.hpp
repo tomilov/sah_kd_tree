@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utils/utils_export.h>
+
 namespace utils
 {
 
@@ -12,8 +14,8 @@ inline constexpr bool kEnableAssert = true;
 namespace impl
 {
 
-void AssertFailed [[noreturn]] (const char * expression, const char * file, unsigned int line, const char * function, const char * message);
-void ThrowInvariantError [[noreturn]] (const char * expression, const char * message);
+void AssertFailed [[noreturn]] (const char * expression, const char * file, unsigned int line, const char * function, const char * message) UTILS_EXPORT;
+void ThrowInvariantError [[noreturn]] (const char * expression, const char * message) UTILS_EXPORT;
 
 }  // namespace impl
 

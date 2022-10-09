@@ -15,7 +15,7 @@ class ScopedDebugUtilsLabel
     ScopedDebugUtilsLabel() = default;
 
 public:
-    static constexpr float defaultColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    static constexpr float kDefaultColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
 
     ScopedDebugUtilsLabel(const ScopedDebugUtilsLabel &) = delete;
     ScopedDebugUtilsLabel(ScopedDebugUtilsLabel &&) = default;
@@ -24,16 +24,16 @@ public:
 
     ~ScopedDebugUtilsLabel();
 
-    static void insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color = defaultColor);
+    static void insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color = kDefaultColor);
 
-    void insert(const char * labelName, const float * color = defaultColor) const
+    void insert(const char * labelName, const float * color = kDefaultColor) const
     {
         return insert(*dispatcher, object, labelName, color);
     }
 
-    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color = defaultColor);
+    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color = kDefaultColor);
 
-    ScopedDebugUtilsLabel create(const char * labelName, const float * color = defaultColor) const
+    ScopedDebugUtilsLabel create(const char * labelName, const float * color = kDefaultColor) const
     {
         return create(*dispatcher, object, labelName, color);
     }
