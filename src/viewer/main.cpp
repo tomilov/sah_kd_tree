@@ -41,7 +41,7 @@ int main(int argc, char * argv[])
         qFatal("Unable to create application object");
     }
 
-    if (!QObject::connect(application.get(), &QCoreApplication::aboutToQuit, [] { qCInfo(viewerCategoryMain, "Application is about to quit"); })) {
+    if (!QObject::connect(application.get(), &QCoreApplication::aboutToQuit, [] { qCInfo(viewerCategoryMain) << "Application is about to quit"; })) {
         Q_ASSERT(false);
     }
 
@@ -55,9 +55,9 @@ int main(int argc, char * argv[])
 
     const auto onObjectCreated = [&](QObject * const object, QUrl url) {
         if (object) {
-            qCInfo(viewerCategoryMain) << QStringLiteral("Object from URL %1 successfully created").arg(url.toString());
+            qCInfo(viewerCategoryMain).noquote() << QStringLiteral("Object from URL %1 successfully created").arg(url.toString());
         } else {
-            qCCritical(viewerCategoryMain) << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
+            qCCritical(viewerCategoryMain).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
             QTimer::singleShot(0, qApp, [] { QCoreApplication::exit(EXIT_FAILURE); });
         }
     };

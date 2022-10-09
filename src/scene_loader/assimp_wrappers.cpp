@@ -110,7 +110,7 @@ AssimpLoggerGuard::~AssimpLoggerGuard()
 
 bool AssimpProgressHandler::Update(float percentage)
 {
-    qCInfo(assimpWrappersLog) << QStringLiteral("%1 loaded").arg(qreal(percentage));
+    qCInfo(assimpWrappersLog).noquote() << QStringLiteral("%1 loaded").arg(qreal(percentage));
     return true;
 }
 
@@ -123,7 +123,7 @@ size_t AssimpIOStream::Read(void * pvBuffer, size_t pSize, size_t pCount)
 {
     auto readBytes = device->read(static_cast<char *>(pvBuffer), qint64(pSize * pCount));
     if (readBytes < 0) {
-        qCWarning(assimpWrappersLog) << QStringLiteral("reading failed");
+        qCWarning(assimpWrappersLog) << "reading failed";
     }
     return size_t(readBytes);
 }
@@ -132,7 +132,7 @@ size_t AssimpIOStream::Write(const void * pvBuffer, size_t pSize, size_t pCount)
 {
     auto writtenBytes = device->write(static_cast<const char *>(pvBuffer), qint64(pSize * pCount));
     if (writtenBytes < 0) {
-        qCWarning(assimpWrappersLog) << QStringLiteral("writing failed");
+        qCWarning(assimpWrappersLog) << "writing failed";
     }
     return size_t(writtenBytes);
 }
@@ -148,7 +148,7 @@ aiReturn AssimpIOStream::Seek(size_t pOffset, aiOrigin pOrigin)
     }
 
     if (!device->seek(seekPos)) {
-        qCWarning(assimpWrappersLog) << QStringLiteral("seeking failed");
+        qCWarning(assimpWrappersLog) << "seeking failed";
         return aiReturn_FAILURE;
     }
     return aiReturn_SUCCESS;
