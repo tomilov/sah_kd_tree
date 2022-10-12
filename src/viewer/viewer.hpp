@@ -5,8 +5,6 @@
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 
-Q_DECL_EXPORT void qml_register_types_SahKdTree();
-
 namespace viewer
 {
 class ExampleRenderer;

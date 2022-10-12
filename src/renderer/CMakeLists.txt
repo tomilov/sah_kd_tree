@@ -1,9 +1,5 @@
 project("renderer")
 
-set(CMAKE_CUDA_STANDARD 23)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_EXTENSIONS ON)
-
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
     "lib${PROJECT_NAME}"

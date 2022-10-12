@@ -1,6 +1,10 @@
 #include <builder/builder.hpp>
 
-#include <QtCore>
+#include <QtCore/QCommandLineOption>
+#include <QtCore/QCommandLineParser>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QString>
+#include <QtCore/QTimer>
 
 #include <cstdlib>
 

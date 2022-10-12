@@ -1,9 +1,5 @@
 project("viewer")
 
-set(CMAKE_CUDA_STANDARD 23)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_EXTENSIONS ON)
-
 qt6_add_library("lib${PROJECT_NAME}" SHARED)
 set_target_properties(
     "lib${PROJECT_NAME}"
@@ -61,8 +57,7 @@ source_group("Shader Files" REGULAR_EXPRESSION "\.glsl$")
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
-        ${shader_files}
-    )
+        ${shader_files})
 
 qt6_add_qml_module(
     "lib${PROJECT_NAME}"
@@ -78,12 +73,12 @@ qt6_add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"
     PRIVATE
-        "main.cpp"
-    )
+        "main.cpp")
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "lib${PROJECT_NAME}"
+        "libutils"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets
@@ -96,8 +91,6 @@ qt6_add_resources(
     PREFIX "/qml"
     FILES
         "ui.qml")
-
-set(QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/src/viewer")
 
 source_group("UI Files" REGULAR_EXPRESSION "ui.qml$")
 

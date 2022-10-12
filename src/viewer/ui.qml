@@ -1,11 +1,13 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import SahKdTree
 
 ApplicationWindow {
     id: root
 
     visible: true
+    visibility: Window.AutomaticVisibility
 
     SahKdTreeViewer {
         SequentialAnimation on t {
