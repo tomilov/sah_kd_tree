@@ -123,6 +123,6 @@ qt6_add_resources(
     FILES
         "ui.qml")
 
-source_group("UI Files" REGULAR_EXPRESSION "ui.qml$")
+source_group("UI Files" REGULAR_EXPRESSION "_?ui.qml$")
 
 add_subdirectory("tests")

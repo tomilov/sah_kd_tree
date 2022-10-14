@@ -2,6 +2,8 @@
 
 #include <viewer/viewer_export.h>
 
+#include <utils/fast_pimpl.hpp>
+
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 
@@ -17,11 +19,9 @@ class VIEWER_EXPORT Viewer : public QQuickItem
 
 public:
     Viewer();
+    ~Viewer();
 
-    qreal t() const
-    {
-        return m_t;
-    }
+    qreal t() const;
     void setT(qreal t);
 
 Q_SIGNALS:
@@ -35,10 +35,11 @@ private Q_SLOTS:
     void handleWindowChanged(QQuickWindow * win);
 
 private:
-    void releaseResources() override;
+    struct Impl;
 
-    qreal m_t = 0;
-    ExampleRenderer * m_renderer = nullptr;
+    utils::FastPimpl<Impl, 16, 8> impl_;
+
+    void releaseResources() override;
 };
 
 }  // namespace viewer
