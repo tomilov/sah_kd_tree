@@ -103,12 +103,21 @@ void ExampleRenderer::mainPassRecordingStart()
 void ExampleRenderer::prepareShader(Stage stage)
 {
     QString filename;
+#ifdef NDEBUG
     if (stage == VertexStage) {
         filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.vert.spv");
     } else {
         Q_ASSERT(stage == FragmentStage);
         filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.frag.spv");
     }
+#else
+    if (stage == VertexStage) {
+        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.vert.debug.spv");
+    } else {
+        Q_ASSERT(stage == FragmentStage);
+        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.frag.debug.spv");
+    }
+#endif
     QFile f(filename);
     if (!f.open(QIODevice::ReadOnly)) qFatal("Failed to read shader %s", qPrintable(filename));
 

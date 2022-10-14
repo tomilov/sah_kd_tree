@@ -37,9 +37,30 @@ file(
     "*.glsl")
 set_source_files_properties(${shader_files} PROPERTIES HEADER_FILE_ONLY TRUE)
 
-foreach(shader_stage IN ITEMS "frag" "vert" "tesc" "tese" "geom" "comp" "mesh" "task" "rgen" "rint" "rahit" "rchit" "rmiss" "rcall")
-    list(APPEND stage_shader_globs "*.${shader_stage}.glsl")
-endforeach()
+list(
+    APPEND shader_stages
+        "frag"
+        "vert"
+        "tesc"
+        "tese"
+        "geom"
+        "comp"
+        "mesh"
+        "task"
+        "rgen"
+        "rint"
+        "rahit"
+        "rchit"
+        "rmiss"
+        "rcall")
+list(
+    TRANSFORM shader_stages
+    APPEND ".glsl"
+    OUTPUT_VARIABLE stage_shader_globs)
+list(
+    TRANSFORM stage_shader_globs
+    PREPEND "*."
+    OUTPUT_VARIABLE stage_shader_globs)
 
 file(
     GLOB_RECURSE
@@ -59,15 +80,25 @@ target_sources(
     PRIVATE
         ${shader_files})
 
-qt6_add_qml_module(
-    "lib${PROJECT_NAME}"
-    URI SahKdTree
-    VERSION 1.0
-    RESOURCES
-        "fullscreen_triangle.vert.spv"
-        "fullscreen_triangle.frag.spv"
-    RESOURCE_PREFIX "/qml/imports")
-
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "Default")
+    qt6_add_qml_module(
+        "lib${PROJECT_NAME}"
+        URI SahKdTree
+        VERSION 1.0
+        RESOURCES
+            "fullscreen_triangle.vert.debug.spv"
+            "fullscreen_triangle.frag.debug.spv"
+        RESOURCE_PREFIX "/qml/imports")
+else()
+    qt6_add_qml_module(
+        "lib${PROJECT_NAME}"
+        URI SahKdTree
+        VERSION 1.0
+        RESOURCES
+            "fullscreen_triangle.vert.spv"
+            "fullscreen_triangle.frag.spv"
+        RESOURCE_PREFIX "/qml/imports")
+endif()
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(

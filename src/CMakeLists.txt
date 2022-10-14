@@ -101,27 +101,17 @@ function(compile_shader_to_spirv shader_file)
         MAIN_DEPENDENCY "${shader_file}"
         DEPENDS "${GLSLANG_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
         VERBATIM
-        COMMAND "${GLSLANG_EXECUTABLE}" -g --target-env vulkan1.3 "${shader_file}" -o "${debug_output_file}"
+        COMMAND "${GLSLANG_EXECUTABLE}" -q -g --target-env vulkan1.3 "${shader_file}" -o "${debug_output_file}"
         COMMAND "${SPIRV_VAL_EXECUTABLE}" --scalar-block-layout "${debug_output_file}"
         OUTPUT "${debug_output_file}")
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "Default")
-        add_custom_command(
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            MAIN_DEPENDENCY "${debug_output_file}"
-            DEPENDS "${SPIRV_OPT_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
-            VERBATIM
-            COMMAND ${CMAKE_COMMAND} -E rename "${debug_output_file}" "${release_output_file}"
-            OUTPUT "${release_output_file}")
-    else()
-        add_custom_command(
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            MAIN_DEPENDENCY "${debug_output_file}"
-            DEPENDS "${SPIRV_OPT_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
-            VERBATIM
-            COMMAND "${SPIRV_OPT_EXECUTABLE}" --skip-validation -O --strip-debug "${debug_output_file}" -o "${release_output_file}"
-            COMMAND "${SPIRV_VAL_EXECUTABLE}" --scalar-block-layout "${release_output_file}"
-            OUTPUT "${release_output_file}")
-    endif()
+    add_custom_command(
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        MAIN_DEPENDENCY "${debug_output_file}"
+        DEPENDS "${SPIRV_OPT_EXECUTABLE}" "${SPIRV_VAL_EXECUTABLE}"
+        VERBATIM
+        COMMAND "${SPIRV_OPT_EXECUTABLE}" --skip-validation -O --strip-debug "${debug_output_file}" -o "${release_output_file}"
+        COMMAND "${SPIRV_VAL_EXECUTABLE}" --scalar-block-layout "${release_output_file}"
+        OUTPUT "${release_output_file}")
 endfunction()
 
 add_subdirectory("utils")

@@ -10,8 +10,10 @@
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QVulkanInstance>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
+#include <QtQuick/QQuickGraphicsConfiguration>
 #include <QtQuick/QQuickView>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRendererInterface>
@@ -54,17 +56,66 @@ int main(int argc, char * argv[])
 
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
 
+    QVulkanInstance vulkanInstance;
+    QVersionNumber apiVersion(1, 3);
+    ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
+    vulkanInstance.setApiVersion(apiVersion);
+    {
+        QByteArrayList layers;
+#ifndef NDEBUG
+        layers.push_back("VK_LAYER_KHRONOS_validation");
+#endif
+        auto supportedLayers = vulkanInstance.supportedLayers();
+        for (const auto & layer : layers) {
+            if (!supportedLayers.contains(layer)) {
+                qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromLocal8Bit(layer));
+                return EXIT_FAILURE;
+            }
+        }
+        vulkanInstance.setLayers(layers);
+    }
+    {
+        auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
+        auto supportedExtensions = vulkanInstance.supportedExtensions();
+        for (const auto & instanceExtension : instanceExtensions) {
+            if (!supportedExtensions.contains(instanceExtension)) {
+                qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromLocal8Bit(instanceExtension));
+                return EXIT_FAILURE;
+            }
+        }
+        vulkanInstance.setExtensions(instanceExtensions);
+    }
+    if (!vulkanInstance.create()) {
+        qCCritical(viewerMainCategory) << "Cannot create Vulkan instance";
+        return EXIT_FAILURE;
+    }
+
+    QQuickGraphicsConfiguration quickGraphicsConfiguration;
+    quickGraphicsConfiguration.setDeviceExtensions({});
+
     QQmlApplicationEngine engine;
     engine.setBaseUrl(QUrl{"qrc:///qml/"});
     engine.addImportPath(":/qml/imports");
 
-    const auto onObjectCreated = [&](const QObject * object, const QUrl & url) {
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit);
+
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration](QObject * object, const QUrl & url) {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
-            QTimer::singleShot(0, qApp, [] { QCoreApplication::exit(EXIT_FAILURE); });
             return;
         }
         qCInfo(viewerMainCategory).noquote() << QStringLiteral("Object from URL %1 successfully created").arg(url.toString());
+        auto applicationWindow = qobject_cast<QQuickWindow *>(object);
+        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
+        INVARIANT(applicationWindow->objectName() == "rootWindow", "Expected rootWindow component");
+        INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
+        applicationWindow->setVulkanInstance(&vulkanInstance);
+        if ((true)) {
+            applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
+        } else {
+            //auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects();
+            //applicationWindow->setGraphicsDevice(quickGraphicsDevice);
+        }
     };
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated);
 
@@ -72,13 +123,17 @@ int main(int argc, char * argv[])
     rootContext->setContextProperty("qApp", qApp);
 
     {
-        auto geometry = application->primaryScreen()->geometry();
-        Q_ASSERT(geometry.isValid());
+        auto primaryScreen = application->primaryScreen();
+        INVARIANT(primaryScreen, "Primary scree should exists");
+        auto geometry = primaryScreen->geometry();
+        INVARIANT(geometry.isValid(), "Expected non-empty rect");
         auto center = geometry.center();
         geometry.setSize(geometry.size() / 2);
         geometry.moveCenter(center);
 
-        auto windowGeometry = QSettings{}.value("window/geometry", geometry).toRect();
+        auto windowGeometrySetting = QSettings{}.value("window/geometry", geometry);
+        INVARIANT(windowGeometrySetting.canConvert<QRect>(), "Expected QRect");
+        auto windowGeometry = windowGeometrySetting.toRect();
 
         if (windowGeometry.isValid()) {
             QVariantMap initialProperties;
@@ -95,7 +150,7 @@ int main(int argc, char * argv[])
             qCInfo(viewerMainCategory) << "Save settings";
 
             auto rootObjects = engine.rootObjects();
-            INVARIANT(rootObjects.size() == 1, "Expected single root object");
+            INVARIANT(rootObjects.size() == 1, "Expected single object");
             auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
             INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
             QSettings{}.setValue("window/geometry", applicationWindow->geometry());

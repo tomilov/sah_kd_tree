@@ -6,6 +6,8 @@ import SahKdTree
 ApplicationWindow {
     id: root
 
+    objectName: "rootWindow"
+
     visible: true
     visibility: Window.AutomaticVisibility
 
