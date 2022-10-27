@@ -2,6 +2,8 @@
 
 #include <utils/utils_export.h>
 
+#include <string_view>
+
 namespace utils
 {
 
@@ -14,8 +16,8 @@ inline constexpr bool kEnableAssert = true;
 namespace impl
 {
 
-void AssertFailed [[noreturn]] (const char * expression, const char * file, unsigned int line, const char * function, const char * message) UTILS_EXPORT;
-void ThrowInvariantError [[noreturn]] (const char * expression, const char * message) UTILS_EXPORT;
+void AssertFailed [[noreturn]] (const char * expression, const char * file, unsigned int line, const char * function, std::string_view message) UTILS_EXPORT;
+void ThrowInvariantError [[noreturn]] (const char * expression, std::string_view message) UTILS_EXPORT;
 
 }  // namespace impl
 

@@ -13,24 +13,24 @@ ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 }
 
 template<typename Object>
-void ScopedDebugUtilsLabel<Object>::insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color)
+void ScopedDebugUtilsLabel<Object>::insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, std::array<float, 4> color)
 {
     ScopedDebugUtilsLabel debugUtilsGuard;
     debugUtilsGuard.dispatcher = &dispatcher;
     debugUtilsGuard.object = object;
-    debugUtilsGuard.debugUtilsLabel.pLabelName = labelName;
-    std::copy_n(color, std::size(kDefaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
+    debugUtilsGuard.debugUtilsLabel.setPLabelName(labelName);
+    debugUtilsGuard.debugUtilsLabel.setColor(color);
     object.insertDebugUtilsLabelEXT(debugUtilsGuard.debugUtilsLabel, dispatcher);
 }
 
 template<typename Object>
-auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const float * color) -> ScopedDebugUtilsLabel
+auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, std::array<float, 4> color) -> ScopedDebugUtilsLabel
 {
     ScopedDebugUtilsLabel debugUtilsGuard;
     debugUtilsGuard.dispatcher = &dispatcher;
     debugUtilsGuard.object = object;
-    debugUtilsGuard.debugUtilsLabel.pLabelName = labelName;
-    std::copy_n(color, std::size(kDefaultColor), std::begin(debugUtilsGuard.debugUtilsLabel.color));
+    debugUtilsGuard.debugUtilsLabel.setPLabelName(labelName);
+    debugUtilsGuard.debugUtilsLabel.setColor(color);
     object.beginDebugUtilsLabelEXT(debugUtilsGuard.debugUtilsLabel, dispatcher);
     return debugUtilsGuard;
 }

@@ -11,15 +11,17 @@
 #include <QtCore/QFileDevice>
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
-#include <QtCore/QScopedPointer>
 #include <QtCore/QString>
 
 #include <memory>
 
 namespace scene_loader
 {
+namespace
+{
 Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
+}
 
 namespace
 {
@@ -54,7 +56,7 @@ struct AssimpIOStream : Assimp::IOStream
     void Flush() override;
 
 private:
-    QScopedPointer<QIODevice> const device;
+    const std::unique_ptr<QIODevice> device;
 };
 
 bool AssimpLogger::attachStream(Assimp::LogStream * pStream, unsigned int severity)

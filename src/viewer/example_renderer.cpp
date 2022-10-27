@@ -12,8 +12,11 @@
 
 namespace viewer
 {
+namespace
+{
 Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
 Q_LOGGING_CATEGORY(exampleRendererCategory, "example_renderer")
+}
 
 ExampleRenderer::~ExampleRenderer()
 {
@@ -66,7 +69,7 @@ void ExampleRenderer::mainPassRecordingStart()
     VkDeviceSize ubufOffset = stateInfo.currentFrameSlot * m_allocPerUbuf;
     void * p = nullptr;
     VkResult err = m_devFuncs->vkMapMemory(m_dev, m_ubufMem, ubufOffset, m_allocPerUbuf, 0, &p);
-    if (err != VK_SUCCESS || !p) qFatal("Failed to map uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
     float t = m_t;
     memcpy(p, &t, 4);
     m_devFuncs->vkUnmapMemory(m_dev, m_ubufMem);
@@ -76,7 +79,7 @@ void ExampleRenderer::mainPassRecordingStart()
     // Must query the command buffer _after_ beginExternalCommands(), this is
     // actually important when running on Vulkan because what we get here is a
     // new secondary command buffer, not the primary one.
-    VkCommandBuffer cb = *reinterpret_cast<VkCommandBuffer *>(rif->getResource(m_window, QSGRendererInterface::CommandListResource));
+    VkCommandBuffer cb = *static_cast<VkCommandBuffer *>(rif->getResource(m_window, QSGRendererInterface::CommandListResource));
     Q_ASSERT(cb);
 
     // Do not assume any state persists on the command buffer. (it may be a
@@ -119,7 +122,7 @@ void ExampleRenderer::prepareShader(Stage stage)
     }
 #endif
     QFile f(filename);
-    if (!f.open(QIODevice::ReadOnly)) qFatal("Failed to read shader %s", qPrintable(filename));
+    if (!f.open(QIODevice::ReadOnly)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(filename));
 
     const QByteArray contents = f.readAll();
 
@@ -145,18 +148,18 @@ void ExampleRenderer::init(int framesInFlight)
     m_initialized = true;
 
     QSGRendererInterface * rif = m_window->rendererInterface();
-    QVulkanInstance * inst = reinterpret_cast<QVulkanInstance *>(rif->getResource(m_window, QSGRendererInterface::VulkanInstanceResource));
+    QVulkanInstance * inst = static_cast<QVulkanInstance *>(rif->getResource(m_window, QSGRendererInterface::VulkanInstanceResource));
     Q_ASSERT(inst && inst->isValid());
 
-    m_physDev = *reinterpret_cast<VkPhysicalDevice *>(rif->getResource(m_window, QSGRendererInterface::PhysicalDeviceResource));
-    m_dev = *reinterpret_cast<VkDevice *>(rif->getResource(m_window, QSGRendererInterface::DeviceResource));
+    m_physDev = *static_cast<VkPhysicalDevice *>(rif->getResource(m_window, QSGRendererInterface::PhysicalDeviceResource));
+    m_dev = *static_cast<VkDevice *>(rif->getResource(m_window, QSGRendererInterface::DeviceResource));
     Q_ASSERT(m_physDev && m_dev);
 
     m_devFuncs = inst->deviceFunctions(m_dev);
     m_funcs = inst->functions();
     Q_ASSERT(m_devFuncs && m_funcs);
 
-    VkRenderPass rp = *reinterpret_cast<VkRenderPass *>(rif->getResource(m_window, QSGRendererInterface::RenderPassResource));
+    VkRenderPass rp = *static_cast<VkRenderPass *>(rif->getResource(m_window, QSGRendererInterface::RenderPassResource));
     Q_ASSERT(rp);
 
     // For simplicity we just use host visible buffers instead of device local + staging.
@@ -173,7 +176,7 @@ void ExampleRenderer::init(int framesInFlight)
     bufferInfo.size = sizeof(vertices);
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     VkResult err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_vbuf);
-    if (err != VK_SUCCESS) qFatal("Failed to create vertex buffer: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements memReq;
     m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_vbuf, &memReq);
@@ -192,19 +195,19 @@ void ExampleRenderer::init(int framesInFlight)
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1)) qFatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
 
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_vbufMem);
-    if (err != VK_SUCCESS) qFatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     void * p = nullptr;
     err = m_devFuncs->vkMapMemory(m_dev, m_vbufMem, 0, allocInfo.allocationSize, 0, &p);
-    if (err != VK_SUCCESS || !p) qFatal("Failed to map vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
     memcpy(p, vertices, sizeof(vertices));
     m_devFuncs->vkUnmapMemory(m_dev, m_vbufMem);
     err = m_devFuncs->vkBindBufferMemory(m_dev, m_vbuf, m_vbufMem, 0);
-    if (err != VK_SUCCESS) qFatal("Failed to bind vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
 
     // Now have a uniform buffer with enough space for the buffer data for each
     // (potentially) in-flight frame. (as we will write the contents every
@@ -224,7 +227,7 @@ void ExampleRenderer::init(int framesInFlight)
     bufferInfo.size = framesInFlight * m_allocPerUbuf;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_ubuf);
-    if (err != VK_SUCCESS) qFatal("Failed to create uniform buffer: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create uniform buffer: %d", err);
     m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_ubuf, &memReq);
     memTypeIndex = -1;
     for (uint32_t i = 0; i < physDevMemProps.memoryTypeCount; ++i) {
@@ -235,15 +238,15 @@ void ExampleRenderer::init(int framesInFlight)
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1)) qFatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
 
     allocInfo.allocationSize = framesInFlight * m_allocPerUbuf;
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_ubufMem);
-    if (err != VK_SUCCESS) qFatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     err = m_devFuncs->vkBindBufferMemory(m_dev, m_ubuf, m_ubufMem, 0);
-    if (err != VK_SUCCESS) qFatal("Failed to bind uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind uniform buffer memory: %d", err);
 
     // Now onto the pipeline.
 
@@ -251,7 +254,7 @@ void ExampleRenderer::init(int framesInFlight)
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     err = m_devFuncs->vkCreatePipelineCache(m_dev, &pipelineCacheInfo, nullptr, &m_pipelineCache);
-    if (err != VK_SUCCESS) qFatal("Failed to create pipeline cache: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create pipeline cache: %d", err);
 
     VkDescriptorSetLayoutBinding descLayoutBinding;
     memset(&descLayoutBinding, 0, sizeof(descLayoutBinding));
@@ -265,7 +268,7 @@ void ExampleRenderer::init(int framesInFlight)
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings = &descLayoutBinding;
     err = m_devFuncs->vkCreateDescriptorSetLayout(m_dev, &layoutInfo, nullptr, &m_resLayout);
-    if (err != VK_SUCCESS) qFatal("Failed to create descriptor set layout: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor set layout: %d", err);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo;
     memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
@@ -286,13 +289,13 @@ void ExampleRenderer::init(int framesInFlight)
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_vert.constData());
     VkShaderModule vertShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &vertShaderModule);
-    if (err != VK_SUCCESS) qFatal("Failed to create vertex shader module: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex shader module: %d", err);
 
     shaderInfo.codeSize = m_frag.size();
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_frag.constData());
     VkShaderModule fragShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &fragShaderModule);
-    if (err != VK_SUCCESS) qFatal("Failed to create fragment shader module: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create fragment shader module: %d", err);
 
     VkPipelineShaderStageCreateInfo stageInfo[2];
     memset(&stageInfo, 0, sizeof(stageInfo));
@@ -389,7 +392,7 @@ void ExampleRenderer::init(int framesInFlight)
     m_devFuncs->vkDestroyShaderModule(m_dev, vertShaderModule, nullptr);
     m_devFuncs->vkDestroyShaderModule(m_dev, fragShaderModule, nullptr);
 
-    if (err != VK_SUCCESS) qFatal("Failed to create graphics pipeline: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
 
     // Now just need some descriptors.
     VkDescriptorPoolSize descPoolSizes[] = {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1}};
@@ -401,7 +404,7 @@ void ExampleRenderer::init(int framesInFlight)
     descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
     descPoolInfo.pPoolSizes = descPoolSizes;
     err = m_devFuncs->vkCreateDescriptorPool(m_dev, &descPoolInfo, nullptr, &m_descriptorPool);
-    if (err != VK_SUCCESS) qFatal("Failed to create descriptor pool: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
 
     VkDescriptorSetAllocateInfo descAllocInfo;
     memset(&descAllocInfo, 0, sizeof(descAllocInfo));
@@ -410,7 +413,7 @@ void ExampleRenderer::init(int framesInFlight)
     descAllocInfo.descriptorSetCount = 1;
     descAllocInfo.pSetLayouts = &m_resLayout;
     err = m_devFuncs->vkAllocateDescriptorSets(m_dev, &descAllocInfo, &m_ubufDescriptor);
-    if (err != VK_SUCCESS) qFatal("Failed to allocate descriptor set");
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
 
     VkWriteDescriptorSet writeInfo;
     memset(&writeInfo, 0, sizeof(writeInfo));

@@ -14,6 +14,7 @@ namespace viewer
 class ExampleRenderer : public QObject
 {
     Q_OBJECT
+
 public:
     ~ExampleRenderer();
 
@@ -21,10 +22,12 @@ public:
     {
         m_t = t;
     }
+
     void setViewportSize(const QSize & size)
     {
         m_viewportSize = size;
     }
+
     void setWindow(QQuickWindow * window)
     {
         m_window = window;
@@ -40,8 +43,6 @@ private:
         VertexStage,
         FragmentStage
     };
-    void prepareShader(Stage stage);
-    void init(int framesInFlight);
 
     QSize m_viewportSize;
     qreal m_t = 0;
@@ -70,6 +71,9 @@ private:
 
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet m_ubufDescriptor = VK_NULL_HANDLE;
+
+    void prepareShader(Stage stage);
+    void init(int framesInFlight);
 };
 
 }  // namespace viewer

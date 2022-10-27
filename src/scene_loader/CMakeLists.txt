@@ -1,5 +1,7 @@
 project("scene_loader")
 
+include(Assimp)
+
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
     "lib${PROJECT_NAME}"

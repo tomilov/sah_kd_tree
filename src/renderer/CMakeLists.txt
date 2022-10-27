@@ -1,5 +1,7 @@
 project("renderer")
 
+set(CMAKE_CXX_STANDARD 20)
+
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
     "lib${PROJECT_NAME}"
@@ -17,6 +19,8 @@ endif()
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
+        "context.hpp"
+        "context.cpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"

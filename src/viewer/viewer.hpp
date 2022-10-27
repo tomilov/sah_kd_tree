@@ -22,17 +22,18 @@ public:
     ~Viewer();
 
     qreal t() const;
-    void setT(qreal t);
 
 Q_SIGNALS:
-    void tChanged();
+    void tChanged(qreal t);
 
 public Q_SLOTS:
+    void setT(qreal t);
+
     void sync();
     void cleanup();
 
 private Q_SLOTS:
-    void handleWindowChanged(QQuickWindow * win);
+    void onWindowChanged(QQuickWindow * window);
 
 private:
     struct Impl;

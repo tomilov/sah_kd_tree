@@ -1,0 +1,19 @@
+#pragma once
+
+/*
+ * These values are automatically set according to their cmake or environment variables
+ */
+
+namespace ${CMAKE_PROJECT_NAME}
+{
+inline constexpr const char * kProjectName = "${CMAKE_PROJECT_NAME}";
+
+inline constexpr const char * kProjectVersionString = "${CMAKE_PROJECT_VERSION}";
+
+inline constexpr int kProjectVersionMajor = ${CMAKE_PROJECT_VERSION_MAJOR};
+inline constexpr int kProjectVersionMinor = ${CMAKE_PROJECT_VERSION_MINOR};
+inline constexpr int kProjectVersionPatch = ${CMAKE_PROJECT_VERSION_PATCH};
+inline constexpr int kProjectVersionTweak = ${CMAKE_PROJECT_VERSION_TWEAK};
+
+inline constexpr const char * kProjectGitHash = "${PROJECT_GIT_HASH}";
+}  // namespace ${CMAKE_PROJECT_NAME}

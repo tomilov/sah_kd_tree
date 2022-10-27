@@ -11,9 +11,9 @@
 namespace utils::impl
 {
 
-void AssertFailed(const char * expression, const char * file, unsigned int line, const char * function, const char * message)
+void AssertFailed(const char * expression, const char * file, unsigned int line, const char * function, std::string_view message)
 {
-    auto errorMessage = fmt::format(FMT_COMPILE("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}\n"), file, line, (function ? ":" : ""), (function ? function : ""), expression, (message ? ": " : ""), (message ? message : ""));
+    auto errorMessage = fmt::format(FMT_COMPILE("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}\n"), file, line, (function ? ":" : ""), (function ? function : ""), expression, (!message.empty() ? ": " : ""), message);
 
     std::cerr << errorMessage;
 
@@ -22,7 +22,7 @@ void AssertFailed(const char * expression, const char * file, unsigned int line,
     std::abort();
 }
 
-void ThrowInvariantError(const char * expression, const char * message)
+void ThrowInvariantError(const char * expression, std::string_view message)
 {
     auto errorMessage = fmt::format(FMT_COMPILE("Invariant ({}) violation: {}"), expression, message);
 

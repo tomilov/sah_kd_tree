@@ -1,6 +1,6 @@
 project("viewer")
 
-qt6_add_library("lib${PROJECT_NAME}" SHARED)
+qt6_add_library("lib${PROJECT_NAME}" SHARED) # cannot be STATIC
 set_target_properties(
     "lib${PROJECT_NAME}"
     PROPERTIES
@@ -30,61 +30,15 @@ target_link_libraries(
         Qt6::Qml
         Qt6::Quick)
 
-file(
-    GLOB_RECURSE
-    shader_files
-    LIST_DIRECTORIES FALSE
-    "*.glsl")
-set_source_files_properties(${shader_files} PROPERTIES HEADER_FILE_ONLY TRUE)
-
-list(
-    APPEND shader_stages
-        "frag"
-        "vert"
-        "tesc"
-        "tese"
-        "geom"
-        "comp"
-        "mesh"
-        "task"
-        "rgen"
-        "rint"
-        "rahit"
-        "rchit"
-        "rmiss"
-        "rcall")
-list(
-    TRANSFORM shader_stages
-    APPEND ".glsl"
-    OUTPUT_VARIABLE stage_shader_globs)
-list(
-    TRANSFORM stage_shader_globs
-    PREPEND "*."
-    OUTPUT_VARIABLE stage_shader_globs)
-
-file(
-    GLOB_RECURSE
-    stage_shader_files
-    LIST_DIRECTORIES FALSE
-    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
-    ${stage_shader_globs})
-
-foreach(stage_shader_file IN LISTS stage_shader_files)
-    compile_shader_to_spirv("${stage_shader_file}")
-endforeach()
-
-source_group("Shader Files" REGULAR_EXPRESSION "\.glsl$")
-
-target_sources(
-    "lib${PROJECT_NAME}"
-    PRIVATE
-        ${shader_files})
-
+compile_shaders_to_spirv()
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "Default")
     qt6_add_qml_module(
         "lib${PROJECT_NAME}"
         URI SahKdTree
         VERSION 1.0
+        SOURCES
+            "fullscreen_triangle.vert.glsl"
+            "fullscreen_triangle.frag.glsl"
         RESOURCES
             "fullscreen_triangle.vert.debug.spv"
             "fullscreen_triangle.frag.debug.spv"
@@ -94,6 +48,9 @@ else()
         "lib${PROJECT_NAME}"
         URI SahKdTree
         VERSION 1.0
+        SOURCES
+            "fullscreen_triangle.vert.glsl"
+            "fullscreen_triangle.frag.glsl"
         RESOURCES
             "fullscreen_triangle.vert.spv"
             "fullscreen_triangle.frag.spv"
@@ -110,11 +67,16 @@ target_link_libraries(
     PRIVATE
         "lib${PROJECT_NAME}"
         "libutils"
+        "libcommon"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets
         Qt6::Quick
         Qt6::QuickControls2)
+target_compile_definitions(
+    "${PROJECT_NAME}"
+    PRIVATE
+        APPLICATION_NAME="${PROJECT_NAME}")
 
 qt6_add_resources(
     "${PROJECT_NAME}"
