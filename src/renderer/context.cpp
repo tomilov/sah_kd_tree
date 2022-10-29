@@ -6,6 +6,7 @@
 #include <common/config.hpp>
 #include <common/version.hpp>
 
+#include <fmt/color.h>
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
@@ -20,6 +21,57 @@
 #include <vector>
 
 using namespace std::string_view_literals;
+using namespace std::string_literals;
+
+template<typename T, typename Char>
+struct fmt::formatter<T, Char, std::void_t<decltype(vk::to_string(std::declval<T&&>()))>> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(T value, FormatContext & ctx) const
+    {
+        return fmt::formatter<fmt::string_view>::format(vk::to_string(value), ctx);
+    }
+};
+
+
+template<typename Char>
+using styled_string_view_formatter = fmt::formatter<decltype(fmt::styled(std::declval<fmt::string_view>(), std::declval<fmt::text_style>())), Char>;
+
+template<typename Char>
+struct fmt::formatter<vk::DebugUtilsLabelEXT, Char> : styled_string_view_formatter<Char>
+{
+    template<typename FormatContext>
+    auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
+    {
+        auto out = ctx.out();
+        *out++ = '"';
+        auto color = fmt::rgb(256 * debugUtilsLabel.color[0], 256 * debugUtilsLabel.color[1], 256 * debugUtilsLabel.color[2]);
+        auto styled = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(color));
+        out = styled_string_view_formatter<Char>::format(styled, ctx);
+        *out++ = '"';
+        return out;
+    }
+};
+
+template<typename Char>
+struct fmt::formatter<vk::DebugUtilsObjectNameInfoEXT, Char> : fmt::formatter<fmt::string_view, Char>
+{
+    template<typename FormatContext>
+    auto format(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo, FormatContext & ctx) const
+    {
+        fmt::formatter<fmt::string_view, Char>::format("object #", ctx);
+        fmt::formatter<uint64_t, Char>{}.format(debugUtilsObjectNameInfo.objectHandle, ctx);
+        fmt::formatter<fmt::string_view, Char>::format(" (type: ", ctx);
+        fmt::formatter<vk::ObjectType, Char>{}.format(debugUtilsObjectNameInfo.objectType, ctx);
+        fmt::formatter<fmt::string_view, Char>::format(")", ctx);
+        if (debugUtilsObjectNameInfo.pObjectName) {
+            fmt::formatter<fmt::string_view, Char>::format(" \"", ctx);
+            fmt::formatter<fmt::string_view, Char>::format(debugUtilsObjectNameInfo.pObjectName, ctx);
+            fmt::formatter<fmt::string_view, Char>::format("\"", ctx);
+        }
+        return ctx.out();
+    }
+};
 
 namespace renderer
 {
@@ -309,9 +361,9 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
             return static_cast<Context *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), *pCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-        debugUtilsMessengerCreateInfo.messageSeverity = /*Severity::eVerbose | */ Severity::eInfo | Severity::eWarning | Severity::eError;
+        debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
         using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
-        debugUtilsMessengerCreateInfo.messageType = /*MessageType::eGeneral | */ MessageType::eValidation | MessageType::ePerformance;
+        debugUtilsMessengerCreateInfo.messageType = MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance;
         if (enabledExtensionSet.contains(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
             debugUtilsMessengerCreateInfo.messageType |= MessageType::eDeviceAddressBinding;
         }
@@ -357,8 +409,22 @@ vk::Bool32 Context::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityF
 
 vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
+    std::string queues;
+    if (callbackData.queueLabelCount > 0) {
+        queues = fmt::format(" Queue(s): {}", fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", "));
+    }
+    std::string commandBuffers;
+    if (callbackData.cmdBufLabelCount > 0) {
+        commandBuffers = fmt::format(" CommandBuffer(s): {}", fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", "));
+    }
+    std::string objects;
+    if (callbackData.objectCount > 0) {
+        objects = fmt::format(" {}", fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; "));
+    }
+    auto message2 = fmt::format("{} {} {} (id:{}): {} Source{}{}{}", messageSeverity, messageTypes, callbackData.pMessageIdName, callbackData.messageIdNumber, callbackData.pMessage, queues, commandBuffers, objects);
+
     auto printMessage = [&](std::ostream & out) {
-        out << vk::to_string(messageSeverity) << " " << vk::to_string(messageTypes) << " " << callbackData.pMessageIdName << " (id:" << callbackData.messageIdNumber << "): " << callbackData.pMessage << " Source ";
+        out << vk::to_string(messageSeverity) << " " << vk::to_string(messageTypes) << " " << callbackData.pMessageIdName << " (id:" << callbackData.messageIdNumber << "): " << callbackData.pMessage << " Source";
         auto printLabels = [&out](uint32_t labelCount, const vk::DebugUtilsLabelEXT * debugUtilsLabels) {
             if (auto labelName = debugUtilsLabels->pLabelName) {
                 out << " \"" << labelName << "\"";
@@ -370,14 +436,15 @@ vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBits
             }
         };
         if (callbackData.queueLabelCount > 0) {
-            out << "Queue(s): ";
+            out << " Queue(s): ";
             printLabels(callbackData.queueLabelCount, callbackData.pQueueLabels);
         }
         if (callbackData.cmdBufLabelCount > 0) {
-            out << "CommandBuffer(s): ";
+            out << " CommandBuffer(s): ";
             printLabels(callbackData.cmdBufLabelCount, callbackData.pCmdBufLabels);
         }
         if (callbackData.objectCount > 0) {
+            out << " ";
             auto printName = [&out](const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) {
                 out << "object #" << debugUtilsObjectNameInfo.objectHandle << " (type: " << vk::to_string(debugUtilsObjectNameInfo.objectType) << ")";
                 if (debugUtilsObjectNameInfo.pObjectName) {
@@ -390,11 +457,12 @@ vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBits
                 printName(callbackData.pObjects[i]);
             }
         }
-        out << "\n";
     };
     std::ostringstream out;
     printMessage(out);
     auto message = out.str();
+    INVARIANT(message == message2, fmt::format("\n\n{}\n{}\n{}\n\n", message, std::string(80, '='), message2));
+    message += "\n" + message2;
     using MaskType = vk::DebugUtilsMessageSeverityFlagsEXT::MaskType;
     if (std::bitset<std::numeric_limits<MaskType>::digits>{MaskType(messageSeverity)}.count() != 1) {
         log(fmt::format("Expected single bit set: {}", vk::to_string(vk::DebugUtilsMessageSeverityFlagsEXT(messageSeverity))), LogLevel::Warning);

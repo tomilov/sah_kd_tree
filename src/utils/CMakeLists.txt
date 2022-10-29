@@ -20,6 +20,8 @@ target_sources(
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "meta.hpp"
+        "meta.cpp"
         "fast_pimpl.hpp"
         "fast_pimpl.cpp"
         "overloaded.hpp"
