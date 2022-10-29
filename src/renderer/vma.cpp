@@ -637,7 +637,7 @@ MemoryAllocator::Impl::Impl(const MemoryAllocatorCreateInfo & features, vk::Opti
     allocatorInfo.vulkanApiVersion = deviceApiVersion;
 
     if (allocationCallbacks) {
-        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*this->allocationCallbacks);
+        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*allocationCallbacks);
     }
 
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
