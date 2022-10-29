@@ -1,7 +1,6 @@
+#include <utils/assert.hpp>
 #include <viewer/example_renderer.hpp>
 #include <viewer/viewer.hpp>
-
-#include <utils/assert.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QLoggingCategory>
@@ -18,7 +17,7 @@ namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer")
-}
+}  // namespace
 
 struct Viewer::Impl
 {
@@ -38,7 +37,8 @@ private:
 class Viewer::Impl::CleanupJob : public QRunnable
 {
 public:
-    CleanupJob(std::unique_ptr<ExampleRenderer> && renderer) : m_renderer{std::move(renderer)} {}
+    CleanupJob(std::unique_ptr<ExampleRenderer> && renderer) : m_renderer{std::move(renderer)}
+    {}
 
     void run() override
     {

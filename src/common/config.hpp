@@ -8,4 +8,3 @@ inline constexpr bool kIsDebugBuild = false;
 inline constexpr bool kIsDebugBuild = true;
 #endif
 }  // namespace sah_kd_tree
-

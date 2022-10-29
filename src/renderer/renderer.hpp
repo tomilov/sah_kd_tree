@@ -16,6 +16,8 @@ public:
 private:
     struct Impl;
 
+    static constexpr std::size_t kSize = 1;
+    static constexpr std::size_t kAlignment = 1;
     utils::FastPimpl<Impl, 1, 1> impl_;
 };
 

@@ -17,7 +17,7 @@ namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(builderLog)
 Q_LOGGING_CATEGORY(builderLog, "builder")
-}
+}  // namespace
 
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {

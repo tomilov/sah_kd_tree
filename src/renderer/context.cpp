@@ -1,55 +1,128 @@
 #include <renderer/context.hpp>
 #include <renderer/debug_utils.hpp>
+#include <renderer/vma.hpp>
 #include <utils/assert.hpp>
 
-#include <vulkan/vulkan.hpp>
+#include <common/config.hpp>
+#include <common/version.hpp>
 
 #include <fmt/format.h>
+#include <vulkan/vulkan.hpp>
 
+#include <bitset>
 #include <iostream>
+#include <limits>
+#include <optional>
+#include <sstream>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <sstream>
+
+using namespace std::string_view_literals;
 
 namespace renderer
 {
+
 struct Context::Impl final
 {
-    Context * const context;
+    struct Library;
+    struct Instance;
+    struct Device;
 
-    const vk::ApplicationInfo applicationInfo;
+    std::unique_ptr<Library> library;
+    std::unique_ptr<Instance> instance;
+    std::unique_ptr<Device> device;
+
+    void init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+};
+
+Context::Context() = default;
+Context::~Context() = default;
+
+void Context::init(const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
+{
+    impl_->init(*this, applicationName, applicationVersion, allocationCallbacks, libraryName);
+}
+
+struct Context::Impl::Library
+{
+    Context & context;
 
     vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
+#if defined(VK_NO_PROTOTYPES)
     vk::DynamicLoader dl;
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
+#endif
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 
-    std::vector<vk::ExtensionProperties> instanceExtensionProperties;
+    Library(Context & context, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+};
 
-    vk::StructureChain<vk::InstanceCreateInfo, vk::ValidationFeaturesEXT, vk::DebugUtilsMessengerCreateInfoEXT> instanceCreateInfoStructureChain;
-    vk::InstanceCreateInfo & instanceCreateInfo = instanceCreateInfoStructureChain.get<vk::InstanceCreateInfo>();
-    vk::ValidationFeaturesEXT & validationFeatures = instanceCreateInfoStructureChain.get<vk::ValidationFeaturesEXT>();
-    vk::DebugUtilsMessengerCreateInfoEXT & debugUtilsMessengerCreateInfo = instanceCreateInfoStructureChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
+struct Context::Impl::Instance
+{
+    Context & context;
+    Library & library;
 
-    std::vector<const char *> instanceExtensions;
+    uint32_t apiVersion = VK_API_VERSION_1_0;
 
+    std::vector<vk::LayerProperties> layerProperties;
+    std::unordered_set<std::string_view> layers;
+    std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
+    std::unordered_set<std::string_view> enabledLayerSet;
+    std::vector<const char *> enabledLayers;
+
+    std::vector<vk::ExtensionProperties> extensionPropertyList;
+    std::unordered_set<std::string_view> extensions;
+    std::unordered_multimap<std::string_view, std::string_view> extensionLayers;
+    std::unordered_set<std::string_view> enabledExtensionSet;
+    std::vector<const char *> enabledExtensions;
+
+    vk::ApplicationInfo applicationInfo;
+
+    std::vector<vk::ValidationFeatureEnableEXT> enableValidationFeatures;
+    std::vector<vk::ValidationFeatureDisableEXT> disabledValidationFeatures;
+
+    vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT, vk::ValidationFeaturesEXT> instanceCreateInfoChain;
+    vk::UniqueInstance instance;
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    vk::UniqueInstance instance;
+    Instance(Context & context, Library & library, const char * applicationName, uint32_t applicationVersion);
 
-    Impl(Context * context, const vk::ApplicationInfo & applicationInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks);
+    template<typename Object>
+    void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return ScopedDebugUtilsLabel<Object>::insert(library.dispatcher, object, labelName, color);
+    }
 
-    void createDebugUtilsMessengerCreateInfo();
+    template<typename Object>
+    ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return ScopedDebugUtilsLabel<Object>::create(library.dispatcher, object, labelName, color);
+    }
+
+    void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+    {
+        instance->submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.dispatcher);
+    }
+};
+
+struct Context::Impl::Device
+{
+    Context & context;
+    Library & library;
+    Instance & instance;
+    vk::UniqueDevice device;
+
+    Device(Context & context, Library & library, Instance & instance);
 
     template<typename Object>
     void setDebugUtilsObjectName(Object object, const char * objectName) const
     {
         vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo;
         debugUtilsObjectNameInfo.objectType = object.objectType;
-        debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::CType(object));
+        debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
         debugUtilsObjectNameInfo.pObjectName = objectName;
-        //device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo);
+        device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.dispatcher);
     }
 
     template<typename Object>
@@ -57,101 +130,236 @@ struct Context::Impl final
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         debugUtilsObjectTagInfo.objectType = object.objectType;
-        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::CType(object));
+        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.tagSize = tagSize;
         debugUtilsObjectTagInfo.pTag = tag;
-        //device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo);
+        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+    }
+
+    template<typename Object, typename T>
+    void setDebugUtilsObjectTag(Object object, uint64_t tagName, const vk::ArrayProxyNoTemporaries<const T> & tag) const
+    {
+        vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
+        debugUtilsObjectTagInfo.objectType = object.objectType;
+        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectTagInfo.tagName = tagName;
+        debugUtilsObjectTagInfo.setTag(tag);
+        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+    }
+
+    template<typename Object, typename T>
+    void setDebugUtilsObjectTag(Object object, uint64_t tagName, std::string_view tag) const
+    {
+        vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
+        debugUtilsObjectTagInfo.objectType = object.objectType;
+        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectTagInfo.tagName = tagName;
+        debugUtilsObjectTagInfo.tagSize = std::size(tag);
+        debugUtilsObjectTagInfo.pTag = std::data(tag);
+        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+    }
+
+    template<typename Object, typename... ChainElements>
+    void setDebugUtilsShaderName(vk::StructureChain<vk::PipelineShaderStageCreateInfo, ChainElements...> & chain, Object object, const char * objectName) const
+    {
+        // TODO: how it should work?
+        // check graphicsPipelineLibrary first
+        static_assert(vk::IsPartOfStructureChain<vk::DebugUtilsObjectNameInfoEXT, ChainElements...>::valid);
+        vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo = chain.template get<vk::DebugUtilsObjectNameInfoEXT>();
+        debugUtilsObjectNameInfo.objectType = object.objectType;
+        debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectNameInfo.pObjectName = objectName;
     }
 };
 
-Context::Context(const vk::ApplicationInfo & applicationInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
-    : impl_{this, applicationInfo, allocationCallbacks}
-{}
-
-Context::~Context() = default;
-
-void Context::Impl::createDebugUtilsMessengerCreateInfo()
+void Context::Impl::init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
 {
-    static constexpr PFN_vkDebugUtilsMessengerCallbackEXT userCallback = [] (VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT * pCallbackData, void * pUserData) -> VkBool32
-    {
-        using CallbackDataReference = const vk::DebugUtilsMessengerCallbackDataEXT &;
-        return static_cast<Context *>(pUserData)->userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), reinterpret_cast<CallbackDataReference>(*pCallbackData));
-    };
-    using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-    debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
-    using Type = vk::DebugUtilsMessageTypeFlagBitsEXT;
-    debugUtilsMessengerCreateInfo.messageType = Type::eGeneral | Type::eValidation | Type::ePerformance | Type::eDeviceAddressBinding;
-    debugUtilsMessengerCreateInfo.pfnUserCallback = userCallback;
-    debugUtilsMessengerCreateInfo.pUserData = context;
+    library = std::make_unique<Library>(context, allocationCallbacks, libraryName);
+    instance = std::make_unique<Instance>(context, *library, applicationName, applicationVersion);
+    device = std::make_unique<Device>(context, *library, *instance);
+
+    std::vector<vk::PhysicalDevice> physicalDevices = instance->instance->enumeratePhysicalDevices(library->dispatcher);
+
+    for (vk::PhysicalDevice physicalDevice : physicalDevices) {
+        std::vector<vk::ExtensionProperties> extensionProperties = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library->dispatcher);
+        std::unordered_set<std::string_view> extensions;
+    }
 }
 
-Context::Impl::Impl(Context * context, const vk::ApplicationInfo & applicationInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
-    : context{context}, applicationInfo{applicationInfo}, allocationCallbacks{allocationCallbacks}
+Context::Impl::Library::Library(Context & context, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
+    : context{context}
+    , allocationCallbacks{allocationCallbacks}
+#if VK_NO_PROTOTYPES
+    , dl{libraryName}
+#endif
 {
-    vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+#if VK_NO_PROTOTYPES
+    INVARIANT(dl.success(), "Vulkan library is not load, cannot continue");
+    dispatcher.init(dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+#else
     dispatcher.init(vkGetInstanceProcAddr);
+#endif
+}
 
-//    uint32_t apiVersion = vk::enumerateInstanceVersion(dispatcher);
-//    if (VK_VERSION_MAJOR(apiVersion) != VK_VERSION_MAJOR(applicationInfo.apiVersion) || VK_VERSION_MINOR(apiVersion) != VK_VERSION_MINOR(applicationInfo.apiVersion)) {
-//        context->log(fmt::format("Version of instance {}.{} is different from expected {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_MAJOR(applicationInfo.apiVersion), VK_VERSION_MINOR(applicationInfo.apiVersion)));
-//    }
+Context::Impl::Instance::Instance(Context & context, Library & library, const char * applicationName, uint32_t applicationVersion) : context{context}, library{library}
+{
+    if (library.dispatcher.vkEnumerateInstanceVersion) {
+        apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
+    }
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), fmt::format("Expected Vulkan version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion)));
 
-    instanceExtensionProperties = vk::enumerateInstanceExtensionProperties(nullptr, dispatcher);
-
-    vk::ValidationFeatureEnableEXT validationFeatureEnable[] = {
-        vk::ValidationFeatureEnableEXT::eBestPractices,
-        vk::ValidationFeatureEnableEXT::eDebugPrintf,
-    };
-    validationFeatures.setPEnabledValidationFeatures(validationFeatureEnable);
-
-    vk::ValidationFeatureDisableEXT validationFeatureDisable[] = {
-        vk::ValidationFeatureDisableEXT::eApiParameters,
-    };
-    validationFeatures.setPDisabledValidationFeatures(validationFeatureDisable);
-
-    createDebugUtilsMessengerCreateInfo();
-
-    instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
-    instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    {
-        std::unordered_set<std::string_view> availableInstanceExtensions;
-        for (const vk::ExtensionProperties & instanceExtensionProperty : instanceExtensionProperties) {
-            availableInstanceExtensions.insert(instanceExtensionProperty.extensionName);
-        }
-        for (const char * instanceExtension : instanceExtensions) {
-            INVARIANT(availableInstanceExtensions.contains(instanceExtension), fmt::format("Instance extension {} is not available", instanceExtension));
+    extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.dispatcher);
+    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
+        if (!extensions.insert(extensionProperties.extensionName).second) {
+            INVARIANT(false, "Duplicated extension");
         }
     }
 
-    instanceCreateInfo.setPApplicationInfo(&applicationInfo);
-    instanceCreateInfo.setPEnabledExtensionNames(instanceExtensions);
+    layerProperties = vk::enumerateInstanceLayerProperties(library.dispatcher);
+    for (const vk::LayerProperties & layer : layerProperties) {
+        layers.insert(layer.layerName);
+        layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.dispatcher));
+        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
+            extensionLayers.emplace(layerExtensionProperties.extensionName, layer.layerName);
+        }
+    }
 
     if ((false)) {
-        static const char * requiredLayers[] = {
-            "VK_LAYER_KHRONOS_validation",
-            //"VK_LAYER_LUNARG_api_dump",
+        const auto enableLayerIfAvailable = [this](const char * layerName) -> bool {
+            auto layer = layers.find(layerName);
+            if (layer == layers.end()) {
+                return false;
+            }
+            if (enabledLayerSet.insert(layerName).second) {
+                enabledLayers.push_back(layerName);
+            } else {
+                this->context.log(fmt::format("Tried to enable instance layer {} second time", layerName), LogLevel::Warning);
+            }
+            return true;
         };
-        instanceCreateInfo.setPEnabledLayerNames(requiredLayers);
+
+        if (!enableLayerIfAvailable("VK_LAYER_LUNARG_monitor")) {
+            context.log("VK_LAYER_LUNARG_monitor is not available", LogLevel::Warning);
+        }
+        if (!enableLayerIfAvailable("VK_LAYER_MANGOHUD_overlay")) {
+            context.log("VK_LAYER_MANGOHUD_overlay is not available", LogLevel::Warning);
+        }
     }
 
-    instance = vk::createInstanceUnique(instanceCreateInfo, allocationCallbacks, dispatcher);
-    dispatcher.init(*instance);
+    const auto enableExtensionIfAvailable = [this](const char * extensionName) -> bool {
+        // TODO: maybe filter out promoted extensions (codegen from vk.xml required)
+        auto extension = extensions.find(extensionName);
+        if (extension != extensions.end()) {
+            if (enabledExtensionSet.insert(extensionName).second) {
+                enabledExtensions.push_back(extensionName);
+            } else {
+                this->context.log(fmt::format("Tried to enable instance extension {} second time", extensionName), LogLevel::Warning);
+            }
+            return true;
+        }
+        auto extensionLayer = extensionLayers.find(extensionName);
+        if (extensionLayer != extensionLayers.end()) {
+            auto layerName = extensionLayer->second.data();
+            if (enabledLayerSet.insert(layerName).second) {
+                enabledLayers.push_back(layerName);
+            } else {
+                this->context.log(fmt::format("Tried to enable instance layer {} second time", layerName), LogLevel::Warning);
+            }
+            if (enabledExtensionSet.insert(extensionName).second) {
+                enabledExtensions.push_back(extensionName);
+            } else {
+                this->context.log(fmt::format("Tried to enable instance extension {} second time", extensionName), LogLevel::Warning);
+            }
+            return true;
+        }
+        return false;
+    };
+    if (sah_kd_tree::kIsDebugBuild) {
+        if (!enableExtensionIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+            context.log(VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build", LogLevel::Warning);
+        } else {
+            if (!enableExtensionIfAvailable(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
+                context.log(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build", LogLevel::Warning);
+            }
+        }
+        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
+            auto & validationFeatures = instanceCreateInfoChain.get<vk::ValidationFeaturesEXT>();
 
-    debugUtilsMessenger = instance->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, allocationCallbacks, dispatcher);
+            if ((true)) {
+                enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eGpuAssisted, vk::ValidationFeatureEnableEXT::eGpuAssistedReserveBindingSlot});
+            } else {
+                enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
+            }
+            enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eBestPractices, vk::ValidationFeatureEnableEXT::eSynchronizationValidation});
+            validationFeatures.setEnabledValidationFeatures(enableValidationFeatures);
+
+            disabledValidationFeatures.insert(std::cend(disabledValidationFeatures), {vk::ValidationFeatureDisableEXT::eApiParameters});
+            validationFeatures.setDisabledValidationFeatures(disabledValidationFeatures);
+        } else {
+            instanceCreateInfoChain.unlink<vk::ValidationFeaturesEXT>();
+            context.log("Validation features instance extension is not available in debug build", LogLevel::Warning);
+        }
+    }
+
+    auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
+    {
+        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT userCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
+                                                                                const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
+            return static_cast<Context *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), *pCallbackData);
+        };
+        using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+        debugUtilsMessengerCreateInfo.messageSeverity = /*Severity::eVerbose | */ Severity::eInfo | Severity::eWarning | Severity::eError;
+        using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
+        debugUtilsMessengerCreateInfo.messageType = /*MessageType::eGeneral | */ MessageType::eValidation | MessageType::ePerformance;
+        if (enabledExtensionSet.contains(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
+            debugUtilsMessengerCreateInfo.messageType |= MessageType::eDeviceAddressBinding;
+        }
+        debugUtilsMessengerCreateInfo.pfnUserCallback = userCallback;
+        debugUtilsMessengerCreateInfo.pUserData = &context;
+    }
+
+    applicationInfo.pApplicationName = applicationName;
+    applicationInfo.applicationVersion = applicationVersion;
+    applicationInfo.pEngineName = sah_kd_tree::kProjectName;
+    applicationInfo.engineVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+    applicationInfo.apiVersion = apiVersion;
+
+    auto & instanceCreateInfo = instanceCreateInfoChain.get<vk::InstanceCreateInfo>();
+    instanceCreateInfo.setPApplicationInfo(&applicationInfo);
+    instanceCreateInfo.setPEnabledLayerNames(enabledLayers);
+    instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
+
+    {
+        auto messageMuteGuard = context.muteDebugUtilsMessage(0x822806FA, sah_kd_tree::kIsDebugBuild);
+        instance = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
+    }
+    library.dispatcher.init(*instance);
+
+    instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
+    debugUtilsMessenger = instance->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
+    instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
+}
+
+Context::Impl::Device::Device(Context & context, Library & library, Instance & instance) : context{context}, library{library}, instance{instance}
+{}
+
+vk::Bool32 Context::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+{
+    {
+        std::shared_lock<std::shared_mutex> lock{mutex};
+        if (mutedMessageIdNumbers.contains(callbackData.messageIdNumber)) {
+            return VK_FALSE;
+        }
+    }
+    return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
 }
 
 vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    auto printMessage = [&] (std::ostream & out)
-    {
-        out << vk::to_string(messageSeverity)
-            << " " << vk::to_string(messageTypes) << " "
-            << callbackData.pMessageIdName
-            << " (id:" << callbackData.messageIdNumber << "): "
-            << callbackData.pMessage << " Source ";
-        auto printLabels = [&out] (uint32_t labelCount, const vk::DebugUtilsLabelEXT * debugUtilsLabels)
-        {
+    auto printMessage = [&](std::ostream & out) {
+        out << vk::to_string(messageSeverity) << " " << vk::to_string(messageTypes) << " " << callbackData.pMessageIdName << " (id:" << callbackData.messageIdNumber << "): " << callbackData.pMessage << " Source ";
+        auto printLabels = [&out](uint32_t labelCount, const vk::DebugUtilsLabelEXT * debugUtilsLabels) {
             if (auto labelName = debugUtilsLabels->pLabelName) {
                 out << " \"" << labelName << "\"";
             }
@@ -170,10 +378,8 @@ vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBits
             printLabels(callbackData.cmdBufLabelCount, callbackData.pCmdBufLabels);
         }
         if (callbackData.objectCount > 0) {
-            auto printName = [&out] (const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo)
-            {
-                out << "object #" << debugUtilsObjectNameInfo.objectHandle
-                    << " (type: " << vk::to_string(debugUtilsObjectNameInfo.objectType) << ")";
+            auto printName = [&out](const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) {
+                out << "object #" << debugUtilsObjectNameInfo.objectHandle << " (type: " << vk::to_string(debugUtilsObjectNameInfo.objectType) << ")";
                 if (debugUtilsObjectNameInfo.pObjectName) {
                     out << " \"" << debugUtilsObjectNameInfo.pObjectName << "\"";
                 }
@@ -189,16 +395,29 @@ vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBits
     std::ostringstream out;
     printMessage(out);
     auto message = out.str();
-    if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
+    using MaskType = vk::DebugUtilsMessageSeverityFlagsEXT::MaskType;
+    if (std::bitset<std::numeric_limits<MaskType>::digits>{MaskType(messageSeverity)}.count() != 1) {
+        log(fmt::format("Expected single bit set: {}", vk::to_string(vk::DebugUtilsMessageSeverityFlagsEXT(messageSeverity))), LogLevel::Warning);
         log(message, LogLevel::Critical);
-    } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
-        log(message, LogLevel::Warning);
-    } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo) {
-        log(message, LogLevel::Info);
-    } else if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose) {
-        log(message, LogLevel::Debug);
     } else {
-        INVARIANT(false, "unreachable");
+        switch (messageSeverity) {
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+            log(message, LogLevel::Debug);
+            break;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+            log(message, LogLevel::Info);
+            break;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+            log(message, LogLevel::Warning);
+            break;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+            log(message, LogLevel::Critical);
+            break;
+        }
+        }
     }
     return VK_FALSE;
 }
@@ -207,19 +426,19 @@ void Context::log(std::string_view message, LogLevel logLevel) const
 {
     switch (logLevel) {
     case LogLevel::Critical: {
-        std::cerr << message;
+        std::cerr << message << '\n';
         break;
     }
     case LogLevel::Warning: {
-        std::clog << message;
+        std::clog << message << '\n';
         break;
     }
     case LogLevel::Info: {
-        std::cout << message;
+        std::cout << message << '\n';
         break;
     }
     case LogLevel::Debug: {
-        std::cout << message;
+        std::cout << message << '\n';
         break;
     }
     }

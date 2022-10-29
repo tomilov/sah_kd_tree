@@ -1,5 +1,7 @@
-#include <common/version.hpp>
+#include <renderer/context.hpp>
 #include <utils/assert.hpp>
+
+#include <common/version.hpp>
 
 #include <QtCore/QByteArrayAlgorithms>
 #include <QtCore/QCoreApplication>
@@ -84,16 +86,17 @@ void handleRootWindowSettings(QQmlApplicationEngine & engine)
 
 int main(int argc, char * argv[])
 {
-    {
-        using namespace sah_kd_tree;
+    renderer::Context context;
+    context.init(APPLICATION_NAME, VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch));
 
-        auto projectName = QString::fromLocal8Bit(kProjectName);
+    {
+        auto projectName = QString::fromLocal8Bit(sah_kd_tree::kProjectName);
+        QVersionNumber applicationVersion{sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch, sah_kd_tree::kProjectVersionTweak};
 
         QCoreApplication::setOrganizationName(projectName + "-dev");
         QCoreApplication::setOrganizationDomain(projectName + ".dev");
         QCoreApplication::setApplicationName(APPLICATION_NAME);
 
-        QVersionNumber applicationVersion{kProjectVersionMajor, kProjectVersionMinor, kProjectVersionPatch, kProjectVersionTweak};
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
     }
 
@@ -173,9 +176,9 @@ int main(int argc, char * argv[])
         if ((true)) {
             applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
         } else {
-            //VK_KHR_swapchain
-            //auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects();
-            //applicationWindow->setGraphicsDevice(quickGraphicsDevice);
+            // VK_KHR_swapchain
+            // auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects();
+            // applicationWindow->setGraphicsDevice(quickGraphicsDevice);
         }
     };
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated)) {

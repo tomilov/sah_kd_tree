@@ -2,10 +2,15 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <array>
 #include <type_traits>
 
 namespace renderer
 {
+
+using LabelColor = std::array<float, 4>;
+
+inline constexpr LabelColor kDefaultLabelColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
 template<typename Object>
 class ScopedDebugUtilsLabel
@@ -15,25 +20,23 @@ class ScopedDebugUtilsLabel
     ScopedDebugUtilsLabel() = default;
 
 public:
-    static constexpr std::array<float, 4> kDefaultColor = {1.0f, 1.0f, 1.0f, 1.0f};
-
     ScopedDebugUtilsLabel(const ScopedDebugUtilsLabel &) = delete;
-    ScopedDebugUtilsLabel(ScopedDebugUtilsLabel &&) = default;
+    ScopedDebugUtilsLabel(ScopedDebugUtilsLabel &&) noexcept;
     ScopedDebugUtilsLabel & operator=(const ScopedDebugUtilsLabel &) = delete;
-    ScopedDebugUtilsLabel & operator=(ScopedDebugUtilsLabel &&) = default;
+    ScopedDebugUtilsLabel & operator=(ScopedDebugUtilsLabel &&) noexcept;
 
     ~ScopedDebugUtilsLabel();
 
-    static void insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, std::array<float, 4> color = kDefaultColor);
+    static void insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
 
-    void insert(const char * labelName, std::array<float, 4> color = kDefaultColor) const
+    void insert(const char * labelName, const LabelColor & color = kDefaultLabelColor) const
     {
         return insert(*dispatcher, object, labelName, color);
     }
 
-    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, std::array<float, 4> = kDefaultColor);
+    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
 
-    ScopedDebugUtilsLabel create(const char * labelName, std::array<float, 4> color = kDefaultColor) const
+    ScopedDebugUtilsLabel create(const char * labelName, const LabelColor & color = kDefaultLabelColor) const
     {
         return create(*dispatcher, object, labelName, color);
     }
@@ -41,7 +44,6 @@ public:
 private:
     const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE * dispatcher = nullptr;
     Object object;
-    vk::DebugUtilsLabelEXT debugUtilsLabel;
 };
 
 extern template class ScopedDebugUtilsLabel<vk::Queue>;
@@ -49,5 +51,10 @@ extern template class ScopedDebugUtilsLabel<vk::CommandBuffer>;
 
 using ScopedQueueLabel = ScopedDebugUtilsLabel<vk::Queue>;
 using ScopedCommandBufferLabel = ScopedDebugUtilsLabel<vk::CommandBuffer>;
+
+static_assert(std::is_move_constructible_v<ScopedQueueLabel>);
+static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
+static_assert(std::is_move_constructible_v<ScopedCommandBufferLabel>);
+static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
 
 }  // namespace renderer

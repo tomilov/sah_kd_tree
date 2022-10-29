@@ -1,8 +1,7 @@
 #pragma once
 
-#include <viewer/viewer_export.h>
-
 #include <utils/fast_pimpl.hpp>
+#include <viewer/viewer_export.h>
 
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
@@ -38,6 +37,8 @@ private Q_SLOTS:
 private:
     struct Impl;
 
+    static constexpr std::size_t kSize = 16;
+    static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, 16, 8> impl_;
 
     void releaseResources() override;

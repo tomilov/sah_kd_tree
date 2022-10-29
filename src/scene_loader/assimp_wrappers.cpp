@@ -21,7 +21,7 @@ namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
 Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
-}
+}  // namespace
 
 namespace
 {

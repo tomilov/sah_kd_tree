@@ -36,8 +36,14 @@ public:
     class Buffer;
     class Image;
 
-    MemoryAllocator(const MemoryAllocatorCreateInfo & features, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device);
+    MemoryAllocator(const MemoryAllocatorCreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
+                    uint32_t deviceApiVersion, vk::Device device);
     ~MemoryAllocator();
+
+    MemoryAllocator(const MemoryAllocator &) = delete;
+    MemoryAllocator(MemoryAllocator &&) = delete;
+    void operator=(const MemoryAllocator &) = delete;
+    void operator=(MemoryAllocator &&) = delete;
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
     vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
@@ -58,7 +64,9 @@ private:
     struct Impl;
     struct Resource;
 
-    utils::FastPimpl<Impl, 16, 8> impl_;
+    static constexpr std::size_t kSize = 24;
+    static constexpr std::size_t kAlignment = 8;
+    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
 struct MemoryAllocator::AllocationCreateInfo
@@ -82,7 +90,7 @@ struct MemoryAllocator::AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
-class MemoryAllocator::Buffer final
+class MemoryAllocator::Buffer final  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
