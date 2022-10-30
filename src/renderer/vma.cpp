@@ -15,13 +15,6 @@
 namespace renderer
 {
 
-void MemoryAllocator::MemoryAllocatorCreateInfo::appendRequiredDeviceExtensions(std::vector<std::string_view> & deviceExtensions)
-{
-    if (memoryBudgetEnabled) {
-        deviceExtensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-    }
-}
-
 struct MemoryAllocator::Impl final
 {
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
@@ -29,8 +22,8 @@ struct MemoryAllocator::Impl final
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 
-    Impl(const MemoryAllocatorCreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-         uint32_t deviceApiVersion, vk::Device device);
+    Impl(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion,
+         vk::Device device);
     ~Impl();
 
     Impl(const Impl &) = delete;
@@ -45,9 +38,9 @@ struct MemoryAllocator::Impl final
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit);
 };
 
-MemoryAllocator::MemoryAllocator(const MemoryAllocatorCreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance,
-                                 vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device)
-    : impl_{features, allocationCallbacks, dispatcher, instance, physicalDevice, deviceApiVersion, device}
+MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
+                                 uint32_t deviceApiVersion, vk::Device device)
+    : impl_{createInfo, allocationCallbacks, dispatcher, instance, physicalDevice, deviceApiVersion, device}
 {}
 
 MemoryAllocator::~MemoryAllocator() = default;
@@ -626,7 +619,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
     // bytesMoved, bytesFreed, allocationsMoved, deviceMemoryBlocksFreed
 }
 
-MemoryAllocator::Impl::Impl(const MemoryAllocatorCreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
+MemoryAllocator::Impl::Impl(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
                             uint32_t deviceApiVersion, vk::Device device)
     : allocationCallbacks{allocationCallbacks}, dispatcher{dispatcher}
 {
@@ -641,19 +634,13 @@ MemoryAllocator::Impl::Impl(const MemoryAllocatorCreateInfo & features, vk::Opti
     }
 
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
-    if (features.physicalDeviceProperties2Enabled && features.memoryBudgetEnabled) {
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    if (createInfo.memoryBudgetEnabled) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
-    if (features.memoryRequirements2Enabled && features.dedicatedAllocationEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-    }
-    if (features.bindMemory2Enabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
-    }
-    if (features.bufferDeviceAddressEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    }
-    if (features.memoryPriorityEnabled) {
+    if (createInfo.memoryPriorityEnabled) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
     }
 

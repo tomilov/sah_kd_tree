@@ -36,6 +36,7 @@ target_link_libraries(
         "libsah_kd_tree"
         "libscene_loader"
         "libcommon"
+        "libutils"
         "VulkanInterface"
         "gliInterface"
         "VulkanMemoryAllocator"
@@ -59,5 +60,9 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "lib${PROJECT_NAME}")
+target_compile_definitions(
+    "${PROJECT_NAME}"
+    PRIVATE
+        APPLICATION_NAME="${PROJECT_NAME}")
 
 add_subdirectory("tests")

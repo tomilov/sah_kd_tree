@@ -18,17 +18,24 @@ namespace renderer
 class MemoryAllocator final
 {
 public:
-    struct MemoryAllocatorCreateInfo
+    struct CreateInfo
     {
-        bool physicalDeviceProperties2Enabled = false;
-        bool memoryRequirements2Enabled = false;
-        bool dedicatedAllocationEnabled = false;
-        bool bindMemory2Enabled = false;
+        static constexpr std::initializer_list<const char *> kOptionalExtensions = {
+            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
+            VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
+        };
+
         bool memoryBudgetEnabled = false;
-        bool bufferDeviceAddressEnabled = false;
         bool memoryPriorityEnabled = false;
 
-        void appendRequiredDeviceExtensions(std::vector<std::string_view> & deviceExtensions);
+        template<typename DeviceExtensions>
+        static CreateInfo create(const DeviceExtensions & deviceExtensions)
+        {
+            CreateInfo createInfo;
+            createInfo.memoryBudgetEnabled = deviceExtensions.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+            createInfo.memoryPriorityEnabled = deviceExtensions.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
+            return createInfo;
+        }
     };
 
     struct AllocationCreateInfo;
@@ -36,7 +43,7 @@ public:
     class Buffer;
     class Image;
 
-    MemoryAllocator(const MemoryAllocatorCreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
+    MemoryAllocator(const CreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
                     uint32_t deviceApiVersion, vk::Device device);
     ~MemoryAllocator();
 

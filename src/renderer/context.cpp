@@ -1,5 +1,6 @@
 #include <renderer/context.hpp>
 #include <renderer/debug_utils.hpp>
+#include <renderer/exception.hpp>
 #include <renderer/vma.hpp>
 #include <utils/assert.hpp>
 
@@ -10,7 +11,9 @@
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
+#include <algorithm>
 #include <bitset>
+#include <initializer_list>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -71,23 +74,37 @@ namespace renderer
 
 struct Context::Impl final
 {
+    using StringUnorderedSet = std::unordered_set<const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
+    using StringUnorderedMultiMap = std::unordered_multimap<const char *, const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
+
     struct Library;
     struct Instance;
+    struct PhysicalDevice;
+    struct PhysicalDevices;
     struct Device;
 
     std::unique_ptr<Library> library;
     std::unique_ptr<Instance> instance;
+    std::unique_ptr<PhysicalDevices> physicalDevices;
     std::unique_ptr<Device> device;
+    std::unique_ptr<MemoryAllocator> memoryAllocator;
 
-    void init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+    Impl() = default;
+
+    Impl(const Impl &) = delete;
+    Impl(Impl &&) = delete;
+    void operator=(const Impl &) = delete;
+    void operator=(Impl &&) = delete;
+
+    void init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::SurfaceKHR surface, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
 };
 
 Context::Context() = default;
 Context::~Context() = default;
 
-void Context::init(const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
+void Context::init(const char * applicationName, uint32_t applicationVersion, vk::SurfaceKHR surface, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
 {
-    impl_->init(*this, applicationName, applicationVersion, allocationCallbacks, libraryName);
+    impl_->init(*this, applicationName, applicationVersion, surface, allocationCallbacks, libraryName);
 }
 
 struct Context::Impl::Library
@@ -101,6 +118,11 @@ struct Context::Impl::Library
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 
     Library(Context & context, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+
+    Library(const Library &) = delete;
+    Library(Library &&) = delete;
+    void operator=(const Library &) = delete;
+    void operator=(Library &&) = delete;
 };
 
 struct Context::Impl::Instance
@@ -111,15 +133,15 @@ struct Context::Impl::Instance
     uint32_t apiVersion = VK_API_VERSION_1_0;
 
     std::vector<vk::LayerProperties> layerProperties;
-    std::unordered_set<std::string_view> layers;
+    StringUnorderedSet layers;
     std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
-    std::unordered_set<std::string_view> enabledLayerSet;
+    StringUnorderedSet enabledLayerSet;
     std::vector<const char *> enabledLayers;
 
     std::vector<vk::ExtensionProperties> extensionPropertyList;
-    std::unordered_set<std::string_view> extensions;
-    std::unordered_multimap<std::string_view, std::string_view> extensionLayers;
-    std::unordered_set<std::string_view> enabledExtensionSet;
+    StringUnorderedSet extensions;
+    StringUnorderedMultiMap extensionLayers;
+    StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 
     vk::ApplicationInfo applicationInfo;
@@ -132,6 +154,16 @@ struct Context::Impl::Instance
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
     Instance(Context & context, Library & library, const char * applicationName, uint32_t applicationVersion);
+
+    Instance(const Instance &) = delete;
+    Instance(Instance &&) = delete;
+    void operator=(const Instance &) = delete;
+    void operator=(Instance &&) = delete;
+
+    std::vector<vk::PhysicalDevice> getPhysicalDevices() const
+    {
+        return instance->enumeratePhysicalDevices(library.dispatcher);
+    }
 
     template<typename Object>
     void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
@@ -151,14 +183,109 @@ struct Context::Impl::Instance
     }
 };
 
+struct Context::Impl::PhysicalDevice
+{
+    struct Queue
+    {
+        uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
+        vk::QueueFlags queueFlags;
+        vk::Queue queue;
+    };
+
+    struct Queues
+    {
+        Queue graphics;  // transfer device to device
+        Queue compute;   // transfer device to device
+        Queue transferHostToDevice;
+        Queue transferDeviceToHost;
+    };
+
+    Context & context;
+    Library & library;
+    Instance & instance;
+
+    vk::PhysicalDevice physicalDevice;
+
+    std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
+
+    std::vector<vk::ExtensionProperties> extensionPropertyList;
+    StringUnorderedSet extensions;
+    StringUnorderedMultiMap extensionLayers;
+    StringUnorderedSet enabledExtensionSet;
+    std::vector<const char *> enabledExtensions;
+
+    vk::StructureChain<vk::PhysicalDeviceProperties2> physicalDeviceProperties2Chain;
+    uint32_t apiVersion = VK_API_VERSION_1_0;
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR> physicalDeviceFeatures2Chain;
+    vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> physicalDeviceMemoryProperties2Chain;
+    std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
+
+    static constexpr std::initializer_list<const char *> kRequiredExtensions = {
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
+        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+    };
+    static constexpr std::initializer_list<const char *> kOptionalExtensions = {};
+
+    std::vector<std::vector<float>> deviceQueuesPriorities;
+    std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
+    Queues queues;
+
+    PhysicalDevice(Context & context, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice);
+
+    PhysicalDevice(const PhysicalDevice &) = delete;
+    PhysicalDevice(PhysicalDevice &&) = delete;
+    void operator=(const PhysicalDevice &) = delete;
+    void operator=(PhysicalDevice &&) = delete;
+
+    auto getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet;
+    bool findQueueFamily(Queue & queue, vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = nullptr) const;
+    bool configureQueuesIfSuitable(vk::PhysicalDeviceType physicalDeviceType, vk::SurfaceKHR surface);
+
+    bool enableExtensionIfAvailable(const char * extensionName);
+};
+
+struct Context::Impl::PhysicalDevices
+{
+    Context & context;
+    Library & library;
+    Instance & instance;
+
+    std::vector<std::unique_ptr<PhysicalDevice>> physicalDevices;
+
+    PhysicalDevices(Context & context, Library & library, Instance & instance);
+
+    PhysicalDevices(const PhysicalDevices &) = delete;
+    PhysicalDevices(PhysicalDevices &&) = delete;
+    void operator=(const PhysicalDevices &) = delete;
+    void operator=(PhysicalDevices &&) = delete;
+
+    PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
+};
+
 struct Context::Impl::Device
 {
     Context & context;
     Library & library;
     Instance & instance;
+    PhysicalDevice & physicalDevice;
+
+    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR> deviceCreateInfoChain;
+
     vk::UniqueDevice device;
 
-    Device(Context & context, Library & library, Instance & instance);
+    Device(Context & context, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
+
+    Device(const Device &) = delete;
+    Device(Device &&) = delete;
+    void operator=(const Device &) = delete;
+    void operator=(Device &&) = delete;
+
+    std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const
+    {
+        return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library.allocationCallbacks, library.dispatcher, *instance.instance, physicalDevice.physicalDevice, physicalDevice.apiVersion,
+                                                 *device);
+    }
 
     template<typename Object>
     void setDebugUtilsObjectName(Object object, const char * objectName) const
@@ -218,18 +345,13 @@ struct Context::Impl::Device
     }
 };
 
-void Context::Impl::init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
+void Context::Impl::init(Context & context, const char * applicationName, uint32_t applicationVersion, vk::SurfaceKHR surface, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
 {
     library = std::make_unique<Library>(context, allocationCallbacks, libraryName);
     instance = std::make_unique<Instance>(context, *library, applicationName, applicationVersion);
-    device = std::make_unique<Device>(context, *library, *instance);
-
-    std::vector<vk::PhysicalDevice> physicalDevices = instance->instance->enumeratePhysicalDevices(library->dispatcher);
-
-    for (vk::PhysicalDevice physicalDevice : physicalDevices) {
-        std::vector<vk::ExtensionProperties> extensionProperties = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library->dispatcher);
-        std::unordered_set<std::string_view> extensions;
-    }
+    physicalDevices = std::make_unique<PhysicalDevices>(context, *library, *instance);
+    device = std::make_unique<Device>(context, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
+    memoryAllocator = device->makeMemoryAllocator();
 }
 
 Context::Impl::Library::Library(Context & context, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
@@ -257,7 +379,7 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, "Duplicated extension");
+            INVARIANT(false, fmt::format("Duplicated extension '{}'", extensionProperties.extensionName));
         }
     }
 
@@ -279,7 +401,7 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->context.log(fmt::format("Tried to enable instance layer {} second time", layerName), LogLevel::Warning);
+                this->context.log(fmt::format("Tried to enable instance layer '{}' second time", layerName), LogLevel::Warning);
             }
             return true;
         };
@@ -299,22 +421,22 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->context.log(fmt::format("Tried to enable instance extension {} second time", extensionName), LogLevel::Warning);
+                this->context.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
             }
             return true;
         }
         auto extensionLayer = extensionLayers.find(extensionName);
         if (extensionLayer != extensionLayers.end()) {
-            auto layerName = extensionLayer->second.data();
+            auto layerName = extensionLayer->second;
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->context.log(fmt::format("Tried to enable instance layer {} second time", layerName), LogLevel::Warning);
+                this->context.log(fmt::format("Tried to enable instance layer '{}' second time", layerName), LogLevel::Warning);
             }
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->context.log(fmt::format("Tried to enable instance extension {} second time", extensionName), LogLevel::Warning);
+                this->context.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
             }
             return true;
         }
@@ -349,8 +471,8 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
 
     auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
     {
-        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT userCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
-                                                                                const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
+        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
+                                                                                 const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
             return static_cast<Context *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), *pCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
@@ -360,7 +482,7 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
         if (enabledExtensionSet.contains(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
             debugUtilsMessengerCreateInfo.messageType |= MessageType::eDeviceAddressBinding;
         }
-        debugUtilsMessengerCreateInfo.pfnUserCallback = userCallback;
+        debugUtilsMessengerCreateInfo.pfnUserCallback = kUserCallback;
         debugUtilsMessengerCreateInfo.pUserData = &context;
     }
 
@@ -386,8 +508,244 @@ Context::Impl::Instance::Instance(Context & context, Library & library, const ch
     instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
 }
 
-Context::Impl::Device::Device(Context & context, Library & library, Instance & instance) : context{context}, library{library}, instance{instance}
-{}
+Context::Impl::PhysicalDevice::PhysicalDevice(Context & context, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : context{context}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+{
+    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
+    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
+        if (!extensions.insert(extensionProperties.extensionName).second) {
+            INVARIANT(false, fmt::format("Duplicated extension '{}'", extensionProperties.extensionName));
+        }
+    }
+
+    for (auto layerName : instance.layers) {
+        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.dispatcher));
+        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
+            extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
+        }
+    }
+
+    auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
+    physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
+    apiVersion = physicalDeviceProperties2.properties.apiVersion;
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), fmt::format("Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion)));
+
+    auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
+    physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
+
+    auto & physicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
+    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.dispatcher);
+
+    using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
+    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
+}
+
+auto Context::Impl::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
+{
+    StringUnorderedSet missingExtensions;
+    for (auto extensionToCheck : extensionsToCheck) {
+        if (extensions.contains(extensionToCheck)) {
+            continue;
+        }
+        if (extensionLayers.contains(extensionToCheck)) {
+            continue;
+        }
+        missingExtensions.emplace(extensionToCheck);
+    }
+    return missingExtensions;
+}
+
+bool Context::Impl::PhysicalDevice::findQueueFamily(Queue & queue, vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface) const
+{
+    uint32_t bestMatchQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+    vk::QueueFlags bestMatchQueueFalgs;
+    vk::QueueFlags bestMatchExtraQueueFlags;
+    size_t queueFamilyCount = queueFamilyProperties2Chains.size();
+    for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; ++queueFamilyIndex) {
+        auto queueFlags = queueFamilyProperties2Chains[queueFamilyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueFlags;
+        if (queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute)) {
+            queueFlags |= vk::QueueFlagBits::eTransfer;
+        }
+        if ((queueFlags & desiredQueueFlags) != desiredQueueFlags) {
+            continue;
+        }
+        if (surface && (desiredQueueFlags & vk::QueueFlagBits::eGraphics)) {
+            if (VK_FALSE == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, library.dispatcher)) {
+                continue;
+            }
+        }
+        auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags);
+        if (!currentExtraQueueFlags) {
+            bestMatchQueueFamily = queueFamilyIndex;
+            bestMatchQueueFalgs = queueFlags;
+            break;
+        }
+        using MaskType = vk::QueueFlags::MaskType;
+        using QueueFlags = std::bitset<std::numeric_limits<VkQueueFlags>::digits>;
+        if ((bestMatchQueueFamily == VK_QUEUE_FAMILY_IGNORED) || (QueueFlags(MaskType(currentExtraQueueFlags)).count() < QueueFlags(MaskType(bestMatchExtraQueueFlags)).count())) {
+            bestMatchExtraQueueFlags = currentExtraQueueFlags;
+
+            bestMatchQueueFamily = queueFamilyIndex;
+            bestMatchQueueFalgs = queueFlags;
+        }
+    }
+    if (bestMatchQueueFamily != VK_QUEUE_FAMILY_IGNORED) {
+        queue.familyIndex = bestMatchQueueFamily;
+        queue.queueFlags = bestMatchQueueFalgs;
+    }
+    return true;
+}
+
+bool Context::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDeviceType physicalDeviceType, vk::SurfaceKHR surface)
+{
+    auto deviceType = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceType;
+    if (deviceType != physicalDeviceType) {
+        return false;
+    }
+
+    const auto & physicalDeviceFeatures = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features;
+    if (sah_kd_tree::kIsDebugBuild) {
+        if (physicalDeviceFeatures.robustBufferAccess == VK_FALSE) {
+            return false;
+        }
+    }
+    auto & physicalDeviceVulkan12Features = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>();
+    if (physicalDeviceVulkan12Features.runtimeDescriptorArray == VK_FALSE) {
+        return false;
+    }
+    if (physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing == VK_FALSE) {
+        return false;
+    }
+    if (physicalDeviceVulkan12Features.scalarBlockLayout == VK_FALSE) {
+        return false;
+    }
+    if (physicalDeviceVulkan12Features.timelineSemaphore == VK_FALSE) {
+        return false;
+    }
+    if (physicalDeviceVulkan12Features.bufferDeviceAddress == VK_FALSE) {
+        return false;
+    }
+
+    auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
+    if (!extensionsCannotBeEnabled.empty()) {
+        return false;
+    }
+    Queues requiredQueues;
+    if (!findQueueFamily(requiredQueues.graphics, vk::QueueFlagBits::eGraphics, surface)) {
+        return false;
+    }
+    if (!findQueueFamily(requiredQueues.compute, vk::QueueFlagBits::eCompute)) {
+        return false;
+    }
+    if (!findQueueFamily(requiredQueues.transferHostToDevice, vk::QueueFlagBits::eTransfer)) {
+        return false;
+    }
+    if (!findQueueFamily(requiredQueues.transferDeviceToHost, vk::QueueFlagBits::eTransfer)) {
+        return false;
+    }
+    queues = requiredQueues;
+
+    std::unordered_set<uint32_t> usedQueueFamilyIndices;
+    for (uint32_t queueFamilyIndex : {queues.graphics.familyIndex, queues.compute.familyIndex, queues.transferHostToDevice.familyIndex, queues.transferDeviceToHost.familyIndex}) {
+        if (!usedQueueFamilyIndices.insert(queueFamilyIndex).second) {
+            continue;
+        }
+
+        auto & deviceQueueCreateInfo = deviceQueueCreateInfos.emplace_back();
+        deviceQueueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+
+        const auto & queueFamiliesProperties = queueFamilyProperties2Chains[queueFamilyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties;
+        const auto & deviceQueuePriorities = deviceQueuesPriorities.emplace_back(std::min<size_t>(queueFamiliesProperties.queueCount, 2), 1.0f);  // physicalDeviceLimits.discreteQueuePriorities == 2 is minimum required
+        deviceQueueCreateInfo.setQueuePriorities(deviceQueuePriorities);
+    }
+    return true;
+}
+
+bool Context::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
+{
+    // TODO: maybe filter out promoted extensions (codegen from vk.xml required)
+    auto extension = extensions.find(extensionName);
+    if (extension != extensions.end()) {
+        if (enabledExtensionSet.insert(extensionName).second) {
+            enabledExtensions.push_back(extensionName);
+        } else {
+            context.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+        }
+        return true;
+    }
+    auto extensionLayer = extensionLayers.find(extensionName);
+    if (extensionLayer != extensionLayers.end()) {
+        auto layerName = extensionLayer->second;
+        if (!instance.enabledLayerSet.contains(layerName)) {
+            INVARIANT(false, fmt::format("Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName));
+        }
+        if (enabledExtensionSet.insert(extensionName).second) {
+            enabledExtensions.push_back(extensionName);
+        } else {
+            context.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+        }
+        return true;
+    }
+    return false;
+}
+
+Context::Impl::PhysicalDevices::PhysicalDevices(Context & context, Library & library, Instance & instance) : context{context}, library{library}, instance{instance}
+{
+    for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
+        physicalDevices.push_back(std::make_unique<PhysicalDevice>(context, library, instance, physicalDevice));
+    }
+}
+
+auto Context::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -> PhysicalDevice &
+{
+    static constexpr auto kPhysicalDeviceTypesPrioritized = {
+        vk::PhysicalDeviceType::eDiscreteGpu, vk::PhysicalDeviceType::eIntegratedGpu, vk::PhysicalDeviceType::eVirtualGpu, vk::PhysicalDeviceType::eCpu, vk::PhysicalDeviceType::eOther,
+    };
+    for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {
+        for (const auto & physicalDevice : physicalDevices) {
+            if (physicalDevice->configureQueuesIfSuitable(physicalDeviceType, surface)) {
+                return *physicalDevice;
+            }
+        }
+    }
+    throw RuntimeError("Unable to find suitable physical device");
+}
+
+Context::Impl::Device::Device(Context & context, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : context{context}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+{
+    auto & physicalDeviceFeatures = deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features;
+    if (sah_kd_tree::kIsDebugBuild) {
+        physicalDeviceFeatures.robustBufferAccess = VK_TRUE;
+    }
+    auto & physicalDeviceVulkan12Features = deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>();
+    physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
+    physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
+    physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+
+    for (auto requiredExtension : physicalDevice.kRequiredExtensions) {
+        if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
+            INVARIANT(false, fmt::format("Device extension '{}' should be available after checks", requiredExtension));
+        }
+    }
+    for (auto optionalExtension : physicalDevice.kOptionalExtensions) {
+        if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
+            context.log(fmt::format("Device extension '{}' is not available", optionalExtension), LogLevel::Warning);
+        }
+    }
+    for (auto optionalExtension : MemoryAllocator::CreateInfo::kOptionalExtensions) {
+        if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
+            context.log(fmt::format("Device extension '{}' optionally needed for VMA is not available", optionalExtension), LogLevel::Warning);
+        }
+    }
+
+    auto & deviceCreateInfo = deviceCreateInfoChain.get<vk::DeviceCreateInfo>();
+    deviceCreateInfo.setQueueCreateInfos(physicalDevice.deviceQueueCreateInfos);
+    deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.enabledExtensions);
+
+    device = physicalDevice.physicalDevice.createDeviceUnique(deviceCreateInfo, library.allocationCallbacks, library.dispatcher);
+    library.dispatcher.init(*device);
+}
 
 vk::Bool32 Context::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
@@ -402,39 +760,41 @@ vk::Bool32 Context::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityF
 
 vk::Bool32 Context::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    std::string queues;
-    if (callbackData.queueLabelCount > 0) {
-        queues = fmt::format(" Queue(s): {}", fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", "));
-    }
-    std::string commandBuffers;
-    if (callbackData.cmdBufLabelCount > 0) {
-        commandBuffers = fmt::format(" CommandBuffer(s): {}", fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", "));
-    }
-    std::string objects;
-    if (callbackData.objectCount > 0) {
-        objects = fmt::format(" {}", fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; "));
-    }
-    auto message = fmt::format("{} {} {} (id:{}): {} Source{}{}{}", messageSeverity, messageTypes, callbackData.pMessageIdName, callbackData.messageIdNumber, callbackData.pMessage, queues, commandBuffers, objects);
+    auto message = [&] {
+        std::string queues;
+        if (callbackData.queueLabelCount > 0) {
+            queues = fmt::format(" Queue(s): {}", fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", "));
+        }
+        std::string commandBuffers;
+        if (callbackData.cmdBufLabelCount > 0) {
+            commandBuffers = fmt::format(" CommandBuffer(s): {}", fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", "));
+        }
+        std::string objects;
+        if (callbackData.objectCount > 0) {
+            objects = fmt::format(" {}", fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; "));
+        }
+        return fmt::format("{} {} {} (id:{}): {} Source{}{}{}", messageSeverity, messageTypes, callbackData.pMessageIdName, callbackData.messageIdNumber, callbackData.pMessage, queues, commandBuffers, objects);
+    };
     using MaskType = vk::DebugUtilsMessageSeverityFlagsEXT::MaskType;
     if (std::bitset<std::numeric_limits<MaskType>::digits>{MaskType(messageSeverity)}.count() != 1) {
         log(fmt::format("Expected single bit set: {}", vk::to_string(vk::DebugUtilsMessageSeverityFlagsEXT(messageSeverity))), LogLevel::Warning);
-        log(message, LogLevel::Debug);
+        log(message(), LogLevel::Debug);
     } else {
         switch (messageSeverity) {
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-            log(message, LogLevel::Debug);
+            log(message(), LogLevel::Debug);
             break;
         }
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-            log(message, LogLevel::Info);
+            log(message(), LogLevel::Info);
             break;
         }
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-            log(message, LogLevel::Warning);
+            log(message(), LogLevel::Warning);
             break;
         }
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-            log(message, LogLevel::Critical);
+            log(message(), LogLevel::Critical);
             break;
         }
         }

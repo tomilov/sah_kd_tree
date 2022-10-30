@@ -61,7 +61,12 @@ public:
     Context();
     ~Context();
 
-    void init(const char * applicationName = "", uint32_t applicationVersion = VK_MAKE_VERSION(0, 0, 0), vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr, const std::string & libraryName = {});
+    Context(const Context &) = delete;
+    Context(Context &&) = delete;
+    void operator=(const Context &) = delete;
+    void operator=(Context &&) = delete;
+
+    void init(const char * applicationName = "", uint32_t applicationVersion = VK_MAKE_VERSION(0, 0, 0), vk::SurfaceKHR surface = {}, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr, const std::string & libraryName = {});
 
     DebugUtilsMessageMuteGuard muteDebugUtilsMessage(std::int32_t messageIdNumber, std::optional<bool> enabled = {}) const
     {
@@ -81,7 +86,7 @@ private:
     mutable std::shared_mutex mutex;
     mutable std::unordered_multiset<std::int32_t> mutedMessageIdNumbers;
 
-    static constexpr std::size_t kSize = 24;
+    static constexpr std::size_t kSize = 40;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

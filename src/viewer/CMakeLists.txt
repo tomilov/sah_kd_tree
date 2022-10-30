@@ -25,7 +25,7 @@ target_sources(
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "librenderer"
+        "libutils"
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick)
@@ -68,7 +68,6 @@ target_link_libraries(
         "lib${PROJECT_NAME}"
         "libutils"
         "libcommon"
-        "librenderer"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets

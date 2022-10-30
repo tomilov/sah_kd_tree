@@ -1,4 +1,3 @@
-#include <renderer/context.hpp>
 #include <utils/assert.hpp>
 
 #include <common/version.hpp>
@@ -42,7 +41,7 @@ std::unique_ptr<QGuiApplication> createApplication(int & argc, char * argv[])
     return std::make_unique<QApplication>(argc, argv);
 }
 
-void handleRootWindowSettings(QQmlApplicationEngine & engine)
+void persistRootWindowSettings(QQmlApplicationEngine & engine)
 {
     auto primaryScreen = qApp->primaryScreen();
     INVARIANT(primaryScreen, "Primary scree should exists");
@@ -86,9 +85,6 @@ void handleRootWindowSettings(QQmlApplicationEngine & engine)
 
 int main(int argc, char * argv[])
 {
-    renderer::Context context;
-    context.init(APPLICATION_NAME, VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch));
-
     {
         auto projectName = QString::fromLocal8Bit(sah_kd_tree::kProjectName);
         QVersionNumber applicationVersion{sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch, sah_kd_tree::kProjectVersionTweak};
@@ -185,8 +181,7 @@ int main(int argc, char * argv[])
         Q_ASSERT(false);
     }
 
-    handleRootWindowSettings(engine);
-
+    persistRootWindowSettings(engine);
     engine.load(QUrl{"ui.qml"});
 
     return application->exec();
