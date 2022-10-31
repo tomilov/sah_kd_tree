@@ -66,19 +66,19 @@ public:
     void operator=(const Context &) = delete;
     void operator=(Context &&) = delete;
 
-    void init(const char * applicationName = "", uint32_t applicationVersion = VK_MAKE_VERSION(0, 0, 0), vk::SurfaceKHR surface = {}, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr, const std::string & libraryName = {});
+    DebugUtilsMessageMuteGuard muteDebugUtilsMessage(std::int32_t messageIdNumber, std::optional<bool> enabled = {}) const;
 
-    DebugUtilsMessageMuteGuard muteDebugUtilsMessage(std::int32_t messageIdNumber, std::optional<bool> enabled = {}) const
-    {
-        if (!enabled.value_or(false)) {
-            return {mutex, mutedMessageIdNumbers, std::nullopt};
-        }
-        {
-            std::unique_lock<std::shared_mutex> lock{mutex};
-            mutedMessageIdNumbers.insert(messageIdNumber);
-        }
-        return {mutex, mutedMessageIdNumbers, messageIdNumber};
-    }
+    void addRequiredInstanceExtensions(const std::vector<const char *> & requiredInstanceExtensions);
+    void addRequiredDeviceExtensions(const std::vector<const char *> & requiredDeviceExtensions);
+
+    void createInstance(const char * applicationName = "", uint32_t applicationVersion = VK_MAKE_VERSION(0, 0, 0), vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr, const std::string & libraryName = {});
+    vk::Instance getInstance() const;
+
+    void createDevice(vk::SurfaceKHR surface = {});
+    vk::PhysicalDevice getPhysicalDevice() const;
+    vk::Device getDevice() const;
+    uint32_t getGraphicsQueueFamilyIndex() const;
+    uint32_t getGraphicsQueueIndex() const;
 
 private:
     struct Impl;
@@ -86,7 +86,10 @@ private:
     mutable std::shared_mutex mutex;
     mutable std::unordered_multiset<std::int32_t> mutedMessageIdNumbers;
 
-    static constexpr std::size_t kSize = 40;
+    std::vector<const char *> requiredInstanceExtensions;
+    std::vector<const char *> requiredDeviceExtensions;
+
+    static constexpr std::size_t kSize = 48;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

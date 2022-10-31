@@ -37,10 +37,10 @@ target_link_libraries(
         "libscene_loader"
         "libcommon"
         "libutils"
-        "VulkanInterface"
         "gliInterface"
         "VulkanMemoryAllocator"
     PUBLIC
+        "VulkanInterface"
         "libutils")
 
 set_property(

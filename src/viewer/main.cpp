@@ -1,6 +1,9 @@
+#include <renderer/context.hpp>
 #include <utils/assert.hpp>
 
 #include <common/version.hpp>
+
+#include <vulkan/vulkan.hpp>
 
 #include <QtCore/QByteArrayAlgorithms>
 #include <QtCore/QCoreApplication>
@@ -17,6 +20,7 @@
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
 #include <QtQuick/QQuickGraphicsConfiguration>
+#include <QtQuick/QQuickGraphicsDevice>
 #include <QtQuick/QQuickView>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRendererInterface>
@@ -25,6 +29,16 @@
 #include <memory>
 
 #include <cstdlib>
+
+namespace
+{
+
+struct Context final : renderer::Context
+{
+    using renderer::Context::Context;
+};
+
+}  // namespace
 
 namespace
 {
@@ -109,38 +123,47 @@ int main(int argc, char * argv[])
         Q_ASSERT(false);
     }
 
+    QQuickWindow::setSceneGraphBackend("rhi");
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
 
+    Context context;
     QVulkanInstance vulkanInstance;
-    {
-        QVersionNumber apiVersion(1, 3);
-        ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
-        vulkanInstance.setApiVersion(apiVersion);
-    }
-    {
-        QByteArrayList layers;
+    if ((false)) {
+        {
+            QVersionNumber apiVersion(1, 3);
+            ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
+            vulkanInstance.setApiVersion(apiVersion);
+        }
+        {
+            QByteArrayList layers;
 #ifndef NDEBUG
-        layers.push_back("VK_LAYER_KHRONOS_validation");
+            layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
-        auto supportedLayers = vulkanInstance.supportedLayers();
-        for (const auto & layer : layers) {
-            if (!supportedLayers.contains(layer)) {
-                qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromLocal8Bit(layer));
-                return EXIT_FAILURE;
+            auto supportedLayers = vulkanInstance.supportedLayers();
+            for (const auto & layer : layers) {
+                if (!supportedLayers.contains(layer)) {
+                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromLocal8Bit(layer));
+                    return EXIT_FAILURE;
+                }
             }
+            vulkanInstance.setLayers(layers);
         }
-        vulkanInstance.setLayers(layers);
-    }
-    {
-        auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
-        auto supportedExtensions = vulkanInstance.supportedExtensions();
-        for (const auto & instanceExtension : instanceExtensions) {
-            if (!supportedExtensions.contains(instanceExtension)) {
-                qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromLocal8Bit(instanceExtension));
-                return EXIT_FAILURE;
+        {
+            auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
+            auto supportedExtensions = vulkanInstance.supportedExtensions();
+            for (const auto & instanceExtension : instanceExtensions) {
+                if (!supportedExtensions.contains(instanceExtension)) {
+                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromLocal8Bit(instanceExtension));
+                    return EXIT_FAILURE;
+                }
             }
+            vulkanInstance.setExtensions(instanceExtensions);
         }
-        vulkanInstance.setExtensions(instanceExtensions);
+    } else {
+        context.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
+        constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+        context.createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(context.getInstance());
     }
     if (!vulkanInstance.create()) {
         qCCritical(viewerMainCategory) << "Cannot create Vulkan instance";
@@ -158,7 +181,7 @@ int main(int argc, char * argv[])
         Q_ASSERT(false);
     }
 
-    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration](QObject * object, const QUrl & url) {
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &context](QObject * object, const QUrl & url) {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
             return;
@@ -169,12 +192,18 @@ int main(int argc, char * argv[])
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
-        if ((true)) {
+        if ((false)) {
             applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
         } else {
-            // VK_KHR_swapchain
-            // auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects();
-            // applicationWindow->setGraphicsDevice(quickGraphicsDevice);
+            context.addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            context.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
+            vk::PhysicalDevice physicalDevice = context.getPhysicalDevice();
+            vk::Device device = context.getDevice();
+            uint32_t queueFamilyIndex = context.getGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = context.getGraphicsQueueIndex();
+            Q_ASSERT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow));
+            auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
+            applicationWindow->setGraphicsDevice(quickGraphicsDevice);
         }
     };
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated)) {
