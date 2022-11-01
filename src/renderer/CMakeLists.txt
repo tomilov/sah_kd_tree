@@ -29,7 +29,13 @@ target_sources(
         "exception.hpp"
         "exception.cpp"
         "debug_utils.hpp"
-        "debug_utils.cpp")
+        "debug_utils.cpp"
+        "utils.hpp"
+        "utils.cpp"
+        "memory.hpp"
+        "memory.cpp"
+        "format.hpp"
+        "format.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
