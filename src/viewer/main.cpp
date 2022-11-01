@@ -1,4 +1,4 @@
-#include <renderer/context.hpp>
+#include <renderer/renderer.hpp>
 #include <utils/assert.hpp>
 
 #include <common/version.hpp>
@@ -33,9 +33,9 @@
 namespace
 {
 
-struct Context final : renderer::Context
+struct Renderer final : renderer::Renderer
 {
-    using renderer::Context::Context;
+    using renderer::Renderer::Renderer;
 };
 
 }  // namespace
@@ -126,7 +126,7 @@ int main(int argc, char * argv[])
     QQuickWindow::setSceneGraphBackend("rhi");
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
 
-    Context context;
+    Renderer renderer;
     QVulkanInstance vulkanInstance;
     if ((false)) {
         {
@@ -160,10 +160,10 @@ int main(int argc, char * argv[])
             vulkanInstance.setExtensions(instanceExtensions);
         }
     } else {
-        context.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
+        renderer.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        context.createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(context.getInstance());
+        renderer.createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(renderer.getInstance());
     }
     if (!vulkanInstance.create()) {
         qCCritical(viewerMainCategory) << "Cannot create Vulkan instance";
@@ -181,7 +181,7 @@ int main(int argc, char * argv[])
         Q_ASSERT(false);
     }
 
-    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &context](QObject * object, const QUrl & url) {
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &renderer](QObject * object, const QUrl & url) {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
             return;
@@ -195,12 +195,12 @@ int main(int argc, char * argv[])
         if ((false)) {
             applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
         } else {
-            context.addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-            context.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = context.getPhysicalDevice();
-            vk::Device device = context.getDevice();
-            uint32_t queueFamilyIndex = context.getGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = context.getGraphicsQueueIndex();
+            renderer.addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            renderer.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
+            vk::PhysicalDevice physicalDevice = renderer.getPhysicalDevice();
+            vk::Device device = renderer.getDevice();
+            uint32_t queueFamilyIndex = renderer.getGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = renderer.getGraphicsQueueIndex();
             Q_ASSERT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow));
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);

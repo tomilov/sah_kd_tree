@@ -4,6 +4,7 @@
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
+#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -19,19 +20,47 @@ struct fmt::formatter<T, char, std::void_t<decltype(vk::to_string(std::declval<c
     }
 };
 
+template<typename T>
+struct fmt::formatter<vk::Flags<T>, char> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::Flags<T> & flags, FormatContext & ctx) const
+    {
+        using FlagTraits = vk::FlagTraits<T>;
+        static_assert(FlagTraits::isBitmask);
+        auto out = ctx.out();
+        if (!flags) {
+            return out;
+        }
+        using MaskType = typename vk::Flags<T>::MaskType;
+        constexpr auto allFlags = static_cast<MaskType>(FlagTraits::allFlags);
+        auto mask = static_cast<MaskType>(flags);
+        while (mask != 0) {
+            const auto bit = (mask & (mask - 1)) ^ mask;
+            if ((~allFlags & bit) == 0) {
+                out = fmt::format_to(out, "{}", T{bit});
+            } else {
+                out = fmt::format_to(out, "{:#x}", bit);
+            }
+            mask &= mask - 1;
+            if (mask != 0) {
+                *out++ = '|';
+            }
+        }
+        return out;
+    }
+};
+
 template<>
 struct fmt::formatter<vk::DebugUtilsLabelEXT> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
     auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
     {
-        auto out = ctx.out();
-        *out++ = '"';
-        auto color = fmt::rgb(256 * debugUtilsLabel.color[0], 256 * debugUtilsLabel.color[1], 256 * debugUtilsLabel.color[2]);
-        auto styled = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(color));
-        out = fmt::formatter<decltype(styled)>{}.format(styled, ctx);
-        *out++ = '"';
-        return out;
+        auto color = debugUtilsLabel.color;
+        auto rgb = fmt::rgb(255 * color[0], 255 * color[1], 255 * color[2]);
+        auto styledLabelName = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(rgb));
+        return fmt::format_to(ctx.out(), "'{}'", styledLabelName);
     }
 };
 
@@ -41,16 +70,7 @@ struct fmt::formatter<vk::DebugUtilsObjectNameInfoEXT> : fmt::formatter<fmt::str
     template<typename FormatContext>
     auto format(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo, FormatContext & ctx) const
     {
-        fmt::formatter<fmt::string_view>::format("object #", ctx);
-        fmt::formatter<std::uint64_t>{}.format(debugUtilsObjectNameInfo.objectHandle, ctx);
-        fmt::formatter<fmt::string_view>::format(" (type: ", ctx);
-        fmt::formatter<vk::ObjectType>{}.format(debugUtilsObjectNameInfo.objectType, ctx);
-        fmt::formatter<fmt::string_view>::format(")", ctx);
-        if (debugUtilsObjectNameInfo.pObjectName) {
-            fmt::formatter<fmt::string_view>::format(" name: \"", ctx);
-            fmt::formatter<fmt::string_view>::format(debugUtilsObjectNameInfo.pObjectName, ctx);
-            fmt::formatter<fmt::string_view>::format("\"", ctx);
-        }
-        return ctx.out();
+        auto objectName = debugUtilsObjectNameInfo.pObjectName;
+        return fmt::format_to(ctx.out(), "{{ handle = {:#x}, type = {}, name = '{}' }}", debugUtilsObjectNameInfo.objectHandle, debugUtilsObjectNameInfo.objectType, objectName ? objectName : "");
     }
 };

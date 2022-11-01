@@ -1,4 +1,3 @@
-#include <renderer/context.hpp>
 #include <renderer/memory.hpp>
 #include <renderer/renderer.hpp>
 
@@ -6,11 +5,19 @@
 
 #include <vulkan/vulkan.hpp>
 
+namespace
+{
+
+struct Renderer final : renderer::Renderer
+{
+    using renderer::Renderer::Renderer;
+};
+
+}  // namespace
+
 int main(int /*argc*/, char * /*argv*/[])
 {
-    renderer::Renderer renderer;
-
-    renderer::Context context;
+    Renderer renderer;
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     renderer::AllocationCallbacks allocationCallbacks;
     {
@@ -19,6 +26,6 @@ int main(int /*argc*/, char * /*argv*/[])
         std::vector<int, A> v{a};
         v.push_back(1);
     }
-    context.createInstance(APPLICATION_NAME, kApplicationVersion, allocationCallbacks.allocationCallbacks);
-    context.createDevice();
+    renderer.createInstance(APPLICATION_NAME, kApplicationVersion, allocationCallbacks.allocationCallbacks);
+    renderer.createDevice();
 }
