@@ -2,6 +2,8 @@
 
 #include <utils/utils_export.h>
 
+#include <fmt/format.h>
+
 #include <string_view>
 
 namespace utils
@@ -24,7 +26,7 @@ void ThrowInvariantError [[noreturn]] (const char * expression, std::string_view
 }  // namespace utils
 
 // clang-format off
-#define ASSERT_MSG(condition, message) do if constexpr (utils::kEnableAssert) if (!(condition)) utils::impl::AssertFailed(#condition, __FILE__, __LINE__, __PRETTY_FUNCTION__, message); while (false)
+#define ASSERT_MSG(condition, ...) do if constexpr (utils::kEnableAssert) if (!(condition)) utils::impl::AssertFailed(#condition, __FILE__, __LINE__, __PRETTY_FUNCTION__, fmt::format(__VA_ARGS__)); while (false)
 #define ASSERT(condition) ASSERT_MSG(condition, "")
-#define INVARIANT(condition, message) do if (!(condition)) { if constexpr (utils::kEnableAssert) utils::impl::AssertFailed(#condition, __FILE__, __LINE__, __PRETTY_FUNCTION__, message); else utils::impl::ThrowInvariantError(#condition, message); } while (false)
+#define INVARIANT(condition, ...) do if (!(condition)) { if constexpr (utils::kEnableAssert) utils::impl::AssertFailed(#condition, __FILE__, __LINE__, __PRETTY_FUNCTION__, fmt::format(__VA_ARGS__)); else utils::impl::ThrowInvariantError(#condition, fmt::format(__VA_ARGS__)); } while (false)
 // clang-format on

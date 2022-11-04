@@ -6,6 +6,7 @@
 
 namespace ${CMAKE_PROJECT_NAME}
 {
+inline constexpr const char * kGitRepositoryUrl = "https://github.com/tomilov/sah_kd_tree/";
 inline constexpr const char * kProjectName = "${CMAKE_PROJECT_NAME}";
 
 inline constexpr const char * kProjectVersionString = "${CMAKE_PROJECT_VERSION}";

@@ -32,16 +32,6 @@
 
 namespace
 {
-
-struct Renderer final : renderer::Renderer
-{
-    using renderer::Renderer::Renderer;
-};
-
-}  // namespace
-
-namespace
-{
 Q_DECLARE_LOGGING_CATEGORY(viewerMainCategory)
 Q_LOGGING_CATEGORY(viewerMainCategory, "viewerMain")
 
@@ -103,8 +93,8 @@ int main(int argc, char * argv[])
         auto projectName = QString::fromLocal8Bit(sah_kd_tree::kProjectName);
         QVersionNumber applicationVersion{sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch, sah_kd_tree::kProjectVersionTweak};
 
-        QCoreApplication::setOrganizationName(projectName + "-dev");
-        QCoreApplication::setOrganizationDomain(projectName + ".dev");
+        QCoreApplication::setOrganizationName(projectName);
+        QCoreApplication::setOrganizationDomain(projectName);
         QCoreApplication::setApplicationName(APPLICATION_NAME);
 
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
@@ -126,9 +116,16 @@ int main(int argc, char * argv[])
     QQuickWindow::setSceneGraphBackend("rhi");
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
 
-    Renderer renderer;
+    constexpr bool kUseRenderer = true;
+    renderer::Renderer renderer{{0x0, 0xB3D4346B, 0xDC18AD6B}};
+
     QVulkanInstance vulkanInstance;
-    if ((false)) {
+    if (kUseRenderer) {
+        renderer.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
+        constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+        renderer.createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(renderer.getInstance());
+    } else {
         {
             QVersionNumber apiVersion(1, 3);
             ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
@@ -159,11 +156,6 @@ int main(int argc, char * argv[])
             }
             vulkanInstance.setExtensions(instanceExtensions);
         }
-    } else {
-        renderer.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
-        constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        renderer.createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(renderer.getInstance());
     }
     if (!vulkanInstance.create()) {
         qCCritical(viewerMainCategory) << "Cannot create Vulkan instance";
@@ -192,9 +184,7 @@ int main(int argc, char * argv[])
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
-        if ((false)) {
-            applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
-        } else {
+        if (kUseRenderer) {
             renderer.addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
             renderer.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
             vk::PhysicalDevice physicalDevice = renderer.getPhysicalDevice();
@@ -204,6 +194,8 @@ int main(int argc, char * argv[])
             Q_ASSERT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow));
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);
+        } else {
+            applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
         }
     };
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated)) {

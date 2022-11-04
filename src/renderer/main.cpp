@@ -5,19 +5,9 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace
-{
-
-struct Renderer final : renderer::Renderer
-{
-    using renderer::Renderer::Renderer;
-};
-
-}  // namespace
-
 int main(int /*argc*/, char * /*argv*/[])
 {
-    Renderer renderer;
+    renderer::Renderer renderer;
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     renderer::AllocationCallbacks allocationCallbacks;
     {

@@ -645,30 +645,39 @@ MemoryAllocator::Impl::Impl(const CreateInfo & createInfo, vk::Optional<const vk
     }
 
     VmaVulkanFunctions vulkanFunctions = {};
-    vulkanFunctions.vkGetPhysicalDeviceProperties = dispatcher.vkGetPhysicalDeviceProperties;
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = dispatcher.vkGetPhysicalDeviceMemoryProperties;
-    vulkanFunctions.vkAllocateMemory = dispatcher.vkAllocateMemory;
-    vulkanFunctions.vkFreeMemory = dispatcher.vkFreeMemory;
-    vulkanFunctions.vkMapMemory = dispatcher.vkMapMemory;
-    vulkanFunctions.vkUnmapMemory = dispatcher.vkUnmapMemory;
-    vulkanFunctions.vkFlushMappedMemoryRanges = dispatcher.vkFlushMappedMemoryRanges;
-    vulkanFunctions.vkInvalidateMappedMemoryRanges = dispatcher.vkInvalidateMappedMemoryRanges;
-    vulkanFunctions.vkBindBufferMemory = dispatcher.vkBindBufferMemory;
-    vulkanFunctions.vkBindImageMemory = dispatcher.vkBindImageMemory;
-    vulkanFunctions.vkGetBufferMemoryRequirements = dispatcher.vkGetBufferMemoryRequirements;
-    vulkanFunctions.vkGetImageMemoryRequirements = dispatcher.vkGetImageMemoryRequirements;
-    vulkanFunctions.vkCreateBuffer = dispatcher.vkCreateBuffer;
-    vulkanFunctions.vkDestroyBuffer = dispatcher.vkDestroyBuffer;
-    vulkanFunctions.vkCreateImage = dispatcher.vkCreateImage;
-    vulkanFunctions.vkDestroyImage = dispatcher.vkDestroyImage;
-    vulkanFunctions.vkCmdCopyBuffer = dispatcher.vkCmdCopyBuffer;
-    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = dispatcher.vkGetBufferMemoryRequirements2;
-    vulkanFunctions.vkGetImageMemoryRequirements2KHR = dispatcher.vkGetImageMemoryRequirements2;
-    vulkanFunctions.vkBindBufferMemory2KHR = dispatcher.vkBindBufferMemory2;
-    vulkanFunctions.vkBindImageMemory2KHR = dispatcher.vkBindImageMemory2;
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = dispatcher.vkGetPhysicalDeviceMemoryProperties2;
-    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = dispatcher.vkGetDeviceBufferMemoryRequirements;
-    vulkanFunctions.vkGetDeviceImageMemoryRequirements = dispatcher.vkGetDeviceImageMemoryRequirements;
+#ifdef DISPATCH
+#error "macro name collision"
+#endif
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#define DISPATCH(f) dispatcher.f
+#else
+#define DISPATCH(f) f
+#endif
+    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
+    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
+    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
+    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
+    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
+    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
+    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
+    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
+    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
+    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
+    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
+    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
+    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
+    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
+    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
+    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
+    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
+    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
+    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
+    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
+    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
+    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
+#undef DISPATCH
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 

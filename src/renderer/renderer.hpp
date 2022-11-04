@@ -2,71 +2,52 @@
 
 #include <renderer/renderer_export.h>
 #include <utils/fast_pimpl.hpp>
+#include <utils/log.hpp>
+#include <utils/noncopyable.hpp>
 
+#include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
-#include <iterator>
 #include <mutex>
 #include <optional>
-#include <shared_mutex>
 #include <unordered_set>
+#include <vector>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace renderer
 {
-class RENDERER_EXPORT Renderer
+class RENDERER_EXPORT Renderer final
+    : public utils::LoggableBase
+    , utils::NonCopyable
 {
 public:
-    enum class LogLevel
+    class DebugUtilsMessageMuteGuard final
     {
-        Critical,
-        Warning,
-        Info,
-        Debug,
+    public:
+        void unmute();
+        bool empty() const;
+
+        ~DebugUtilsMessageMuteGuard();
+
+    private:
+        struct Impl;
+
+        friend Renderer;
+
+        static constexpr std::size_t kSize = 40;
+        static constexpr std::size_t kAlignment = 8;
+        utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+
+        template<typename... Args>
+        DebugUtilsMessageMuteGuard(Args &&... args) noexcept;
     };
 
-    struct DebugUtilsMessageMuteGuard
-    {
-        std::shared_mutex & mutex;
-        std::unordered_multiset<std::int32_t> & mutedMessageIdNumbers;
-        std::optional<std::int32_t> messageIdNumber;
-
-        bool unmute()
-        {
-            if (!messageIdNumber) {
-                return false;
-            }
-            std::unique_lock<std::shared_mutex> lock{mutex};
-            auto m = mutedMessageIdNumbers.find(*messageIdNumber);
-            messageIdNumber.reset();
-            if (m == mutedMessageIdNumbers.end()) {
-                return false;
-            }
-            mutedMessageIdNumbers.erase(m);
-            return true;
-        }
-
-        bool empty() const
-        {
-            return !messageIdNumber;
-        }
-
-        ~DebugUtilsMessageMuteGuard()
-        {
-            unmute();
-        }
-    };
-
-    Renderer();
+    Renderer(std::vector<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
     ~Renderer();
 
-    Renderer(const Renderer &) = delete;
-    Renderer(Renderer &&) = delete;
-    void operator=(const Renderer &) = delete;
-    void operator=(Renderer &&) = delete;
-
-    DebugUtilsMessageMuteGuard muteDebugUtilsMessage(std::int32_t messageIdNumber, std::optional<bool> enabled = {}) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::vector<uint32_t> messageIdNumbers, bool enabled = true);
 
     void addRequiredInstanceExtensions(const std::vector<const char *> & requiredInstanceExtensions);
     void addRequiredDeviceExtensions(const std::vector<const char *> & requiredDeviceExtensions);
@@ -83,20 +64,12 @@ public:
 private:
     struct Impl;
 
-    mutable std::shared_mutex mutex;
-    mutable std::unordered_multiset<std::int32_t> mutedMessageIdNumbers;
-
-    std::vector<const char *> requiredInstanceExtensions;
-    std::vector<const char *> requiredDeviceExtensions;
-
-    static constexpr std::size_t kSize = 48;
+    static constexpr std::size_t kSize = 232;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
     vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
-
-    virtual vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
-    virtual void log(std::string_view message, LogLevel logLevel = LogLevel::Info) const;
+    vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 };
 
 }  // namespace renderer

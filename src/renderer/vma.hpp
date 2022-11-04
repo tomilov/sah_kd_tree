@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/fast_pimpl.hpp>
+#include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -15,7 +16,7 @@
 namespace renderer
 {
 
-class MemoryAllocator final
+class MemoryAllocator final : utils::NonCopyable
 {
 public:
     struct CreateInfo
@@ -46,11 +47,6 @@ public:
     MemoryAllocator(const CreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
                     uint32_t deviceApiVersion, vk::Device device);
     ~MemoryAllocator();
-
-    MemoryAllocator(const MemoryAllocator &) = delete;
-    MemoryAllocator(MemoryAllocator &&) = delete;
-    void operator=(const MemoryAllocator &) = delete;
-    void operator=(MemoryAllocator &&) = delete;
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
     vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;

@@ -2,8 +2,11 @@
 #include <renderer/exception.hpp>
 #include <renderer/format.hpp>
 #include <renderer/renderer.hpp>
+#include <renderer/utils.hpp>
 #include <renderer/vma.hpp>
 #include <utils/assert.hpp>
+#include <utils/noncopyable.hpp>
+#include <utils/pp.hpp>
 
 #include <common/config.hpp>
 #include <common/version.hpp>
@@ -14,8 +17,9 @@
 #include <algorithm>
 #include <bitset>
 #include <initializer_list>
-#include <iostream>
+#include <iterator>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string_view>
@@ -26,7 +30,7 @@
 namespace renderer
 {
 
-struct Renderer::Impl final
+struct Renderer::Impl final : utils::NonCopyable
 {
     using StringUnorderedSet = std::unordered_set<const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
     using StringUnorderedMultiMap = std::unordered_multimap<const char *, const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
@@ -40,6 +44,14 @@ struct Renderer::Impl final
     struct Queue;
     struct Queues;
 
+    mutable std::mutex mutex;
+    std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
+
+    const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
+
+    std::vector<const char *> requiredInstanceExtensions;
+    std::vector<const char *> requiredDeviceExtensions;
+
     std::unique_ptr<Library> library;
     std::unique_ptr<Instance> instance;
     std::unique_ptr<PhysicalDevices> physicalDevices;
@@ -47,40 +59,32 @@ struct Renderer::Impl final
     std::unique_ptr<MemoryAllocator> memoryAllocator;
     std::unique_ptr<Queues> queues;
 
-    Impl() = default;
+    Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute);
 
-    Impl(const Impl &) = delete;
-    Impl(Impl &&) = delete;
-    void operator=(const Impl &) = delete;
-    void operator=(Impl &&) = delete;
+    DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::vector<uint32_t> & messageIdNumbers, bool enabled);
 
     void createInstance(Renderer & renderer, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
     void createDevice(Renderer & renderer, vk::SurfaceKHR surface);
 };
 
-Renderer::Renderer() = default;
+Renderer::Renderer(std::vector<uint32_t> mutedMessageIdNumbers, bool mute) : impl_{mutedMessageIdNumbers, mute}
+{}
+
 Renderer::~Renderer() = default;
 
-auto Renderer::muteDebugUtilsMessage(int32_t messageIdNumber, std::optional<bool> enabled) const -> DebugUtilsMessageMuteGuard
+auto Renderer::muteDebugUtilsMessages(std::vector<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
 {
-    if (!enabled.value_or(false)) {
-        return {mutex, mutedMessageIdNumbers, std::nullopt};
-    }
-    {
-        std::unique_lock<std::shared_mutex> lock{mutex};
-        mutedMessageIdNumbers.insert(messageIdNumber);
-    }
-    return {mutex, mutedMessageIdNumbers, messageIdNumber};
+    return impl_->muteDebugUtilsMessages(messageIdNumbers, enabled);
 }
 
 void Renderer::addRequiredInstanceExtensions(const std::vector<const char *> & requiredInstanceExtensions)
 {
-    this->requiredInstanceExtensions.insert(std::cend(this->requiredInstanceExtensions), std::cbegin(requiredInstanceExtensions), std::cend(requiredInstanceExtensions));
+    impl_->requiredInstanceExtensions.insert(std::cend(impl_->requiredInstanceExtensions), std::cbegin(requiredInstanceExtensions), std::cend(requiredInstanceExtensions));
 }
 
 void Renderer::addRequiredDeviceExtensions(const std::vector<const char *> & requiredDeviceExtensions)
 {
-    this->requiredDeviceExtensions.insert(std::cend(this->requiredDeviceExtensions), std::cbegin(requiredDeviceExtensions), std::cend(requiredDeviceExtensions));
+    impl_->requiredDeviceExtensions.insert(std::cend(impl_->requiredDeviceExtensions), std::cbegin(requiredDeviceExtensions), std::cend(requiredDeviceExtensions));
 }
 
 void Renderer::createInstance(const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
@@ -93,25 +97,20 @@ void Renderer::createDevice(vk::SurfaceKHR surface)
     return impl_->createDevice(*this, surface);
 }
 
-struct Renderer::Impl::Library
+struct Renderer::Impl::Library final : utils::NonCopyable
 {
     Renderer & renderer;
 
     vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
-#if defined(VK_NO_PROTOTYPES)
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     vk::DynamicLoader dl;
 #endif
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 
     Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
-
-    Library(const Library &) = delete;
-    Library(Library &&) = delete;
-    void operator=(const Library &) = delete;
-    void operator=(Library &&) = delete;
 };
 
-struct Renderer::Impl::Instance
+struct Renderer::Impl::Instance final : utils::NonCopyable
 {
     Renderer & renderer;
     Library & library;
@@ -136,19 +135,16 @@ struct Renderer::Impl::Instance
     std::vector<vk::ValidationFeatureDisableEXT> disabledValidationFeatures;
 
     vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT, vk::ValidationFeaturesEXT> instanceCreateInfoChain;
-    vk::UniqueInstance instance;
+    vk::UniqueInstance instanceHolder;
+    vk::Instance instance;
+
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
     Instance(Renderer & renderer, Library & library, const char * applicationName, uint32_t applicationVersion);
 
-    Instance(const Instance &) = delete;
-    Instance(Instance &&) = delete;
-    void operator=(const Instance &) = delete;
-    void operator=(Instance &&) = delete;
-
     std::vector<vk::PhysicalDevice> getPhysicalDevices() const
     {
-        return instance->enumeratePhysicalDevices(library.dispatcher);
+        return instance.enumeratePhysicalDevices(library.dispatcher);
     }
 
     template<typename Object>
@@ -165,18 +161,18 @@ struct Renderer::Impl::Instance
 
     void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
     {
-        instance->submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.dispatcher);
+        instance.submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.dispatcher);
     }
 };
 
-struct Renderer::Impl::QueueCreateInfo
+struct Renderer::Impl::QueueCreateInfo final
 {
     const char * name = "";
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     std::size_t index = std::numeric_limits<std::size_t>::max();
 };
 
-struct Renderer::Impl::PhysicalDevice
+struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
 {
     Renderer & renderer;
     Library & library;
@@ -232,11 +228,6 @@ struct Renderer::Impl::PhysicalDevice
 
     PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice);
 
-    PhysicalDevice(const PhysicalDevice &) = delete;
-    PhysicalDevice(PhysicalDevice &&) = delete;
-    void operator=(const PhysicalDevice &) = delete;
-    void operator=(PhysicalDevice &&) = delete;
-
     StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
     uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
     bool configureQueuesIfSuitable(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
@@ -244,7 +235,7 @@ struct Renderer::Impl::PhysicalDevice
     bool enableExtensionIfAvailable(const char * extensionName);
 };
 
-struct Renderer::Impl::PhysicalDevices
+struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
 {
     Renderer & renderer;
     Library & library;
@@ -254,15 +245,10 @@ struct Renderer::Impl::PhysicalDevices
 
     PhysicalDevices(Renderer & renderer, Library & library, Instance & instance);
 
-    PhysicalDevices(const PhysicalDevices &) = delete;
-    PhysicalDevices(PhysicalDevices &&) = delete;
-    void operator=(const PhysicalDevices &) = delete;
-    void operator=(PhysicalDevices &&) = delete;
-
     PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
 };
 
-struct Renderer::Impl::Device
+struct Renderer::Impl::Device final : utils::NonCopyable
 {
     Renderer & renderer;
     Library & library;
@@ -270,20 +256,15 @@ struct Renderer::Impl::Device
     PhysicalDevice & physicalDevice;
 
     vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR> deviceCreateInfoChain;
-
-    vk::UniqueDevice device;
+    vk::UniqueDevice deviceHolder;
+    vk::Device device;
 
     Device(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
 
-    Device(const Device &) = delete;
-    Device(Device &&) = delete;
-    void operator=(const Device &) = delete;
-    void operator=(Device &&) = delete;
-
     std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const
     {
-        return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library.allocationCallbacks, library.dispatcher, *instance.instance, physicalDevice.physicalDevice, physicalDevice.apiVersion,
-                                                 *device);
+        return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library.allocationCallbacks, library.dispatcher, instance.instance, physicalDevice.physicalDevice, physicalDevice.apiVersion,
+                                                 device);
     }
 
     template<typename Object>
@@ -293,7 +274,7 @@ struct Renderer::Impl::Device
         debugUtilsObjectNameInfo.objectType = object.objectType;
         debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
         debugUtilsObjectNameInfo.pObjectName = objectName;
-        device->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.dispatcher);
+        device.setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.dispatcher);
     }
 
     template<typename Object>
@@ -305,7 +286,7 @@ struct Renderer::Impl::Device
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.tagSize = tagSize;
         debugUtilsObjectTagInfo.pTag = tag;
-        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+        device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
     }
 
     template<typename Object, typename T>
@@ -316,7 +297,7 @@ struct Renderer::Impl::Device
         debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.setTag(tag);
-        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+        device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
     }
 
     template<typename Object, typename T>
@@ -328,7 +309,7 @@ struct Renderer::Impl::Device
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.tagSize = std::size(tag);
         debugUtilsObjectTagInfo.pTag = std::data(tag);
-        device->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+        device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
     }
 
     template<typename Object, typename... ChainElements>
@@ -344,7 +325,7 @@ struct Renderer::Impl::Device
     }
 };
 
-struct Renderer::Impl::Queue
+struct Renderer::Impl::Queue final : utils::NonCopyable
 {
     Renderer & renderer;
     Library & library;
@@ -358,7 +339,7 @@ struct Renderer::Impl::Queue
     Queue(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device)
         : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}
     {
-        queue = device.device->getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, library.dispatcher);
+        queue = device.device.getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, library.dispatcher);
         device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
     }
 
@@ -366,11 +347,6 @@ struct Renderer::Impl::Queue
     {
         waitIdle();
     }
-
-    Queue(const Queue &) = delete;
-    Queue(Queue &&) = delete;
-    void operator=(const Queue &) = delete;
-    void operator=(Queue &&) = delete;
 
     void submit(const vk::SubmitInfo & submitInfo, vk::Fence fence = {}) const
     {
@@ -388,7 +364,7 @@ struct Renderer::Impl::Queue
     }
 };
 
-struct Renderer::Impl::Queues
+struct Renderer::Impl::Queues final : utils::NonCopyable
 {
     Queue graphics;
     Queue compute;
@@ -402,11 +378,6 @@ struct Renderer::Impl::Queues
         , transferDeviceToHost{renderer, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device}
     {}
 
-    Queues(const Queues &) = delete;
-    Queues(Queues &&) = delete;
-    void operator=(const Queues &) = delete;
-    void operator=(Queues &&) = delete;
-
     void waitIdle() const
     {
         graphics.waitIdle();
@@ -415,6 +386,67 @@ struct Renderer::Impl::Queues
         transferDeviceToHost.waitIdle();
     }
 };
+
+struct Renderer::DebugUtilsMessageMuteGuard::Impl
+{
+    std::mutex & mutex;
+    std::unordered_multiset<uint32_t> & mutedMessageIdNumbers;
+    std::vector<uint32_t> messageIdNumbers;
+
+    void unmute();
+};
+
+template<typename... Args>
+Renderer::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) noexcept : impl_{std::forward<Args>(args)...}
+{}
+
+Renderer::Impl::Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+{}
+
+auto Renderer::Impl::muteDebugUtilsMessages(std::vector<uint32_t> & messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
+{
+    if (!enabled) {
+        return {mutex, mutedMessageIdNumbers, std::initializer_list<uint32_t>{}};
+    }
+    {
+        std::lock_guard<std::mutex> lock{mutex};
+        mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
+    }
+    return {mutex, mutedMessageIdNumbers, std::move(messageIdNumbers)};
+}
+
+void Renderer::DebugUtilsMessageMuteGuard::unmute()
+{
+    return impl_->unmute();
+}
+
+bool Renderer::DebugUtilsMessageMuteGuard::empty() const
+{
+    return impl_->messageIdNumbers.empty();
+}
+
+Renderer::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
+{
+    unmute();
+}
+
+void Renderer::DebugUtilsMessageMuteGuard::Impl::unmute()
+{
+    if (messageIdNumbers.empty()) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock{mutex};
+        while (!messageIdNumbers.empty()) {
+            auto messageIdNumber = messageIdNumbers.back();
+            auto m = mutedMessageIdNumbers.find(messageIdNumber);
+            messageIdNumbers.pop_back();
+            INVARIANT(m != mutedMessageIdNumbers.end(), "messageId {} of muted message is not found", messageIdNumber);
+            mutedMessageIdNumbers.erase(m);
+        }
+    }
+    messageIdNumbers.clear();
+}
 
 void Renderer::Impl::createInstance(Renderer & renderer, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
 {
@@ -433,29 +465,38 @@ void Renderer::Impl::createDevice(Renderer & renderer, vk::SurfaceKHR surface)
 Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
     : renderer{renderer}
     , allocationCallbacks{allocationCallbacks}
-#if VK_NO_PROTOTYPES
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     , dl{libraryName}
 #endif
 {
-#if VK_NO_PROTOTYPES
-    INVARIANT(dl.success(), "Vulkan library is not load, cannot continue");
+    renderer.log(LogLevel::Debug, "VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}", STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE));
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
+    INVARIANT(dl.success(), "Vulkan library is not loaded, cannot continue");
     dispatcher.init(dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
-#else
+#elif !VK_NO_PROTOTYPES
     dispatcher.init(vkGetInstanceProcAddr);
+#else
+#error "Cannot initialize vkGetInstanceProcAddr"
+#endif
 #endif
 }
 
 Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const char * applicationName, uint32_t applicationVersion) : renderer{renderer}, library{library}
 {
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     if (library.dispatcher.vkEnumerateInstanceVersion) {
         apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
     }
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), fmt::format("Expected Vulkan version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion)));
+#else
+    apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
+#endif
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
 
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, fmt::format("Duplicated extension '{}'", extensionProperties.extensionName));
+            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
@@ -477,16 +518,16 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(fmt::format("Tried to enable instance layer '{}' second time", layerName), LogLevel::Warning);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' second time", layerName);
             }
             return true;
         };
 
         if (!enableLayerIfAvailable("VK_LAYER_LUNARG_monitor")) {
-            renderer.log("VK_LAYER_LUNARG_monitor is not available", LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "VK_LAYER_LUNARG_monitor is not available");
         }
         if (!enableLayerIfAvailable("VK_LAYER_MANGOHUD_overlay")) {
-            renderer.log("VK_LAYER_MANGOHUD_overlay is not available", LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "VK_LAYER_MANGOHUD_overlay is not available");
         }
     }
 
@@ -496,7 +537,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
             }
             return true;
         }
@@ -506,12 +547,12 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(fmt::format("Tried to enable instance layer '{}' second time", layerName), LogLevel::Warning);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' second time", layerName);
             }
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
             }
             return true;
         }
@@ -519,10 +560,10 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     };
     if (sah_kd_tree::kIsDebugBuild) {
         if (!enableExtensionIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            renderer.log(VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build", LogLevel::Warning);
+            renderer.log(LogLevel::Warning, VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build");
         } else {
             if (!enableExtensionIfAvailable(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
-                renderer.log(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build", LogLevel::Warning);
+                renderer.log(LogLevel::Warning, VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
             }
         }
         if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
@@ -540,12 +581,12 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             validationFeatures.setDisabledValidationFeatures(disabledValidationFeatures);
         } else {
             instanceCreateInfoChain.unlink<vk::ValidationFeaturesEXT>();
-            renderer.log("Validation features instance extension is not available in debug build", LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "Validation features instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : renderer.requiredInstanceExtensions) {
+    for (const char * requiredExtension : renderer.impl_->requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, fmt::format("Instance extension '{}' is not available", requiredExtension));
+            INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
         }
     }
 
@@ -578,13 +619,16 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto messageMuteGuard = renderer.muteDebugUtilsMessage(0x822806FA, sah_kd_tree::kIsDebugBuild);
-        instance = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
+        auto mute0x822806FA = renderer.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
+        instance = *instanceHolder;
     }
-    library.dispatcher.init(*instance);
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+    library.dispatcher.init(instance);
+#endif
 
     instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
-    debugUtilsMessenger = instance->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
+    debugUtilsMessenger = instance.createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
     instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
 }
 
@@ -593,7 +637,7 @@ Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & li
     extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, fmt::format("Duplicated extension '{}'", extensionProperties.extensionName));
+            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
@@ -607,7 +651,7 @@ Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & li
     auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
     physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), fmt::format("Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion)));
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
 
     auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
     physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
@@ -682,7 +726,7 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
     if (sah_kd_tree::kIsDebugBuild) {
         for (const auto & physicalDeviceFeature : DebugFeatures::physicalDeviceFeatures) {
             if (physicalDeviceFeatures.*physicalDeviceFeature == VK_FALSE) {
-                renderer.log(fmt::format("PhysicalDeviceFeatures2 feature #{} is not available", &physicalDeviceFeature - std::data(DebugFeatures::physicalDeviceFeatures)), LogLevel::Critical);
+                renderer.log(LogLevel::Critical, "PhysicalDeviceFeatures2 feature #{} is not available", &physicalDeviceFeature - std::data(DebugFeatures::physicalDeviceFeatures));
                 return false;
             }
         }
@@ -690,7 +734,7 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
     auto & physicalDeviceVulkan12Features = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>();
     for (const auto & physicalDeviceVulkan12Feature : RequiredFeatures::physicalDeviceVulkan12Features) {
         if (physicalDeviceVulkan12Features.*physicalDeviceVulkan12Feature == VK_FALSE) {
-            renderer.log(fmt::format("PhysicalDeviceVulkan12Features feature #{} is not available", &physicalDeviceVulkan12Feature - std::data(RequiredFeatures::physicalDeviceVulkan12Features)), LogLevel::Critical);
+            renderer.log(LogLevel::Critical, "PhysicalDeviceVulkan12Features feature #{} is not available", &physicalDeviceVulkan12Feature - std::data(RequiredFeatures::physicalDeviceVulkan12Features));
             return false;
         }
     }
@@ -700,7 +744,7 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
         return false;
     }
 
-    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(renderer.requiredDeviceExtensions);
+    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(renderer.impl_->requiredDeviceExtensions);
     if (!externalExtensionsCannotBeEnabled.empty()) {
         return false;
     }
@@ -753,7 +797,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
         }
         return true;
     }
@@ -761,12 +805,12 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
     if (extensionLayer != extensionLayers.end()) {
         const char * layerName = extensionLayer->second;
         if (!instance.enabledLayerSet.contains(layerName)) {
-            INVARIANT(false, fmt::format("Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName));
+            INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
         }
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(fmt::format("Tried to enable instance extension '{}' second time", extensionName), LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
         }
         return true;
     }
@@ -810,22 +854,22 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, fmt::format("Device extension '{}' should be available after checks", requiredExtension));
+            INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
         }
     }
-    for (const char * requiredExtension : renderer.requiredDeviceExtensions) {
+    for (const char * requiredExtension : renderer.impl_->requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, fmt::format("Device extension '{}' (configuration requirements) should be available after checks", requiredExtension));
+            INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
         }
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
-            renderer.log(fmt::format("Device extension '{}' is not available", optionalExtension), LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "Device extension '{}' is not available", optionalExtension);
         }
     }
     for (const char * optionalVmaExtension : MemoryAllocator::CreateInfo::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalVmaExtension)) {
-            renderer.log(fmt::format("Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension), LogLevel::Warning);
+            renderer.log(LogLevel::Warning, "Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension);
         }
     }
 
@@ -833,9 +877,12 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
     deviceCreateInfo.setQueueCreateInfos(physicalDevice.deviceQueueCreateInfos);
     deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.enabledExtensions);
 
-    device = physicalDevice.physicalDevice.createDeviceUnique(deviceCreateInfo, library.allocationCallbacks, library.dispatcher);
-    library.dispatcher.init(*device);
-    setDebugUtilsObjectName(*device, "SAH kd-tree renderer compatible device");
+    deviceHolder = physicalDevice.physicalDevice.createDeviceUnique(deviceCreateInfo, library.allocationCallbacks, library.dispatcher);
+    device = *deviceHolder;
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+    library.dispatcher.init(device);
+#endif
+    setDebugUtilsObjectName(device, "SAH kd-tree renderer compatible device");
 
     if ((false)) {
         vk::ArrayProxyNoTemporaries<const uint8_t> initialData;
@@ -843,7 +890,7 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
         vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
         // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized;
         pipelineCacheCreateInfo.setInitialData(initialData);
-        pipelineCache = device->createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+        pipelineCache = device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
         setDebugUtilsObjectName(*pipelineCache, "SAH kd-tree renderer pipeline cache");
         /*
             std::vector<uint8_t> getPipelineCacheData() const
@@ -857,8 +904,9 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
 vk::Bool32 Renderer::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
     {
-        std::shared_lock<std::shared_mutex> lock{mutex};
-        if (mutedMessageIdNumbers.contains(callbackData.messageIdNumber)) {
+        std::lock_guard<std::mutex> lock{impl_->mutex};
+        auto messageIdNumber = uint32_t(callbackData.messageIdNumber);
+        if (impl_->mutedMessageIdNumbers.contains(messageIdNumber)) {
             return VK_FALSE;
         }
     }
@@ -867,7 +915,7 @@ vk::Bool32 Renderer::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverity
 
 vk::Instance Renderer::getInstance() const
 {
-    return *impl_->instance->instance;
+    return impl_->instance->instance;
 }
 
 vk::PhysicalDevice Renderer::getPhysicalDevice() const
@@ -877,7 +925,7 @@ vk::PhysicalDevice Renderer::getPhysicalDevice() const
 
 vk::Device Renderer::getDevice() const
 {
-    return *impl_->device->device;
+    return impl_->device->device;
 }
 
 uint32_t Renderer::getGraphicsQueueFamilyIndex() const
@@ -892,76 +940,57 @@ uint32_t Renderer::getGraphicsQueueIndex() const
 
 vk::Bool32 Renderer::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    using BitsType = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-    using FlagsType = vk::Flags<decltype(messageSeverity)>;
-    using MaskType = FlagsType::MaskType;
-    auto mask = MaskType(messageSeverity);
-    if ((mask == 0) || ((mask & (mask - 1)) != 0)) {
-        log(fmt::format("Expected single bit set: {}", FlagsType(messageSeverity)), LogLevel::Warning);
+    using MessageSeverityBitsType = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+    using MessageSeverityFlagsType = vk::Flags<decltype(messageSeverity)>;
+    using MessageSeverityMaskType = MessageSeverityFlagsType::MaskType;
+    constexpr auto messageSeverityMaskAllBits = MessageSeverityMaskType(vk::FlagTraits<MessageSeverityBitsType>::allFlags);
+    auto messageSeverityMask = MessageSeverityMaskType(messageSeverity);
+    if (std::bitset<std::numeric_limits<MessageSeverityMaskType>::digits>{messageSeverityMask}.count() != 1) {
+        log(LogLevel::Warning, "Expected single bit set: {:b}", MessageSeverityMaskType(messageSeverity));
     }
-    constexpr auto allBits = fmt::underlying(vk::FlagTraits<BitsType>::allFlags);
-    if ((mask & ~allBits) != 0) {
-        log(fmt::format("Unknown bit(s) set: {:b}", fmt::underlying(messageSeverity)), LogLevel::Warning);
+    if ((messageSeverityMask & ~messageSeverityMaskAllBits) != 0) {
+        log(LogLevel::Warning, "Unknown bit(s) set: {:b}", MessageSeverityMaskType(messageSeverity));
+    }
+    auto logLevel = [messageSeverity] {
+        switch (messageSeverity) {
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+            return LogLevel::Debug;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+            return LogLevel::Info;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+            return LogLevel::Warning;
+        }
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+            return LogLevel::Critical;
+        }
+        }
+    }();
+    if (!checkLogLevel(logLevel)) {
+        return VK_FALSE;
     }
     static const std::size_t messageSeverityMaxLength = [] {
+        using FlagBitsType = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+        using MaskType = vk::Flags<FlagBitsType>::MaskType;
+        auto messageSeverityMask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
         std::size_t messageSeverityMaxLength = 0;
-        auto mask = allBits;
-        while (mask != 0) {
-            auto bit = (mask & (mask - 1)) ^ mask;
-            std::size_t messageSeverityLength = fmt::formatted_size("{}", BitsType{bit});
+        while (messageSeverityMask != 0) {
+            auto bit = (messageSeverityMask & (messageSeverityMask - 1)) ^ messageSeverityMask;
+            std::size_t messageSeverityLength = fmt::formatted_size("{}", FlagBitsType{bit});
             if (messageSeverityMaxLength < messageSeverityLength) {
                 messageSeverityMaxLength = messageSeverityLength;
             }
-            mask &= mask - 1;
+            messageSeverityMask &= messageSeverityMask - 1;
         }
         return messageSeverityMaxLength;
     }();
     auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
     auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
-    auto message = fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
-                               std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
-    switch (messageSeverity) {
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-        log(message, LogLevel::Debug);
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-        log(message, LogLevel::Info);
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-        log(message, LogLevel::Warning);
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-        log(message, LogLevel::Critical);
-        break;
-    }
-    }
+    log(logLevel, "[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
+        std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
     return VK_FALSE;
-}
-
-void Renderer::log(std::string_view message, LogLevel logLevel) const
-{
-    switch (logLevel) {
-    case LogLevel::Critical: {
-        std::cerr << message << std::endl;
-        break;
-    }
-    case LogLevel::Warning: {
-        std::clog << message << std::endl;
-        break;
-    }
-    case LogLevel::Info: {
-        std::cout << message << std::endl;
-        break;
-    }
-    case LogLevel::Debug: {
-        std::cout << message << std::endl;
-        break;
-    }
-    }
 }
 
 }  // namespace renderer
