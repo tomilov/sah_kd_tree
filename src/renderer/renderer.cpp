@@ -188,9 +188,13 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
     StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 
-    vk::StructureChain<vk::PhysicalDeviceProperties2> physicalDeviceProperties2Chain;
+    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
+                       vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
+        physicalDeviceProperties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR> physicalDeviceFeatures2Chain;
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+                       vk::PhysicalDeviceMeshShaderFeaturesNV>
+        physicalDeviceFeatures2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> physicalDeviceMemoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
 
@@ -203,17 +207,28 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
 
     struct RequiredFeatures
     {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {};
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> physicalDeviceVulkan11Features = {};
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> physicalDeviceVulkan12Features = {
             &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray, &vk::PhysicalDeviceVulkan12Features::shaderSampledImageArrayNonUniformIndexing,
             &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,      &vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
             &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
         };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*> rayTracingPipelineFeatures = {
+            &vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*> physicalDeviceAccelerationStructureFeatures = {
+            &vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesNV::*> physicalDeviceMeshShaderFeatures = {
+            &vk::PhysicalDeviceMeshShaderFeaturesNV::meshShader,
+            &vk::PhysicalDeviceMeshShaderFeaturesNV::taskShader,
+        };
     };
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
-        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,       VK_NV_MESH_SHADER_EXTENSION_NAME,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {};
 
@@ -255,7 +270,9 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     Instance & instance;
     PhysicalDevice & physicalDevice;
 
-    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR> deviceCreateInfoChain;
+    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+                       vk::PhysicalDeviceMeshShaderFeaturesNV>
+        deviceCreateInfoChain;
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
@@ -469,7 +486,8 @@ Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::All
     , dl{libraryName}
 #endif
 {
-    renderer.log(LogLevel::Debug, "VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}", STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE));
+    using namespace std::string_view_literals;
+    renderer.log(LogLevel::Debug, "VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     INVARIANT(dl.success(), "Vulkan library is not loaded, cannot continue");
@@ -501,6 +519,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     }
 
     layerProperties = vk::enumerateInstanceLayerProperties(library.dispatcher);
+    layerExtensionPropertyLists.reserve(layerProperties.size());
     for (const vk::LayerProperties & layer : layerProperties) {
         layers.insert(layer.layerName);
         layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.dispatcher));
@@ -518,7 +537,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' second time", layerName);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' twjc", layerName);
             }
             return true;
         };
@@ -537,7 +556,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twjc", extensionName);
             }
             return true;
         }
@@ -547,12 +566,12 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' second time", layerName);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' twice", layerName);
             }
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
+                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
             }
             return true;
         }
@@ -641,6 +660,7 @@ Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & li
         }
     }
 
+    layerExtensionPropertyLists.reserve(instance.layers.size());
     for (const char * layerName : instance.layers) {
         layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.dispatcher));
         for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
@@ -697,7 +717,8 @@ uint32_t Renderer::Impl::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQ
                 continue;
             }
         }
-        auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags);
+        // auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags); // TODO: change at fix
+        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(vk::QueueFlags::MaskType(desiredQueueFlags) ^ vk::QueueFlags::MaskType(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
         if (!currentExtraQueueFlags) {
             bestMatchQueueFamily = queueFamilyIndex;
             bestMatchQueueFalgs = queueFlags;
@@ -722,21 +743,37 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
         return false;
     }
 
-    const auto & physicalDeviceFeatures = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features;
-    if (sah_kd_tree::kIsDebugBuild) {
-        for (const auto & physicalDeviceFeature : DebugFeatures::physicalDeviceFeatures) {
-            if (physicalDeviceFeatures.*physicalDeviceFeature == VK_FALSE) {
-                renderer.log(LogLevel::Critical, "PhysicalDeviceFeatures2 feature #{} is not available", &physicalDeviceFeature - std::data(DebugFeatures::physicalDeviceFeatures));
+    const auto checkFeaturesCanBeEnabled = [this](const auto & pointers, auto & features) -> bool {
+        for (const auto & p : pointers) {
+            if (features.*p == VK_FALSE) {
+                renderer.log(LogLevel::Critical, "Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
                 return false;
             }
         }
-    }
-    auto & physicalDeviceVulkan12Features = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>();
-    for (const auto & physicalDeviceVulkan12Feature : RequiredFeatures::physicalDeviceVulkan12Features) {
-        if (physicalDeviceVulkan12Features.*physicalDeviceVulkan12Feature == VK_FALSE) {
-            renderer.log(LogLevel::Critical, "PhysicalDeviceVulkan12Features feature #{} is not available", &physicalDeviceVulkan12Feature - std::data(RequiredFeatures::physicalDeviceVulkan12Features));
+        return true;
+    };
+    if (sah_kd_tree::kIsDebugBuild) {
+        if (!checkFeaturesCanBeEnabled(DebugFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
             return false;
         }
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
+        return false;
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan11Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan11Features>())) {
+        return false;
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan12Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>())) {
+        return false;
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
+        return false;
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
+        return false;
+    }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceMeshShaderFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesNV>())) {
+        return false;
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
@@ -780,11 +817,17 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
     }
 
     deviceQueueCreateInfos.reserve(usedQueueFamilySizes.size());
+    deviceQueuesPriorities.reserve(usedQueueFamilySizes.size());
     for (auto [queueFamilyIndex, queueCount] : usedQueueFamilySizes) {
         auto & deviceQueueCreateInfo = deviceQueueCreateInfos.emplace_back();
         deviceQueueCreateInfo.queueFamilyIndex = queueFamilyIndex;
-        constexpr float kMaxQueuePriority = 1.0f;  // physicalDeviceLimits.discreteQueuePriorities == 2 is minimum required (0.0f and 1.0f)
-        const auto & deviceQueuePriorities = deviceQueuesPriorities.emplace_back(queueCount, kMaxQueuePriority);
+
+        bool isGraphicsQueue = queueFamilyIndex == graphicsQueueCreateInfo.familyIndex;
+        bool isComputeQueue = queueFamilyIndex == computeQueueCreateInfo.familyIndex;
+        // physicalDeviceLimits.discreteQueuePriorities == 2 is minimum required (0.0f and 1.0f)
+        float queuePriority = (isGraphicsQueue || isComputeQueue) ? 1.0f : 0.0f;
+
+        const auto & deviceQueuePriorities = deviceQueuesPriorities.emplace_back(queueCount, queuePriority);
         deviceQueueCreateInfo.setQueuePriorities(deviceQueuePriorities);
     }
     return true;
@@ -797,7 +840,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
+            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
         }
         return true;
     }
@@ -810,7 +853,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' second time", extensionName);
+            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
         }
         return true;
     }
@@ -841,16 +884,20 @@ auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface)
 
 Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
 {
-    auto & physicalDeviceFeatures = deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features;
-    if (sah_kd_tree::kIsDebugBuild) {
-        for (auto physicalDeviceFeature : PhysicalDevice::DebugFeatures::physicalDeviceFeatures) {
-            physicalDeviceFeatures.*physicalDeviceFeature = VK_TRUE;
+    const auto setFeatures = [](const auto & pointers, auto & features) {
+        for (auto p : pointers) {
+            features.*p = VK_TRUE;
         }
+    };
+    if (sah_kd_tree::kIsDebugBuild) {
+        setFeatures(PhysicalDevice::DebugFeatures::physicalDeviceFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
     }
-    auto & physicalDeviceVulkan12Features = deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>();
-    for (auto physicalDeviceVulkan12Feature : PhysicalDevice::RequiredFeatures::physicalDeviceVulkan12Features) {
-        physicalDeviceVulkan12Features.*physicalDeviceVulkan12Feature = VK_TRUE;
-    }
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceVulkan11Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan11Features>());
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceVulkan12Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>());
+    setFeatures(PhysicalDevice::RequiredFeatures::rayTracingPipelineFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>());
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceAccelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesNV>());
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
@@ -938,53 +985,37 @@ uint32_t Renderer::getGraphicsQueueIndex() const
     return impl_->device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
+void Renderer::load(scene::Scene & scene)
+{
+    (void)scene;
+}
+
+auto Renderer::convertMessageSeverityToLogLevel(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity) -> LogLevel
+{
+    switch (messageSeverity) {
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+        return LogLevel::Debug;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+        return LogLevel::Info;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+        return LogLevel::Warning;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+        return LogLevel::Critical;
+    }
+    }
+    INVARIANT(false, "Wrong value {:b} of DebugUtilsMessageSeverityFlagBitsEXT", fmt::underlying(messageSeverity));
+}
+
 vk::Bool32 Renderer::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    using MessageSeverityBitsType = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-    using MessageSeverityFlagsType = vk::Flags<decltype(messageSeverity)>;
-    using MessageSeverityMaskType = MessageSeverityFlagsType::MaskType;
-    constexpr auto messageSeverityMaskAllBits = MessageSeverityMaskType(vk::FlagTraits<MessageSeverityBitsType>::allFlags);
-    auto messageSeverityMask = MessageSeverityMaskType(messageSeverity);
-    if (std::bitset<std::numeric_limits<MessageSeverityMaskType>::digits>{messageSeverityMask}.count() != 1) {
-        log(LogLevel::Warning, "Expected single bit set: {:b}", MessageSeverityMaskType(messageSeverity));
-    }
-    if ((messageSeverityMask & ~messageSeverityMaskAllBits) != 0) {
-        log(LogLevel::Warning, "Unknown bit(s) set: {:b}", MessageSeverityMaskType(messageSeverity));
-    }
-    auto logLevel = [messageSeverity] {
-        switch (messageSeverity) {
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-            return LogLevel::Debug;
-        }
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-            return LogLevel::Info;
-        }
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-            return LogLevel::Warning;
-        }
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-            return LogLevel::Critical;
-        }
-        }
-    }();
+    auto logLevel = convertMessageSeverityToLogLevel(messageSeverity);
     if (!checkLogLevel(logLevel)) {
         return VK_FALSE;
     }
-    static const std::size_t messageSeverityMaxLength = [] {
-        using FlagBitsType = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-        using MaskType = vk::Flags<FlagBitsType>::MaskType;
-        auto messageSeverityMask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
-        std::size_t messageSeverityMaxLength = 0;
-        while (messageSeverityMask != 0) {
-            auto bit = (messageSeverityMask & (messageSeverityMask - 1)) ^ messageSeverityMask;
-            std::size_t messageSeverityLength = fmt::formatted_size("{}", FlagBitsType{bit});
-            if (messageSeverityMaxLength < messageSeverityLength) {
-                messageSeverityMaxLength = messageSeverityLength;
-            }
-            messageSeverityMask &= messageSeverityMask - 1;
-        }
-        return messageSeverityMaxLength;
-    }();
+    static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
     auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
     auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");

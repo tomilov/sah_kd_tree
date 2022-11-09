@@ -1,4 +1,4 @@
-project("renderer")
+project("scene")
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -21,38 +21,14 @@ target_sources(
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp"
-        "vma.hpp"
-        "vma.cpp"
-        "exception.hpp"
-        "exception.cpp"
-        "debug_utils.hpp"
-        "debug_utils.cpp"
-        "utils.hpp"
-        "utils.cpp"
-        "memory.hpp"
-        "memory.cpp"
-        "format.hpp"
-        "format.cpp")
+        "${PROJECT_NAME}.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "libsah_kd_tree"
-        "libcommon"
         "gliInterface"
-        "VulkanMemoryAllocator"
     PUBLIC
-        "VulkanInterface"
-        "libscene"
+        "glmInterface"
         "libutils")
-
-set_property(
-    SOURCE
-        "vma.cpp"
-    PROPERTY COMPILE_DEFINITIONS
-        VMA_IMPLEMENTATION
-        VMA_STATIC_VULKAN_FUNCTIONS=0
-        VMA_DYNAMIC_VULKAN_FUNCTIONS=0)
 
 add_executable("${PROJECT_NAME}")
 target_sources(

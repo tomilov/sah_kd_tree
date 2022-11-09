@@ -29,4 +29,5 @@ target_link_libraries(
     PRIVATE
         assimp::assimp
     PUBLIC
-        Qt6::Core)
+        Qt6::Core
+        "libscene")

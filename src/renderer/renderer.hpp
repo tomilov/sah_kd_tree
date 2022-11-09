@@ -4,6 +4,7 @@
 #include <utils/fast_pimpl.hpp>
 #include <utils/log.hpp>
 #include <utils/noncopyable.hpp>
+#include <scene/scene.hpp>
 
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
@@ -61,6 +62,8 @@ public:
     uint32_t getGraphicsQueueFamilyIndex() const;
     uint32_t getGraphicsQueueIndex() const;
 
+    void load(scene::Scene & scene);
+
 private:
     struct Impl;
 
@@ -68,6 +71,7 @@ private:
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
+    static LogLevel convertMessageSeverityToLogLevel(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity);
     vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
     vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 };

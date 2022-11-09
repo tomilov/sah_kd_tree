@@ -10,6 +10,23 @@
 
 #include <cstdint>
 
+template<typename FlagBitsType>
+std::size_t getFlagBitsMaxNameLength()
+{
+    using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
+    auto messageSeverityMask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
+    std::size_t messageSeverityMaxLength = 0;
+    while (messageSeverityMask != 0) {
+        auto bit = (messageSeverityMask & (messageSeverityMask - 1)) ^ messageSeverityMask;
+        std::size_t messageSeverityLength = fmt::formatted_size("{}", FlagBitsType{bit});
+        if (messageSeverityMaxLength < messageSeverityLength) {
+            messageSeverityMaxLength = messageSeverityLength;
+        }
+        messageSeverityMask &= messageSeverityMask - 1;
+    }
+    return messageSeverityMaxLength;
+}
+
 template<typename T>
 struct fmt::formatter<T, char, std::void_t<decltype(vk::to_string(std::declval<const T &>()))>> : fmt::formatter<fmt::string_view>
 {
@@ -20,25 +37,25 @@ struct fmt::formatter<T, char, std::void_t<decltype(vk::to_string(std::declval<c
     }
 };
 
-template<typename T>
-struct fmt::formatter<vk::Flags<T>, char> : fmt::formatter<fmt::string_view>
+template<typename FlagBitsType>
+struct fmt::formatter<vk::Flags<FlagBitsType>, char> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Flags<T> & flags, FormatContext & ctx) const
+    auto format(const vk::Flags<FlagBitsType> & flags, FormatContext & ctx) const
     {
-        using FlagTraits = vk::FlagTraits<T>;
+        using FlagTraits = vk::FlagTraits<FlagBitsType>;
         static_assert(FlagTraits::isBitmask);
         auto out = ctx.out();
         if (!flags) {
             return out;
         }
-        using MaskType = typename vk::Flags<T>::MaskType;
+        using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
         constexpr auto allFlags = static_cast<MaskType>(FlagTraits::allFlags);
         auto mask = static_cast<MaskType>(flags);
         while (mask != 0) {
             const auto bit = (mask & (mask - 1)) ^ mask;
             if ((~allFlags & bit) == 0) {
-                out = fmt::format_to(out, "{}", T{bit});
+                out = fmt::format_to(out, "{}", FlagBitsType{bit});
             } else {
                 out = fmt::format_to(out, "{:#x}", bit);
             }

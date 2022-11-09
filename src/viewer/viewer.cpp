@@ -51,7 +51,7 @@ private:
 
 void Viewer::Impl::sync(QQuickWindow * window)
 {
-    INVARIANT(window, "Window should exists");
+    INVARIANT(window, "Window should exist");
     if (!m_renderer) {
         m_renderer = std::make_unique<ExampleRenderer>();
 
@@ -75,7 +75,7 @@ void Viewer::Impl::cleanup()
 
 void Viewer::Impl::releaseResources(QQuickWindow * window)
 {
-    INVARIANT(window, "Window should exists");
+    INVARIANT(window, "Window should exist");
     window->scheduleRenderJob(new CleanupJob{std::move(m_renderer)}, QQuickWindow::BeforeSynchronizingStage);
 }
 

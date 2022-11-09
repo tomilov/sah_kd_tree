@@ -1,11 +1,11 @@
 #pragma once
 
-#include <scene_loader/geometry_types.hpp>
 #include <scene_loader/scene_loader_export.h>
+
+#include <scene/scene.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
-#include <QtCore/QVector>
 
 #include <tuple>
 
@@ -22,6 +22,6 @@ struct SCENE_LOADER_EXPORT SceneLoader
 
     bool cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir);
 
-    QVector<Triangle> triangles;
+    scene::Scene scene;
 };
 }  // namespace scene_loader

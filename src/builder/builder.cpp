@@ -24,10 +24,11 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
     scene_loader::SceneLoader sceneLoader;
     QFileInfo sceneFileInfo{sceneFileName};
     if (!sceneLoader.load(sceneFileInfo)) {
+        qCDebug(builderLog).noquote() << QStringLiteral("Cannot load scene from file %1").arg(sceneFileName);
         return false;
     }
-    auto trianglesBegin = std::data(sceneLoader.triangles);
-    auto trianglesEnd = std::next(trianglesBegin, std::size(sceneLoader.triangles));
+    auto trianglesBegin = std::data(sceneLoader.scene.triangles);
+    auto trianglesEnd = std::next(trianglesBegin, std::size(sceneLoader.scene.triangles));
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 
@@ -36,10 +37,11 @@ bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float e
     scene_loader::SceneLoader sceneLoader;
     QFileInfo sceneFileInfo{sceneFileName};
     if (!sceneLoader.cachingLoad(sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+        qCDebug(builderLog).noquote() << QStringLiteral("Cannot load scene from file %1").arg(sceneFileName);
         return false;
     }
-    auto trianglesBegin = std::data(sceneLoader.triangles);
-    auto trianglesEnd = std::next(trianglesBegin, std::size(sceneLoader.triangles));
+    auto trianglesBegin = std::data(sceneLoader.scene.triangles);
+    auto trianglesEnd = std::next(trianglesBegin, std::size(sceneLoader.scene.triangles));
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 }  // namespace builder
