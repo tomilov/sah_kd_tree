@@ -56,6 +56,7 @@ target_compile_definitions(
         GLM_FORCE_PURE)
 
 
+add_subdirectory("gli")
 add_library("gliInterface" INTERFACE)
 target_include_directories(
     "gliInterface"
@@ -66,7 +67,9 @@ target_link_libraries(
     INTERFACE
         "glmInterface")
 
+    
 set(SPDLOG_FMT_EXTERNAL_HO ON)
 add_subdirectory("spdlog" EXCLUDE_FROM_ALL)
+
 
 add_subdirectory("fmt" EXCLUDE_FROM_ALL)

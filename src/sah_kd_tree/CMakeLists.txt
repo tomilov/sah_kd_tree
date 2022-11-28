@@ -46,6 +46,11 @@ target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC
         Thrust)
+target_compile_options(
+    "lib${PROJECT_NAME}"
+    PRIVATE
+        "-Wno-unused-parameter"
+        "-Wno-deprecated-copy")
 if(BUILD_FUZZER)
     target_compile_options(
         "lib${PROJECT_NAME}"

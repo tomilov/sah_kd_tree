@@ -14,17 +14,17 @@ template<typename FlagBitsType>
 std::size_t getFlagBitsMaxNameLength()
 {
     using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
-    auto messageSeverityMask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
-    std::size_t messageSeverityMaxLength = 0;
-    while (messageSeverityMask != 0) {
-        auto bit = (messageSeverityMask & (messageSeverityMask - 1)) ^ messageSeverityMask;
-        std::size_t messageSeverityLength = fmt::formatted_size("{}", FlagBitsType{bit});
-        if (messageSeverityMaxLength < messageSeverityLength) {
-            messageSeverityMaxLength = messageSeverityLength;
+    auto mask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
+    std::size_t maxLength = 0;
+    while (mask != 0) {
+        auto bit = (mask & (mask - 1)) ^ mask;
+        std::size_t length = fmt::formatted_size("{}", FlagBitsType{bit});
+        if (maxLength < length) {
+            maxLength = length;
         }
-        messageSeverityMask &= messageSeverityMask - 1;
+        mask &= mask - 1;
     }
-    return messageSeverityMaxLength;
+    return maxLength;
 }
 
 template<typename T>
@@ -75,7 +75,8 @@ struct fmt::formatter<vk::DebugUtilsLabelEXT> : fmt::formatter<fmt::string_view>
     auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
     {
         auto color = debugUtilsLabel.color;
-        auto rgb = fmt::rgb(255 * color[0], 255 * color[1], 255 * color[2]);
+        auto clamp = [](float color) -> uint8_t { return std::floor(std::numeric_limits<uint8_t>::max() * std::clamp(color, 0.0f, 1.0f)); };
+        auto rgb = fmt::rgb(clamp(color[0]), clamp(color[1]), clamp(color[2]));
         auto styledLabelName = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(rgb));
         return fmt::format_to(ctx.out(), "'{}'", styledLabelName);
     }

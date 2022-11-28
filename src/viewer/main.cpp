@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
 
     QVulkanInstance vulkanInstance;
     if (kUseRenderer) {
-        renderer.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
+        renderer.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         renderer.createInstance(APPLICATION_NAME, kApplicationVersion);
         vulkanInstance.setVkInstance(renderer.getInstance());

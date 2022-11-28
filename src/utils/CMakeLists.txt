@@ -27,8 +27,6 @@ target_sources(
         "noncopyable.cpp"
         "fast_pimpl.hpp"
         "fast_pimpl.cpp"
-        "log.hpp"
-        "log.cpp"
         "overloaded.hpp"
         "overloaded.cpp"
         "assert.hpp"

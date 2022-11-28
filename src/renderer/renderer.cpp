@@ -12,6 +12,8 @@
 #include <common/version.hpp>
 
 #include <fmt/format.h>
+#include <fmt/std.h>
+#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <algorithm>
@@ -23,9 +25,11 @@
 #include <optional>
 #include <sstream>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <span>
 
 namespace renderer
 {
@@ -41,6 +45,8 @@ struct Renderer::Impl final : utils::NonCopyable
     struct PhysicalDevice;
     struct PhysicalDevices;
     struct Device;
+    struct CommandBuffer;
+    struct CommandPools;
     struct Queue;
     struct Queues;
 
@@ -57,6 +63,7 @@ struct Renderer::Impl final : utils::NonCopyable
     std::unique_ptr<PhysicalDevices> physicalDevices;
     std::unique_ptr<Device> device;
     std::unique_ptr<MemoryAllocator> memoryAllocator;
+    std::unique_ptr<CommandPools> commandPools;
     std::unique_ptr<Queues> queues;
 
     Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute);
@@ -232,6 +239,12 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {};
 
+    vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo;
+    vk::SurfaceCapabilities2KHR surfaceCapabilities;
+    using SurfaceFormatChain = vk::StructureChain<vk::SurfaceFormat2KHR, vk::ImageCompressionPropertiesEXT>;
+    std::vector<SurfaceFormatChain> surfaceFormats;
+    std::vector<vk::PresentModeKHR> presentModes;
+
     std::vector<std::vector<float>> deviceQueuesPriorities;
     std::unordered_map<uint32_t /*queueFamilyIndex*/, std::size_t /*count*/> usedQueueFamilySizes;
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
@@ -245,7 +258,7 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
 
     StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
     uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
-    bool configureQueuesIfSuitable(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
+    bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
 
     bool enableExtensionIfAvailable(const char * extensionName);
 };
@@ -342,6 +355,53 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     }
 };
 
+struct Renderer::Impl::CommandPools : utils::NonCopyable
+{
+    Renderer & renderer;
+    Library & library;
+    Instance & instance;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    using CommandBufferInfo = std::pair<uint32_t/*queueFamilyIndex*/, vk::CommandBufferLevel>;
+
+    struct CommandBufferhash
+    {
+        std::size_t operator () (const CommandBufferInfo & commandBufferInfo) const noexcept
+        {
+            auto hash = std::hash<uint32_t>{}(commandBufferInfo.first);
+            using U = std::underlying_type_t<vk::CommandBufferLevel>;
+            hash ^= std::hash<U>{}(U(commandBufferInfo.second));
+            return hash;
+        }
+    };
+
+    using PerThreadCommandPool = std::unordered_map<CommandBufferInfo, vk::UniqueCommandPool, CommandBufferhash>;
+    using CommandPoolsType = std::unordered_map<std::thread::id, PerThreadCommandPool>;
+
+    std::mutex commandPoolsMutex;
+    CommandPoolsType commandPools;
+
+    CommandPools(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
+    {}
+
+    vk::CommandPool getCommandPool(const char * name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
+    {
+        std::lock_guard<std::mutex> lock{commandPoolsMutex};
+        auto threadId = std::this_thread::get_id();
+        auto & perThreadCommandPool = commandPools[threadId][{queueFamilyIndex, level}];
+        if (!perThreadCommandPool) {
+            vk::CommandPoolCreateInfo commandPoolCreateInfo;
+            commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndex;
+            commandPoolCreateInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+            perThreadCommandPool = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
+            auto commanPoolName = fmt::format("CommandPool '{}' {{ thread id {}, queue family {}, level {} }}", name, threadId, queueFamilyIndex, level);
+            device.setDebugUtilsObjectName(*perThreadCommandPool, commanPoolName.c_str());
+        }
+        return *perThreadCommandPool;
+    }
+};
+
 struct Renderer::Impl::Queue final : utils::NonCopyable
 {
     Renderer & renderer;
@@ -350,11 +410,12 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
     PhysicalDevice & physicalDevice;
     QueueCreateInfo & queueCreateInfo;
     Device & device;
+    CommandPools & commandPools;
 
     vk::Queue queue;
 
-    Queue(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device)
-        : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}
+    Queue(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device, CommandPools & commandPools)
+        : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}, commandPools{commandPools}
     {
         queue = device.device.getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, library.dispatcher);
         device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
@@ -379,6 +440,46 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
     {
         queue.waitIdle(library.dispatcher);
     }
+
+    std::vector<vk::UniqueCommandBuffer> allocateCommandBuffers(const char * name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    {
+        vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
+        commandBufferAllocateInfo.commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level);
+        commandBufferAllocateInfo.level = level;
+        commandBufferAllocateInfo.commandBufferCount = count;
+        auto commandBuffers = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
+        std::size_t i = 0;
+        for (const auto & commandBuffer : commandBuffers) {
+            auto commandBufferName = fmt::format("CommandBuffer '{}' #{}", name, i++);
+            device.setDebugUtilsObjectName(*commandBuffer, commandBufferName.c_str());
+        }
+        return commandBuffers;
+    }
+
+    vk::UniqueCommandBuffer allocateCommandBuffer(const char * name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    {
+        return std::move(allocateCommandBuffers(name, 1, level).back());
+    }
+
+    void submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence = {})
+    {
+        queue.submit2(submitInfo2, fence, library.dispatcher);
+    }
+
+    void submit(vk::CommandBuffer commandBuffer, vk::Fence fence = {})
+    {
+        vk::StructureChain<vk::SubmitInfo2, vk::PerformanceQuerySubmitInfoKHR> submitInfoStructureChain;
+
+        //auto & performanceQuerySubmitInfo = submitInfoStructureChain.get<vk::PerformanceQuerySubmitInfoKHR>();
+
+        vk::CommandBufferSubmitInfo commandBufferSubmitInfo;
+        commandBufferSubmitInfo.setCommandBuffer(commandBuffer);
+
+        auto & submitInfo2 = submitInfoStructureChain.get<vk::SubmitInfo2>();
+        submitInfo2.setCommandBufferInfos(commandBufferSubmitInfo);
+
+        submit(submitInfo2, fence);
+    }
 };
 
 struct Renderer::Impl::Queues final : utils::NonCopyable
@@ -388,11 +489,11 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
-    Queues(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device)
-        : graphics{renderer, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device}
-        , compute{renderer, library, instance, physicalDevice, physicalDevice.computeQueueCreateInfo, device}
-        , transferHostToDevice{renderer, library, instance, physicalDevice, physicalDevice.transferHostToDeviceQueueCreateInfo, device}
-        , transferDeviceToHost{renderer, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device}
+    Queues(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device, CommandPools & commandPools)
+        : graphics{renderer, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device, commandPools}
+        , compute{renderer, library, instance, physicalDevice, physicalDevice.computeQueueCreateInfo, device, commandPools}
+        , transferHostToDevice{renderer, library, instance, physicalDevice, physicalDevice.transferHostToDeviceQueueCreateInfo, device, commandPools}
+        , transferDeviceToHost{renderer, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device, commandPools}
     {}
 
     void waitIdle() const
@@ -476,7 +577,8 @@ void Renderer::Impl::createDevice(Renderer & renderer, vk::SurfaceKHR surface)
 {
     device = std::make_unique<Device>(renderer, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
     memoryAllocator = device->makeMemoryAllocator();
-    queues = std::make_unique<Queues>(renderer, *library, *instance, device->physicalDevice, *device);
+    commandPools = std::make_unique<CommandPools>(renderer, *library, *instance, device->physicalDevice, *device);
+    queues = std::make_unique<Queues>(renderer, *library, *instance, device->physicalDevice, *device, *commandPools);
 }
 
 Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
@@ -487,7 +589,7 @@ Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::All
 #endif
 {
     using namespace std::string_view_literals;
-    renderer.log(LogLevel::Debug, "VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
+    SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     INVARIANT(dl.success(), "Vulkan library is not loaded, cannot continue");
@@ -537,16 +639,16 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' twjc", layerName);
+                SPDLOG_WARN("Tried to enable instance layer '{}' twjc", layerName);
             }
             return true;
         };
 
         if (!enableLayerIfAvailable("VK_LAYER_LUNARG_monitor")) {
-            renderer.log(LogLevel::Warning, "VK_LAYER_LUNARG_monitor is not available");
+            SPDLOG_WARN("VK_LAYER_LUNARG_monitor is not available");
         }
         if (!enableLayerIfAvailable("VK_LAYER_MANGOHUD_overlay")) {
-            renderer.log(LogLevel::Warning, "VK_LAYER_MANGOHUD_overlay is not available");
+            SPDLOG_WARN("VK_LAYER_MANGOHUD_overlay is not available");
         }
     }
 
@@ -556,7 +658,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twjc", extensionName);
+                SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
             }
             return true;
         }
@@ -566,12 +668,12 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance layer '{}' twice", layerName);
+                SPDLOG_WARN("Tried to enable instance layer '{}' twice", layerName);
             }
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
-                this->renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
+                SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
             }
             return true;
         }
@@ -579,10 +681,10 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     };
     if (sah_kd_tree::kIsDebugBuild) {
         if (!enableExtensionIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            renderer.log(LogLevel::Warning, VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build");
+            SPDLOG_WARN(VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build");
         } else {
             if (!enableExtensionIfAvailable(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
-                renderer.log(LogLevel::Warning, VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
+                SPDLOG_WARN(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
             }
         }
         if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
@@ -600,7 +702,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             validationFeatures.setDisabledValidationFeatures(disabledValidationFeatures);
         } else {
             instanceCreateInfoChain.unlink<vk::ValidationFeaturesEXT>();
-            renderer.log(LogLevel::Warning, "Validation features instance extension is not available in debug build");
+            SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
     }
     for (const char * requiredExtension : renderer.impl_->requiredInstanceExtensions) {
@@ -610,7 +712,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     }
 
     auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
-    {
+    if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
         static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
                                                                                  const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
             return static_cast<Renderer *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), *pCallbackData);
@@ -646,9 +748,11 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     library.dispatcher.init(instance);
 #endif
 
-    instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
-    debugUtilsMessenger = instance.createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
-    instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
+    if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+        instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
+        debugUtilsMessenger = instance.createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
+        instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
+    }
 }
 
 Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
@@ -736,17 +840,17 @@ uint32_t Renderer::Impl::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQ
     return bestMatchQueueFamily;
 }
 
-bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
+bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
 {
     auto physicalDeviceType = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
         return false;
     }
 
-    const auto checkFeaturesCanBeEnabled = [this](const auto & pointers, auto & features) -> bool {
+    const auto checkFeaturesCanBeEnabled = [](const auto & pointers, auto & features) -> bool {
         for (const auto & p : pointers) {
             if (features.*p == VK_FALSE) {
-                renderer.log(LogLevel::Critical, "Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
+                SPDLOG_ERROR("Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
                 return false;
             }
         }
@@ -784,6 +888,16 @@ bool Renderer::Impl::PhysicalDevice::configureQueuesIfSuitable(vk::PhysicalDevic
     auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(renderer.impl_->requiredDeviceExtensions);
     if (!externalExtensionsCannotBeEnabled.empty()) {
         return false;
+    }
+
+    // TODO: check memory heaps
+
+    // TODO: check physical device surface capabilities
+    {
+        physicalDeviceSurfaceInfo.surface = surface;
+        surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
+        surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
+        presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
     }
 
     graphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
@@ -840,7 +954,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
+            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
         }
         return true;
     }
@@ -853,7 +967,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
-            renderer.log(LogLevel::Warning, "Tried to enable instance extension '{}' twice", extensionName);
+            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
         }
         return true;
     }
@@ -872,14 +986,20 @@ auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface)
     static constexpr auto kPhysicalDeviceTypesPrioritized = {
         vk::PhysicalDeviceType::eDiscreteGpu, vk::PhysicalDeviceType::eIntegratedGpu, vk::PhysicalDeviceType::eVirtualGpu, vk::PhysicalDeviceType::eCpu, vk::PhysicalDeviceType::eOther,
     };
+    PhysicalDevice * bestPhysicalDevice = nullptr;
     for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {
         for (const auto & physicalDevice : physicalDevices) {
-            if (physicalDevice->configureQueuesIfSuitable(physicalDeviceType, surface)) {
-                return *physicalDevice;
+            if (physicalDevice->checkPhysicalDeviceRequirements(physicalDeviceType, surface)) {
+                if (!bestPhysicalDevice) { // respect GPU reordering layers
+                    bestPhysicalDevice = physicalDevice.get();
+                }
             }
         }
     }
-    throw RuntimeError("Unable to find suitable physical device");
+    if (!bestPhysicalDevice) {
+        throw RuntimeError("Unable to find suitable physical device");
+    }
+    return *bestPhysicalDevice;
 }
 
 Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
@@ -911,12 +1031,12 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
-            renderer.log(LogLevel::Warning, "Device extension '{}' is not available", optionalExtension);
+            SPDLOG_WARN("Device extension '{}' is not available", optionalExtension);
         }
     }
     for (const char * optionalVmaExtension : MemoryAllocator::CreateInfo::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalVmaExtension)) {
-            renderer.log(LogLevel::Warning, "Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension);
+            SPDLOG_WARN("Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension);
         }
     }
 
@@ -990,37 +1110,35 @@ void Renderer::load(scene::Scene & scene)
     (void)scene;
 }
 
-auto Renderer::convertMessageSeverityToLogLevel(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity) -> LogLevel
-{
-    switch (messageSeverity) {
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-        return LogLevel::Debug;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-        return LogLevel::Info;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-        return LogLevel::Warning;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-        return LogLevel::Critical;
-    }
-    }
-    INVARIANT(false, "Wrong value {:b} of DebugUtilsMessageSeverityFlagBitsEXT", fmt::underlying(messageSeverity));
-}
-
 vk::Bool32 Renderer::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    auto logLevel = convertMessageSeverityToLogLevel(messageSeverity);
-    if (!checkLogLevel(logLevel)) {
-        return VK_FALSE;
+    const auto formatMessage = [&]
+    {
+        static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
+        auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
+        auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
+        auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
+        return fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
+                    std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
+    };
+    switch (messageSeverity) {
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+        SPDLOG_DEBUG("{}", formatMessage());
+        break;
     }
-    static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
-    auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
-    auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
-    auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
-    log(logLevel, "[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
-        std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+        SPDLOG_INFO("{}", formatMessage());
+        break;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+        SPDLOG_WARN("{}", formatMessage());
+        break;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+        SPDLOG_ERROR("{}", formatMessage());
+        break;
+    }
+    }
     return VK_FALSE;
 }
 

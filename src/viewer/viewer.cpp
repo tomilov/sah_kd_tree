@@ -75,7 +75,6 @@ void Viewer::Impl::cleanup()
 
 void Viewer::Impl::releaseResources(QQuickWindow * window)
 {
-    INVARIANT(window, "Window should exist");
     window->scheduleRenderJob(new CleanupJob{std::move(m_renderer)}, QQuickWindow::BeforeSynchronizingStage);
 }
 

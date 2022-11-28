@@ -15,8 +15,9 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 include_directories("${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
 add_compile_options("-Wall" "-Wextra")
 
-find_package(fmt REQUIRED)
-link_libraries(fmt::fmt-header-only)
+link_libraries(fmt::fmt)
+
+link_libraries(spdlog::spdlog)
 
 include(CUDA)
 include(Thrust)

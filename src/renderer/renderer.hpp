@@ -2,7 +2,6 @@
 
 #include <renderer/renderer_export.h>
 #include <utils/fast_pimpl.hpp>
-#include <utils/log.hpp>
 #include <utils/noncopyable.hpp>
 #include <scene/scene.hpp>
 
@@ -20,8 +19,7 @@
 namespace renderer
 {
 class RENDERER_EXPORT Renderer final
-    : public utils::LoggableBase
-    , utils::NonCopyable
+    : utils::NonCopyable
 {
 public:
     class DebugUtilsMessageMuteGuard final
@@ -67,11 +65,10 @@ public:
 private:
     struct Impl;
 
-    static constexpr std::size_t kSize = 232;
+    static constexpr std::size_t kSize = 240;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    static LogLevel convertMessageSeverityToLogLevel(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity);
     vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
     vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 };
