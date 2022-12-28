@@ -24,10 +24,8 @@ target_sources(
         "${PROJECT_NAME}.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
-    PRIVATE
-        "gliInterface"
     PUBLIC
-        "glmInterface"
+        "gli"
         "libutils")
 
 add_executable("${PROJECT_NAME}")

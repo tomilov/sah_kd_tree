@@ -10,6 +10,15 @@
 #include <utility>
 #include <variant>
 
+#define VMA_IMPLEMENTATION
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#ifndef NDEBUG
+#define VMA_DEBUG_ALWAYS_DEDICATED_MEMORY 1
+#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+#define VMA_DEBUG_GLOBAL_MUTEX 1
+#define VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT 1
+#endif
 #include <vk_mem_alloc.h>
 
 namespace renderer
@@ -35,7 +44,7 @@ struct MemoryAllocator::Impl final
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
     vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
 
-    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit);
+    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 };
 
 MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
@@ -49,25 +58,43 @@ struct MemoryAllocator::Resource
 {
     struct BufferResource
     {
-        const VmaAllocator allocator;
-        const vk::BufferCreateInfo bufferCreateInfo;
+        VmaAllocator allocator = VK_NULL_HANDLE;
+        vk::BufferCreateInfo bufferCreateInfo;
 
         vk::UniqueBuffer buffer = {};
         VmaAllocation allocation = VK_NULL_HANDLE;
 
         vk::UniqueBuffer newBuffer = {};
 
-        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator.allocator}, bufferCreateInfo{bufferCreateInfo}
+        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, bufferCreateInfo{bufferCreateInfo}
         {
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
             buffer = vk::UniqueBuffer{newBuffer,
-                                      vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator.getAllocationInfoNative().device, resource.memoryAllocator.allocationCallbacks, resource.memoryAllocator.dispatcher}};
+                                      vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             if (result != vk::Result::eSuccess) {
                 vk::throwResultException(result, "Cannot create buffer");
             }
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
+        }
+
+        BufferResource(BufferResource && bufferResource)
+            : allocator{std::exchange(bufferResource.allocator, VK_NULL_HANDLE)}
+            , bufferCreateInfo{bufferResource.bufferCreateInfo}
+            , buffer{std::move(bufferResource.buffer)}
+            , allocation{std::exchange(bufferResource.allocation, VK_NULL_HANDLE)}
+            , newBuffer{std::move(bufferResource.newBuffer)}
+        {}
+
+        BufferResource & operator = (BufferResource && bufferResource)
+        {
+            std::swap(allocator, bufferResource.allocator);
+            std::swap(bufferCreateInfo, bufferResource.bufferCreateInfo);
+            std::swap(buffer, bufferResource.buffer);
+            std::swap(allocation, bufferResource.allocation);
+            std::swap(newBuffer, bufferResource.newBuffer);
+            return *this;
         }
 
         ~BufferResource()
@@ -76,10 +103,15 @@ struct MemoryAllocator::Resource
         }
     };
 
+    static_assert(!std::is_copy_constructible_v<BufferResource>);
+    static_assert(!std::is_copy_assignable_v<BufferResource>);
+    static_assert(std::is_move_constructible_v<BufferResource>);
+    static_assert(std::is_move_assignable_v<BufferResource>);
+
     struct ImageResource
     {
-        const VmaAllocator allocator;
-        const vk::ImageCreateInfo imageCreateInfo;
+        VmaAllocator allocator = VK_NULL_HANDLE;
+        vk::ImageCreateInfo imageCreateInfo;
 
         vk::ImageLayout layout = vk::ImageLayout::eUndefined;
         vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eColor;
@@ -89,31 +121,73 @@ struct MemoryAllocator::Resource
 
         vk::UniqueImage newImage = {};
 
-        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator.allocator}, imageCreateInfo{imageCreateInfo}
+        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, imageCreateInfo{imageCreateInfo}
         {
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
             image = vk::UniqueImage{newImage,
-                                    vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator.getAllocationInfoNative().device, resource.memoryAllocator.allocationCallbacks, resource.memoryAllocator.dispatcher}};
+                                    vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             if (result != vk::Result::eSuccess) {
                 vk::throwResultException(result, "Cannot create image");
             }
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
+        ImageResource(ImageResource && imageResource)
+            : allocator{std::exchange(imageResource.allocator, VK_NULL_HANDLE)}
+            , imageCreateInfo{imageResource.imageCreateInfo}
+            , layout{imageResource.layout}
+            , aspect{imageResource.aspect}
+            , image{std::move(imageResource.image)}
+            , allocation{std::exchange(imageResource.allocation, VK_NULL_HANDLE)}
+            , newImage{std::move(imageResource.newImage)}
+        {}
+
+        ImageResource & operator = (ImageResource && imageResource)
+        {
+            std::swap(allocator, imageResource.allocator);
+            std::swap(imageCreateInfo, imageResource.imageCreateInfo);
+            std::swap(layout, imageResource.layout);
+            std::swap(aspect, imageResource.aspect);
+            std::swap(image, imageResource.image);
+            std::swap(allocation, imageResource.allocation);
+            std::swap(newImage, imageResource.newImage);
+            return *this;
+        }
+
         ~ImageResource()
         {
             vmaDestroyImage(allocator, image.release(), allocation);
         }
+
+        vk::ImageSubresourceRange getImageSubresourceRange() const
+        {
+            vk::ImageSubresourceRange imageSubresourceRange = {};
+            imageSubresourceRange.setAspectMask(aspect);
+            imageSubresourceRange.setBaseMipLevel(0);
+            imageSubresourceRange.setLevelCount(VK_REMAINING_MIP_LEVELS);
+            imageSubresourceRange.setBaseArrayLayer(0);
+            imageSubresourceRange.setLayerCount(VK_REMAINING_ARRAY_LAYERS);
+            return imageSubresourceRange;
+        }
     };
 
-    MemoryAllocator::Impl & memoryAllocator;
+    static_assert(!std::is_copy_constructible_v<ImageResource>);
+    static_assert(!std::is_copy_assignable_v<ImageResource>);
+    static_assert(std::is_move_constructible_v<ImageResource>);
+    static_assert(std::is_move_assignable_v<ImageResource>);
+
+    MemoryAllocator::Impl * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
     std::variant<BufferResource, ImageResource> resource;
 
     Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
     Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+
+    Resource(Resource &&) = default;
+    Resource & operator = (Resource &&) = default;
+
     ~Resource();
 
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
@@ -143,11 +217,11 @@ private:
 };
 
 MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator_, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{*memoryAllocator_.impl_}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
+    : memoryAllocator{memoryAllocator_.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
 {}
 
 MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator_, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{*memoryAllocator_.impl_}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
+    : memoryAllocator{memoryAllocator_.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
 {}
 
 MemoryAllocator::Resource::~Resource() = default;
@@ -156,7 +230,7 @@ vk::MemoryPropertyFlags MemoryAllocator::Resource::getMemoryPropertyFlags() cons
 {
     const auto allocation = std::visit([](const auto & resource) { return resource.allocation; }, resource);
     vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetAllocationMemoryProperties(memoryAllocator.allocator, allocation, &memoryPropertyFlags);
+    vmaGetAllocationMemoryProperties(memoryAllocator->allocator, allocation, &memoryPropertyFlags);
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
@@ -184,8 +258,12 @@ VmaAllocationCreateInfo MemoryAllocator::Resource::makeAllocationCreateInfo(cons
 }
 
 MemoryAllocator::Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : impl_{std::make_unique<Resource>(memoryAllocator, bufferCreateInfo, allocationCreateInfo)}
+    : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
 {}
+
+MemoryAllocator::Buffer::Buffer(Buffer &&) = default;
+
+auto MemoryAllocator::Buffer::operator = (Buffer &&) -> Buffer & = default;
 
 MemoryAllocator::Buffer::~Buffer() = default;
 
@@ -200,8 +278,12 @@ vk::MemoryPropertyFlags MemoryAllocator::Buffer::getMemoryPropertyFlags() const
 }
 
 MemoryAllocator::Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : impl_{std::make_unique<Resource>(memoryAllocator, imageCreateInfo, allocationCreateInfo)}
+    : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
 {}
+
+MemoryAllocator::Image::Image(Image &&) = default;
+
+auto MemoryAllocator::Image::operator = (Image &&) -> Image & = default;
 
 MemoryAllocator::Image::~Image() = default;
 
@@ -317,9 +399,11 @@ VmaAllocatorInfo MemoryAllocator::Impl::getAllocationInfoNative() const
 
 vk::PhysicalDeviceMemoryProperties MemoryAllocator::Impl::getPhysicalDeviceMemoryProperties() const
 {
-    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryProperties = nullptr;
-    vmaGetMemoryProperties(allocator, &physicalDeviceMemoryProperties);
-    return vk::PhysicalDeviceMemoryProperties{*physicalDeviceMemoryProperties};
+    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;
+    vmaGetMemoryProperties(allocator, &physicalDeviceMemoryPropertiesPtr);
+    vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+    physicalDeviceMemoryProperties = *physicalDeviceMemoryPropertiesPtr;
+    return physicalDeviceMemoryProperties;
 }
 
 vk::MemoryPropertyFlags MemoryAllocator::Impl::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
@@ -329,7 +413,7 @@ vk::MemoryPropertyFlags MemoryAllocator::Impl::getMemoryTypeProperties(uint32_t 
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
-void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit)
+void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex)
 {
     VmaAllocatorInfo allocatorInfo = {};
     vmaGetAllocatorInfo(allocator, &allocatorInfo);
@@ -404,7 +488,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                     wantsMemoryBarrier = true;
                 };
 
-                const auto createImage = [this, &device, &move, &beginImageBarriers, &endImageBarriers](Resource::ImageResource & imageResource) {
+                const auto createImage = [this, &device, &move, &beginImageBarriers, &endImageBarriers, queueFamilyIndex](Resource::ImageResource & imageResource) {
                     auto image = device.createImageUnique(imageResource.imageCreateInfo, allocationCallbacks, dispatcher);
 
                     const auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
@@ -414,21 +498,15 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
 
                     imageResource.newImage = std::move(image);
 
-                    vk::ImageSubresourceRange imageSubresourceRange = {};
-                    imageSubresourceRange.setAspectMask(imageResource.aspect);
-                    imageSubresourceRange.setBaseMipLevel(0);
-                    imageSubresourceRange.setLevelCount(VK_REMAINING_MIP_LEVELS);
-                    imageSubresourceRange.setBaseArrayLayer(0);
-                    imageSubresourceRange.setLayerCount(VK_REMAINING_ARRAY_LAYERS);
-
+                    auto imageSubresourceRange = imageResource.getImageSubresourceRange();
                     {
                         auto & imageBarrier = beginImageBarriers.emplace_back();
                         imageBarrier.setSrcAccessMask(Image::accessFlagsForImageLayout(imageResource.layout));
                         imageBarrier.setDstAccessMask(vk::AccessFlagBits2::eTransferRead);
                         imageBarrier.setOldLayout(imageResource.layout);
                         imageBarrier.setNewLayout(vk::ImageLayout::eTransferSrcOptimal);
-                        imageBarrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-                        imageBarrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                        imageBarrier.setSrcQueueFamilyIndex(queueFamilyIndex);
+                        imageBarrier.setDstQueueFamilyIndex(queueFamilyIndex);
                         imageBarrier.setImage(*imageResource.image);
                         imageBarrier.setSubresourceRange(imageSubresourceRange);
                     }
@@ -438,8 +516,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                         imageBarrier.setDstAccessMask(vk::AccessFlagBits2::eTransferWrite);
                         imageBarrier.setOldLayout(vk::ImageLayout::eUndefined);
                         imageBarrier.setNewLayout(vk::ImageLayout::eTransferDstOptimal);
-                        imageBarrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-                        imageBarrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                        imageBarrier.setSrcQueueFamilyIndex(queueFamilyIndex);
+                        imageBarrier.setDstQueueFamilyIndex(queueFamilyIndex);
                         imageBarrier.setImage(*imageResource.newImage);
                         imageBarrier.setSubresourceRange(imageSubresourceRange);
                     }
@@ -449,8 +527,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                         imageBarrier.setDstAccessMask(Image::accessFlagsForImageLayout(imageResource.layout));
                         imageBarrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
                         imageBarrier.setNewLayout(imageResource.layout);
-                        imageBarrier.setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-                        imageBarrier.setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
+                        imageBarrier.setSrcQueueFamilyIndex(queueFamilyIndex);
+                        imageBarrier.setDstQueueFamilyIndex(queueFamilyIndex);
                         imageBarrier.setImage(*imageResource.newImage);
                         imageBarrier.setSubresourceRange(imageSubresourceRange);
                     }
@@ -530,7 +608,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                 imageSubresourceLayers.setBaseArrayLayer(0);
                 imageSubresourceLayers.setLayerCount(imageCreateInfo.arrayLayers);
 
-                vk::Offset3D offset = {0, 0, 0};
+                vk::Offset3D offset = {.x = 0, .y = 0, .z = 0};
                 vk::Extent3D extent = imageCreateInfo.extent;
 
                 for (uint32_t mipLevel = 0; mipLevel < imageCreateInfo.mipLevels; ++mipLevel) {

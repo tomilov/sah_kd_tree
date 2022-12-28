@@ -13,6 +13,8 @@ configure_file("sah_kd_tree.cfg.in" "sah_kd_tree.cfg" @ONLY)
 
 add_custom_target(
     "docs"
+    DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/sah_kd_tree.cfg"
     VERBATIM
     COMMAND
         "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/sah_kd_tree.cfg"

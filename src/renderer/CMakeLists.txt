@@ -39,20 +39,12 @@ target_link_libraries(
     PRIVATE
         "libsah_kd_tree"
         "libcommon"
-        "gliInterface"
+        "gli"
         "VulkanMemoryAllocator"
     PUBLIC
-        "VulkanInterface"
+        Vulkan::Headers
         "libscene"
         "libutils")
-
-set_property(
-    SOURCE
-        "vma.cpp"
-    PROPERTY COMPILE_DEFINITIONS
-        VMA_IMPLEMENTATION
-        VMA_STATIC_VULKAN_FUNCTIONS=0
-        VMA_DYNAMIC_VULKAN_FUNCTIONS=0)
 
 add_executable("${PROJECT_NAME}")
 target_sources(

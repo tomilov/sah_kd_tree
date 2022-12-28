@@ -9,9 +9,14 @@ struct NonCopyable
 {
     NonCopyable() = default;
     NonCopyable(const NonCopyable &) = delete;
-    NonCopyable(NonCopyable &&) = delete;
     void operator=(const NonCopyable &) = delete;
-    void operator=(NonCopyable &&) = delete;
+};
+
+struct NonMoveable
+{
+    NonMoveable() = default;
+    NonMoveable(NonMoveable &&) = delete;
+    void operator=(NonMoveable &&) = delete;
 };
 
 }  // namespace utils

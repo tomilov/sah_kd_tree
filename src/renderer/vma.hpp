@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <cstdint>
@@ -97,19 +98,34 @@ class MemoryAllocator::Buffer final  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+
+    Buffer(Buffer &&);
+    Buffer & operator = (Buffer &&);
+
     ~Buffer();
 
     vk::Buffer getBuffer() const;
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
 private:
-    std::unique_ptr<Resource> impl_;
+    static constexpr std::size_t kSize = 200;
+    static constexpr std::size_t kAlignment = 8;
+    utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
+
+static_assert(!std::is_copy_constructible_v<MemoryAllocator::Buffer>);
+static_assert(!std::is_copy_assignable_v<MemoryAllocator::Buffer>);
+static_assert(std::is_move_constructible_v<MemoryAllocator::Buffer>);
+static_assert(std::is_move_assignable_v<MemoryAllocator::Buffer>);
 
 class MemoryAllocator::Image final
 {
 public:
     Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+
+    Image(Image &&);
+    Image & operator = (Image &&);
+
     ~Image();
 
     vk::Image getImage() const;
@@ -120,7 +136,14 @@ public:
     static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
 
 private:
-    std::unique_ptr<Resource> impl_;
+    static constexpr std::size_t kSize = 200;
+    static constexpr std::size_t kAlignment = 8;
+    utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
+
+static_assert(!std::is_copy_constructible_v<MemoryAllocator::Image>);
+static_assert(!std::is_copy_assignable_v<MemoryAllocator::Image>);
+static_assert(std::is_move_constructible_v<MemoryAllocator::Image>);
+static_assert(std::is_move_assignable_v<MemoryAllocator::Image>);
 
 }  // namespace renderer

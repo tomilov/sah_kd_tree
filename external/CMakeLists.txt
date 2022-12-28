@@ -1,35 +1,23 @@
-add_library("VulkanHeaders" INTERFACE)
-target_include_directories(
-    "VulkanHeaders"
-    SYSTEM INTERFACE
-        "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
-
-
-add_library("VulkanInterface" INTERFACE)
+add_subdirectory("Vulkan-Headers" EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(
-    "VulkanInterface"
+    Vulkan-Headers
     INTERFACE
         VK_ENABLE_BETA_EXTENSIONS
         VK_USE_PLATFORM_XCB_KHR
         VULKAN_HPP_NO_DEFAULT_DISPATCHER
         VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-    )
+        VULKAN_HPP_NO_STRUCT_CONSTRUCTORS)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
-        "VulkanInterface"
+        Vulkan-Headers
         INTERFACE
-            VK_NO_PROTOTYPES
-        )
+            VK_NO_PROTOTYPES)
 else()
     target_link_libraries(
-        "VulkanInterface"
+        Vulkan-Headers
         INTERFACE
             "vulkan")
 endif()
-target_link_libraries(
-    "VulkanInterface"
-    INTERFACE
-        "VulkanHeaders")
 
 
 add_library("VulkanMemoryAllocator" INTERFACE)
@@ -40,33 +28,20 @@ target_include_directories(
 target_link_libraries(
     "VulkanMemoryAllocator"
     INTERFACE
-        "VulkanInterface")
+        Vulkan::Headers)
 
 
-add_library("glmInterface" INTERFACE)
-target_include_directories(
-    "glmInterface"
-    SYSTEM INTERFACE
-        "${CMAKE_CURRENT_SOURCE_DIR}/gli/external/glm/..")
+add_subdirectory("gli" EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(
-    "glmInterface"
+    "gli"
     INTERFACE
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_EXPLICIT_CTOR
         GLM_FORCE_PURE)
 
 
-add_library("gliInterface" INTERFACE)
-target_include_directories(
-    "gliInterface"
-    SYSTEM INTERFACE
-        "${CMAKE_CURRENT_SOURCE_DIR}/gli")
-target_link_libraries(
-    "gliInterface"
-    INTERFACE
-        "glmInterface")
+set(SPDLOG_FMT_EXTERNAL ON)
+add_subdirectory("spdlog" EXCLUDE_FROM_ALL SYSTEM)
 
-set(SPDLOG_FMT_EXTERNAL_HO ON)
-add_subdirectory("spdlog" EXCLUDE_FROM_ALL)
 
-add_subdirectory("fmt" EXCLUDE_FROM_ALL)
+add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)

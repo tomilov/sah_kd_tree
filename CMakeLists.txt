@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 project(
     "sah_kd_tree"
     LANGUAGES
@@ -16,7 +16,7 @@ include(CMakeDependentOption)
 
 cmake_policy(SET CMP0105 NEW) # link options for device link step
 
-add_subdirectory("external" EXCLUDE_FROM_ALL)
+add_subdirectory("external" EXCLUDE_FROM_ALL SYSTEM)
 add_subdirectory("src")
 
 option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)

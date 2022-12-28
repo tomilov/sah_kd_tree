@@ -27,40 +27,50 @@ public:
 
     FastPimpl & operator=(const FastPimpl & rhs) noexcept(noexcept(std::declval<T &>() = std::declval<const T &>()))
     {
-        operator*() = *rhs;
+        *get() = *rhs;
         return *this;
     }
 
     FastPimpl & operator=(FastPimpl && rhs) noexcept(noexcept(std::declval<T &>() = std::declval<T>()))
     {
-        operator*() = std::move(*rhs);
+        *get() = std::move(*rhs);
         return *this;
     }
 
     ~FastPimpl() noexcept
     {
         [[maybe_unused]] Validate<sizeof(T), alignof(T)> validate;
-        operator*().~T();
+        get()->~T();
     }
 
-    T * operator->() noexcept
+    T * get() noexcept
     {
         return reinterpret_cast<T *>(&storage_);
     }
 
-    const T * operator->() const noexcept
+    const T * get() const noexcept
     {
         return reinterpret_cast<const T *>(&storage_);
     }
 
+    T * operator->() noexcept
+    {
+        return get();
+    }
+
+    const T * operator->() const noexcept
+    {
+        return get();
+    }
+
     T & operator*() noexcept
     {
-        return *operator->();
+        return *get();
     }
 
     const T & operator*() const noexcept
     {
-        return *operator->();
+        return *get();
     }
 
 private:

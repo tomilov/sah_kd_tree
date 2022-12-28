@@ -18,18 +18,19 @@
 
 #include <algorithm>
 #include <bitset>
+#include <chrono>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <span>
 
 namespace renderer
 {
@@ -44,11 +45,16 @@ struct Renderer::Impl final : utils::NonCopyable
     struct QueueCreateInfo;
     struct PhysicalDevice;
     struct PhysicalDevices;
+    struct Fences;
+    struct PipelineCache;
     struct Device;
-    struct CommandBuffer;
+    struct CommandBuffers;
+    struct CommandPool;
     struct CommandPools;
     struct Queue;
     struct Queues;
+    struct RenderPass;
+    struct ShaderModule;
 
     mutable std::mutex mutex;
     std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
@@ -174,7 +180,7 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
 
 struct Renderer::Impl::QueueCreateInfo final
 {
-    const char * name = "";
+    const char * name = nullptr;
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     std::size_t index = std::numeric_limits<std::size_t>::max();
 };
@@ -195,7 +201,7 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
     StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 
-    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
+    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
                        vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
         physicalDeviceProperties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
@@ -276,6 +282,56 @@ struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
     PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
 };
 
+struct Renderer::Impl::Fences final
+{
+    Renderer & renderer;
+    Library & library;
+    Device & device;
+
+    vk::FenceCreateInfo fenceCreateInfo;
+    std::vector<vk::UniqueFence> fencesHolder;
+    std::vector<vk::Fence> fences;
+
+    Fences(Renderer & renderer, Library & library, Device & device);
+
+    void create(const char * name, std::size_t count = 1);
+
+    vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
+    vk::Result wait(std::size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
+
+    void reset();
+    void reset(std::size_t fenceIndex);
+};
+
+struct Renderer::Impl::PipelineCache final : utils::NonCopyable
+{
+    static inline constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    std::string name;
+
+    vk::UniquePipelineCache pipelineCacheHolder;
+    vk::PipelineCache pipelineCache;
+
+    PipelineCache(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name)
+        : renderer{renderer}
+        , library{library}
+        , physicalDevice{physicalDevice}
+        , device{device}
+        , name{name}
+    {}
+
+    void load();
+    void save();
+
+private :
+    std::vector<uint8_t> loadData() const;
+};
+
 struct Renderer::Impl::Device final : utils::NonCopyable
 {
     Renderer & renderer;
@@ -353,6 +409,145 @@ struct Renderer::Impl::Device final : utils::NonCopyable
         debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
         debugUtilsObjectNameInfo.pObjectName = objectName;
     }
+
+    Fences createFences(const char * name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
+    {
+        Fences fences{renderer, library, *this};
+        fences.fenceCreateInfo = {
+            .flags = fenceCreateFlags,
+        };
+        fences.create(name);
+        return fences;
+    }
+};
+
+void Renderer::Impl::PipelineCache::load()
+{
+    auto data = loadData();
+
+    vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
+    // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized; // ?
+
+    pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+    try {
+        pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+        SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
+    } catch (const vk::SystemError & exception) {
+        if (data.empty()) {
+            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
+        } else {
+            SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
+        }
+    }
+    if (!pipelineCacheHolder && !data.empty()) {
+        data.clear();
+        pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+        try {
+            pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+            SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
+        } catch (const vk::SystemError & exception) {
+            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
+        }
+    }
+
+    pipelineCache = *pipelineCacheHolder;
+
+    if (pipelineCache) {
+        device.setDebugUtilsObjectName(pipelineCache, name.c_str());
+    }
+}
+
+void Renderer::Impl::PipelineCache::save()
+{
+    auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
+    renderer.savePipelineCache(data, name.c_str());
+}
+
+std::vector<uint8_t> Renderer::Impl::PipelineCache::loadData() const
+{
+    auto data = renderer.loadPipelineCache(name.c_str());
+    if (std::size(data) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
+        SPDLOG_INFO("There is no room for pipeline cache header in data");
+        return {};
+    }
+    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(data));
+#if __BYTE_ORDER != __LITTLE_ENDIAN
+#error "Not implemented!"
+#endif
+    if (pipelineCacheHeader.headerSize > std::size(data)) {
+        SPDLOG_INFO("There is no room for pipeline cache data in data");
+        return {};
+    }
+    if (pipelineCacheHeader.headerVersion != kPipelineCacheHeaderVersion) {
+        SPDLOG_INFO("Pipeline cache header version mismatch '{}' != '{}'", pipelineCacheHeader.headerVersion, kPipelineCacheHeaderVersion);
+        return {};
+    }
+    const auto & physicalDeviceProperties = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    if (pipelineCacheHeader.vendorID != physicalDeviceProperties.vendorID) {
+        SPDLOG_INFO("Pipeline cache header vendor ID mismatch '{}' != '{}'", pipelineCacheHeader.vendorID, physicalDeviceProperties.vendorID);
+        return {};
+    }
+    if (pipelineCacheHeader.deviceID != physicalDeviceProperties.deviceID) {
+        SPDLOG_INFO("Pipeline cache header device ID mismatch '{}' != '{}'", pipelineCacheHeader.deviceID, physicalDeviceProperties.deviceID);
+        return {};
+    }
+    if (pipelineCacheHeader.pipelineCacheUUID != physicalDeviceProperties.pipelineCacheUUID) {
+        SPDLOG_INFO("Pipeline cache UUID mismatch '{}' != '{}'", pipelineCacheHeader.pipelineCacheUUID, physicalDeviceProperties.pipelineCacheUUID);
+        return {};
+    }
+    return data;
+}
+
+struct Renderer::Impl::CommandBuffers final
+{
+    Renderer & renderer;
+    Library & library;
+    Device & device;
+
+    vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
+    std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
+    std::vector<vk::CommandBuffer> commandBuffers;
+
+    CommandBuffers(Renderer & renderer, Library & library, Device & device)
+        : renderer{renderer}, library{library}, device{device}
+    {}
+
+    void create(const char * name)
+    {
+        commandBuffersHolder = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
+        commandBuffers.reserve(commandBuffersHolder.size());
+
+        std::size_t i = 0;
+        for (const auto & commandBuffer : commandBuffersHolder) {
+            commandBuffers.push_back(*commandBuffer);
+
+            auto commandBufferName = fmt::format("{} #{}/{}", name, i++, commandBuffersHolder.size());
+            device.setDebugUtilsObjectName(commandBuffers.back(), commandBufferName.c_str());
+        }
+    }
+};
+
+struct Renderer::Impl::CommandPool final
+{
+    Renderer & renderer;
+    Library & library;
+    Device & device;
+
+    vk::CommandPoolCreateInfo commandPoolCreateInfo;
+    vk::UniqueCommandPool commandPoolHolder;
+    vk::CommandPool commandPool;
+
+    CommandPool(Renderer & renderer, Library & library, Device & device)
+        : renderer{renderer}, library{library}, device{device}
+    {}
+
+    void create(const char * name)
+    {
+        commandPoolHolder = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
+        commandPool = *commandPoolHolder;
+
+        device.setDebugUtilsObjectName(commandPool, name);
+    }
 };
 
 struct Renderer::Impl::CommandPools : utils::NonCopyable
@@ -363,11 +558,11 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
     PhysicalDevice & physicalDevice;
     Device & device;
 
-    using CommandBufferInfo = std::pair<uint32_t/*queueFamilyIndex*/, vk::CommandBufferLevel>;
+    using CommandPoolInfo = std::pair<uint32_t/*queueFamilyIndex*/, vk::CommandBufferLevel>;
 
-    struct CommandBufferhash
+    struct CommandPoolHash
     {
-        std::size_t operator () (const CommandBufferInfo & commandBufferInfo) const noexcept
+        std::size_t operator () (const CommandPoolInfo & commandBufferInfo) const noexcept
         {
             auto hash = std::hash<uint32_t>{}(commandBufferInfo.first);
             using U = std::underlying_type_t<vk::CommandBufferLevel>;
@@ -376,7 +571,7 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
         }
     };
 
-    using PerThreadCommandPool = std::unordered_map<CommandBufferInfo, vk::UniqueCommandPool, CommandBufferhash>;
+    using PerThreadCommandPool = std::unordered_map<CommandPoolInfo, CommandPool, CommandPoolHash>;
     using CommandPoolsType = std::unordered_map<std::thread::id, PerThreadCommandPool>;
 
     std::mutex commandPoolsMutex;
@@ -389,16 +584,20 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
     {
         std::lock_guard<std::mutex> lock{commandPoolsMutex};
         auto threadId = std::this_thread::get_id();
-        auto & perThreadCommandPool = commandPools[threadId][{queueFamilyIndex, level}];
-        if (!perThreadCommandPool) {
-            vk::CommandPoolCreateInfo commandPoolCreateInfo;
-            commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndex;
-            commandPoolCreateInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-            perThreadCommandPool = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
-            auto commanPoolName = fmt::format("CommandPool '{}' {{ thread id {}, queue family {}, level {} }}", name, threadId, queueFamilyIndex, level);
-            device.setDebugUtilsObjectName(*perThreadCommandPool, commanPoolName.c_str());
+        CommandPoolInfo commandPoolInfo{queueFamilyIndex, level};
+        auto & perThreadCommandPools = commandPools[threadId];
+        auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
+        if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
+            CommandPool commandPool{renderer, library, device};
+            commandPool.commandPoolCreateInfo = {
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                .queueFamilyIndex = queueFamilyIndex,
+            };
+            commandPool.create(name);
+            static_assert(std::is_move_constructible_v<CommandPool>);
+            perThreadCommandPool = perThreadCommandPools.emplace_hint(perThreadCommandPool, std::move(commandPoolInfo), std::move(commandPool));
         }
-        return *perThreadCommandPool;
+        return perThreadCommandPool->second.commandPool;
     }
 };
 
@@ -441,24 +640,21 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
         queue.waitIdle(library.dispatcher);
     }
 
-    std::vector<vk::UniqueCommandBuffer> allocateCommandBuffers(const char * name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    CommandBuffers allocateCommandBuffers(const char * name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
-        vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
-        commandBufferAllocateInfo.commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level);
-        commandBufferAllocateInfo.level = level;
-        commandBufferAllocateInfo.commandBufferCount = count;
-        auto commandBuffers = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
-        std::size_t i = 0;
-        for (const auto & commandBuffer : commandBuffers) {
-            auto commandBufferName = fmt::format("CommandBuffer '{}' #{}", name, i++);
-            device.setDebugUtilsObjectName(*commandBuffer, commandBufferName.c_str());
-        }
+        CommandBuffers commandBuffers{renderer, library, device};
+        commandBuffers.commandBufferAllocateInfo = {
+            .commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level),
+            .level = level,
+            .commandBufferCount = count,
+        };
+        commandBuffers.create(name);
         return commandBuffers;
     }
 
-    vk::UniqueCommandBuffer allocateCommandBuffer(const char * name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    CommandBuffers allocateCommandBuffer(const char * name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
-        return std::move(allocateCommandBuffers(name, 1, level).back());
+        return allocateCommandBuffers(name, 1, level);
     }
 
     void submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence = {})
@@ -502,6 +698,197 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
         compute.waitIdle();
         transferHostToDevice.waitIdle();
         transferDeviceToHost.waitIdle();
+    }
+};
+
+struct Renderer::Impl::RenderPass final : utils::NonCopyable
+{
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    std::string name;
+
+    vk::UniqueRenderPass renderPassHolder;
+    vk::RenderPass renderPass;
+
+    RenderPass(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name)
+        : renderer{renderer}
+        , library{library}
+        , physicalDevice{physicalDevice}
+        , device{device}
+        , name{name}
+    {}
+
+    void init()
+    {
+        vk::AttachmentReference attachmentReference = {
+            .attachment = 0,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        };
+
+        vk::SubpassDescription subpassDescription;
+        subpassDescription.flags = {};
+        subpassDescription.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpassDescription.setInputAttachments(nullptr);
+        subpassDescription.setColorAttachments(attachmentReference);
+        subpassDescription.setResolveAttachments(nullptr);
+        subpassDescription.setPDepthStencilAttachment(nullptr);
+        subpassDescription.setPreserveAttachments(nullptr);
+
+        vk::AttachmentDescription colorAttachmentDescription = {
+            .flags = {},
+            .format = vk::Format::eR32G32B32Sfloat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        };
+
+        vk::RenderPassCreateInfo renderPassCreateInfo;
+        renderPassCreateInfo.setSubpasses(subpassDescription);
+        renderPassCreateInfo.setAttachments(colorAttachmentDescription);
+        renderPassCreateInfo.setDependencies(nullptr);
+
+        renderPassHolder = device.device.createRenderPassUnique(renderPassCreateInfo, library.allocationCallbacks, library.dispatcher);
+        renderPass = *renderPassHolder;
+
+        device.setDebugUtilsObjectName(renderPass, name.c_str());
+    }
+
+    auto createFramebuffers(const char * name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
+    {
+        std::vector<vk::UniqueFramebuffer> framebuffers;
+        vk::FramebufferCreateInfo framebufferCreateInfo = {
+            .renderPass = renderPass,
+            .width = width,
+            .height = height,
+            .layers = layers,
+        };
+        framebuffers.reserve(imageViews.size());
+        std::size_t i = 0;
+        for (vk::ImageView imageView : imageViews) {
+            framebufferCreateInfo.setAttachments(imageView);
+            framebuffers.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
+
+            auto framebufferName = fmt::format("{} #{}/{}", name, i++, imageViews.size());
+            device.setDebugUtilsObjectName(*framebuffers.back(), framebufferName.c_str());
+        }
+        return framebuffers;
+    }
+};
+
+constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
+{
+    using namespace std::string_view_literals;
+    if (shaderName.ends_with(".vert")) {
+        return vk::ShaderStageFlagBits::eVertex;
+    } else if (shaderName.ends_with(".tesc")) {
+        return vk::ShaderStageFlagBits::eTessellationControl;
+    } else if (shaderName.ends_with(".tese")) {
+        return vk::ShaderStageFlagBits::eTessellationEvaluation;
+    } else if (shaderName.ends_with(".geom")) {
+        return vk::ShaderStageFlagBits::eGeometry;
+    } else if (shaderName.ends_with(".frag")) {
+        return vk::ShaderStageFlagBits::eFragment;
+    } else if (shaderName.ends_with(".comp")) {
+        return vk::ShaderStageFlagBits::eCompute;
+    } else if (shaderName.ends_with(".rgen")) {
+        return vk::ShaderStageFlagBits::eRaygenKHR;
+    } else if (shaderName.ends_with(".rahit")) {
+        return vk::ShaderStageFlagBits::eAnyHitKHR;
+    } else if (shaderName.ends_with(".rchit")) {
+        return vk::ShaderStageFlagBits::eClosestHitKHR;
+    } else if (shaderName.ends_with(".rmiss")) {
+        return vk::ShaderStageFlagBits::eMissKHR;
+    } else if (shaderName.ends_with(".rint")) {
+        return vk::ShaderStageFlagBits::eIntersectionKHR;
+    } else if (shaderName.ends_with(".rcall")) {
+        return vk::ShaderStageFlagBits::eCallableKHR;
+    } else if (shaderName.ends_with(".task")) {
+        return vk::ShaderStageFlagBits::eTaskEXT;
+    } else if (shaderName.ends_with(".mesh")) {
+        return vk::ShaderStageFlagBits::eMeshEXT;
+    } else {
+        INVARIANT(false, "Cannot infer stage from shader name '{}'", shaderName);
+    }
+}
+
+constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
+{
+    switch (shaderStage) {
+    case vk::ShaderStageFlagBits::eVertex                 : return "vert";
+    case vk::ShaderStageFlagBits::eTessellationControl    : return "tesc";
+    case vk::ShaderStageFlagBits::eTessellationEvaluation : return "tese";
+    case vk::ShaderStageFlagBits::eGeometry               : return "geom";
+    case vk::ShaderStageFlagBits::eFragment               : return "frag";
+    case vk::ShaderStageFlagBits::eCompute                : return "comp";
+    case vk::ShaderStageFlagBits::eAllGraphics            : return nullptr;
+    case vk::ShaderStageFlagBits::eAll                    : return nullptr;
+    case vk::ShaderStageFlagBits::eRaygenKHR              : return "rgen";
+    case vk::ShaderStageFlagBits::eAnyHitKHR              : return "rahit";
+    case vk::ShaderStageFlagBits::eClosestHitKHR          : return "rchit";
+    case vk::ShaderStageFlagBits::eMissKHR                : return "rmiss";
+    case vk::ShaderStageFlagBits::eIntersectionKHR        : return "rint";
+    case vk::ShaderStageFlagBits::eCallableKHR            : return "rcall";
+    case vk::ShaderStageFlagBits::eTaskEXT                : return "task";
+    case vk::ShaderStageFlagBits::eMeshEXT                : return "mesh";
+    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI   : return nullptr;
+    }
+    INVARIANT(false, "Unknown shader stage {}", fmt::underlying(shaderStage));
+}
+
+struct Renderer::Impl::ShaderModule final : utils::NonCopyable, utils::NonMoveable
+{
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    std::string name;
+    vk::ShaderStageFlagBits shaderStage;
+    std::string entryPoint;
+
+    vk::UniqueShaderModule shaderModuleHolder;
+    vk::ShaderModule shaderModule;
+
+    ShaderModule(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name, std::string_view entryPoint)
+        : renderer{renderer}
+        , library{library}
+        , physicalDevice{physicalDevice}
+        , device{device}
+        , name{name}
+        , shaderStage{shaderNameToStage(name)}
+        , entryPoint{entryPoint}
+    {}
+
+    void load()
+    {
+        auto code = renderer.loadShader(name.c_str());
+
+        vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
+        shaderModuleCreateInfo.setCode(code);
+        shaderModuleHolder = device.device.createShaderModuleUnique(shaderModuleCreateInfo, library.allocationCallbacks, library.dispatcher);
+        shaderModule = *shaderModuleHolder;
+
+        device.setDebugUtilsObjectName(shaderModule, name.c_str());
+    }
+
+    vk::PipelineShaderStageCreateInfo createPipelineShaderStageCreateInfo() const
+    {
+        vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {
+            .flags = {},
+            .stage = shaderStage,
+            .module = shaderModule,
+            .pName = entryPoint.c_str(),
+            .pSpecializationInfo = nullptr,
+        };
+
+        return pipelineShaderStageCreateInfo;
     }
 };
 
@@ -715,7 +1102,9 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
         static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
                                                                                  const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
-            return static_cast<Renderer *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), *pCallbackData);
+            vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
+            debugUtilsMessengerCallbackData = *pCallbackData;
+            return static_cast<Renderer *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
@@ -776,6 +1165,14 @@ Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & li
     physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
     INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    {
+        auto & physicalDeviceIDProperties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceIDProperties>();
+        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
+        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
+        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
+        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
+        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
+    }
 
     auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
     physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
@@ -1051,21 +1448,42 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
 #endif
     setDebugUtilsObjectName(device, "SAH kd-tree renderer compatible device");
 
-    if ((false)) {
-        vk::ArrayProxyNoTemporaries<const uint8_t> initialData;
-        vk::UniquePipelineCache pipelineCache;
-        vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
-        // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized;
-        pipelineCacheCreateInfo.setInitialData(initialData);
-        pipelineCache = device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
-        setDebugUtilsObjectName(*pipelineCache, "SAH kd-tree renderer pipeline cache");
-        /*
-            std::vector<uint8_t> getPipelineCacheData() const
-            {
-                return device->getPipelineCacheData(*pipelineCache);
-            }
-        */
+    // load pipeline cache here?
+}
+
+Renderer::Impl::Fences::Fences(Renderer & renderer, Library & library, Device & device)
+    : renderer{renderer}, library{library}, device{device}
+{}
+
+void Renderer::Impl::Fences::create(const char * name, std::size_t count)
+{
+    for (std::size_t i = 0; i < count; ++i) {
+        fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
+        fences.push_back(*fencesHolder.back());
+
+        auto fenceName = fmt::format("{} #{}/{}", name, i++, count);
+        device.setDebugUtilsObjectName(*fencesHolder.back(), fenceName.c_str());
     }
+}
+
+vk::Result Renderer::Impl::Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
+{
+    return device.device.waitForFences(fences, waitAll ? VK_TRUE : VK_FALSE, duration.count(), library.dispatcher);
+}
+
+vk::Result Renderer::Impl::Fences::wait(std::size_t fenceIndex, std::chrono::nanoseconds duration)
+{
+    return device.device.waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), library.dispatcher);
+}
+
+void Renderer::Impl::Fences::reset()
+{
+    device.device.resetFences(fences, library.dispatcher);
+}
+
+void Renderer::Impl::Fences::reset(std::size_t fenceIndex)
+{
+    device.device.resetFences(fences.at(fenceIndex), library.dispatcher);
 }
 
 vk::Bool32 Renderer::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
@@ -1105,7 +1523,71 @@ uint32_t Renderer::getGraphicsQueueIndex() const
     return impl_->device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
-void Renderer::load(scene::Scene & scene)
+std::vector<uint8_t> Renderer::loadPipelineCache(const char * pipelineCacheName) const
+{
+    std::filesystem::path cacheFilePath{pipelineCacheName};
+    cacheFilePath /= ".bin";
+
+    std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary};
+    if (!cacheFile.is_open()) {
+        throw RuntimeError(fmt::format("Cannot open pipeline cache file '{}' for read", cacheFilePath));
+    }
+
+    auto size = cacheFile.seekg(0, std::ios::end).tellg();
+    cacheFile.seekg(0);
+
+    std::vector<uint8_t> data;
+    data.resize(std::size_t(size) / sizeof(uint8_t));
+    using RawDataType = std::ifstream::char_type *;
+    cacheFile.read(RawDataType(std::data(data)), size);
+
+    return data;
+}
+
+void Renderer::savePipelineCache(const std::vector<uint8_t> & data, const char * pipelineCacheName) const
+{
+    std::filesystem::path cacheFilePath{pipelineCacheName};
+    cacheFilePath /= ".bin";
+
+    std::ofstream cacheFile{cacheFilePath, std::ios::out | std::ios::trunc | std::ios::binary};
+    if (!cacheFile.is_open()) {
+        throw RuntimeError(fmt::format("Cannot open pipeline cache file '{}' for write", cacheFilePath));
+    }
+
+    auto size = std::streamsize(std::size(data));
+
+    using RawDataType = std::ifstream::char_type *;
+    cacheFile.write(RawDataType(std::data(data)), size);
+}
+
+std::vector<uint32_t> Renderer::loadShader(const char * shaderName) const
+{
+    std::filesystem::path shaderFilePath{shaderName};
+    shaderFilePath /= ".spv";
+
+    std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary};
+    if (!shaderFile.is_open()) {
+        throw RuntimeError(fmt::format("Cannot open shader file '{}'", shaderFilePath));
+    }
+
+    auto size = shaderFile.seekg(0, std::ios::end).tellg();
+    if ((size_t(size) % sizeof(uint32_t)) != 0) {
+        throw RuntimeError(fmt::format("Size of shader file '{}' is not multiple of 4", shaderFilePath));
+    }
+    shaderFile.seekg(0);
+
+    std::vector<uint32_t> code;
+    code.resize(size_t(size) / sizeof(uint32_t));
+    using RawDataType = std::ifstream::char_type *;
+    shaderFile.read(RawDataType(std::data(code)), size);
+    if (shaderFile.tellg() != size) {
+        throw RuntimeError(fmt::format("Failed to read whole shader file '{}'", shaderFilePath));
+    }
+
+    return code;
+}
+
+void Renderer::loadScene(scene::Scene & scene)
 {
     (void)scene;
 }
