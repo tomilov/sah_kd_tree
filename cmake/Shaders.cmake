@@ -17,20 +17,20 @@ function(compile_shaders_to_spirv)
 
     list(
         APPEND stage_shader_globs
-            "frag"
             "vert"
             "tesc"
             "tese"
             "geom"
+            "frag"
             "comp"
-            "mesh"
-            "task"
             "rgen"
-            "rint"
             "rahit"
             "rchit"
             "rmiss"
-            "rcall")
+            "rint"
+            "rcall"
+            "mesh"
+            "task")
     list(
         TRANSFORM stage_shader_globs
         REPLACE ".+" "*.\\0.glsl")

@@ -45,3 +45,15 @@ add_subdirectory("spdlog" EXCLUDE_FROM_ALL SYSTEM)
 
 
 add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
+
+
+add_library("SPIRV-Reflect" STATIC)
+target_sources(
+    "SPIRV-Reflect"
+    PRIVATE
+        "SPIRV-Reflect/spirv_reflect.h"
+        "SPIRV-Reflect/spirv_reflect.cpp")
+target_include_directories(
+    "SPIRV-Reflect"
+    PUBLIC
+        "SPIRV-Reflect")

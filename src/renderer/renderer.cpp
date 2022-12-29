@@ -15,10 +15,12 @@
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
+#include <spirv_reflect.h>
 
 #include <algorithm>
 #include <bitset>
 #include <chrono>
+#include <exception>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -46,7 +48,6 @@ struct Renderer::Impl final : utils::NonCopyable
     struct PhysicalDevice;
     struct PhysicalDevices;
     struct Fences;
-    struct PipelineCache;
     struct Device;
     struct CommandBuffers;
     struct CommandPool;
@@ -55,6 +56,8 @@ struct Renderer::Impl final : utils::NonCopyable
     struct Queues;
     struct RenderPass;
     struct ShaderModule;
+    struct ShaderModuleReflection;
+    struct PipelineCache;
 
     mutable std::mutex mutex;
     std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
@@ -71,6 +74,7 @@ struct Renderer::Impl final : utils::NonCopyable
     std::unique_ptr<MemoryAllocator> memoryAllocator;
     std::unique_ptr<CommandPools> commandPools;
     std::unique_ptr<Queues> queues;
+    std::unique_ptr<PipelineCache> pipelineCache;
 
     Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute);
 
@@ -284,6 +288,8 @@ struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
 
 struct Renderer::Impl::Fences final
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     Device & device;
@@ -292,9 +298,9 @@ struct Renderer::Impl::Fences final
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
-    Fences(Renderer & renderer, Library & library, Device & device);
+    Fences(std::string_view name, Renderer & renderer, Library & library, Device & device);
 
-    void create(const char * name, std::size_t count = 1);
+    void create(std::size_t count = 1);
 
     vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
     vk::Result wait(std::size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
@@ -303,37 +309,10 @@ struct Renderer::Impl::Fences final
     void reset(std::size_t fenceIndex);
 };
 
-struct Renderer::Impl::PipelineCache final : utils::NonCopyable
-{
-    static inline constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
-
-    Renderer & renderer;
-    Library & library;
-    PhysicalDevice & physicalDevice;
-    Device & device;
-
-    std::string name;
-
-    vk::UniquePipelineCache pipelineCacheHolder;
-    vk::PipelineCache pipelineCache;
-
-    PipelineCache(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name)
-        : renderer{renderer}
-        , library{library}
-        , physicalDevice{physicalDevice}
-        , device{device}
-        , name{name}
-    {}
-
-    void load();
-    void save();
-
-private :
-    std::vector<uint8_t> loadData() const;
-};
-
 struct Renderer::Impl::Device final : utils::NonCopyable
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     Instance & instance;
@@ -345,7 +324,9 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
+    Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
+
+    void create();
 
     std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const
     {
@@ -410,96 +391,21 @@ struct Renderer::Impl::Device final : utils::NonCopyable
         debugUtilsObjectNameInfo.pObjectName = objectName;
     }
 
-    Fences createFences(const char * name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
+    Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
     {
-        Fences fences{renderer, library, *this};
+        Fences fences{name, renderer, library, *this};
         fences.fenceCreateInfo = {
             .flags = fenceCreateFlags,
         };
-        fences.create(name);
+        fences.create();
         return fences;
     }
 };
 
-void Renderer::Impl::PipelineCache::load()
-{
-    auto data = loadData();
-
-    vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
-    // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized; // ?
-
-    pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
-    try {
-        pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
-        SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
-    } catch (const vk::SystemError & exception) {
-        if (data.empty()) {
-            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
-        } else {
-            SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
-        }
-    }
-    if (!pipelineCacheHolder && !data.empty()) {
-        data.clear();
-        pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
-        try {
-            pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
-            SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
-        } catch (const vk::SystemError & exception) {
-            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
-        }
-    }
-
-    pipelineCache = *pipelineCacheHolder;
-
-    if (pipelineCache) {
-        device.setDebugUtilsObjectName(pipelineCache, name.c_str());
-    }
-}
-
-void Renderer::Impl::PipelineCache::save()
-{
-    auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
-    renderer.savePipelineCache(data, name.c_str());
-}
-
-std::vector<uint8_t> Renderer::Impl::PipelineCache::loadData() const
-{
-    auto data = renderer.loadPipelineCache(name.c_str());
-    if (std::size(data) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
-        SPDLOG_INFO("There is no room for pipeline cache header in data");
-        return {};
-    }
-    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(data));
-#if __BYTE_ORDER != __LITTLE_ENDIAN
-#error "Not implemented!"
-#endif
-    if (pipelineCacheHeader.headerSize > std::size(data)) {
-        SPDLOG_INFO("There is no room for pipeline cache data in data");
-        return {};
-    }
-    if (pipelineCacheHeader.headerVersion != kPipelineCacheHeaderVersion) {
-        SPDLOG_INFO("Pipeline cache header version mismatch '{}' != '{}'", pipelineCacheHeader.headerVersion, kPipelineCacheHeaderVersion);
-        return {};
-    }
-    const auto & physicalDeviceProperties = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
-    if (pipelineCacheHeader.vendorID != physicalDeviceProperties.vendorID) {
-        SPDLOG_INFO("Pipeline cache header vendor ID mismatch '{}' != '{}'", pipelineCacheHeader.vendorID, physicalDeviceProperties.vendorID);
-        return {};
-    }
-    if (pipelineCacheHeader.deviceID != physicalDeviceProperties.deviceID) {
-        SPDLOG_INFO("Pipeline cache header device ID mismatch '{}' != '{}'", pipelineCacheHeader.deviceID, physicalDeviceProperties.deviceID);
-        return {};
-    }
-    if (pipelineCacheHeader.pipelineCacheUUID != physicalDeviceProperties.pipelineCacheUUID) {
-        SPDLOG_INFO("Pipeline cache UUID mismatch '{}' != '{}'", pipelineCacheHeader.pipelineCacheUUID, physicalDeviceProperties.pipelineCacheUUID);
-        return {};
-    }
-    return data;
-}
-
 struct Renderer::Impl::CommandBuffers final
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     Device & device;
@@ -508,11 +414,11 @@ struct Renderer::Impl::CommandBuffers final
     std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
     std::vector<vk::CommandBuffer> commandBuffers;
 
-    CommandBuffers(Renderer & renderer, Library & library, Device & device)
-        : renderer{renderer}, library{library}, device{device}
+    CommandBuffers(std::string_view name, Renderer & renderer, Library & library, Device & device)
+        : name{name}, renderer{renderer}, library{library}, device{device}
     {}
 
-    void create(const char * name)
+    void create()
     {
         commandBuffersHolder = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
         commandBuffers.reserve(commandBuffersHolder.size());
@@ -529,6 +435,8 @@ struct Renderer::Impl::CommandBuffers final
 
 struct Renderer::Impl::CommandPool final
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     Device & device;
@@ -537,16 +445,16 @@ struct Renderer::Impl::CommandPool final
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(Renderer & renderer, Library & library, Device & device)
-        : renderer{renderer}, library{library}, device{device}
+    CommandPool(std::string_view name, Renderer & renderer, Library & library, Device & device)
+        : name{name}, renderer{renderer}, library{library}, device{device}
     {}
 
-    void create(const char * name)
+    void create()
     {
         commandPoolHolder = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
         commandPool = *commandPoolHolder;
 
-        device.setDebugUtilsObjectName(commandPool, name);
+        device.setDebugUtilsObjectName(commandPool, name.c_str());
     }
 };
 
@@ -580,7 +488,7 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
     CommandPools(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
     {}
 
-    vk::CommandPool getCommandPool(const char * name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
+    vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
     {
         std::lock_guard<std::mutex> lock{commandPoolsMutex};
         auto threadId = std::this_thread::get_id();
@@ -588,12 +496,12 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
         auto & perThreadCommandPools = commandPools[threadId];
         auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
         if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
-            CommandPool commandPool{renderer, library, device};
+            CommandPool commandPool{name, renderer, library, device};
             commandPool.commandPoolCreateInfo = {
                 .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
                 .queueFamilyIndex = queueFamilyIndex,
             };
-            commandPool.create(name);
+            commandPool.create();
             static_assert(std::is_move_constructible_v<CommandPool>);
             perThreadCommandPool = perThreadCommandPools.emplace_hint(perThreadCommandPool, std::move(commandPoolInfo), std::move(commandPool));
         }
@@ -640,19 +548,19 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
         queue.waitIdle(library.dispatcher);
     }
 
-    CommandBuffers allocateCommandBuffers(const char * name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
-        CommandBuffers commandBuffers{renderer, library, device};
+        CommandBuffers commandBuffers{name, renderer, library, device};
         commandBuffers.commandBufferAllocateInfo = {
             .commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level),
             .level = level,
             .commandBufferCount = count,
         };
-        commandBuffers.create(name);
+        commandBuffers.create();
         return commandBuffers;
     }
 
-    CommandBuffers allocateCommandBuffer(const char * name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    CommandBuffers allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
         return allocateCommandBuffers(name, 1, level);
     }
@@ -703,22 +611,22 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
 
 struct Renderer::Impl::RenderPass final : utils::NonCopyable
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
 
-    std::string name;
-
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    RenderPass(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name)
-        : renderer{renderer}
+    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
+        : name{name}
+        , renderer{renderer}
         , library{library}
         , physicalDevice{physicalDevice}
         , device{device}
-        , name{name}
     {}
 
     void init()
@@ -844,38 +752,32 @@ constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
 
 struct Renderer::Impl::ShaderModule final : utils::NonCopyable, utils::NonMoveable
 {
+    const std::string name;
+
     Renderer & renderer;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
 
-    std::string name;
+    std::vector<uint32_t> code;
+
     vk::ShaderStageFlagBits shaderStage;
     std::string entryPoint;
 
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view name, std::string_view entryPoint)
-        : renderer{renderer}
+    ShaderModule(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view entryPoint)
+        : name{name}
+        , renderer{renderer}
         , library{library}
         , physicalDevice{physicalDevice}
         , device{device}
-        , name{name}
+        , code{renderer.loadShader(name)}
         , shaderStage{shaderNameToStage(name)}
         , entryPoint{entryPoint}
-    {}
-
-    void load()
     {
-        auto code = renderer.loadShader(name.c_str());
-
-        vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
-        shaderModuleCreateInfo.setCode(code);
-        shaderModuleHolder = device.device.createShaderModuleUnique(shaderModuleCreateInfo, library.allocationCallbacks, library.dispatcher);
-        shaderModule = *shaderModuleHolder;
-
-        device.setDebugUtilsObjectName(shaderModule, name.c_str());
+        load(code);
     }
 
     vk::PipelineShaderStageCreateInfo createPipelineShaderStageCreateInfo() const
@@ -890,7 +792,213 @@ struct Renderer::Impl::ShaderModule final : utils::NonCopyable, utils::NonMoveab
 
         return pipelineShaderStageCreateInfo;
     }
+
+private :
+    void load(const std::vector<uint32_t> & code)
+    {
+        vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
+        shaderModuleCreateInfo.setCode(code);
+        shaderModuleHolder = device.device.createShaderModuleUnique(shaderModuleCreateInfo, library.allocationCallbacks, library.dispatcher);
+        shaderModule = *shaderModuleHolder;
+
+        device.setDebugUtilsObjectName(shaderModule, name.c_str());
+    }
 };
+
+struct Renderer::Impl::ShaderModuleReflection final : utils::NonCopyable, utils::NonMoveable
+{
+    struct DescriptorSetLayout
+    {
+        uint32_t set = 0;
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    };
+
+    ShaderModule & shaderModule;
+
+    ShaderModuleReflection(ShaderModule & shaderModule)
+        : shaderModule{shaderModule}
+    {
+        auto result = spvReflectCreateShaderModule(sizeof(uint32_t) * std::size(shaderModule.code), std::data(shaderModule.code), &reflectionModule);
+        INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule failed for '{}' shader module", shaderModule.name);
+    }
+
+    ~ShaderModuleReflection()
+    {
+        spvReflectDestroyShaderModule(&reflectionModule);
+    }
+
+private :
+    using NativeShaderModuleReflection = std::unique_ptr<SpvReflectShaderModule, decltype((spvReflectDestroyShaderModule))>;
+
+    SpvReflectShaderModule reflectionModule = {};
+
+    void reflectDescriptorSetLayouts()
+    {
+        uint32_t reflectionDescriptorSetCount = 0;
+        auto result = spvReflectEnumerateDescriptorSets(&reflectionModule, &reflectionDescriptorSetCount, NULL);
+        INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectEnumerateDescriptorSets failed for '{}' shader module", shaderModule.name);
+
+        std::vector<SpvReflectDescriptorSet *> reflectionDescriptorSets(reflectionDescriptorSetCount);
+        result = spvReflectEnumerateDescriptorSets(&reflectionModule, &reflectionDescriptorSetCount, std::data(reflectionDescriptorSets));
+        INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectEnumerateDescriptorSets failed for '{}' shader module", shaderModule.name);
+
+        std::vector<DescriptorSetLayout> descriptorSetLayouts;
+        descriptorSetLayouts.reserve(reflectionModule.descriptor_set_count);
+        for (uint32_t s = 0; s < reflectionModule.descriptor_set_count; ++s) {
+            const auto & reflectionDecriptorSet = reflectionModule.descriptor_sets[s];
+            auto & descriptorSetLayout = descriptorSetLayouts.emplace_back();
+            descriptorSetLayout.set = reflectionDecriptorSet.set;
+            descriptorSetLayout.bindings.reserve(reflectionDecriptorSet.binding_count);
+            for (uint32_t b = 0; b < reflectionDecriptorSet.binding_count; ++b) {
+                const auto & reflectionBindings = reflectionDecriptorSet.bindings[b];
+                auto & descriptorSetLayoutBinding = descriptorSetLayout.bindings.emplace_back();
+
+                descriptorSetLayoutBinding.binding = reflectionBindings->binding;
+
+                using DescriptorType = std::underlying_type_t<vk::DescriptorType>;
+                auto descriptorType = DescriptorType(reflectionBindings->descriptor_type);
+                descriptorSetLayoutBinding.descriptorType = vk::DescriptorType(descriptorType);
+
+                descriptorSetLayoutBinding.descriptorCount = 1;
+                for (uint32_t d = 0; d < reflectionBindings->array.dims_count; ++d) {
+                    descriptorSetLayoutBinding.descriptorCount *= reflectionBindings->array.dims[d];
+                }
+
+                using ShaderStageFlagBits = std::underlying_type_t<vk::ShaderStageFlagBits>;
+                auto shaderStage = ShaderStageFlagBits(reflectionModule.shader_stage);
+                descriptorSetLayoutBinding.stageFlags = vk::ShaderStageFlagBits(shaderStage);
+            }
+        }
+
+        for (const auto & descriptorSetLayout : descriptorSetLayouts) {
+            size_t i = 0;
+            for (const auto & binding : descriptorSetLayout.bindings) {
+                if (!(binding.stageFlags & shaderModule.shaderStage)) {
+                    SPDLOG_WARN("Flags ({}) of binding #{} of set #{} does not contain shader stage {} for shader module '{}'", binding.stageFlags, i, descriptorSetLayout.set, shaderModule.shaderStage, shaderModule.name);
+                }
+                ++i;
+            }
+        }
+    }
+};
+
+struct Renderer::Impl::PipelineCache final : utils::NonCopyable
+{
+    static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
+
+    const std::string name;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    vk::UniquePipelineCache pipelineCacheHolder;
+    vk::PipelineCache pipelineCache;
+
+    PipelineCache(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
+        : name{name}
+        , renderer{renderer}
+        , library{library}
+        , physicalDevice{physicalDevice}
+        , device{device}
+    {
+        load();
+    }
+
+    ~PipelineCache()
+    {
+        if (std::uncaught_exceptions() == 0) {
+            save();
+        }
+    }
+
+private :
+    std::vector<uint8_t> loadPipelineCacheData() const;
+
+    void load();
+    void save();
+};
+
+std::vector<uint8_t> Renderer::Impl::PipelineCache::loadPipelineCacheData() const
+{
+    auto data = renderer.loadPipelineCache(name.c_str());
+    if (std::size(data) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
+        SPDLOG_INFO("There is no room for pipeline cache header in data");
+        return {};
+    }
+    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(data));
+#if __BYTE_ORDER != __LITTLE_ENDIAN
+#error "Not implemented!"
+#endif
+    if (pipelineCacheHeader.headerSize > std::size(data)) {
+        SPDLOG_INFO("There is no room for pipeline cache data in data");
+        return {};
+    }
+    if (pipelineCacheHeader.headerVersion != kPipelineCacheHeaderVersion) {
+        SPDLOG_INFO("Pipeline cache header version mismatch '{}' != '{}'", pipelineCacheHeader.headerVersion, kPipelineCacheHeaderVersion);
+        return {};
+    }
+    const auto & physicalDeviceProperties = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    if (pipelineCacheHeader.vendorID != physicalDeviceProperties.vendorID) {
+        SPDLOG_INFO("Pipeline cache header vendor ID mismatch '{}' != '{}'", pipelineCacheHeader.vendorID, physicalDeviceProperties.vendorID);
+        return {};
+    }
+    if (pipelineCacheHeader.deviceID != physicalDeviceProperties.deviceID) {
+        SPDLOG_INFO("Pipeline cache header device ID mismatch '{}' != '{}'", pipelineCacheHeader.deviceID, physicalDeviceProperties.deviceID);
+        return {};
+    }
+    if (pipelineCacheHeader.pipelineCacheUUID != physicalDeviceProperties.pipelineCacheUUID) {
+        SPDLOG_INFO("Pipeline cache UUID mismatch '{}' != '{}'", pipelineCacheHeader.pipelineCacheUUID, physicalDeviceProperties.pipelineCacheUUID);
+        return {};
+    }
+    return data;
+}
+
+void Renderer::Impl::PipelineCache::load()
+{
+    auto data = loadPipelineCacheData();
+
+    vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
+    // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized; // ?
+
+    pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+    try {
+        pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+        SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
+    } catch (const vk::SystemError & exception) {
+        if (data.empty()) {
+            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
+            throw;
+        } else {
+            SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
+        }
+    }
+    if (!pipelineCacheHolder) {
+        ASSERT(!data.empty());
+        data.clear();
+        pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+        try {
+            pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+            SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
+        } catch (const vk::SystemError & exception) {
+            SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
+            throw;
+        }
+    }
+
+    pipelineCache = *pipelineCacheHolder;
+
+    ASSERT(pipelineCache);
+    device.setDebugUtilsObjectName(pipelineCache, name.c_str());
+}
+
+void Renderer::Impl::PipelineCache::save()
+{
+    ASSERT(pipelineCache);
+    auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
+    renderer.savePipelineCache(data, name.c_str());
+}
 
 struct Renderer::DebugUtilsMessageMuteGuard::Impl
 {
@@ -962,10 +1070,14 @@ void Renderer::Impl::createInstance(Renderer & renderer, const char * applicatio
 
 void Renderer::Impl::createDevice(Renderer & renderer, vk::SurfaceKHR surface)
 {
-    device = std::make_unique<Device>(renderer, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
+    using namespace std::string_view_literals;
+    constexpr auto deviceName = "SAH kd-tree renderer compatible device"sv;
+    device = std::make_unique<Device>(deviceName, renderer, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
     memoryAllocator = device->makeMemoryAllocator();
     commandPools = std::make_unique<CommandPools>(renderer, *library, *instance, device->physicalDevice, *device);
     queues = std::make_unique<Queues>(renderer, *library, *instance, device->physicalDevice, *device, *commandPools);
+    const auto pipelineCacheName = "sah_kd_tree_renderer_pipeline_cache"sv;
+    pipelineCache = std::make_unique<PipelineCache>(pipelineCacheName, renderer, *library, device->physicalDevice, *device);
 }
 
 Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
@@ -1399,7 +1511,12 @@ auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface)
     return *bestPhysicalDevice;
 }
 
-Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+Renderer::Impl::Device::Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+{
+    create();
+}
+
+void Renderer::Impl::Device::create()
 {
     const auto setFeatures = [](const auto & pointers, auto & features) {
         for (auto p : pointers) {
@@ -1446,16 +1563,14 @@ Renderer::Impl::Device::Device(Renderer & renderer, Library & library, Instance 
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     library.dispatcher.init(device);
 #endif
-    setDebugUtilsObjectName(device, "SAH kd-tree renderer compatible device");
-
-    // load pipeline cache here?
+    setDebugUtilsObjectName(device, name.c_str());
 }
 
-Renderer::Impl::Fences::Fences(Renderer & renderer, Library & library, Device & device)
-    : renderer{renderer}, library{library}, device{device}
+Renderer::Impl::Fences::Fences(std::string_view name, Renderer & renderer, Library & library, Device & device)
+    : name{name}, renderer{renderer}, library{library}, device{device}
 {}
 
-void Renderer::Impl::Fences::create(const char * name, std::size_t count)
+void Renderer::Impl::Fences::create(std::size_t count)
 {
     for (std::size_t i = 0; i < count; ++i) {
         fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
@@ -1523,14 +1638,18 @@ uint32_t Renderer::getGraphicsQueueIndex() const
     return impl_->device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
-std::vector<uint8_t> Renderer::loadPipelineCache(const char * pipelineCacheName) const
+std::vector<uint8_t> Renderer::loadPipelineCache(std::string_view pipelineCacheName) const
 {
     std::filesystem::path cacheFilePath{pipelineCacheName};
-    cacheFilePath /= ".bin";
+    cacheFilePath += ".bin";
+
+    if (!std::filesystem::exists(cacheFilePath)) {
+        return {};
+    }
 
     std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary};
     if (!cacheFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open pipeline cache file '{}' for read", cacheFilePath));
+        throw RuntimeError(fmt::format("Cannot open pipeline cache file {} for read", cacheFilePath));
     }
 
     auto size = cacheFile.seekg(0, std::ios::end).tellg();
@@ -1544,14 +1663,14 @@ std::vector<uint8_t> Renderer::loadPipelineCache(const char * pipelineCacheName)
     return data;
 }
 
-void Renderer::savePipelineCache(const std::vector<uint8_t> & data, const char * pipelineCacheName) const
+void Renderer::savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const
 {
     std::filesystem::path cacheFilePath{pipelineCacheName};
-    cacheFilePath /= ".bin";
+    cacheFilePath += ".bin";
 
     std::ofstream cacheFile{cacheFilePath, std::ios::out | std::ios::trunc | std::ios::binary};
     if (!cacheFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open pipeline cache file '{}' for write", cacheFilePath));
+        throw RuntimeError(fmt::format("Cannot open pipeline cache file {} for write", cacheFilePath));
     }
 
     auto size = std::streamsize(std::size(data));
@@ -1560,19 +1679,19 @@ void Renderer::savePipelineCache(const std::vector<uint8_t> & data, const char *
     cacheFile.write(RawDataType(std::data(data)), size);
 }
 
-std::vector<uint32_t> Renderer::loadShader(const char * shaderName) const
+std::vector<uint32_t> Renderer::loadShader(std::string_view shaderName) const
 {
     std::filesystem::path shaderFilePath{shaderName};
-    shaderFilePath /= ".spv";
+    shaderFilePath += ".spv";
 
     std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary};
     if (!shaderFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open shader file '{}'", shaderFilePath));
+        throw RuntimeError(fmt::format("Cannot open shader file {}", shaderFilePath));
     }
 
     auto size = shaderFile.seekg(0, std::ios::end).tellg();
     if ((size_t(size) % sizeof(uint32_t)) != 0) {
-        throw RuntimeError(fmt::format("Size of shader file '{}' is not multiple of 4", shaderFilePath));
+        throw RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
     }
     shaderFile.seekg(0);
 
@@ -1581,7 +1700,7 @@ std::vector<uint32_t> Renderer::loadShader(const char * shaderName) const
     using RawDataType = std::ifstream::char_type *;
     shaderFile.read(RawDataType(std::data(code)), size);
     if (shaderFile.tellg() != size) {
-        throw RuntimeError(fmt::format("Failed to read whole shader file '{}'", shaderFilePath));
+        throw RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
     }
 
     return code;

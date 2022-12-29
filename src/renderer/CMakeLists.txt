@@ -41,6 +41,7 @@ target_link_libraries(
         "libcommon"
         "gli"
         "VulkanMemoryAllocator"
+        "SPIRV-Reflect"
     PUBLIC
         Vulkan::Headers
         "libscene"

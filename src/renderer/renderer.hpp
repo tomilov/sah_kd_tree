@@ -60,16 +60,16 @@ public:
     uint32_t getGraphicsQueueFamilyIndex() const;
     uint32_t getGraphicsQueueIndex() const;
 
-    virtual std::vector<uint8_t> loadPipelineCache(const char * pipelineCacheName) const;
-    virtual void savePipelineCache(const std::vector<uint8_t> & data, const char * pipelineCacheName) const;
+    virtual std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const;
+    virtual void savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const;
 
-    virtual std::vector<uint32_t> loadShader(const char * shaderName) const;
+    virtual std::vector<uint32_t> loadShader(std::string_view shaderName) const;
     void loadScene(scene::Scene & scene);
 
 private:
     struct Impl;
 
-    static constexpr std::size_t kSize = 240;
+    static constexpr std::size_t kSize = 248;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
