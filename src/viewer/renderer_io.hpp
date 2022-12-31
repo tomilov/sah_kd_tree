@@ -5,11 +5,11 @@
 namespace viewer
 {
 
-class Renderer final : public renderer::Renderer
+class RendererIo final : public renderer::Renderer::Io
 {
 public:
-    using renderer::Renderer::Renderer;
-    ~Renderer() = default;
+    using Io::Io;
+    ~RendererIo() = default;
 
     std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override;
     bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override;

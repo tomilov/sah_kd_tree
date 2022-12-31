@@ -12,7 +12,7 @@ struct NotDetected
 namespace impl
 {
 
-template<typename Default, typename AlwaysVolid, template<typename...> typename Trait, typename... Args>
+template<typename Default, typename AlwaysVoid, template<typename...> typename Trait, typename... Args>
 struct Detector
 {
     using type = Default;

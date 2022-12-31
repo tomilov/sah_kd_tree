@@ -27,7 +27,6 @@
 #include <mutex>
 #include <optional>
 #include <span>
-#include <sstream>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
@@ -62,6 +61,8 @@ struct Renderer::Impl final : utils::NonCopyable
     struct ShaderStages;
     struct PipelineCache;
 
+    utils::CheckedPtr<const Io> io = nullptr;
+
     mutable std::mutex mutex;
     std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
 
@@ -79,21 +80,21 @@ struct Renderer::Impl final : utils::NonCopyable
     std::unique_ptr<Queues> queues;
     std::unique_ptr<PipelineCache> pipelineCache;
 
-    Impl(const std::initializer_list<uint32_t> & mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+    Impl(utils::CheckedPtr<const Io> io, const std::initializer_list<uint32_t> & mutedMessageIdNumbers, bool mute) : io{io}, debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
     {}
 
-    DebugUtilsMessageMuteGuard muteDebugUtilsMessages(const std::initializer_list<uint32_t> & messageIdNumbers, bool enabled);
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(const std::initializer_list<uint32_t> & messageIdNumbers, bool enabled);
 
-    vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
-    vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+    [[nodiscard]] vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+    [[nodiscard]] vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 
     void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Renderer & renderer);
     void createDevice(Renderer & renderer, vk::SurfaceKHR surface);
 
-    void flushCaches();
+    void flushCaches() const;
 };
 
-Renderer::Renderer(std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : impl_{mutedMessageIdNumbers, mute}
+Renderer::Renderer(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : impl_{io, mutedMessageIdNumbers, mute}
 {}
 
 Renderer::~Renderer() = default;
@@ -182,7 +183,7 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
         init();
     }
 
-    std::vector<vk::PhysicalDevice> getPhysicalDevices() const
+    [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const
     {
         return instance.enumeratePhysicalDevices(library.dispatcher);
     }
@@ -200,13 +201,13 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
     }
 
     template<typename Object>
-    ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
     {
         return ScopedDebugUtilsLabel<Object>::create(library.dispatcher, object, labelName, color);
     }
 
     template<typename Object>
-    ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
     {
         return create<Object>(object, labelName.c_str(), color);
     }
@@ -307,11 +308,11 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
         init();
     }
 
-    StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
-    uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
-    bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
+    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
+    [[nodiscard]] uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
+    [[nodiscard]] bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
 
-    bool enableExtensionIfAvailable(const char * extensionName);
+    [[nodiscard]] bool enableExtensionIfAvailable(const char * extensionName);
 
 private:
     void init();
@@ -330,7 +331,7 @@ struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
         init();
     }
 
-    PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
+    [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
 
 private:
     void init();
@@ -353,8 +354,8 @@ struct Renderer::Impl::Fences final
 
     void create(std::size_t count = 1);
 
-    vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
-    vk::Result wait(std::size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
+    [[nodiscard]] vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
+    [[nodiscard]] vk::Result wait(std::size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
 
     void resetAll();
     void reset(std::size_t fenceIndex);
@@ -382,7 +383,7 @@ struct Renderer::Impl::Device final : utils::NonCopyable
 
     void create();
 
-    std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const
+    [[nodiscard]] std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const
     {
         return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library.allocationCallbacks, library.dispatcher, instance.instance, physicalDevice.physicalDevice, physicalDevice.apiVersion,
                                                  device);
@@ -439,7 +440,7 @@ struct Renderer::Impl::Device final : utils::NonCopyable
         device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
     }
 
-    Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
+    [[nodiscard]] Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
     {
         Fences fences{name, renderer, library, *this};
         fences.fenceCreateInfo = {
@@ -538,7 +539,7 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
     CommandPools(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
     {}
 
-    vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
+    [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
     {
         std::lock_guard<std::mutex> lock{commandPoolsMutex};
         auto threadId = std::this_thread::get_id();
@@ -602,7 +603,7 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
         queue.waitIdle(library.dispatcher);
     }
 
-    CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    [[nodiscard]] CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
         CommandBuffers commandBuffers{name, renderer, library, device};
         commandBuffers.commandBufferAllocateInfo = {
@@ -614,7 +615,7 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
         return commandBuffers;
     }
 
-    CommandBuffers allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
+    [[nodiscard]] CommandBuffers allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
         return allocateCommandBuffers(name, 1, level);
     }
@@ -680,7 +681,7 @@ struct Renderer::Impl::RenderPass final : utils::NonCopyable
         init();
     }
 
-    auto createFramebuffers(std::string_view name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
+    [[nodiscard]] auto createFramebuffers(std::string_view name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
     {
         std::vector<vk::UniqueFramebuffer> framebuffers;
         vk::FramebufferCreateInfo framebufferCreateInfo = {
@@ -746,7 +747,7 @@ private:
     }
 };
 
-constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
+[[nodiscard]] constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
 {
     using namespace std::string_view_literals;
     if (shaderName.ends_with(".vert")) {
@@ -782,7 +783,7 @@ constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
     }
 }
 
-constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
+[[nodiscard]] constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
 {
     switch (shaderStage) {
     case vk::ShaderStageFlagBits::eVertex:
@@ -851,7 +852,7 @@ private:
     void load()
     {
         shaderStage = shaderNameToStage(name);
-        code = renderer.loadShader(name);
+        code = renderer.impl_->io->loadShader(name);
 
         vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
         shaderModuleCreateInfo.setCode(code);
@@ -862,7 +863,7 @@ private:
     }
 };
 
-constexpr vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorType descriptorType)
+[[nodiscard]] constexpr vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorType descriptorType)
 {
     switch (descriptorType) {
     case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
@@ -893,7 +894,7 @@ constexpr vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorT
     INVARIANT(false, "Unknown spv descriptor type {}", fmt::underlying(descriptorType));
 }
 
-constexpr SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorType descriptorType)
+[[nodiscard]] constexpr SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorType descriptorType)
 {
     switch (descriptorType) {
     case vk::DescriptorType::eSampler:
@@ -932,7 +933,7 @@ constexpr SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorTy
     INVARIANT(false, "Descriptor type {} is unknown", fmt::underlying(descriptorType));
 }
 
-constexpr vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStageFlagBits shaderStageFlagBits)
+[[nodiscard]] constexpr vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStageFlagBits shaderStageFlagBits)
 {
     switch (shaderStageFlagBits) {
     case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
@@ -967,7 +968,7 @@ constexpr vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStag
     INVARIANT(false, "Unknown spv shader stage {}", fmt::underlying(shaderStageFlagBits));
 }
 
-constexpr SpvReflectShaderStageFlagBits vkShaderStageToSpvReflect(vk::ShaderStageFlagBits shaderStageFlagBits)
+[[nodiscard]] constexpr SpvReflectShaderStageFlagBits vkShaderStageToSpvReflect(vk::ShaderStageFlagBits shaderStageFlagBits)
 {
     switch (shaderStageFlagBits) {
     case vk::ShaderStageFlagBits::eVertex:
@@ -1141,17 +1142,26 @@ struct Renderer::Impl::PipelineCache final : utils::NonCopyable
         load();
     }
 
-    bool flush();
+    ~PipelineCache()
+    {
+        if (std::uncaught_exceptions() == 0) {
+            if (!flush()) {
+                SPDLOG_WARN("Failed to flush pipeline cache '{}' at destruction", name);
+            }
+        }
+    }
+
+    [[nodiscard]] bool flush();
 
 private:
-    std::vector<uint8_t> loadPipelineCacheData() const;
+    [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
 
     void load();
 };
 
 std::vector<uint8_t> Renderer::Impl::PipelineCache::loadPipelineCacheData() const
 {
-    auto cacheData = renderer.loadPipelineCache(name.c_str());
+    auto cacheData = renderer.impl_->io->loadPipelineCache(name.c_str());
     if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
@@ -1226,7 +1236,7 @@ bool Renderer::Impl::PipelineCache::flush()
 {
     ASSERT(pipelineCache);
     auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
-    if (!renderer.savePipelineCache(data, name.c_str())) {
+    if (!renderer.impl_->io->savePipelineCache(data, name.c_str())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }
@@ -1244,7 +1254,7 @@ struct Renderer::DebugUtilsMessageMuteGuard::Impl
 };
 
 template<typename... Args>
-Renderer::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) noexcept : impl_{std::forward<Args>(args)...}
+Renderer::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
 {}
 
 auto Renderer::Impl::muteDebugUtilsMessages(const std::initializer_list<uint32_t> & messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
@@ -1299,8 +1309,9 @@ vk::Bool32 Renderer::Impl::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityF
         auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
         auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
         auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
+        auto messageIdNumber = std::make_unsigned_t<decltype(callbackData.messageIdNumber)>(callbackData.messageIdNumber);
         return fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
-                           std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
+                           std::move(buffers), messageIdNumber, callbackData.pMessage);
     };
     switch (messageSeverity) {
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
@@ -1327,7 +1338,8 @@ vk::Bool32 Renderer::Impl::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSe
 {
     {
         std::lock_guard<std::mutex> lock{mutex};
-        if (mutedMessageIdNumbers.contains(uint32_t(callbackData.messageIdNumber))) {
+        auto messageIdNumber = std::make_unsigned_t<decltype(callbackData.messageIdNumber)>(callbackData.messageIdNumber);
+        if (mutedMessageIdNumbers.contains(messageIdNumber)) {
             return VK_FALSE;
         }
     }
@@ -1353,7 +1365,7 @@ void Renderer::Impl::createDevice(Renderer & renderer, vk::SurfaceKHR surface)
     pipelineCache = std::make_unique<PipelineCache>(pipelineCacheName, renderer, *library, device->physicalDevice, *device);
 }
 
-void Renderer::Impl::flushCaches()
+void Renderer::Impl::flushCaches() const
 {
     if (!pipelineCache->flush()) {
         return;
@@ -1638,7 +1650,7 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
     // TODO: check memory heaps
 
     // TODO: check physical device surface capabilities
-    {
+    if ((surface)) {
         physicalDeviceSurfaceInfo.surface = surface;
         surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
         surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
@@ -1897,81 +1909,9 @@ uint32_t Renderer::getGraphicsQueueIndex() const
     return impl_->device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
-void Renderer::flushCaches()
+void Renderer::flushCaches() const
 {
     impl_->flushCaches();
-}
-
-std::vector<uint8_t> Renderer::loadPipelineCache(std::string_view pipelineCacheName) const
-{
-    std::filesystem::path cacheFilePath{pipelineCacheName};
-    cacheFilePath += ".bin";
-
-    if (!std::filesystem::exists(cacheFilePath)) {
-        SPDLOG_INFO("Pipeline cache file {} does not exists", cacheFilePath);
-        return {};
-    }
-
-    std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary | std::ios::ate};
-    if (!cacheFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open pipeline cache file {} for read", cacheFilePath));
-    }
-
-    auto size = cacheFile.tellg();
-    cacheFile.seekg(0);
-
-    std::vector<uint8_t> data;
-    data.resize(std::size_t(size) / sizeof *std::data(data));
-    using RawDataType = std::ifstream::char_type *;
-    cacheFile.read(RawDataType(std::data(data)), size);
-
-    return data;
-}
-
-bool Renderer::savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const
-{
-    std::filesystem::path cacheFilePath{pipelineCacheName};
-    cacheFilePath += ".bin";
-
-    std::ofstream cacheFile{cacheFilePath, std::ios::out | std::ios::trunc | std::ios::binary};
-    if (!cacheFile.is_open()) {
-        SPDLOG_WARN("Cannot open pipeline cache file {} for write", cacheFilePath);
-        return false;
-    }
-
-    auto size = std::streamsize(std::size(data));
-
-    using RawDataType = std::ifstream::char_type *;
-    cacheFile.write(RawDataType(std::data(data)), size);
-
-    return true;
-}
-
-std::vector<uint32_t> Renderer::loadShader(std::string_view shaderName) const
-{
-    std::filesystem::path shaderFilePath{shaderName};
-    shaderFilePath += ".spv";
-
-    std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary | std::ios::ate};
-    if (!shaderFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open shader file {}", shaderFilePath));
-    }
-
-    auto size = shaderFile.tellg();
-    shaderFile.seekg(0);
-
-    std::vector<uint32_t> code;
-    if ((size_t(size) % sizeof *std::data(code)) != 0) {
-        throw RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
-    }
-    code.resize(size_t(size) / sizeof *std::data(code));
-    using RawDataType = std::ifstream::char_type *;
-    shaderFile.read(RawDataType(std::data(code)), size);
-    if (shaderFile.tellg() != size) {
-        throw RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
-    }
-
-    return code;
 }
 
 void Renderer::loadScene(scene::Scene & scene)

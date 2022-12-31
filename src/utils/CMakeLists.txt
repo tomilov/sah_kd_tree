@@ -34,5 +34,7 @@ target_sources(
         "exception.hpp"
         "exception.cpp"
         "auto_cast.hpp"
-        "auto_cast.cpp")
+        "auto_cast.cpp"
+        "checked_ptr.hpp"
+        "checked_ptr.cpp")
 

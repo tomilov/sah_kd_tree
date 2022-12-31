@@ -1,5 +1,5 @@
 #include <utils/assert.hpp>
-#include <viewer/renderer.hpp>
+#include <viewer/renderer_io.hpp>
 
 #include <common/version.hpp>
 
@@ -174,7 +174,8 @@ int main(int argc, char * argv[])
     constexpr bool kUseRenderer = true;
 
     QDir::setSearchPaths("shaders", {QStringLiteral(":/shaders")});
-    viewer::Renderer renderer{{0x0, 0xB3D4346B, 0xDC18AD6B}};
+    auto rendererIo = std::make_unique<viewer::RendererIo>();
+    renderer::Renderer renderer{rendererIo.get(), {0x0, 0xB3D4346B, 0xDC18AD6B}};
 
     QVulkanInstance vulkanInstance;
     if (kUseRenderer) {
@@ -262,7 +263,5 @@ int main(int argc, char * argv[])
     persistRootWindowSettings(engine);
     engine.load(QUrl{"ui.qml"});
 
-    int result = application->exec();
-    renderer.flushCaches();
-    return result;
+    return application->exec();
 }
