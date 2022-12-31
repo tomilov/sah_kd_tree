@@ -100,7 +100,7 @@ public:
     Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Buffer(Buffer &&);
-    Buffer & operator = (Buffer &&);
+    Buffer & operator=(Buffer &&);
 
     ~Buffer();
 
@@ -124,7 +124,7 @@ public:
     Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Image(Image &&);
-    Image & operator = (Image &&);
+    Image & operator=(Image &&);
 
     ~Image();
 

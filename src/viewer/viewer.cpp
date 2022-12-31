@@ -16,7 +16,7 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
-Q_LOGGING_CATEGORY(viewerCategory, "viewer")
+Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 }  // namespace
 
 struct Viewer::Impl
@@ -122,7 +122,7 @@ void Viewer::cleanup()
 void Viewer::onWindowChanged(QQuickWindow * window)
 {
     if (!window) {
-        qCInfo(viewerCategory) << "Window lost";
+        qCDebug(viewerCategory) << "Window lost";
         return;
     }
 

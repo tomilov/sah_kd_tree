@@ -8,6 +8,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 
 #include <iterator>
 

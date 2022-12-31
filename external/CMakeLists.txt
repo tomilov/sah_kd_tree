@@ -41,6 +41,7 @@ target_compile_definitions(
 
 
 set(SPDLOG_FMT_EXTERNAL ON)
+set(SPDLOG_SYSTEM_INCLUDES ON)
 add_subdirectory("spdlog" EXCLUDE_FROM_ALL SYSTEM)
 
 

@@ -9,6 +9,23 @@ namespace renderer
 {
 
 template<typename Object>
+void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color)
+{
+    INVARIANT(object, "Expected valid object");
+
+    vk::DebugUtilsLabelEXT debugUtilsLabel = {};
+    debugUtilsLabel.setPLabelName(labelName);
+    debugUtilsLabel.setColor(color);
+    object.insertDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
+}
+
+template<>
+void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, const char * labelName, const LabelColor & color);
+
+template<>
+void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, const char * labelName, const LabelColor & color);
+
+template<typename Object>
 ScopedDebugUtilsLabel<Object>::ScopedDebugUtilsLabel(ScopedDebugUtilsLabel && rhs) noexcept : dispatcher{std::exchange(rhs.dispatcher, nullptr)}, object{std::exchange(rhs.object, nullptr)}
 {}
 
@@ -24,21 +41,11 @@ template<typename Object>
 ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 {
     if (!dispatcher) {
+        ASSERT(!object);
         return;
     }
-    INVARIANT(object, "Expected valid object");
+    ASSERT(object);
     object.endDebugUtilsLabelEXT(*dispatcher);
-}
-
-template<typename Object>
-void ScopedDebugUtilsLabel<Object>::insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color)
-{
-    INVARIANT(object, "Expected valid object");
-
-    vk::DebugUtilsLabelEXT debugUtilsLabel = {};
-    debugUtilsLabel.setPLabelName(labelName);
-    debugUtilsLabel.setColor(color);
-    object.insertDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
 }
 
 template<typename Object>

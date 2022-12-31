@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 #include <utils/exception.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/meta.hpp>

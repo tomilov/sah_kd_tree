@@ -13,6 +13,15 @@ using LabelColor = std::array<float, 4>;
 inline constexpr LabelColor kDefaultLabelColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
 template<typename Object>
+void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
+
+template<>
+void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, const char * labelName, const LabelColor & color);
+
+template<>
+void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, const char * labelName, const LabelColor & color);
+
+template<typename Object>
 class ScopedDebugUtilsLabel
 {
     static_assert(std::is_same_v<Object, vk::Queue> || std::is_same_v<Object, vk::CommandBuffer>);
@@ -27,19 +36,7 @@ public:
 
     ~ScopedDebugUtilsLabel();
 
-    static void insert(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
-
-    void insert(const char * labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return insert(*dispatcher, object, labelName, color);
-    }
-
     static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
-
-    ScopedDebugUtilsLabel create(const char * labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return create(*dispatcher, object, labelName, color);
-    }
 
 private:
     const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE * dispatcher = nullptr;

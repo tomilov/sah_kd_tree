@@ -15,7 +15,7 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
-Q_LOGGING_CATEGORY(exampleRendererCategory, "example_renderer")
+Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.example_renderer")
 }  // namespace
 
 ExampleRenderer::~ExampleRenderer()

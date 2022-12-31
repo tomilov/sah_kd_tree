@@ -16,6 +16,7 @@ int main(int /*argc*/, char * /*argv*/[])
         std::vector<int, A> v{a};
         v.push_back(1);
     }
-    renderer.createInstance(APPLICATION_NAME, kApplicationVersion, allocationCallbacks.allocationCallbacks);
+    renderer.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
     renderer.createDevice();
+    renderer.flushCaches();
 }

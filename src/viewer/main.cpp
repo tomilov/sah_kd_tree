@@ -1,20 +1,24 @@
-#include <renderer/renderer.hpp>
 #include <utils/assert.hpp>
+#include <viewer/renderer.hpp>
 
 #include <common/version.hpp>
 
+#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QByteArrayAlgorithms>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
+#include <QtCore/QDir>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QSettings>
 #include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtCore/QVersionNumber>
+#include <QtCore/QtMessageHandler>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QVulkanInstance>
 #include <QtQml/QQmlApplicationEngine>
@@ -33,7 +37,7 @@
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerMainCategory)
-Q_LOGGING_CATEGORY(viewerMainCategory, "viewerMain")
+Q_LOGGING_CATEGORY(viewerMainCategory, "viewer.main")
 
 std::unique_ptr<QGuiApplication> createApplication(int & argc, char * argv[])
 {
@@ -85,6 +89,28 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
     }
 }
 
+spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
+{
+    switch (msgType) {
+    case QtMsgType::QtDebugMsg: {
+        return spdlog::level::debug;
+    }
+    case QtMsgType::QtWarningMsg: {
+        return spdlog::level::warn;
+    }
+    case QtMsgType::QtCriticalMsg: {
+        return spdlog::level::err;
+    }
+    case QtMsgType::QtFatalMsg: {
+        return spdlog::level::critical;
+    }
+    case QtMsgType::QtInfoMsg: {
+        return spdlog::level::info;
+    }
+    }
+    INVARIANT(false, "Unknown QtMsgType {}", fmt::underlying(msgType));
+}
+
 }  // namespace
 
 int main(int argc, char * argv[])
@@ -98,6 +124,35 @@ int main(int argc, char * argv[])
         QCoreApplication::setApplicationName(APPLICATION_NAME);
 
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
+    }
+    if ((false)) {
+        // The pattern can also be changed at runtime by setting the QT_MESSAGE_PATTERN environment variable;
+        // if both qSetMessagePattern() is called and QT_MESSAGE_PATTERN is set, the environment variable takes precedence.
+        QString messagePattern =
+            "[%{time process} tid=%{threadid}] %{type}:%{category}: %{message} (%{file}:%{line}"
+#ifndef QT_DEBUG
+            " %{function}"
+#endif
+            ")"
+#if __GLIBC__
+            R"(%{if-fatal}\n%{backtrace depth=32 separator="\n"}%{endif})";
+#endif
+        ;
+        // "%{time yyyy/MM/dd dddd HH:mm:ss.zzz t}"
+        qSetMessagePattern(messagePattern);
+    }
+    {
+        spdlog::set_level(spdlog::level::level_enum(SPDLOG_ACTIVE_LEVEL));
+        static constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message) {
+            auto lvl = qtMsgTypeToSpdlogLevel(msgType);
+            if (!spdlog::should_log(lvl)) {
+                return;
+            }
+            spdlog::source_loc location{messageLogContext.file, messageLogContext.line, messageLogContext.function};
+            auto category = messageLogContext.category ? messageLogContext.category : "";
+            spdlog::log(location, lvl, "[{}]: {}", category, qPrintable(message));
+        };
+        qInstallMessageHandler(messageHandler);
     }
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
@@ -117,7 +172,9 @@ int main(int argc, char * argv[])
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
 
     constexpr bool kUseRenderer = true;
-    renderer::Renderer renderer{{0x0, 0xB3D4346B, 0xDC18AD6B}};
+
+    QDir::setSearchPaths("shaders", {QStringLiteral(":/shaders")});
+    viewer::Renderer renderer{{0x0, 0xB3D4346B, 0xDC18AD6B}};
 
     QVulkanInstance vulkanInstance;
     if (kUseRenderer) {
@@ -205,5 +262,7 @@ int main(int argc, char * argv[])
     persistRootWindowSettings(engine);
     engine.load(QUrl{"ui.qml"});
 
-    return application->exec();
+    int result = application->exec();
+    renderer.flushCaches();
+    return result;
 }

@@ -1,10 +1,8 @@
 #include <utils/assert.hpp>
 #include <utils/exception.hpp>
 
-#include <fmt/compile.h>
 #include <fmt/format.h>
-
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 #include <cstdlib>
 
@@ -13,21 +11,14 @@ namespace utils::impl
 
 void AssertFailed(const char * expression, const char * file, unsigned int line, const char * function, std::string_view message)
 {
-    auto errorMessage = fmt::format(FMT_COMPILE("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}\n"), file, line, (function ? ":" : ""), (function ? function : ""), expression, (!message.empty() ? ": " : ""), message);
-
-    std::cerr << errorMessage;
-
-    // flush log
-
+    SPDLOG_CRITICAL("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}", file, line, (function ? ":" : ""), (function ? function : ""), expression, (!message.empty() ? ": " : ""), message);
     std::abort();
 }
 
 void ThrowInvariantError(const char * expression, std::string_view message)
 {
-    auto errorMessage = fmt::format(FMT_COMPILE("Invariant ({}) violation: {}"), expression, message);
-
-    // log
-
+    auto errorMessage = fmt::format("Invariant ({}) violation: {}", expression, message);
+    SPDLOG_CRITICAL("{}", errorMessage);
     throw InvariantError{errorMessage};
 }
 

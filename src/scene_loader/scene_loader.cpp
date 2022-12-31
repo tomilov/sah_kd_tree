@@ -14,13 +14,14 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 
 namespace scene_loader
 {
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
-Q_LOGGING_CATEGORY(sceneLoaderLog, "sceneLoader")
+Q_LOGGING_CATEGORY(sceneLoaderLog, "scene_loader")
 
 template<typename Type>
 QString toString(const Type & value)

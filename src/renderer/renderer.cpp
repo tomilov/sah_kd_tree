@@ -5,6 +5,7 @@
 #include <renderer/utils.hpp>
 #include <renderer/vma.hpp>
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 #include <utils/pp.hpp>
 
@@ -15,7 +16,6 @@
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
-#include <spirv_reflect.h>
 
 #include <algorithm>
 #include <bitset>
@@ -33,6 +33,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <spirv_reflect.h>
 
 namespace renderer
 {
@@ -57,6 +59,7 @@ struct Renderer::Impl final : utils::NonCopyable
     struct RenderPass;
     struct ShaderModule;
     struct ShaderModuleReflection;
+    struct ShaderStages;
     struct PipelineCache;
 
     mutable std::mutex mutex;
@@ -76,20 +79,26 @@ struct Renderer::Impl final : utils::NonCopyable
     std::unique_ptr<Queues> queues;
     std::unique_ptr<PipelineCache> pipelineCache;
 
-    Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute);
+    Impl(const std::initializer_list<uint32_t> & mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+    {}
 
-    DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::vector<uint32_t> & messageIdNumbers, bool enabled);
+    DebugUtilsMessageMuteGuard muteDebugUtilsMessages(const std::initializer_list<uint32_t> & messageIdNumbers, bool enabled);
 
-    void createInstance(Renderer & renderer, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+    vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+    vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+
+    void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Renderer & renderer);
     void createDevice(Renderer & renderer, vk::SurfaceKHR surface);
+
+    void flushCaches();
 };
 
-Renderer::Renderer(std::vector<uint32_t> mutedMessageIdNumbers, bool mute) : impl_{mutedMessageIdNumbers, mute}
+Renderer::Renderer(std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : impl_{mutedMessageIdNumbers, mute}
 {}
 
 Renderer::~Renderer() = default;
 
-auto Renderer::muteDebugUtilsMessages(std::vector<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
+auto Renderer::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
 {
     return impl_->muteDebugUtilsMessages(messageIdNumbers, enabled);
 }
@@ -104,9 +113,9 @@ void Renderer::addRequiredDeviceExtensions(const std::vector<const char *> & req
     impl_->requiredDeviceExtensions.insert(std::cend(impl_->requiredDeviceExtensions), std::cbegin(requiredDeviceExtensions), std::cend(requiredDeviceExtensions));
 }
 
-void Renderer::createInstance(const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
+void Renderer::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
-    return impl_->createInstance(*this, applicationName, applicationVersion, allocationCallbacks, libraryName);
+    return impl_->createInstance(applicationName, applicationVersion, libraryName, allocationCallbacks, *this);
 }
 
 void Renderer::createDevice(vk::SurfaceKHR surface)
@@ -116,19 +125,30 @@ void Renderer::createDevice(vk::SurfaceKHR surface)
 
 struct Renderer::Impl::Library final : utils::NonCopyable
 {
+    const std::optional<std::string> libraryName;
+    const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
+
     Renderer & renderer;
 
-    vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
-    vk::DynamicLoader dl;
+    std::optional<vk::DynamicLoader> dl;
 #endif
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 
-    Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName);
+    Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Renderer & renderer) : libraryName{libraryName}, allocationCallbacks{allocationCallbacks}, renderer{renderer}
+    {
+        init();
+    }
+
+private:
+    void init();
 };
 
 struct Renderer::Impl::Instance final : utils::NonCopyable
 {
+    const std::string applicationName;
+    const uint32_t applicationVersion;
+
     Renderer & renderer;
     Library & library;
 
@@ -157,7 +177,10 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    Instance(Renderer & renderer, Library & library, const char * applicationName, uint32_t applicationVersion);
+    Instance(std::string_view applicationName, uint32_t applicationVersion, Renderer & renderer, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, renderer{renderer}, library{library}
+    {
+        init();
+    }
 
     std::vector<vk::PhysicalDevice> getPhysicalDevices() const
     {
@@ -167,7 +190,13 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
     template<typename Object>
     void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
     {
-        return ScopedDebugUtilsLabel<Object>::insert(library.dispatcher, object, labelName, color);
+        return insertDebugUtilsLabel<Object>(library.dispatcher, object, labelName, color);
+    }
+
+    template<typename Object>
+    void insert(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return insert<Object>(library.dispatcher, object, labelName.c_str(), color);
     }
 
     template<typename Object>
@@ -176,15 +205,24 @@ struct Renderer::Impl::Instance final : utils::NonCopyable
         return ScopedDebugUtilsLabel<Object>::create(library.dispatcher, object, labelName, color);
     }
 
+    template<typename Object>
+    ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return create<Object>(object, labelName.c_str(), color);
+    }
+
     void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
     {
         instance.submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.dispatcher);
     }
+
+private:
+    void init();
 };
 
 struct Renderer::Impl::QueueCreateInfo final
 {
-    const char * name = nullptr;
+    const std::string name;
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     std::size_t index = std::numeric_limits<std::size_t>::max();
 };
@@ -205,8 +243,8 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
     StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 
-    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
-                       vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
+    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+                       vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
         physicalDeviceProperties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
@@ -264,13 +302,19 @@ struct Renderer::Impl::PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
 
-    PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice);
+    PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+    {
+        init();
+    }
 
     StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
     uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
     bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
 
     bool enableExtensionIfAvailable(const char * extensionName);
+
+private:
+    void init();
 };
 
 struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
@@ -281,9 +325,15 @@ struct Renderer::Impl::PhysicalDevices final : utils::NonCopyable
 
     std::vector<std::unique_ptr<PhysicalDevice>> physicalDevices;
 
-    PhysicalDevices(Renderer & renderer, Library & library, Instance & instance);
+    PhysicalDevices(Renderer & renderer, Library & library, Instance & instance) : renderer{renderer}, library{library}, instance{instance}
+    {
+        init();
+    }
 
     PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface) const;
+
+private:
+    void init();
 };
 
 struct Renderer::Impl::Fences final
@@ -298,14 +348,15 @@ struct Renderer::Impl::Fences final
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
-    Fences(std::string_view name, Renderer & renderer, Library & library, Device & device);
+    Fences(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
+    {}
 
     void create(std::size_t count = 1);
 
     vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
     vk::Result wait(std::size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
 
-    void reset();
+    void resetAll();
     void reset(std::size_t fenceIndex);
 };
 
@@ -324,7 +375,10 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
+    Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+    {
+        create();
+    }
 
     void create();
 
@@ -339,9 +393,15 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     {
         vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo;
         debugUtilsObjectNameInfo.objectType = object.objectType;
-        debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectNameInfo.pObjectName = objectName;
         device.setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.dispatcher);
+    }
+
+    template<typename Object>
+    void setDebugUtilsObjectName(Object object, const std::string & objectName) const
+    {
+        return setDebugUtilsObjectName(object, objectName.c_str());
     }
 
     template<typename Object>
@@ -349,7 +409,7 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         debugUtilsObjectTagInfo.objectType = object.objectType;
-        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectTagInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.tagSize = tagSize;
         debugUtilsObjectTagInfo.pTag = tag;
@@ -357,11 +417,11 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     }
 
     template<typename Object, typename T>
-    void setDebugUtilsObjectTag(Object object, uint64_t tagName, const vk::ArrayProxyNoTemporaries<const T> & tag) const
+    void setDelbugUtilsObjectTag(Object object, uint64_t tagName, const vk::ArrayProxyNoTemporaries<const T> & tag) const
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         debugUtilsObjectTagInfo.objectType = object.objectType;
-        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectTagInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.setTag(tag);
         device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
@@ -372,23 +432,11 @@ struct Renderer::Impl::Device final : utils::NonCopyable
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         debugUtilsObjectTagInfo.objectType = object.objectType;
-        debugUtilsObjectTagInfo.objectHandle = uint64_t(typename Object::NativeType(object));
+        debugUtilsObjectTagInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.tagSize = std::size(tag);
         debugUtilsObjectTagInfo.pTag = std::data(tag);
         device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
-    }
-
-    template<typename Object, typename... ChainElements>
-    void setDebugUtilsShaderName(vk::StructureChain<vk::PipelineShaderStageCreateInfo, ChainElements...> & chain, Object object, const char * objectName) const
-    {
-        // TODO: how it should work?
-        // check graphicsPipelineLibrary first
-        static_assert(vk::IsPartOfStructureChain<vk::DebugUtilsObjectNameInfoEXT, ChainElements...>::valid);
-        vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo = chain.template get<vk::DebugUtilsObjectNameInfoEXT>();
-        debugUtilsObjectNameInfo.objectType = object.objectType;
-        debugUtilsObjectNameInfo.objectHandle = uint64_t(typename Object::NativeType(object));
-        debugUtilsObjectNameInfo.pObjectName = objectName;
     }
 
     Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
@@ -414,21 +462,24 @@ struct Renderer::Impl::CommandBuffers final
     std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
     std::vector<vk::CommandBuffer> commandBuffers;
 
-    CommandBuffers(std::string_view name, Renderer & renderer, Library & library, Device & device)
-        : name{name}, renderer{renderer}, library{library}, device{device}
+    CommandBuffers(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
     {}
 
     void create()
     {
         commandBuffersHolder = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
-        commandBuffers.reserve(commandBuffersHolder.size());
+        commandBuffers.reserve(std::size(commandBuffersHolder));
 
         std::size_t i = 0;
         for (const auto & commandBuffer : commandBuffersHolder) {
             commandBuffers.push_back(*commandBuffer);
 
-            auto commandBufferName = fmt::format("{} #{}/{}", name, i++, commandBuffersHolder.size());
-            device.setDebugUtilsObjectName(commandBuffers.back(), commandBufferName.c_str());
+            if (std::size(commandBuffersHolder) > 1) {
+                auto commandBufferName = fmt::format("{} #{}/{}", name, i++, std::size(commandBuffersHolder));
+                device.setDebugUtilsObjectName(commandBuffers.back(), commandBufferName);
+            } else {
+                device.setDebugUtilsObjectName(commandBuffers.back(), name);
+            }
         }
     }
 };
@@ -445,8 +496,7 @@ struct Renderer::Impl::CommandPool final
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(std::string_view name, Renderer & renderer, Library & library, Device & device)
-        : name{name}, renderer{renderer}, library{library}, device{device}
+    CommandPool(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
     {}
 
     void create()
@@ -454,7 +504,7 @@ struct Renderer::Impl::CommandPool final
         commandPoolHolder = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
         commandPool = *commandPoolHolder;
 
-        device.setDebugUtilsObjectName(commandPool, name.c_str());
+        device.setDebugUtilsObjectName(commandPool, name);
     }
 };
 
@@ -466,11 +516,11 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
     PhysicalDevice & physicalDevice;
     Device & device;
 
-    using CommandPoolInfo = std::pair<uint32_t/*queueFamilyIndex*/, vk::CommandBufferLevel>;
+    using CommandPoolInfo = std::pair<uint32_t /*queueFamilyIndex*/, vk::CommandBufferLevel>;
 
     struct CommandPoolHash
     {
-        std::size_t operator () (const CommandPoolInfo & commandBufferInfo) const noexcept
+        std::size_t operator()(const CommandPoolInfo & commandBufferInfo) const noexcept
         {
             auto hash = std::hash<uint32_t>{}(commandBufferInfo.first);
             using U = std::underlying_type_t<vk::CommandBufferLevel>;
@@ -504,6 +554,10 @@ struct Renderer::Impl::CommandPools : utils::NonCopyable
             commandPool.create();
             static_assert(std::is_move_constructible_v<CommandPool>);
             perThreadCommandPool = perThreadCommandPools.emplace_hint(perThreadCommandPool, std::move(commandPoolInfo), std::move(commandPool));
+        } else {
+            if (perThreadCommandPool->second.name != name) {
+                SPDLOG_WARN("Command pool name mismatching for thread {}: '{}' != '{}'", threadId, perThreadCommandPool->second.name, name);
+            }
         }
         return perThreadCommandPool->second.commandPool;
     }
@@ -574,7 +628,7 @@ struct Renderer::Impl::Queue final : utils::NonCopyable
     {
         vk::StructureChain<vk::SubmitInfo2, vk::PerformanceQuerySubmitInfoKHR> submitInfoStructureChain;
 
-        //auto & performanceQuerySubmitInfo = submitInfoStructureChain.get<vk::PerformanceQuerySubmitInfoKHR>();
+        // auto & performanceQuerySubmitInfo = submitInfoStructureChain.get<vk::PerformanceQuerySubmitInfoKHR>();
 
         vk::CommandBufferSubmitInfo commandBufferSubmitInfo;
         commandBufferSubmitInfo.setCommandBuffer(commandBuffer);
@@ -621,14 +675,37 @@ struct Renderer::Impl::RenderPass final : utils::NonCopyable
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
-        : name{name}
-        , renderer{renderer}
-        , library{library}
-        , physicalDevice{physicalDevice}
-        , device{device}
-    {}
+    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    {
+        init();
+    }
 
+    auto createFramebuffers(std::string_view name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
+    {
+        std::vector<vk::UniqueFramebuffer> framebuffers;
+        vk::FramebufferCreateInfo framebufferCreateInfo = {
+            .renderPass = renderPass,
+            .width = width,
+            .height = height,
+            .layers = layers,
+        };
+        framebuffers.reserve(std::size(imageViews));
+        std::size_t i = 0;
+        for (vk::ImageView imageView : imageViews) {
+            framebufferCreateInfo.setAttachments(imageView);
+            framebuffers.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
+
+            if (std::size(imageViews) > 1) {
+                auto framebufferName = fmt::format("{} #{}/{}", name, i++, std::size(imageViews));
+                device.setDebugUtilsObjectName(*framebuffers.back(), framebufferName);
+            } else {
+                device.setDebugUtilsObjectName(*framebuffers.back(), std::string{name});
+            }
+        }
+        return framebuffers;
+    }
+
+private:
     void init()
     {
         vk::AttachmentReference attachmentReference = {
@@ -665,28 +742,7 @@ struct Renderer::Impl::RenderPass final : utils::NonCopyable
         renderPassHolder = device.device.createRenderPassUnique(renderPassCreateInfo, library.allocationCallbacks, library.dispatcher);
         renderPass = *renderPassHolder;
 
-        device.setDebugUtilsObjectName(renderPass, name.c_str());
-    }
-
-    auto createFramebuffers(const char * name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
-    {
-        std::vector<vk::UniqueFramebuffer> framebuffers;
-        vk::FramebufferCreateInfo framebufferCreateInfo = {
-            .renderPass = renderPass,
-            .width = width,
-            .height = height,
-            .layers = layers,
-        };
-        framebuffers.reserve(imageViews.size());
-        std::size_t i = 0;
-        for (vk::ImageView imageView : imageViews) {
-            framebufferCreateInfo.setAttachments(imageView);
-            framebuffers.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
-
-            auto framebufferName = fmt::format("{} #{}/{}", name, i++, imageViews.size());
-            device.setDebugUtilsObjectName(*framebuffers.back(), framebufferName.c_str());
-        }
-        return framebuffers;
+        device.setDebugUtilsObjectName(renderPass, name);
     }
 };
 
@@ -729,83 +785,232 @@ constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
 constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
 {
     switch (shaderStage) {
-    case vk::ShaderStageFlagBits::eVertex                 : return "vert";
-    case vk::ShaderStageFlagBits::eTessellationControl    : return "tesc";
-    case vk::ShaderStageFlagBits::eTessellationEvaluation : return "tese";
-    case vk::ShaderStageFlagBits::eGeometry               : return "geom";
-    case vk::ShaderStageFlagBits::eFragment               : return "frag";
-    case vk::ShaderStageFlagBits::eCompute                : return "comp";
-    case vk::ShaderStageFlagBits::eAllGraphics            : return nullptr;
-    case vk::ShaderStageFlagBits::eAll                    : return nullptr;
-    case vk::ShaderStageFlagBits::eRaygenKHR              : return "rgen";
-    case vk::ShaderStageFlagBits::eAnyHitKHR              : return "rahit";
-    case vk::ShaderStageFlagBits::eClosestHitKHR          : return "rchit";
-    case vk::ShaderStageFlagBits::eMissKHR                : return "rmiss";
-    case vk::ShaderStageFlagBits::eIntersectionKHR        : return "rint";
-    case vk::ShaderStageFlagBits::eCallableKHR            : return "rcall";
-    case vk::ShaderStageFlagBits::eTaskEXT                : return "task";
-    case vk::ShaderStageFlagBits::eMeshEXT                : return "mesh";
-    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI   : return nullptr;
+    case vk::ShaderStageFlagBits::eVertex:
+        return "vert";
+    case vk::ShaderStageFlagBits::eTessellationControl:
+        return "tesc";
+    case vk::ShaderStageFlagBits::eTessellationEvaluation:
+        return "tese";
+    case vk::ShaderStageFlagBits::eGeometry:
+        return "geom";
+    case vk::ShaderStageFlagBits::eFragment:
+        return "frag";
+    case vk::ShaderStageFlagBits::eCompute:
+        return "comp";
+    case vk::ShaderStageFlagBits::eAllGraphics:
+        return nullptr;
+    case vk::ShaderStageFlagBits::eAll:
+        return nullptr;
+    case vk::ShaderStageFlagBits::eRaygenKHR:
+        return "rgen";
+    case vk::ShaderStageFlagBits::eAnyHitKHR:
+        return "rahit";
+    case vk::ShaderStageFlagBits::eClosestHitKHR:
+        return "rchit";
+    case vk::ShaderStageFlagBits::eMissKHR:
+        return "rmiss";
+    case vk::ShaderStageFlagBits::eIntersectionKHR:
+        return "rint";
+    case vk::ShaderStageFlagBits::eCallableKHR:
+        return "rcall";
+    case vk::ShaderStageFlagBits::eTaskEXT:
+        return "task";
+    case vk::ShaderStageFlagBits::eMeshEXT:
+        return "mesh";
+    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI:
+        return nullptr;
     }
     INVARIANT(false, "Unknown shader stage {}", fmt::underlying(shaderStage));
 }
 
-struct Renderer::Impl::ShaderModule final : utils::NonCopyable, utils::NonMoveable
+struct Renderer::Impl::ShaderModule final
+    : utils::NonCopyable
+    , utils::NonMoveable
 {
     const std::string name;
+    const std::string entryPoint;
 
     Renderer & renderer;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
 
-    std::vector<uint32_t> code;
-
     vk::ShaderStageFlagBits shaderStage;
-    std::string entryPoint;
+    std::vector<uint32_t> code;
 
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, std::string_view entryPoint)
-        : name{name}
-        , renderer{renderer}
-        , library{library}
-        , physicalDevice{physicalDevice}
-        , device{device}
-        , code{renderer.loadShader(name)}
-        , shaderStage{shaderNameToStage(name)}
-        , entryPoint{entryPoint}
+    ShaderModule(std::string_view name, std::string_view entryPoint, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
+        : name{name}, entryPoint{entryPoint}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
-        load(code);
+        load();
     }
 
-    vk::PipelineShaderStageCreateInfo createPipelineShaderStageCreateInfo() const
+private:
+    void load()
     {
-        vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {
-            .flags = {},
-            .stage = shaderStage,
-            .module = shaderModule,
-            .pName = entryPoint.c_str(),
-            .pSpecializationInfo = nullptr,
-        };
+        shaderStage = shaderNameToStage(name);
+        code = renderer.loadShader(name);
 
-        return pipelineShaderStageCreateInfo;
-    }
-
-private :
-    void load(const std::vector<uint32_t> & code)
-    {
         vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
         shaderModuleCreateInfo.setCode(code);
         shaderModuleHolder = device.device.createShaderModuleUnique(shaderModuleCreateInfo, library.allocationCallbacks, library.dispatcher);
         shaderModule = *shaderModuleHolder;
 
-        device.setDebugUtilsObjectName(shaderModule, name.c_str());
+        device.setDebugUtilsObjectName(shaderModule, name);
     }
 };
 
-struct Renderer::Impl::ShaderModuleReflection final : utils::NonCopyable, utils::NonMoveable
+constexpr vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorType descriptorType)
+{
+    switch (descriptorType) {
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+        return vk::DescriptorType::eSampler;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+        return vk::DescriptorType::eCombinedImageSampler;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+        return vk::DescriptorType::eSampledImage;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+        return vk::DescriptorType::eStorageImage;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+        return vk::DescriptorType::eUniformTexelBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+        return vk::DescriptorType::eStorageTexelBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        return vk::DescriptorType::eUniformBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+        return vk::DescriptorType::eStorageBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+        return vk::DescriptorType::eUniformBufferDynamic;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+        return vk::DescriptorType::eStorageBufferDynamic;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+        return vk::DescriptorType::eInputAttachment;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+        return vk::DescriptorType::eAccelerationStructureKHR;
+    };
+    INVARIANT(false, "Unknown spv descriptor type {}", fmt::underlying(descriptorType));
+}
+
+constexpr SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorType descriptorType)
+{
+    switch (descriptorType) {
+    case vk::DescriptorType::eSampler:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER;
+    case vk::DescriptorType::eCombinedImageSampler:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case vk::DescriptorType::eSampledImage:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    case vk::DescriptorType::eStorageImage:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case vk::DescriptorType::eUniformTexelBuffer:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+    case vk::DescriptorType::eStorageTexelBuffer:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+    case vk::DescriptorType::eUniformBuffer:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case vk::DescriptorType::eStorageBuffer:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case vk::DescriptorType::eUniformBufferDynamic:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    case vk::DescriptorType::eStorageBufferDynamic:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    case vk::DescriptorType::eInputAttachment:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    case vk::DescriptorType::eAccelerationStructureKHR:
+        return SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    case vk::DescriptorType::eInlineUniformBlock:
+    case vk::DescriptorType::eAccelerationStructureNV:
+    case vk::DescriptorType::eMutableEXT:
+    case vk::DescriptorType::eSampleWeightImageQCOM:
+    case vk::DescriptorType::eBlockMatchImageQCOM: {
+        INVARIANT(false, "Descriptor type {} is not handled", descriptorType);
+        break;
+    }
+    }
+    INVARIANT(false, "Descriptor type {} is unknown", fmt::underlying(descriptorType));
+}
+
+constexpr vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStageFlagBits shaderStageFlagBits)
+{
+    switch (shaderStageFlagBits) {
+    case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
+        return vk::ShaderStageFlagBits::eVertex;
+    case SPV_REFLECT_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+        return vk::ShaderStageFlagBits::eTessellationControl;
+    case SPV_REFLECT_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+        return vk::ShaderStageFlagBits::eTessellationEvaluation;
+    case SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT:
+        return vk::ShaderStageFlagBits::eGeometry;
+    case SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT:
+        return vk::ShaderStageFlagBits::eFragment;
+    case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT:
+        return vk::ShaderStageFlagBits::eCompute;
+    case SPV_REFLECT_SHADER_STAGE_TASK_BIT_NV:
+        return vk::ShaderStageFlagBits::eTaskEXT;
+    case SPV_REFLECT_SHADER_STAGE_MESH_BIT_NV:
+        return vk::ShaderStageFlagBits::eMeshEXT;
+    case SPV_REFLECT_SHADER_STAGE_RAYGEN_BIT_KHR:
+        return vk::ShaderStageFlagBits::eRaygenKHR;
+    case SPV_REFLECT_SHADER_STAGE_ANY_HIT_BIT_KHR:
+        return vk::ShaderStageFlagBits::eAnyHitKHR;
+    case SPV_REFLECT_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:
+        return vk::ShaderStageFlagBits::eClosestHitKHR;
+    case SPV_REFLECT_SHADER_STAGE_MISS_BIT_KHR:
+        return vk::ShaderStageFlagBits::eMissKHR;
+    case SPV_REFLECT_SHADER_STAGE_INTERSECTION_BIT_KHR:
+        return vk::ShaderStageFlagBits::eIntersectionKHR;
+    case SPV_REFLECT_SHADER_STAGE_CALLABLE_BIT_KHR:
+        return vk::ShaderStageFlagBits::eCallableKHR;
+    };
+    INVARIANT(false, "Unknown spv shader stage {}", fmt::underlying(shaderStageFlagBits));
+}
+
+constexpr SpvReflectShaderStageFlagBits vkShaderStageToSpvReflect(vk::ShaderStageFlagBits shaderStageFlagBits)
+{
+    switch (shaderStageFlagBits) {
+    case vk::ShaderStageFlagBits::eVertex:
+        return SPV_REFLECT_SHADER_STAGE_VERTEX_BIT;
+    case vk::ShaderStageFlagBits::eTessellationControl:
+        return SPV_REFLECT_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    case vk::ShaderStageFlagBits::eTessellationEvaluation:
+        return SPV_REFLECT_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    case vk::ShaderStageFlagBits::eGeometry:
+        return SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT;
+    case vk::ShaderStageFlagBits::eFragment:
+        return SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT;
+    case vk::ShaderStageFlagBits::eCompute:
+        return SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT;
+    case vk::ShaderStageFlagBits::eTaskEXT:
+        return SPV_REFLECT_SHADER_STAGE_TASK_BIT_NV;
+    case vk::ShaderStageFlagBits::eMeshEXT:
+        return SPV_REFLECT_SHADER_STAGE_MESH_BIT_NV;
+    case vk::ShaderStageFlagBits::eRaygenKHR:
+        return SPV_REFLECT_SHADER_STAGE_RAYGEN_BIT_KHR;
+    case vk::ShaderStageFlagBits::eAnyHitKHR:
+        return SPV_REFLECT_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    case vk::ShaderStageFlagBits::eClosestHitKHR:
+        return SPV_REFLECT_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    case vk::ShaderStageFlagBits::eMissKHR:
+        return SPV_REFLECT_SHADER_STAGE_MISS_BIT_KHR;
+    case vk::ShaderStageFlagBits::eIntersectionKHR:
+        return SPV_REFLECT_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    case vk::ShaderStageFlagBits::eCallableKHR:
+        return SPV_REFLECT_SHADER_STAGE_CALLABLE_BIT_KHR;
+    case vk::ShaderStageFlagBits::eAll:
+    case vk::ShaderStageFlagBits::eAllGraphics:
+    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI: {
+        INVARIANT(false, "Shader stage flag {} is not handled", shaderStageFlagBits);
+        break;
+    }
+    }
+    INVARIANT(false, "Shader stage {} is unknown", fmt::underlying(shaderStageFlagBits));
+}
+
+struct Renderer::Impl::ShaderModuleReflection final
+    : utils::NonCopyable
+    , utils::NonMoveable
 {
     struct DescriptorSetLayout
     {
@@ -815,11 +1020,18 @@ struct Renderer::Impl::ShaderModuleReflection final : utils::NonCopyable, utils:
 
     ShaderModule & shaderModule;
 
-    ShaderModuleReflection(ShaderModule & shaderModule)
-        : shaderModule{shaderModule}
+    SpvReflectShaderModule reflectionModule = {};
+
+    vk::ShaderStageFlagBits shaderStage = {};
+    std::vector<DescriptorSetLayout> descriptorSetLayouts;
+    std::vector<vk::PushConstantRange> pushConstantRanges;
+
+    ShaderModuleReflection(ShaderModule & shaderModule) : shaderModule{shaderModule}
     {
-        auto result = spvReflectCreateShaderModule(sizeof(uint32_t) * std::size(shaderModule.code), std::data(shaderModule.code), &reflectionModule);
+        auto result = spvReflectCreateShaderModule(sizeof *std::data(shaderModule.code) * std::size(shaderModule.code), std::data(shaderModule.code), &reflectionModule);
         INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule failed for '{}' shader module", shaderModule.name);
+
+        reflect();
     }
 
     ~ShaderModuleReflection()
@@ -827,22 +1039,11 @@ struct Renderer::Impl::ShaderModuleReflection final : utils::NonCopyable, utils:
         spvReflectDestroyShaderModule(&reflectionModule);
     }
 
-private :
-    using NativeShaderModuleReflection = std::unique_ptr<SpvReflectShaderModule, decltype((spvReflectDestroyShaderModule))>;
-
-    SpvReflectShaderModule reflectionModule = {};
-
-    void reflectDescriptorSetLayouts()
+private:
+    void reflect()
     {
-        uint32_t reflectionDescriptorSetCount = 0;
-        auto result = spvReflectEnumerateDescriptorSets(&reflectionModule, &reflectionDescriptorSetCount, NULL);
-        INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectEnumerateDescriptorSets failed for '{}' shader module", shaderModule.name);
+        shaderStage = spvReflectShaderStageToVk(reflectionModule.shader_stage);
 
-        std::vector<SpvReflectDescriptorSet *> reflectionDescriptorSets(reflectionDescriptorSetCount);
-        result = spvReflectEnumerateDescriptorSets(&reflectionModule, &reflectionDescriptorSetCount, std::data(reflectionDescriptorSets));
-        INVARIANT(result == SPV_REFLECT_RESULT_SUCCESS, "spvReflectEnumerateDescriptorSets failed for '{}' shader module", shaderModule.name);
-
-        std::vector<DescriptorSetLayout> descriptorSetLayouts;
         descriptorSetLayouts.reserve(reflectionModule.descriptor_set_count);
         for (uint32_t s = 0; s < reflectionModule.descriptor_set_count; ++s) {
             const auto & reflectionDecriptorSet = reflectionModule.descriptor_sets[s];
@@ -851,34 +1052,73 @@ private :
             descriptorSetLayout.bindings.reserve(reflectionDecriptorSet.binding_count);
             for (uint32_t b = 0; b < reflectionDecriptorSet.binding_count; ++b) {
                 const auto & reflectionBindings = reflectionDecriptorSet.bindings[b];
+                INVARIANT(reflectionBindings, "Expected non-null descriptor set binding {} for set {}", b, s);
                 auto & descriptorSetLayoutBinding = descriptorSetLayout.bindings.emplace_back();
 
                 descriptorSetLayoutBinding.binding = reflectionBindings->binding;
 
-                using DescriptorType = std::underlying_type_t<vk::DescriptorType>;
-                auto descriptorType = DescriptorType(reflectionBindings->descriptor_type);
-                descriptorSetLayoutBinding.descriptorType = vk::DescriptorType(descriptorType);
+                descriptorSetLayoutBinding.descriptorType = spvReflectDescriiptorTypeToVk(reflectionBindings->descriptor_type);
 
                 descriptorSetLayoutBinding.descriptorCount = 1;
                 for (uint32_t d = 0; d < reflectionBindings->array.dims_count; ++d) {
                     descriptorSetLayoutBinding.descriptorCount *= reflectionBindings->array.dims[d];
                 }
 
-                using ShaderStageFlagBits = std::underlying_type_t<vk::ShaderStageFlagBits>;
-                auto shaderStage = ShaderStageFlagBits(reflectionModule.shader_stage);
-                descriptorSetLayoutBinding.stageFlags = vk::ShaderStageFlagBits(shaderStage);
+                descriptorSetLayoutBinding.stageFlags = shaderStage;
             }
+        }
+
+        pushConstantRanges.reserve(reflectionModule.push_constant_block_count);
+        for (uint32_t p = 0; p < reflectionModule.push_constant_block_count; ++p) {
+            const auto & reflectionPushConstantBlock = reflectionModule.push_constant_blocks[p];
+            pushConstantRanges.push_back({
+                .stageFlags = shaderStage,
+                .offset = reflectionPushConstantBlock.offset,
+                .size = reflectionPushConstantBlock.size,
+            });
         }
 
         for (const auto & descriptorSetLayout : descriptorSetLayouts) {
             size_t i = 0;
             for (const auto & binding : descriptorSetLayout.bindings) {
                 if (!(binding.stageFlags & shaderModule.shaderStage)) {
-                    SPDLOG_WARN("Flags ({}) of binding #{} of set #{} does not contain shader stage {} for shader module '{}'", binding.stageFlags, i, descriptorSetLayout.set, shaderModule.shaderStage, shaderModule.name);
+                    SPDLOG_WARN("Flags ({}) of binding #{} of set #{} does not contain shader stage {} for inferred shader module '{}'", binding.stageFlags, i, descriptorSetLayout.set, shaderModule.shaderStage, shaderModule.name);
                 }
                 ++i;
             }
         }
+    }
+};
+
+struct Renderer::Impl::ShaderStages final
+{
+    using PipelineShaderStageCreateInfoChain = vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    std::vector<PipelineShaderStageCreateInfoChain> shaderStages;
+
+    ShaderStages(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    {}
+
+    void append(const ShaderModule & shaderModule)
+    {
+        auto & pipelineShaderStageCreateInfoChain = shaderStages.emplace_back();
+        auto & pipelineShaderStageCreateInfo = pipelineShaderStageCreateInfoChain.get<vk::PipelineShaderStageCreateInfo>();
+        pipelineShaderStageCreateInfo = {
+            .flags = {},
+            .stage = shaderModule.shaderStage,
+            .module = shaderModule.shaderModule,
+            .pName = shaderModule.entryPoint.c_str(),
+            .pSpecializationInfo = nullptr,
+        };
+        auto & debugUtilsObjectNameInfo = pipelineShaderStageCreateInfoChain.get<vk::DebugUtilsObjectNameInfoEXT>();
+        debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
+        debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
+        debugUtilsObjectNameInfo.pObjectName = shaderModule.name.c_str();
     }
 };
 
@@ -896,42 +1136,31 @@ struct Renderer::Impl::PipelineCache final : utils::NonCopyable
     vk::UniquePipelineCache pipelineCacheHolder;
     vk::PipelineCache pipelineCache;
 
-    PipelineCache(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
-        : name{name}
-        , renderer{renderer}
-        , library{library}
-        , physicalDevice{physicalDevice}
-        , device{device}
+    PipelineCache(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
         load();
     }
 
-    ~PipelineCache()
-    {
-        if (std::uncaught_exceptions() == 0) {
-            save();
-        }
-    }
+    bool flush();
 
-private :
+private:
     std::vector<uint8_t> loadPipelineCacheData() const;
 
     void load();
-    void save();
 };
 
 std::vector<uint8_t> Renderer::Impl::PipelineCache::loadPipelineCacheData() const
 {
-    auto data = renderer.loadPipelineCache(name.c_str());
-    if (std::size(data) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
+    auto cacheData = renderer.loadPipelineCache(name.c_str());
+    if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
     }
-    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(data));
+    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(cacheData));
 #if __BYTE_ORDER != __LITTLE_ENDIAN
 #error "Not implemented!"
 #endif
-    if (pipelineCacheHeader.headerSize > std::size(data)) {
+    if (pipelineCacheHeader.headerSize > std::size(cacheData)) {
         SPDLOG_INFO("There is no room for pipeline cache data in data");
         return {};
     }
@@ -952,22 +1181,22 @@ std::vector<uint8_t> Renderer::Impl::PipelineCache::loadPipelineCacheData() cons
         SPDLOG_INFO("Pipeline cache UUID mismatch '{}' != '{}'", pipelineCacheHeader.pipelineCacheUUID, physicalDeviceProperties.pipelineCacheUUID);
         return {};
     }
-    return data;
+    return cacheData;
 }
 
 void Renderer::Impl::PipelineCache::load()
 {
-    auto data = loadPipelineCacheData();
+    auto cacheData = loadPipelineCacheData();
 
     vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
     // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized; // ?
 
-    pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+    pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
     try {
         pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
         SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
     } catch (const vk::SystemError & exception) {
-        if (data.empty()) {
+        if (cacheData.empty()) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
             throw;
         } else {
@@ -975,9 +1204,9 @@ void Renderer::Impl::PipelineCache::load()
         }
     }
     if (!pipelineCacheHolder) {
-        ASSERT(!data.empty());
-        data.clear();
-        pipelineCacheCreateInfo.setInitialData<uint8_t>(data);
+        ASSERT(!cacheData.empty());
+        cacheData.clear();
+        pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
         try {
             pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
             SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
@@ -990,14 +1219,19 @@ void Renderer::Impl::PipelineCache::load()
     pipelineCache = *pipelineCacheHolder;
 
     ASSERT(pipelineCache);
-    device.setDebugUtilsObjectName(pipelineCache, name.c_str());
+    device.setDebugUtilsObjectName(pipelineCache, name);
 }
 
-void Renderer::Impl::PipelineCache::save()
+bool Renderer::Impl::PipelineCache::flush()
 {
     ASSERT(pipelineCache);
     auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
-    renderer.savePipelineCache(data, name.c_str());
+    if (!renderer.savePipelineCache(data, name.c_str())) {
+        SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
+        return false;
+    }
+    SPDLOG_INFO("Pipeline cache '{}' successfully flushed", name);
+    return true;
 }
 
 struct Renderer::DebugUtilsMessageMuteGuard::Impl
@@ -1013,10 +1247,7 @@ template<typename... Args>
 Renderer::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) noexcept : impl_{std::forward<Args>(args)...}
 {}
 
-Renderer::Impl::Impl(std::vector<uint32_t> & mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
-{}
-
-auto Renderer::Impl::muteDebugUtilsMessages(std::vector<uint32_t> & messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
+auto Renderer::Impl::muteDebugUtilsMessages(const std::initializer_list<uint32_t> & messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
 {
     if (!enabled) {
         return {mutex, mutedMessageIdNumbers, std::initializer_list<uint32_t>{}};
@@ -1054,45 +1285,90 @@ void Renderer::DebugUtilsMessageMuteGuard::Impl::unmute()
             auto messageIdNumber = messageIdNumbers.back();
             auto m = mutedMessageIdNumbers.find(messageIdNumber);
             messageIdNumbers.pop_back();
-            INVARIANT(m != mutedMessageIdNumbers.end(), "messageId {} of muted message is not found", messageIdNumber);
+            INVARIANT(m != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
             mutedMessageIdNumbers.erase(m);
         }
     }
     messageIdNumbers.clear();
 }
 
-void Renderer::Impl::createInstance(Renderer & renderer, const char * applicationName, uint32_t applicationVersion, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const std::string & libraryName)
+vk::Bool32 Renderer::Impl::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    library = std::make_unique<Library>(renderer, allocationCallbacks, libraryName);
-    instance = std::make_unique<Instance>(renderer, *library, applicationName, applicationVersion);
+    const auto formatMessage = [&] {
+        static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
+        auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
+        auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
+        auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
+        return fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
+                           std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
+    };
+    switch (messageSeverity) {
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+        SPDLOG_DEBUG("{}", formatMessage());
+        break;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+        SPDLOG_INFO("{}", formatMessage());
+        break;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+        SPDLOG_WARN("{}", formatMessage());
+        break;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+        SPDLOG_ERROR("{}", formatMessage());
+        break;
+    }
+    }
+    return VK_FALSE;
+}
+
+vk::Bool32 Renderer::Impl::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+{
+    {
+        std::lock_guard<std::mutex> lock{mutex};
+        if (mutedMessageIdNumbers.contains(uint32_t(callbackData.messageIdNumber))) {
+            return VK_FALSE;
+        }
+    }
+    return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
+}
+
+void Renderer::Impl::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Renderer & renderer)
+{
+    library = std::make_unique<Library>(libraryName, allocationCallbacks, renderer);
+    instance = std::make_unique<Instance>(applicationName, applicationVersion, renderer, *library);
     physicalDevices = std::make_unique<PhysicalDevices>(renderer, *library, *instance);
 }
 
 void Renderer::Impl::createDevice(Renderer & renderer, vk::SurfaceKHR surface)
 {
     using namespace std::string_view_literals;
-    constexpr auto deviceName = "SAH kd-tree renderer compatible device"sv;
+    static constexpr auto deviceName = "device"sv;
     device = std::make_unique<Device>(deviceName, renderer, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
     memoryAllocator = device->makeMemoryAllocator();
     commandPools = std::make_unique<CommandPools>(renderer, *library, *instance, device->physicalDevice, *device);
     queues = std::make_unique<Queues>(renderer, *library, *instance, device->physicalDevice, *device, *commandPools);
-    const auto pipelineCacheName = "sah_kd_tree_renderer_pipeline_cache"sv;
+    static constexpr auto pipelineCacheName = "renderer_pipeline_cache"sv;
     pipelineCache = std::make_unique<PipelineCache>(pipelineCacheName, renderer, *library, device->physicalDevice, *device);
 }
 
-Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, [[maybe_unused]] const std::string & libraryName)
-    : renderer{renderer}
-    , allocationCallbacks{allocationCallbacks}
-#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
-    , dl{libraryName}
-#endif
+void Renderer::Impl::flushCaches()
+{
+    if (!pipelineCache->flush()) {
+        return;
+    }
+}
+
+void Renderer::Impl::Library::init()
 {
     using namespace std::string_view_literals;
     SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
-    INVARIANT(dl.success(), "Vulkan library is not loaded, cannot continue");
-    dispatcher.init(dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+    dl.emplace(libraryName.value_or(""));
+    INVARIANT(dl->success(), "Vulkan library is not loaded, cannot continue");
+    dispatcher.init(dl->getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 #elif !VK_NO_PROTOTYPES
     dispatcher.init(vkGetInstanceProcAddr);
 #else
@@ -1101,7 +1377,7 @@ Renderer::Impl::Library::Library(Renderer & renderer, vk::Optional<const vk::All
 #endif
 }
 
-Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const char * applicationName, uint32_t applicationVersion) : renderer{renderer}, library{library}
+void Renderer::Impl::Instance::init()
 {
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     if (library.dispatcher.vkEnumerateInstanceVersion) {
@@ -1120,7 +1396,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     }
 
     layerProperties = vk::enumerateInstanceLayerProperties(library.dispatcher);
-    layerExtensionPropertyLists.reserve(layerProperties.size());
+    layerExtensionPropertyLists.reserve(std::size(layerProperties));
     for (const vk::LayerProperties & layer : layerProperties) {
         layers.insert(layer.layerName);
         layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.dispatcher));
@@ -1132,7 +1408,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     if ((false)) {
         const auto enableLayerIfAvailable = [this](const char * layerName) -> bool {
             auto layer = layers.find(layerName);
-            if (layer == layers.end()) {
+            if (layer == std::end(layers)) {
                 return false;
             }
             if (enabledLayerSet.insert(layerName).second) {
@@ -1153,7 +1429,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
 
     const auto enableExtensionIfAvailable = [this](const char * extensionName) -> bool {
         auto extension = extensions.find(extensionName);
-        if (extension != extensions.end()) {
+        if (extension != std::end(extensions)) {
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
@@ -1162,7 +1438,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             return true;
         }
         auto extensionLayer = extensionLayers.find(extensionName);
-        if (extensionLayer != extensionLayers.end()) {
+        if (extensionLayer != std::end(extensionLayers)) {
             const char * layerName = extensionLayer->second;
             if (enabledLayerSet.insert(layerName).second) {
                 enabledLayers.push_back(layerName);
@@ -1216,7 +1492,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
                                                                                  const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
             vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
             debugUtilsMessengerCallbackData = *pCallbackData;
-            return static_cast<Renderer *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
+            return static_cast<Renderer::Impl *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
@@ -1226,10 +1502,10 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
             debugUtilsMessengerCreateInfo.messageType |= MessageType::eDeviceAddressBinding;
         }
         debugUtilsMessengerCreateInfo.pfnUserCallback = kUserCallback;
-        debugUtilsMessengerCreateInfo.pUserData = &renderer;
+        debugUtilsMessengerCreateInfo.pUserData = &renderer.impl_;
     }
 
-    applicationInfo.pApplicationName = applicationName;
+    applicationInfo.pApplicationName = applicationName.c_str();
     applicationInfo.applicationVersion = applicationVersion;
     applicationInfo.pEngineName = sah_kd_tree::kProjectName;
     applicationInfo.engineVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
@@ -1241,7 +1517,7 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto mute0x822806FA = renderer.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        auto mute0x822806FA = renderer.impl_->muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
         instance = *instanceHolder;
     }
@@ -1254,46 +1530,6 @@ Renderer::Impl::Instance::Instance(Renderer & renderer, Library & library, const
         debugUtilsMessenger = instance.createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
         instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
     }
-}
-
-Renderer::Impl::PhysicalDevice::PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
-{
-    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
-    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
-        if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
-        }
-    }
-
-    layerExtensionPropertyLists.reserve(instance.layers.size());
-    for (const char * layerName : instance.layers) {
-        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.dispatcher));
-        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
-            extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
-        }
-    }
-
-    auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
-    physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
-    apiVersion = physicalDeviceProperties2.properties.apiVersion;
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
-    {
-        auto & physicalDeviceIDProperties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceIDProperties>();
-        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
-        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
-        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
-        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
-        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
-    }
-
-    auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
-    physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
-
-    auto & physicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
-    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.dispatcher);
-
-    using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
-    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
 auto Renderer::Impl::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
@@ -1316,7 +1552,7 @@ uint32_t Renderer::Impl::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQ
     uint32_t bestMatchQueueFamily = VK_QUEUE_FAMILY_IGNORED;
     vk::QueueFlags bestMatchQueueFalgs;
     vk::QueueFlags bestMatchExtraQueueFlags;
-    size_t queueFamilyCount = queueFamilyProperties2Chains.size();
+    size_t queueFamilyCount = std::size(queueFamilyProperties2Chains);
     for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; ++queueFamilyIndex) {
         auto queueFlags = queueFamilyProperties2Chains[queueFamilyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueFlags;
         if (queueFlags & (vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute)) {
@@ -1439,8 +1675,8 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
         return false;
     }
 
-    deviceQueueCreateInfos.reserve(usedQueueFamilySizes.size());
-    deviceQueuesPriorities.reserve(usedQueueFamilySizes.size());
+    deviceQueueCreateInfos.reserve(std::size(usedQueueFamilySizes));
+    deviceQueuesPriorities.reserve(std::size(usedQueueFamilySizes));
     for (auto [queueFamilyIndex, queueCount] : usedQueueFamilySizes) {
         auto & deviceQueueCreateInfo = deviceQueueCreateInfos.emplace_back();
         deviceQueueCreateInfo.queueFamilyIndex = queueFamilyIndex;
@@ -1459,7 +1695,7 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
 bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
 {
     auto extension = extensions.find(extensionName);
-    if (extension != extensions.end()) {
+    if (extension != std::end(extensions)) {
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {
@@ -1468,7 +1704,7 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
         return true;
     }
     auto extensionLayer = extensionLayers.find(extensionName);
-    if (extensionLayer != extensionLayers.end()) {
+    if (extensionLayer != std::end(extensionLayers)) {
         const char * layerName = extensionLayer->second;
         if (!instance.enabledLayerSet.contains(layerName)) {
             INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
@@ -1483,11 +1719,44 @@ bool Renderer::Impl::PhysicalDevice::enableExtensionIfAvailable(const char * ext
     return false;
 }
 
-Renderer::Impl::PhysicalDevices::PhysicalDevices(Renderer & renderer, Library & library, Instance & instance) : renderer{renderer}, library{library}, instance{instance}
+void Renderer::Impl::PhysicalDevice::init()
 {
-    for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
-        physicalDevices.push_back(std::make_unique<PhysicalDevice>(renderer, library, instance, physicalDevice));
+    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
+    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
+        if (!extensions.insert(extensionProperties.extensionName).second) {
+            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
+        }
     }
+
+    layerExtensionPropertyLists.reserve(std::size(instance.layers));
+    for (const char * layerName : instance.layers) {
+        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.dispatcher));
+        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
+            extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
+        }
+    }
+
+    auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
+    physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
+    apiVersion = physicalDeviceProperties2.properties.apiVersion;
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    {
+        auto & physicalDeviceIDProperties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceIDProperties>();
+        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
+        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
+        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
+        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
+        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
+    }
+
+    auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
+    physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
+
+    auto & physicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
+    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.dispatcher);
+
+    using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
+    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
 auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -> PhysicalDevice &
@@ -1499,7 +1768,7 @@ auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface)
     for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {
         for (const auto & physicalDevice : physicalDevices) {
             if (physicalDevice->checkPhysicalDeviceRequirements(physicalDeviceType, surface)) {
-                if (!bestPhysicalDevice) { // respect GPU reordering layers
+                if (!bestPhysicalDevice) {  // respect GPU reordering layers
                     bestPhysicalDevice = physicalDevice.get();
                 }
             }
@@ -1511,9 +1780,11 @@ auto Renderer::Impl::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface)
     return *bestPhysicalDevice;
 }
 
-Renderer::Impl::Device::Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+void Renderer::Impl::PhysicalDevices::init()
 {
-    create();
+    for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
+        physicalDevices.push_back(std::make_unique<PhysicalDevice>(renderer, library, instance, physicalDevice));
+    }
 }
 
 void Renderer::Impl::Device::create()
@@ -1563,12 +1834,8 @@ void Renderer::Impl::Device::create()
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     library.dispatcher.init(device);
 #endif
-    setDebugUtilsObjectName(device, name.c_str());
+    setDebugUtilsObjectName(device, name);
 }
-
-Renderer::Impl::Fences::Fences(std::string_view name, Renderer & renderer, Library & library, Device & device)
-    : name{name}, renderer{renderer}, library{library}, device{device}
-{}
 
 void Renderer::Impl::Fences::create(std::size_t count)
 {
@@ -1576,8 +1843,12 @@ void Renderer::Impl::Fences::create(std::size_t count)
         fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
         fences.push_back(*fencesHolder.back());
 
-        auto fenceName = fmt::format("{} #{}/{}", name, i++, count);
-        device.setDebugUtilsObjectName(*fencesHolder.back(), fenceName.c_str());
+        if (count > 1) {
+            auto fenceName = fmt::format("{} #{}/{}", name, i++, count);
+            device.setDebugUtilsObjectName(fences.back(), fenceName);
+        } else {
+            device.setDebugUtilsObjectName(fences.back(), name);
+        }
     }
 }
 
@@ -1591,7 +1862,7 @@ vk::Result Renderer::Impl::Fences::wait(std::size_t fenceIndex, std::chrono::nan
     return device.device.waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), library.dispatcher);
 }
 
-void Renderer::Impl::Fences::reset()
+void Renderer::Impl::Fences::resetAll()
 {
     device.device.resetFences(fences, library.dispatcher);
 }
@@ -1599,18 +1870,6 @@ void Renderer::Impl::Fences::reset()
 void Renderer::Impl::Fences::reset(std::size_t fenceIndex)
 {
     device.device.resetFences(fences.at(fenceIndex), library.dispatcher);
-}
-
-vk::Bool32 Renderer::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
-{
-    {
-        std::lock_guard<std::mutex> lock{impl_->mutex};
-        auto messageIdNumber = uint32_t(callbackData.messageIdNumber);
-        if (impl_->mutedMessageIdNumbers.contains(messageIdNumber)) {
-            return VK_FALSE;
-        }
-    }
-    return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
 }
 
 vk::Instance Renderer::getInstance() const
@@ -1638,45 +1897,54 @@ uint32_t Renderer::getGraphicsQueueIndex() const
     return impl_->device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
+void Renderer::flushCaches()
+{
+    impl_->flushCaches();
+}
+
 std::vector<uint8_t> Renderer::loadPipelineCache(std::string_view pipelineCacheName) const
 {
     std::filesystem::path cacheFilePath{pipelineCacheName};
     cacheFilePath += ".bin";
 
     if (!std::filesystem::exists(cacheFilePath)) {
+        SPDLOG_INFO("Pipeline cache file {} does not exists", cacheFilePath);
         return {};
     }
 
-    std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary};
+    std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary | std::ios::ate};
     if (!cacheFile.is_open()) {
         throw RuntimeError(fmt::format("Cannot open pipeline cache file {} for read", cacheFilePath));
     }
 
-    auto size = cacheFile.seekg(0, std::ios::end).tellg();
+    auto size = cacheFile.tellg();
     cacheFile.seekg(0);
 
     std::vector<uint8_t> data;
-    data.resize(std::size_t(size) / sizeof(uint8_t));
+    data.resize(std::size_t(size) / sizeof *std::data(data));
     using RawDataType = std::ifstream::char_type *;
     cacheFile.read(RawDataType(std::data(data)), size);
 
     return data;
 }
 
-void Renderer::savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const
+bool Renderer::savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const
 {
     std::filesystem::path cacheFilePath{pipelineCacheName};
     cacheFilePath += ".bin";
 
     std::ofstream cacheFile{cacheFilePath, std::ios::out | std::ios::trunc | std::ios::binary};
     if (!cacheFile.is_open()) {
-        throw RuntimeError(fmt::format("Cannot open pipeline cache file {} for write", cacheFilePath));
+        SPDLOG_WARN("Cannot open pipeline cache file {} for write", cacheFilePath);
+        return false;
     }
 
     auto size = std::streamsize(std::size(data));
 
     using RawDataType = std::ifstream::char_type *;
     cacheFile.write(RawDataType(std::data(data)), size);
+
+    return true;
 }
 
 std::vector<uint32_t> Renderer::loadShader(std::string_view shaderName) const
@@ -1684,19 +1952,19 @@ std::vector<uint32_t> Renderer::loadShader(std::string_view shaderName) const
     std::filesystem::path shaderFilePath{shaderName};
     shaderFilePath += ".spv";
 
-    std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary};
+    std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary | std::ios::ate};
     if (!shaderFile.is_open()) {
         throw RuntimeError(fmt::format("Cannot open shader file {}", shaderFilePath));
     }
 
-    auto size = shaderFile.seekg(0, std::ios::end).tellg();
-    if ((size_t(size) % sizeof(uint32_t)) != 0) {
-        throw RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
-    }
+    auto size = shaderFile.tellg();
     shaderFile.seekg(0);
 
     std::vector<uint32_t> code;
-    code.resize(size_t(size) / sizeof(uint32_t));
+    if ((size_t(size) % sizeof *std::data(code)) != 0) {
+        throw RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
+    }
+    code.resize(size_t(size) / sizeof *std::data(code));
     using RawDataType = std::ifstream::char_type *;
     shaderFile.read(RawDataType(std::data(code)), size);
     if (shaderFile.tellg() != size) {
@@ -1709,38 +1977,6 @@ std::vector<uint32_t> Renderer::loadShader(std::string_view shaderName) const
 void Renderer::loadScene(scene::Scene & scene)
 {
     (void)scene;
-}
-
-vk::Bool32 Renderer::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
-{
-    const auto formatMessage = [&]
-    {
-        static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
-        auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
-        auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
-        auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
-        return fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
-                    std::move(buffers), uint32_t(callbackData.messageIdNumber), callbackData.pMessage);
-    };
-    switch (messageSeverity) {
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-        SPDLOG_DEBUG("{}", formatMessage());
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-        SPDLOG_INFO("{}", formatMessage());
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-        SPDLOG_WARN("{}", formatMessage());
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-        SPDLOG_ERROR("{}", formatMessage());
-        break;
-    }
-    }
-    return VK_FALSE;
 }
 
 }  // namespace renderer

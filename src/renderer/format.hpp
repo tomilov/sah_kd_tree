@@ -101,7 +101,8 @@ struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_UUID_SIZE>> : fmt::formatte
     {
         static_assert(VK_UUID_SIZE == 16);
         auto data = uuid.data();
-        return fmt::format_to(ctx.out(), "{:02x}-{:02x}-{:02x}-{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 6, ""), fmt::join(data + 6, data + 8, ""), fmt::join(data + 8, data + 10, ""), fmt::join(data + 10, data + 16, ""));
+        return fmt::format_to(ctx.out(), "{:02x}-{:02x}-{:02x}-{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 6, ""), fmt::join(data + 6, data + 8, ""), fmt::join(data + 8, data + 10, ""),
+                              fmt::join(data + 10, data + 16, ""));
     }
 };
 

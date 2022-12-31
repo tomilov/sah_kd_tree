@@ -17,6 +17,7 @@ add_compile_options("-Wall" "-Wextra")
 
 link_libraries(fmt::fmt)
 
+add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>)
 link_libraries(spdlog::spdlog)
 
 include(CUDA)

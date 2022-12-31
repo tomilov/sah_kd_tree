@@ -32,5 +32,7 @@ target_sources(
         "assert.hpp"
         "assert.cpp"
         "exception.hpp"
-        "exception.cpp")
+        "exception.cpp"
+        "auto_cast.hpp"
+        "auto_cast.cpp")
 

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <scene/scene_export.h>
-
 #include <glm/glm.hpp>
 
 #include <vector>
+
+#include <scene/scene_export.h>
 
 namespace scene
 {
@@ -21,4 +21,4 @@ struct Scene
     std::vector<Triangle> triangles;
 };
 
-}
+}  // namespace scene

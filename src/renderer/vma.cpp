@@ -87,7 +87,7 @@ struct MemoryAllocator::Resource
             , newBuffer{std::move(bufferResource.newBuffer)}
         {}
 
-        BufferResource & operator = (BufferResource && bufferResource)
+        BufferResource & operator=(BufferResource && bufferResource)
         {
             std::swap(allocator, bufferResource.allocator);
             std::swap(bufferCreateInfo, bufferResource.bufferCreateInfo);
@@ -144,7 +144,7 @@ struct MemoryAllocator::Resource
             , newImage{std::move(imageResource.newImage)}
         {}
 
-        ImageResource & operator = (ImageResource && imageResource)
+        ImageResource & operator=(ImageResource && imageResource)
         {
             std::swap(allocator, imageResource.allocator);
             std::swap(imageCreateInfo, imageResource.imageCreateInfo);
@@ -186,7 +186,7 @@ struct MemoryAllocator::Resource
     Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Resource(Resource &&) = default;
-    Resource & operator = (Resource &&) = default;
+    Resource & operator=(Resource &&) = default;
 
     ~Resource();
 
@@ -257,13 +257,12 @@ VmaAllocationCreateInfo MemoryAllocator::Resource::makeAllocationCreateInfo(cons
     return allocationCreateInfoNative;
 }
 
-MemoryAllocator::Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
+MemoryAllocator::Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
 {}
 
 MemoryAllocator::Buffer::Buffer(Buffer &&) = default;
 
-auto MemoryAllocator::Buffer::operator = (Buffer &&) -> Buffer & = default;
+auto MemoryAllocator::Buffer::operator=(Buffer &&) -> Buffer & = default;
 
 MemoryAllocator::Buffer::~Buffer() = default;
 
@@ -277,13 +276,12 @@ vk::MemoryPropertyFlags MemoryAllocator::Buffer::getMemoryPropertyFlags() const
     return impl_->getMemoryPropertyFlags();
 }
 
-MemoryAllocator::Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
+MemoryAllocator::Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
 {}
 
 MemoryAllocator::Image::Image(Image &&) = default;
 
-auto MemoryAllocator::Image::operator = (Image &&) -> Image & = default;
+auto MemoryAllocator::Image::operator=(Image &&) -> Image & = default;
 
 MemoryAllocator::Image::~Image() = default;
 

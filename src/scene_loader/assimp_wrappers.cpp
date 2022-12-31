@@ -12,6 +12,7 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 
 #include <memory>
 
@@ -20,7 +21,7 @@ namespace scene_loader
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(assimpWrappersLog)
-Q_LOGGING_CATEGORY(assimpWrappersLog, "assimpWrappers")
+Q_LOGGING_CATEGORY(assimpWrappersLog, "scene_loader.assimp")
 }  // namespace
 
 namespace
