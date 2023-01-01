@@ -43,13 +43,13 @@ std::vector<uint8_t> RendererIo::loadPipelineCache(std::string_view pipelineCach
         }
         QFile cacheFile{cacheFileInfo.filePath()};
         if (!cacheFile.open(QIODeviceBase::OpenModeFlag::ReadOnly)) {
-            qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of pipeline cache file '%2' cannot be opened to read").arg(cacheFile.fileName(), cacheFileName);
+            qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of pipeline cache file '%2' cannot be opened to read: %3").arg(cacheFile.fileName(), cacheFileName, cacheFile.errorString());
             continue;
         }
-        auto cacheFileSize = cacheFile.size();
+        auto cacheFileSize = std::size(cacheFile);
         size_t dataSize = utils::autoCast(cacheFileSize);
         std::vector<uint8_t> cacheData(dataSize);
-        auto bytesRead = cacheFile.read(utils::autoCast(std::data(cacheData)), cacheFileSize);
+        qint64 bytesRead = cacheFile.read(utils::autoCast(std::data(cacheData)), cacheFileSize);
         if (bytesRead < 0) {
             qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Failed to read pipeline cache data '%1' from file '%2': %3").arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
             continue;
@@ -79,12 +79,12 @@ bool RendererIo::savePipelineCache(const std::vector<uint8_t> & data, std::strin
     QFileInfo cacheFileInfo{cacheDir, cacheFileName};
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QIODeviceBase::OpenModeFlag::WriteOnly)) {
-        qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of pipeline cache file '%2' cannot be opened to wrie").arg(cacheFile.fileName(), cacheFileName);
+        qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of pipeline cache file '%2' cannot be opened to write: %3").arg(cacheFile.fileName(), cacheFileName, cacheFile.errorString());
         return false;
     }
     size_t dataSize = std::size(data);
     qint64 cacheDataSize = utils::autoCast(dataSize);
-    auto bytesWritten = cacheFile.write(utils::autoCast(std::data(data)), cacheDataSize);
+    qint64 bytesWritten = cacheFile.write(utils::autoCast(std::data(data)), cacheDataSize);
     if (bytesWritten < 0) {
         qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Failed to write pipeline cache data '%1' to file '%2': %3").arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
         return false;
@@ -119,13 +119,13 @@ std::vector<uint32_t> RendererIo::loadShader(std::string_view shaderName) const
     }
     QFile shaderFile{shaderFileInfo.filePath()};
     if (!shaderFile.open(QIODeviceBase::OpenModeFlag::ReadOnly)) {
-        qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of shader file '%2' cannot be opened to read").arg(shaderFile.fileName(), shaderFileName);
+        qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Possible location '%1' of shader file '%2' cannot be opened to read: %3").arg(shaderFile.fileName(), shaderFileName, shaderFile.errorString());
         return {};
     }
-    auto shaderFileSize = shaderFile.size();
+    auto shaderFileSize = std::size(shaderFile);
     size_t dataSize = utils::autoCast(shaderFileSize);
     std::vector<uint32_t> shaderData(dataSize);
-    auto bytesRead = shaderFile.read(utils::autoCast(std::data(shaderData)), shaderFileSize);
+    qint64 bytesRead = shaderFile.read(utils::autoCast(std::data(shaderData)), shaderFileSize);
     if (bytesRead < 0) {
         qCWarning(viewerRendererIoCategory).noquote() << QStringLiteral("Failed to read shader data '%1' from file '%2': %3").arg(shaderFileName, shaderFile.fileName(), shaderFile.errorString());
         return {};

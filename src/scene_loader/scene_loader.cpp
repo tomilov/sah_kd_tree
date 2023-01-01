@@ -180,7 +180,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
         return false;
     }
     scene.triangles.resize(size_t(triangleCount));
-    const int len = int(scene.triangles.size() * sizeof *scene.triangles.data());
+    const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
     const int readLen = dataStream.readRawData(reinterpret_cast<char *>(scene.triangles.data()), len);
     if (readLen != len) {
         qCInfo(sceneLoaderLog).noquote() << QStringLiteral("unable to read triangles from file %1: need %2 bytes, read %3 bytes").arg(cacheEntryFile.fileName()).arg(len).arg(readLen);
@@ -189,7 +189,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     if (!checkDataStreamStatus(dataStream, sceneLoaderLog, QStringLiteral("unable to read triangles from file %1").arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%3 ms to load %1 triangles from file %2").arg(scene.triangles.size()).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%3 ms to load %1 triangles from file %2").arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 
@@ -204,11 +204,11 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     }
     qCInfo(sceneLoaderLog).noquote() << QStringLiteral("start to save triangles to file %1").arg(cacheEntryFile.fileName());
     QDataStream dataStream{&cacheEntryFile};
-    auto triangleCount = qint32(scene.triangles.size());
+    auto triangleCount = qint32(std::size(scene.triangles));
     if (!checkDataStreamStatus(dataStream << triangleCount, sceneLoaderLog, QStringLiteral("unable to write count of triangles to file %1").arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    const int len = int(scene.triangles.size() * sizeof *scene.triangles.data());
+    const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
     const int writeLen = dataStream.writeRawData(reinterpret_cast<const char *>(scene.triangles.data()), len);
     if (len != writeLen) {
         qCInfo(sceneLoaderLog).noquote() << QStringLiteral("unable to write triangles to file %1: want %2 bytes, but written %3 bytes").arg(cacheEntryFile.fileName()).arg(len).arg(writeLen);
@@ -217,7 +217,7 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     if (!checkDataStreamStatus(dataStream, sceneLoaderLog, QStringLiteral("unable to write triangles to file %1").arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%1 triangles successfuly saved to file %2 in %3 ms").arg(scene.triangles.size()).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%1 triangles successfuly saved to file %2 in %3 ms").arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 

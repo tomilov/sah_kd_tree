@@ -8,6 +8,7 @@
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 #include <utils/pp.hpp>
+#include <utils/utils.hpp>
 
 #include <common/config.hpp>
 #include <common/version.hpp>
@@ -31,7 +32,10 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
+
+#include <cmath>
 
 #include <spirv_reflect.h>
 
@@ -55,11 +59,13 @@ struct Renderer::Impl final : utils::NonCopyable
     struct CommandPools;
     struct Queue;
     struct Queues;
-    struct RenderPass;
     struct ShaderModule;
     struct ShaderModuleReflection;
     struct ShaderStages;
+    struct RenderPass;
+    struct Framebuffer;
     struct PipelineCache;
+    struct Pipeline;
 
     utils::CheckedPtr<const Io> io = nullptr;
 
@@ -346,6 +352,7 @@ struct Renderer::Impl::Fences final
     Device & device;
 
     vk::FenceCreateInfo fenceCreateInfo;
+
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
@@ -661,89 +668,6 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
         compute.waitIdle();
         transferHostToDevice.waitIdle();
         transferDeviceToHost.waitIdle();
-    }
-};
-
-struct Renderer::Impl::RenderPass final : utils::NonCopyable
-{
-    const std::string name;
-
-    Renderer & renderer;
-    Library & library;
-    PhysicalDevice & physicalDevice;
-    Device & device;
-
-    vk::UniqueRenderPass renderPassHolder;
-    vk::RenderPass renderPass;
-
-    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
-    {
-        init();
-    }
-
-    [[nodiscard]] auto createFramebuffers(std::string_view name, std::span<const vk::ImageView> imageViews, uint32_t width, uint32_t height, uint32_t layers = 1) -> std::vector<vk::UniqueFramebuffer>
-    {
-        std::vector<vk::UniqueFramebuffer> framebuffers;
-        vk::FramebufferCreateInfo framebufferCreateInfo = {
-            .renderPass = renderPass,
-            .width = width,
-            .height = height,
-            .layers = layers,
-        };
-        framebuffers.reserve(std::size(imageViews));
-        std::size_t i = 0;
-        for (vk::ImageView imageView : imageViews) {
-            framebufferCreateInfo.setAttachments(imageView);
-            framebuffers.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
-
-            if (std::size(imageViews) > 1) {
-                auto framebufferName = fmt::format("{} #{}/{}", name, i++, std::size(imageViews));
-                device.setDebugUtilsObjectName(*framebuffers.back(), framebufferName);
-            } else {
-                device.setDebugUtilsObjectName(*framebuffers.back(), std::string{name});
-            }
-        }
-        return framebuffers;
-    }
-
-private:
-    void init()
-    {
-        vk::AttachmentReference attachmentReference = {
-            .attachment = 0,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        };
-
-        vk::SubpassDescription subpassDescription;
-        subpassDescription.flags = {};
-        subpassDescription.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-        subpassDescription.setInputAttachments(nullptr);
-        subpassDescription.setColorAttachments(attachmentReference);
-        subpassDescription.setResolveAttachments(nullptr);
-        subpassDescription.setPDepthStencilAttachment(nullptr);
-        subpassDescription.setPreserveAttachments(nullptr);
-
-        vk::AttachmentDescription colorAttachmentDescription = {
-            .flags = {},
-            .format = vk::Format::eR32G32B32Sfloat,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eUndefined,
-            .finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-        };
-
-        vk::RenderPassCreateInfo renderPassCreateInfo;
-        renderPassCreateInfo.setSubpasses(subpassDescription);
-        renderPassCreateInfo.setAttachments(colorAttachmentDescription);
-        renderPassCreateInfo.setDependencies(nullptr);
-
-        renderPassHolder = device.device.createRenderPassUnique(renderPassCreateInfo, library.allocationCallbacks, library.dispatcher);
-        renderPass = *renderPassHolder;
-
-        device.setDebugUtilsObjectName(renderPass, name);
     }
 };
 
@@ -1123,6 +1047,118 @@ struct Renderer::Impl::ShaderStages final
     }
 };
 
+struct Renderer::Impl::RenderPass final : utils::NonCopyable
+{
+    const std::string name;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+
+    vk::AttachmentReference attachmentReference;
+    vk::SubpassDescription subpassDescription;
+    vk::AttachmentDescription colorAttachmentDescription;
+
+    vk::RenderPassCreateInfo renderPassCreateInfo;
+    vk::UniqueRenderPass renderPassHolder;
+    vk::RenderPass renderPass;
+
+    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    {
+        init();
+    }
+
+private:
+    void init()
+    {
+        attachmentReference = {
+            .attachment = 0,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        };
+
+        subpassDescription.flags = {};
+        subpassDescription.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+        subpassDescription.setInputAttachments(nullptr);
+        subpassDescription.setColorAttachments(attachmentReference);
+        subpassDescription.setResolveAttachments(nullptr);
+        subpassDescription.setPDepthStencilAttachment(nullptr);
+        subpassDescription.setPreserveAttachments(nullptr);
+
+        colorAttachmentDescription = {
+            .flags = {},
+            .format = vk::Format::eR32G32B32Sfloat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        };
+
+        renderPassCreateInfo.setSubpasses(subpassDescription);
+        renderPassCreateInfo.setAttachments(colorAttachmentDescription);
+        renderPassCreateInfo.setDependencies(nullptr);
+
+        renderPassHolder = device.device.createRenderPassUnique(renderPassCreateInfo, library.allocationCallbacks, library.dispatcher);
+        renderPass = *renderPassHolder;
+
+        device.setDebugUtilsObjectName(renderPass, name);
+    }
+};
+
+struct Renderer::Impl::Framebuffer final : utils::NonCopyable
+{
+    const std::string name;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+    RenderPass & renderPass;
+
+    const uint32_t width;
+    const uint32_t height;
+    const uint32_t layers;
+    const std::vector<vk::ImageView> imageViews;
+
+    vk::FramebufferCreateInfo framebufferCreateInfo;
+    std::vector<vk::UniqueFramebuffer> framebufferHolders;
+    std::vector<vk::Framebuffer> framebuffers;
+
+    Framebuffer(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
+        : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
+    {
+        init();
+    }
+
+private:
+    void init()
+    {
+        framebufferCreateInfo = {
+            .renderPass = renderPass.renderPass,
+            .width = width,
+            .height = height,
+            .layers = layers,
+        };
+        framebuffers.reserve(std::size(imageViews));
+        std::size_t i = 0;
+        for (vk::ImageView imageView : imageViews) {
+            framebufferCreateInfo.setAttachments(imageView);
+            framebufferHolders.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
+            framebuffers.push_back(*framebufferHolders.back());
+
+            if (std::size(imageViews) > 1) {
+                auto framebufferName = fmt::format("{} #{}/{}", name, i++, std::size(imageViews));
+                device.setDebugUtilsObjectName(framebuffers.back(), framebufferName);
+            } else {
+                device.setDebugUtilsObjectName(framebuffers.back(), std::string{name});
+            }
+        }
+    }
+};
+
 struct Renderer::Impl::PipelineCache final : utils::NonCopyable
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
@@ -1157,6 +1193,159 @@ private:
     [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
 
     void load();
+};
+
+struct Renderer::Impl::Pipeline final : utils::NonCopyable
+{
+    const std::string name;
+
+    Renderer & renderer;
+    Library & library;
+    PhysicalDevice & physicalDevice;
+    Device & device;
+    ShaderStages & shaderStages;
+    RenderPass & renderPass;
+    PipelineCache & pipelineCache;
+
+    const float width;
+    const float height;
+
+    vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
+    vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
+    vk::Viewport viewport;
+    vk::Rect2D scissor;
+    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
+    vk::PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo;
+    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;
+    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
+    vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
+
+    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
+
+    vk::UniquePipelineLayout pipelineLayoutHolder;
+    vk::PipelineLayout pipelineLayout;
+
+    std::vector<vk::GraphicsPipelineCreateInfo> graphicsPipelineCreateInfos;
+
+    std::vector<vk::UniquePipeline> pipelineHolders;
+    std::vector<vk::Pipeline> pipelines;
+
+    Pipeline(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, float width, float height)
+        : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
+    {
+        load();
+    }
+
+private:
+    void load()
+    {
+        pipelineVertexInputStateCreateInfo.flags = {};
+        pipelineVertexInputStateCreateInfo.setVertexBindingDescriptions(nullptr);
+        pipelineVertexInputStateCreateInfo.setVertexAttributeDescriptions(nullptr);
+
+        pipelineInputAssemblyStateCreateInfo.flags = {};
+        pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
+        pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleList);
+
+        viewport = {
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = width,
+            .height = height,
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        };
+
+        scissor = {.offset =
+                       {
+                           .x = 0,
+                           .y = 0,
+                       },
+                   .extent = {
+                       .width = utils::autoCast(std::floor(width)),
+                       .height = utils::autoCast(std::floor(height)),
+                   }};
+
+        pipelineViewportStateCreateInfo.flags = {};
+        pipelineViewportStateCreateInfo.setViewports(viewport);
+        pipelineViewportStateCreateInfo.setScissors(scissor);
+
+        pipelineRasterizationStateCreateInfo = {
+            .flags = {},
+            .depthClampEnable = VK_FALSE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode = vk::PolygonMode::eFill,
+            .cullMode = vk::CullModeFlagBits::eNone,
+            .frontFace = vk::FrontFace::eCounterClockwise,
+            .depthBiasEnable = VK_FALSE,
+            .depthBiasConstantFactor = 0.0f,
+            .depthBiasClamp = 0.0f,
+            .depthBiasSlopeFactor = 0.0f,
+            .lineWidth = 1.0f,
+        };
+
+        pipelineColorBlendAttachmentState = {
+            .blendEnable = VK_FALSE,
+            .srcColorBlendFactor = vk::BlendFactor::eZero,
+            .dstColorBlendFactor = vk::BlendFactor::eZero,
+            .colorBlendOp = vk::BlendOp::eAdd,
+            .srcAlphaBlendFactor = vk::BlendFactor::eZero,
+            .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+            .alphaBlendOp = vk::BlendOp::eAdd,
+            .colorWriteMask = vk::FlagTraits<vk::ColorComponentFlagBits>::allFlags,
+        };
+
+        pipelineColorBlendStateCreateInfo.flags = {};
+        pipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
+        pipelineColorBlendStateCreateInfo.logicOp = vk::LogicOp::eCopy;
+        pipelineColorBlendStateCreateInfo.setAttachments(pipelineColorBlendAttachmentState);
+        pipelineColorBlendStateCreateInfo.blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}};
+
+        pipelineMultisampleStateCreateInfo = {
+            .flags = {},
+            .rasterizationSamples = vk::SampleCountFlagBits::e1,
+            .sampleShadingEnable = VK_FALSE,
+            .minSampleShading = 1.0f,
+            .pSampleMask = nullptr,
+            .alphaToCoverageEnable = VK_FALSE,
+            .alphaToOneEnable = VK_FALSE,
+        };
+
+        pipelineLayoutCreateInfo.flags = {};
+        pipelineLayoutCreateInfo.setLayoutCount = 1;
+        pipelineLayoutCreateInfo.setSetLayouts(nullptr);
+        pipelineLayoutCreateInfo.setPushConstantRanges(nullptr);
+
+        pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
+        pipelineLayout = *pipelineLayoutHolder;
+
+        auto shaderStagesHeads = toChainHeads(shaderStages.shaderStages);
+        auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfos.emplace_back();
+        graphicsPipelineCreateInfo.flags = {};
+        graphicsPipelineCreateInfo.setStages(shaderStagesHeads);
+        graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
+        graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+        graphicsPipelineCreateInfo.pTessellationState = nullptr;
+        graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+        graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+        graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+        graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+        graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+        graphicsPipelineCreateInfo.pDynamicState = nullptr;
+        graphicsPipelineCreateInfo.layout = pipelineLayout;
+        graphicsPipelineCreateInfo.renderPass = renderPass.renderPass;
+        graphicsPipelineCreateInfo.subpass = 0;
+        graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+        graphicsPipelineCreateInfo.basePipelineIndex = 0;
+
+        auto result = device.device.createGraphicsPipelinesUnique(pipelineCache.pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
+        vk::resultCheck(result.result, fmt::format("Failed to create graphics pipeline '{}'", name).c_str());
+        pipelineHolders = std::move(result.value);
+        pipelines.reserve(std::size(pipelineHolders));
+        for (const auto & pipelineHolder : pipelineHolders) {
+            pipelines.push_back(*pipelineHolder);
+        }
+    }
 };
 
 std::vector<uint8_t> Renderer::Impl::PipelineCache::loadPipelineCacheData() const
@@ -1206,7 +1395,7 @@ void Renderer::Impl::PipelineCache::load()
         pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
         SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
     } catch (const vk::SystemError & exception) {
-        if (cacheData.empty()) {
+        if (std::empty(cacheData)) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
             throw;
         } else {
@@ -1214,7 +1403,7 @@ void Renderer::Impl::PipelineCache::load()
         }
     }
     if (!pipelineCacheHolder) {
-        ASSERT(!cacheData.empty());
+        ASSERT(!std::empty(cacheData));
         cacheData.clear();
         pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
         try {
@@ -1276,7 +1465,7 @@ void Renderer::DebugUtilsMessageMuteGuard::unmute()
 
 bool Renderer::DebugUtilsMessageMuteGuard::empty() const
 {
-    return impl_->messageIdNumbers.empty();
+    return std::empty(impl_->messageIdNumbers);
 }
 
 Renderer::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
@@ -1286,51 +1475,52 @@ Renderer::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
 
 void Renderer::DebugUtilsMessageMuteGuard::Impl::unmute()
 {
-    if (messageIdNumbers.empty()) {
+    if (std::empty(messageIdNumbers)) {
         return;
     }
     {
         std::lock_guard<std::mutex> lock{mutex};
-        while (!messageIdNumbers.empty()) {
+        while (!std::empty(messageIdNumbers)) {
             auto messageIdNumber = messageIdNumbers.back();
-            auto m = mutedMessageIdNumbers.find(messageIdNumber);
+            auto erasedCount = mutedMessageIdNumbers.erase(messageIdNumber);
+            INVARIANT(erasedCount == 1, "messageId {:#x} of muted message is not found", messageIdNumber);
             messageIdNumbers.pop_back();
-            INVARIANT(m != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
-            mutedMessageIdNumbers.erase(m);
         }
     }
-    messageIdNumbers.clear();
+}
+
+constexpr spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
+{
+    switch (messageSeverity) {
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
+        return spdlog::level::trace;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
+        return spdlog::level::info;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
+        return spdlog::level::warn;
+    }
+    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+        return spdlog::level::err;
+    }
+    }
+    INVARIANT(false, "Unknown vk::DebugUtilsMessageSeverityFlagBitsEXT {}", fmt::underlying(messageSeverity));
 }
 
 vk::Bool32 Renderer::Impl::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    const auto formatMessage = [&] {
-        static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
-        auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
-        auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
-        auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
-        auto messageIdNumber = std::make_unsigned_t<decltype(callbackData.messageIdNumber)>(callbackData.messageIdNumber);
-        return fmt::format("[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
-                           std::move(buffers), messageIdNumber, callbackData.pMessage);
-    };
-    switch (messageSeverity) {
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
-        SPDLOG_DEBUG("{}", formatMessage());
-        break;
+    auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
+    if (!spdlog::should_log(lvl)) {
+        return VK_FALSE;
     }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo: {
-        SPDLOG_INFO("{}", formatMessage());
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning: {
-        SPDLOG_WARN("{}", formatMessage());
-        break;
-    }
-    case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
-        SPDLOG_ERROR("{}", formatMessage());
-        break;
-    }
-    }
+    static const std::size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
+    auto objects = fmt::join(std::span(callbackData.pObjects, callbackData.objectCount), "; ");
+    auto queues = fmt::join(std::span(callbackData.pQueueLabels, callbackData.queueLabelCount), ", ");
+    auto buffers = fmt::join(std::span(callbackData.pCmdBufLabels, callbackData.cmdBufLabelCount), ", ");
+    auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
+    spdlog::log(lvl, "[ {} ] {} {:<{}} | Objects: {} | Queues: {} | CommandBuffers: {} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, std::move(objects), std::move(queues),
+                std::move(buffers), messageIdNumber, callbackData.pMessage);
     return VK_FALSE;
 }
 
@@ -1338,7 +1528,7 @@ vk::Bool32 Renderer::Impl::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSe
 {
     {
         std::lock_guard<std::mutex> lock{mutex};
-        auto messageIdNumber = std::make_unsigned_t<decltype(callbackData.messageIdNumber)>(callbackData.messageIdNumber);
+        auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
         if (mutedMessageIdNumbers.contains(messageIdNumber)) {
             return VK_FALSE;
         }
@@ -1638,12 +1828,12 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
-    if (!extensionsCannotBeEnabled.empty()) {
+    if (!std::empty(extensionsCannotBeEnabled)) {
         return false;
     }
 
     auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(renderer.impl_->requiredDeviceExtensions);
-    if (!externalExtensionsCannotBeEnabled.empty()) {
+    if (!std::empty(externalExtensionsCannotBeEnabled)) {
         return false;
     }
 

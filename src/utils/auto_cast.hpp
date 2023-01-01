@@ -13,29 +13,29 @@ namespace utils
 {
 
 template<typename L, typename R>
-constexpr bool isLess(const L & lhs, const R & rhs) noexcept
+constexpr bool isLess(const L & lhs, const R & rhs)
 {
     static_assert(std::is_arithmetic_v<L>);
     static_assert(!std::is_same_v<L, bool>);
     static_assert(std::is_arithmetic_v<R>);
     static_assert(!std::is_same_v<R, bool>);
 
-    using CommonType = std::common_type_t<L, R>;
-    if constexpr (std::is_signed_v<L> == std::is_signed_v<R>) {
-        return lhs < rhs;
-    } else if constexpr (std::is_signed_v<L> && !std::is_signed_v<R>) {
+    if constexpr (std::is_signed_v<L> && !std::is_signed_v<R>) {
+        using CommonType = std::common_type_t<L, R>;
         return (lhs < static_cast<L>(0)) || (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
     } else if constexpr (!std::is_signed_v<L> && std::is_signed_v<R>) {
+        using CommonType = std::common_type_t<L, R>;
         return !(rhs < static_cast<R>(0)) && (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
     } else {
-        static_assert(sizeof(CommonType) == 0, "Conversion is not possible");
+        static_assert(std::is_signed_v<L> == std::is_signed_v<R>);
+        return lhs < rhs;
     }
 }
 
 template<typename To, typename From>
-constexpr bool isIncludes(const From & value) noexcept
+constexpr bool isIncludes(const From & value)
 {
-    if constexpr (std::is_same_v<From, bool> || std::is_same_v<To, bool>) {
+    if constexpr (std::is_same_v<To, bool>) {
         return true;
     } else {
         return !isLess(value, (std::numeric_limits<To>::min)()) && !isLess((std::numeric_limits<To>::max)(), value);
@@ -67,9 +67,13 @@ struct autoCast
     template<typename Destination>
     constexpr operator Destination() const &&
     {
-        if constexpr (std::is_arithmetic_v<Source> && std::is_arithmetic_v<Destination>) {
+        if constexpr (std::is_same_v<Source, Destination>) {
+            return std::forward<Source>(source);
+        } else if constexpr (std::is_arithmetic_v<Source> && std::is_arithmetic_v<Destination>) {
+            static_assert(!std::is_same_v<Source, bool>);
             return convertIfIncludes<Destination>(source);
         } else if constexpr (std::is_arithmetic_v<Source> && std::is_pointer_v<Destination>) {
+            static_assert(!std::is_same_v<Source, bool>);
             return reinterpret_cast<Destination>(convertIfIncludes<uintptr_t>(source));
         } else if constexpr (std::is_pointer_v<Source> && std::is_arithmetic_v<Destination>) {
             return convertIfIncludes<Destination>(reinterpret_cast<uintptr_t>(source));

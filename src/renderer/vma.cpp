@@ -4,6 +4,7 @@
 #include <utils/overloaded.hpp>
 
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 
 #include <memory>
 #include <type_traits>
@@ -73,9 +74,7 @@ struct MemoryAllocator::Resource
             const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
             buffer = vk::UniqueBuffer{newBuffer,
                                       vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
-            if (result != vk::Result::eSuccess) {
-                vk::throwResultException(result, "Cannot create buffer");
-            }
+            vk::resultCheck(result, "Cannot create buffer");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
@@ -128,9 +127,7 @@ struct MemoryAllocator::Resource
             const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
             image = vk::UniqueImage{newImage,
                                     vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
-            if (result != vk::Result::eSuccess) {
-                vk::throwResultException(result, "Cannot create image");
-            }
+            vk::resultCheck(result, "Cannot create image");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
@@ -316,7 +313,7 @@ vk::AccessFlags2 MemoryAllocator::Image::accessFlagsForImageLayout(vk::ImageLayo
     case vk::ImageLayout::eShaderReadOnlyOptimal:
         return vk::AccessFlagBits2::eShaderRead;
     default:
-        throw RuntimeError{fmt::format("Unhandled ImageLayout: {}", to_string(imageLayout))};
+        INVARIANT(false, "Unhandled ImageLayout: {}", fmt::underlying(imageLayout));
     }
 }
 
@@ -422,8 +419,9 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
     defragmentationInfo.flags = VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT;
 
     VmaDefragmentationContext defragmentationContext = {};
-    if (const auto result = vk::Result(vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext)); result != vk::Result::eSuccess) {
-        vk::throwResultException(result, "Cannot start defragmentation");
+    {
+        const auto result = vk::Result(vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext));
+        vk::resultCheck(result, "Cannot start defragmentation");
     }
 
     std::vector<VmaAllocationInfo> srcAllocationInfos;
@@ -443,9 +441,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
             if (result == vk::Result::eSuccess) {
                 break;
             }
-            if (result != vk::Result::eIncomplete) {
-                vk::throwResultException(result, "Cannot begin defragmentation pass");
-            }
+            vk::resultCheck(result, "Cannot begin defragmentation pass", {vk::Result::eIncomplete});
         }
 
         auto commandBuffer = allocateCommandBuffer();
@@ -471,9 +467,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                     auto buffer = device.createBufferUnique(bufferResource.bufferCreateInfo, allocationCallbacks, dispatcher);
 
                     const auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *buffer));
-                    if (result != vk::Result::eSuccess) {
-                        vk::throwResultException(result, "Cannot bind buffer memory");
-                    }
+                    vk::resultCheck(result, "Cannot bind buffer memory");
 
                     bufferResource.newBuffer = std::move(buffer);
 
@@ -490,9 +484,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                     auto image = device.createImageUnique(imageResource.imageCreateInfo, allocationCallbacks, dispatcher);
 
                     const auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
-                    if (result != vk::Result::eSuccess) {
-                        vk::throwResultException(result, "Cannot bind image memory");
-                    }
+                    vk::resultCheck(result, "Cannot bind image memory");
 
                     imageResource.newImage = std::move(image);
 
@@ -558,7 +550,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
             }
         }
 
-        if (!beginImageBarriers.empty() || wantsMemoryBarrier) {
+        if (!std::empty(beginImageBarriers) || wantsMemoryBarrier) {
             vk::DependencyInfo dependencyInfo = {};
             dependencyInfo.setDependencyFlags({});
             if (wantsMemoryBarrier) {
@@ -649,7 +641,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
             std::visit(utils::Overloaded{moveBuffer, moveImage}, resource.resource);
         }
 
-        if (!endImageBarriers.empty() || wantsMemoryBarrier) {
+        if (!std::empty(endImageBarriers) || wantsMemoryBarrier) {
             vk::DependencyInfo dependencyInfo = {};
             dependencyInfo.setDependencyFlags({});
             if (wantsMemoryBarrier) {
@@ -685,9 +677,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
             if (result == vk::Result::eSuccess) {
                 break;
             }
-            if (result != vk::Result::eIncomplete) {
-                vk::throwResultException(result, "Cannot finish defragmentation pass");
-            }
+            vk::resultCheck(result, "Cannot finish defragmentation pass", {vk::Result::eIncomplete});
         }
     }
     VmaDefragmentationStats defragmentationStats = {};
@@ -758,9 +748,7 @@ MemoryAllocator::Impl::Impl(const CreateInfo & createInfo, vk::Optional<const vk
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 
     const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
-    if (result != vk::Result::eSuccess) {
-        vk::throwResultException(result, "Cannot create allocator");
-    }
+    vk::resultCheck(result, "Cannot create allocator");
 }
 
 MemoryAllocator::Impl::~Impl()

@@ -14,14 +14,7 @@ if(NOT BUILD_SHARED_LIBS)
         PUBLIC
             ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
 endif()
-target_sources(
-    "lib${PROJECT_NAME}"
-    PRIVATE
-        "${PROJECT_NAME}_export.h"
-        "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp"
-        "example_renderer.hpp"
-        "example_renderer.cpp")
+
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -30,32 +23,50 @@ target_link_libraries(
         Qt6::Qml
         Qt6::Quick)
 
-compile_shaders_to_spirv()
-if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "Default")
-    qt6_add_qml_module(
+qt6_add_qml_module(
+    "lib${PROJECT_NAME}"
+    URI
+        SahKdTree
+    VERSION
+        1.0
+    SOURCES
+        "${PROJECT_NAME}_export.h"
+        "${PROJECT_NAME}.hpp"
+        "${PROJECT_NAME}.cpp"
+        "example_renderer.hpp"
+        "example_renderer.cpp"
+    RESOURCE_PREFIX
+        "/sah_kd_tree/imports")
+
+
+process_shaders()
+
+target_sources(
+    "lib${PROJECT_NAME}"
+    PRIVATE
+        ${shader_files})
+
+source_group(
+    "Shaders"
+    FILES
+        ${shader_files})
+
+foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS compiled_shader_files_debug compiled_shader_files_release)
+    cmake_path(RELATIVE_PATH compiled_shader_file_release OUTPUT_VARIABLE resource_alias)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(compiled_shader_file "${compiled_shader_file_debug}")
+    else()
+        set(compiled_shader_file "${compiled_shader_file_release}")
+    endif()
+    set_source_files_properties(
+        "${compiled_shader_file}"
+        PROPERTIES
+            QT_RESOURCE_ALIAS "shaders/${resource_alias}")
+    qt6_target_qml_sources(
         "lib${PROJECT_NAME}"
-        URI SahKdTree
-        VERSION 1.0
-        SOURCES
-            "fullscreen_triangle.vert.glsl"
-            "fullscreen_triangle.frag.glsl"
         RESOURCES
-            "fullscreen_triangle.vert.debug.spv"
-            "fullscreen_triangle.frag.debug.spv"
-        RESOURCE_PREFIX "/qml/imports")
-else()
-    qt6_add_qml_module(
-        "lib${PROJECT_NAME}"
-        URI SahKdTree
-        VERSION 1.0
-        SOURCES
-            "fullscreen_triangle.vert.glsl"
-            "fullscreen_triangle.frag.glsl"
-        RESOURCES
-            "fullscreen_triangle.vert.spv"
-            "fullscreen_triangle.frag.spv"
-        RESOURCE_PREFIX "/qml/imports")
-endif()
+            "${compiled_shader_file}")
+endforeach()
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(
@@ -84,10 +95,14 @@ target_compile_definitions(
 qt6_add_resources(
     "${PROJECT_NAME}"
     "ui"
-    PREFIX "/qml"
+    PREFIX
+        "/sah_kd_tree"
     FILES
         "ui.qml")
 
-source_group("UI Files" REGULAR_EXPRESSION "_?ui.qml$")
+source_group(
+    "UI Files"
+    REGULAR_EXPRESSION
+        "_?ui.qml$")
 
 add_subdirectory("tests")

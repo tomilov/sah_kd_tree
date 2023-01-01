@@ -11,7 +11,7 @@ namespace utils::impl
 
 void AssertFailed(const char * expression, const char * file, unsigned int line, const char * function, std::string_view message)
 {
-    SPDLOG_CRITICAL("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}", file, line, (function ? ":" : ""), (function ? function : ""), expression, (!message.empty() ? ": " : ""), message);
+    SPDLOG_CRITICAL("ERROR at {}:{}{}{}. Assertion '{}' failed{}{}", file, line, (function ? ":" : ""), (function ? function : ""), expression, (!std::empty(message) ? ": " : ""), message);
     std::abort();
 }
 

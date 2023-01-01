@@ -579,7 +579,7 @@ void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
 {
     arg.resize(argSize + std::numeric_limits<decltype(argValue)>::digits10 + 1);
     char * s = arg.data();
-    auto [p, ec] = std::to_chars(std::next(s, argSize), std::next(s, arg.size()), argValue);
+    auto [p, ec] = std::to_chars(std::next(s, argSize), std::next(s, std::size(arg)), argValue);
     if (ec != std::errc{}) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} from size_t to string\n", argValue, fmt::string_view{arg.data() + 1, argSize - 2});
         std::exit(EXIT_FAILURE);
@@ -594,15 +594,15 @@ extern "C"
     int LLVMFuzzerInitialize(int * argc, char *** argv)
     {
         static std::string maxLenOption = "-max_len=";
-        static const size_t maxLenSize = maxLenOption.size();
+        static const size_t maxLenSize = std::size(maxLenOption);
         char ** maxLenArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxLenOption.c_str());
 
         static std::string maxPrimitiveCountOption = "-max_primitive_count=";
-        static const size_t maxPrimitiveCountSize = maxPrimitiveCountOption.size();
+        static const size_t maxPrimitiveCountSize = std::size(maxPrimitiveCountOption);
         char ** maxPrimitiveCountArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxPrimitiveCountOption.c_str());
 
         static std::string boxWorldOption = "-box_world=";
-        static const size_t boxWorldSize = boxWorldOption.size();
+        static const size_t boxWorldSize = std::size(boxWorldOption);
         char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
 
         if (boxWorldArg) {

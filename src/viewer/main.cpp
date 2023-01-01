@@ -10,6 +10,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
+#include <QtCore/QDirIterator>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QSettings>
@@ -56,7 +57,7 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
     auto geometry = primaryScreen->geometry();
     INVARIANT(geometry.isValid(), "Expected non-empty rect");
     auto center = geometry.center();
-    geometry.setSize(geometry.size() / 2);
+    geometry.setSize(std::size(geometry) / 2);
     geometry.moveCenter(center);
 
     auto windowGeometrySetting = QSettings{}.value("window/geometry", geometry);
@@ -75,17 +76,15 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
     }
 
     const auto saveSettings = [&engine] {
-        qCInfo(viewerMainCategory) << "Save settings";
-
-        if (auto rootObjects = engine.rootObjects(); !rootObjects.isEmpty()) {
-            INVARIANT(rootObjects.size() == 1, "Expected single object");
-            auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
-            INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
-            QSettings{}.setValue("window/geometry", applicationWindow->geometry());
-        }
+        auto rootObjects = engine.rootObjects();
+        INVARIANT(std::size(rootObjects) == 1, "Expected single object");
+        auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
+        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
+        QSettings{}.setValue("window/geometry", applicationWindow->geometry());
+        qCInfo(viewerMainCategory) << "Settings saved";
     };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, &engine, saveSettings)) {
-        Q_ASSERT(false);
+        qFatal("unreachable");
     }
 }
 
@@ -158,14 +157,21 @@ int main(int argc, char * argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     qCInfo(viewerMainCategory).noquote() << QStringLiteral("Settings path: %1").arg(QSettings{}.fileName());
 
+    {
+        QDirIterator resources{":/", QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
+        while (resources.hasNext()) {
+            qCDebug(viewerMainCategory) << resources.next();
+        }
+    }
+
     auto application = createApplication(argc, argv);
     if (!application) {
-        QT_MESSAGE_LOGGER_COMMON(viewerMainCategory, QtFatalMsg).fatal("Unable to create application object");
+        qFatal("unreachable");
     }
 
     const auto beforeQuit = [] { qCInfo(viewerMainCategory) << "Application is about to quit"; };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {
-        Q_ASSERT(false);
+        qFatal("unreachable");
     }
 
     QQuickWindow::setSceneGraphBackend("rhi");
@@ -173,7 +179,6 @@ int main(int argc, char * argv[])
 
     constexpr bool kUseRenderer = true;
 
-    QDir::setSearchPaths("shaders", {QStringLiteral(":/shaders")});
     auto rendererIo = std::make_unique<viewer::RendererIo>();
     renderer::Renderer renderer{rendererIo.get(), {0x0, 0xB3D4346B, 0xDC18AD6B}};
 
@@ -222,13 +227,14 @@ int main(int argc, char * argv[])
 
     QQuickGraphicsConfiguration quickGraphicsConfiguration;
     quickGraphicsConfiguration.setDeviceExtensions({});
+    quickGraphicsConfiguration.setDepthBufferFor2D(true);
 
     QQmlApplicationEngine engine;
-    engine.setBaseUrl(QUrl{"qrc:///qml/"});
-    engine.addImportPath(":/qml/imports");
+    engine.setBaseUrl(QUrl{QStringLiteral("qrc:///%1/").arg(QString::fromUtf8(sah_kd_tree::kProjectName))});
+    //engine.addImportPath(":/sah_kd_tree/imports");
 
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
-        Q_ASSERT(false);
+        qFatal("unreachable");
     }
 
     const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &renderer](QObject * object, const QUrl & url) {
@@ -249,7 +255,7 @@ int main(int argc, char * argv[])
             vk::Device device = renderer.getDevice();
             uint32_t queueFamilyIndex = renderer.getGraphicsQueueFamilyIndex();
             uint32_t queueIndex = renderer.getGraphicsQueueIndex();
-            Q_ASSERT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow));
+            INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);
         } else {
@@ -257,7 +263,7 @@ int main(int argc, char * argv[])
         }
     };
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated)) {
-        Q_ASSERT(false);
+        qFatal("unreachable");
     }
 
     persistRootWindowSettings(engine);

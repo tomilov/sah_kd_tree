@@ -1,5 +1,7 @@
 #include <viewer/example_renderer.hpp>
 
+#include <common/version.hpp>
+
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
 #include <QtCore/QFile>
@@ -105,22 +107,14 @@ void ExampleRenderer::mainPassRecordingStart()
 
 void ExampleRenderer::prepareShader(Stage stage)
 {
+    const auto kUri = QStringLiteral("SahKdTree");
     QString filename;
-#ifdef NDEBUG
     if (stage == VertexStage) {
-        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.vert.spv");
+        filename = QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.vert.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri);
     } else {
         Q_ASSERT(stage == FragmentStage);
-        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.frag.spv");
+        filename = QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.frag.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri);
     }
-#else
-    if (stage == VertexStage) {
-        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.vert.debug.spv");
-    } else {
-        Q_ASSERT(stage == FragmentStage);
-        filename = QLatin1String(":/qml/imports/SahKdTree/fullscreen_triangle.frag.debug.spv");
-    }
-#endif
     QFile f(filename);
     if (!f.open(QIODevice::ReadOnly)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(filename));
 
@@ -285,13 +279,13 @@ void ExampleRenderer::init(int framesInFlight)
     VkShaderModuleCreateInfo shaderInfo;
     memset(&shaderInfo, 0, sizeof(shaderInfo));
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderInfo.codeSize = m_vert.size();
+    shaderInfo.codeSize = std::size(m_vert);
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_vert.constData());
     VkShaderModule vertShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &vertShaderModule);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex shader module: %d", err);
 
-    shaderInfo.codeSize = m_frag.size();
+    shaderInfo.codeSize = std::size(m_frag);
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_frag.constData());
     VkShaderModule fragShaderModule;
     err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &fragShaderModule);
