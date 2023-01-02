@@ -24,11 +24,12 @@ BraceWrapping:
     AfterExternBlock: true
     BeforeCatch: false
     BeforeElse: false
-    #BeforeLambdaBody: true
-    #BeforeWhile: false
+    BeforeLambdaBody: true
+    BeforeWhile: false
     SplitEmptyFunction: false
     SplitEmptyRecord: true
     SplitEmptyNamespace: true
+    IndentBraces: true
 UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true
