@@ -14,6 +14,8 @@
 
 #include <cstdint>
 
+VK_DEFINE_HANDLE(VmaAllocator)
+
 namespace renderer
 {
 
@@ -62,15 +64,15 @@ public:
     Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
     Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
 
-    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit);
+    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 
 private:
-    struct Impl;
     struct Resource;
 
-    static constexpr std::size_t kSize = 24;
-    static constexpr std::size_t kAlignment = 8;
-    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+    const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher;
+
+    VmaAllocator allocator = VK_NULL_HANDLE;
 };
 
 struct MemoryAllocator::AllocationCreateInfo

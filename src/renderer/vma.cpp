@@ -25,35 +25,76 @@
 namespace renderer
 {
 
-struct MemoryAllocator::Impl final
-{
-    const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
-    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher;
-
-    VmaAllocator allocator = VK_NULL_HANDLE;
-
-    Impl(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion,
-         vk::Device device);
-    ~Impl();
-
-    Impl(const Impl &) = delete;
-    Impl(Impl &&) = delete;
-    void operator=(const Impl &) = delete;
-    void operator=(Impl &&) = delete;
-
-    VmaAllocatorInfo getAllocationInfoNative() const;
-    vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
-    vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
-
-    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
-};
-
 MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-                                 uint32_t deviceApiVersion, vk::Device device)
-    : impl_{createInfo, allocationCallbacks, dispatcher, instance, physicalDevice, deviceApiVersion, device}
-{}
+                            uint32_t deviceApiVersion, vk::Device device)
+    : allocationCallbacks{allocationCallbacks}, dispatcher{dispatcher}
+{
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.instance = vk::Instance::NativeType(instance);
+    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice);
+    allocatorInfo.device = vk::Device::NativeType(device);
+    allocatorInfo.vulkanApiVersion = deviceApiVersion;
 
-MemoryAllocator::~MemoryAllocator() = default;
+    if (allocationCallbacks) {
+        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*allocationCallbacks);
+    }
+
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    if (createInfo.memoryBudgetEnabled) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+    }
+    if (createInfo.memoryPriorityEnabled) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+    }
+
+    VmaVulkanFunctions vulkanFunctions = {};
+#ifdef DISPATCH
+#error "macro name collision"
+#endif
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#define DISPATCH(f) dispatcher.f
+#else
+#define DISPATCH(f) f
+#endif
+    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
+    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
+    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
+    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
+    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
+    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
+    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
+    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
+    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
+    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
+    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
+    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
+    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
+    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
+    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
+    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
+    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
+    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
+    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
+    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
+    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
+    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
+#undef DISPATCH
+
+    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+
+    const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
+    vk::resultCheck(result, "Cannot create allocator");
+}
+
+MemoryAllocator::~MemoryAllocator()
+{
+    vmaDestroyAllocator(allocator);
+}
 
 struct MemoryAllocator::Resource
 {
@@ -73,7 +114,7 @@ struct MemoryAllocator::Resource
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
             buffer = vk::UniqueBuffer{newBuffer,
-                                      vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+                                      vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             vk::resultCheck(result, "Cannot create buffer");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
@@ -126,7 +167,7 @@ struct MemoryAllocator::Resource
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
             image = vk::UniqueImage{newImage,
-                                    vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.memoryAllocator->getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+                                    vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             vk::resultCheck(result, "Cannot create image");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
@@ -175,7 +216,7 @@ struct MemoryAllocator::Resource
     static_assert(std::is_move_constructible_v<ImageResource>);
     static_assert(std::is_move_assignable_v<ImageResource>);
 
-    MemoryAllocator::Impl * memoryAllocator = nullptr;
+    MemoryAllocator * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
     std::variant<BufferResource, ImageResource> resource;
 
@@ -186,6 +227,8 @@ struct MemoryAllocator::Resource
     Resource & operator=(Resource &&) = default;
 
     ~Resource();
+
+    VmaAllocatorInfo getAllocationInfoNative() const;
 
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
@@ -213,15 +256,22 @@ private:
     VmaAllocationCreateInfo makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo);
 };
 
-MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator_, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{memoryAllocator_.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
+MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+    : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
 {}
 
-MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator_, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{memoryAllocator_.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
+MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+    : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
 {}
 
 MemoryAllocator::Resource::~Resource() = default;
+
+VmaAllocatorInfo MemoryAllocator::Resource::getAllocationInfoNative() const
+{
+    VmaAllocatorInfo allocatorInfo = {};
+    vmaGetAllocatorInfo(memoryAllocator->allocator, &allocatorInfo);
+    return allocatorInfo;
+}
 
 vk::MemoryPropertyFlags MemoryAllocator::Resource::getMemoryPropertyFlags() const
 {
@@ -319,17 +369,23 @@ vk::AccessFlags2 MemoryAllocator::Image::accessFlagsForImageLayout(vk::ImageLayo
 
 vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryProperties() const
 {
-    return impl_->getPhysicalDeviceMemoryProperties();
+    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;
+    vmaGetMemoryProperties(allocator, &physicalDeviceMemoryPropertiesPtr);
+    vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+    physicalDeviceMemoryProperties = *physicalDeviceMemoryPropertiesPtr;
+    return physicalDeviceMemoryProperties;
 }
 
 vk::MemoryPropertyFlags MemoryAllocator::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
 {
-    return impl_->getMemoryTypeProperties(memoryTypeIndex);
+    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
+    vmaGetMemoryTypeProperties(allocator, memoryTypeIndex, &memoryPropertyFlags);
+    return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
 void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex)
 {
-    vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
+    vmaSetCurrentFrameIndex(allocator, frameIndex);
 }
 
 auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) -> Buffer
@@ -380,35 +436,7 @@ auto MemoryAllocator::createReadbackImage(const vk::ImageCreateInfo & imageCreat
     return {*this, imageCreateInfo, allocationCreateInfo};
 }
 
-void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit)
-{
-    impl_->defragment(std::move(allocateCommandBuffer), std::move(submit));
-}
-
-VmaAllocatorInfo MemoryAllocator::Impl::getAllocationInfoNative() const
-{
-    VmaAllocatorInfo allocatorInfo = {};
-    vmaGetAllocatorInfo(allocator, &allocatorInfo);
-    return allocatorInfo;
-}
-
-vk::PhysicalDeviceMemoryProperties MemoryAllocator::Impl::getPhysicalDeviceMemoryProperties() const
-{
-    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;
-    vmaGetMemoryProperties(allocator, &physicalDeviceMemoryPropertiesPtr);
-    vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
-    physicalDeviceMemoryProperties = *physicalDeviceMemoryPropertiesPtr;
-    return physicalDeviceMemoryProperties;
-}
-
-vk::MemoryPropertyFlags MemoryAllocator::Impl::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
-{
-    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetMemoryTypeProperties(allocator, memoryTypeIndex, &memoryPropertyFlags);
-    return vk::MemoryPropertyFlags{memoryPropertyFlags};
-}
-
-void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex)
+void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex)
 {
     VmaAllocatorInfo allocatorInfo = {};
     vmaGetAllocatorInfo(allocator, &allocatorInfo);
@@ -689,77 +717,6 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
     VmaDefragmentationStats defragmentationStats = {};
     vmaEndDefragmentation(allocator, defragmentationContext, &defragmentationStats);
     // bytesMoved, bytesFreed, allocationsMoved, deviceMemoryBlocksFreed
-}
-
-MemoryAllocator::Impl::Impl(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-                            uint32_t deviceApiVersion, vk::Device device)
-    : allocationCallbacks{allocationCallbacks}, dispatcher{dispatcher}
-{
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.instance = vk::Instance::NativeType(instance);
-    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice);
-    allocatorInfo.device = vk::Device::NativeType(device);
-    allocatorInfo.vulkanApiVersion = deviceApiVersion;
-
-    if (allocationCallbacks) {
-        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*allocationCallbacks);
-    }
-
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    if (createInfo.memoryBudgetEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-    }
-    if (createInfo.memoryPriorityEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
-    }
-
-    VmaVulkanFunctions vulkanFunctions = {};
-#ifdef DISPATCH
-#error "macro name collision"
-#endif
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-#define DISPATCH(f) dispatcher.f
-#else
-#define DISPATCH(f) f
-#endif
-    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
-    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
-    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
-    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
-    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
-    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
-    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
-    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
-    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
-    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
-    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
-    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
-    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
-    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
-    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
-    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
-    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
-    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
-    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
-    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
-    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
-    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
-#undef DISPATCH
-
-    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-
-    const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
-    vk::resultCheck(result, "Cannot create allocator");
-}
-
-MemoryAllocator::Impl::~Impl()
-{
-    vmaDestroyAllocator(allocator);
 }
 
 }  // namespace renderer
