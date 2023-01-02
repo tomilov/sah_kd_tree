@@ -1,8 +1,8 @@
-#include <renderer/debug_utils.hpp>
-#include <renderer/exception.hpp>
-#include <renderer/format.hpp>
-#include <renderer/renderer.hpp>
-#include <renderer/utils.hpp>
+#include <engine/debug_utils.hpp>
+#include <engine/exception.hpp>
+#include <engine/format.hpp>
+#include <engine/engine.hpp>
+#include <engine/utils.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
@@ -38,10 +38,10 @@
 
 #include <spirv_reflect.h>
 
-namespace renderer
+namespace engine
 {
 
-void Renderer::DebugUtilsMessageMuteGuard::unmute()
+void Engine::DebugUtilsMessageMuteGuard::unmute()
 {
     if (std::empty(messageIdNumbers)) {
         return;
@@ -57,33 +57,33 @@ void Renderer::DebugUtilsMessageMuteGuard::unmute()
     }
 }
 
-bool Renderer::DebugUtilsMessageMuteGuard::empty() const
+bool Engine::DebugUtilsMessageMuteGuard::empty() const
 {
     return std::empty(messageIdNumbers);
 }
 
-Renderer::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
+Engine::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
 {
     unmute();
 }
 
-Renderer::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, const std::initializer_list<uint32_t> & messageIdNumbers)
+Engine::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, const std::initializer_list<uint32_t> & messageIdNumbers)
     : mutex{mutex}, mutedMessageIdNumbers{mutedMessageIdNumbers}, messageIdNumbers{messageIdNumbers}
 {}
 
-struct Renderer::Library final : utils::NonCopyable
+struct Engine::Library final : utils::NonCopyable
 {
     const std::optional<std::string> libraryName;
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 
-    Renderer & renderer;
+    Engine & engine;
 
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     std::optional<vk::DynamicLoader> dl;
 #endif
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 
-    Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Renderer & renderer) : libraryName{libraryName}, allocationCallbacks{allocationCallbacks}, renderer{renderer}
+    Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, Engine & engine) : libraryName{libraryName}, allocationCallbacks{allocationCallbacks}, engine{engine}
     {
         init();
     }
@@ -92,12 +92,12 @@ private:
     void init();
 };
 
-struct Renderer::Instance final : utils::NonCopyable
+struct Engine::Instance final : utils::NonCopyable
 {
     const std::string applicationName;
     const uint32_t applicationVersion;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
 
     uint32_t apiVersion = VK_API_VERSION_1_0;
@@ -125,7 +125,7 @@ struct Renderer::Instance final : utils::NonCopyable
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, Renderer & renderer, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, renderer{renderer}, library{library}
+    Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{library}
     {
         init();
     }
@@ -171,16 +171,16 @@ private:
     void init();
 };
 
-struct Renderer::QueueCreateInfo final
+struct Engine::QueueCreateInfo final
 {
     const std::string name;
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     std::size_t index = std::numeric_limits<std::size_t>::max();
 };
 
-struct Renderer::PhysicalDevice final : utils::NonCopyable
+struct Engine::PhysicalDevice final : utils::NonCopyable
 {
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Instance & instance;
 
@@ -253,7 +253,7 @@ struct Renderer::PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
 
-    PhysicalDevice(Renderer & renderer, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+    PhysicalDevice(Engine & engine, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}
     {
         init();
     }
@@ -268,15 +268,15 @@ private:
     void init();
 };
 
-struct Renderer::PhysicalDevices final : utils::NonCopyable
+struct Engine::PhysicalDevices final : utils::NonCopyable
 {
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Instance & instance;
 
     std::vector<std::unique_ptr<PhysicalDevice>> physicalDevices;
 
-    PhysicalDevices(Renderer & renderer, Library & library, Instance & instance) : renderer{renderer}, library{library}, instance{instance}
+    PhysicalDevices(Engine & engine, Library & library, Instance & instance) : engine{engine}, library{library}, instance{instance}
     {
         init();
     }
@@ -287,11 +287,11 @@ private:
     void init();
 };
 
-struct Renderer::Fences final
+struct Engine::Fences final
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Device & device;
 
@@ -300,7 +300,7 @@ struct Renderer::Fences final
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
-    Fences(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
+    Fences(std::string_view name, Engine & engine, Library & library, Device & device) : name{name}, engine{engine}, library{library}, device{device}
     {}
 
     void create(std::size_t count = 1);
@@ -312,11 +312,11 @@ struct Renderer::Fences final
     void reset(std::size_t fenceIndex);
 };
 
-struct Renderer::Device final : utils::NonCopyable
+struct Engine::Device final : utils::NonCopyable
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Instance & instance;
     PhysicalDevice & physicalDevice;
@@ -327,7 +327,7 @@ struct Renderer::Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(std::string_view name, Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+    Device(std::string_view name, Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}
     {
         create();
     }
@@ -393,7 +393,7 @@ struct Renderer::Device final : utils::NonCopyable
 
     [[nodiscard]] Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
     {
-        Fences fences{name, renderer, library, *this};
+        Fences fences{name, engine, library, *this};
         fences.fenceCreateInfo = {
             .flags = fenceCreateFlags,
         };
@@ -402,11 +402,11 @@ struct Renderer::Device final : utils::NonCopyable
     }
 };
 
-struct Renderer::CommandBuffers final
+struct Engine::CommandBuffers final
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Device & device;
 
@@ -414,7 +414,7 @@ struct Renderer::CommandBuffers final
     std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
     std::vector<vk::CommandBuffer> commandBuffers;
 
-    CommandBuffers(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
+    CommandBuffers(std::string_view name, Engine & engine, Library & library, Device & device) : name{name}, engine{engine}, library{library}, device{device}
     {}
 
     void create()
@@ -436,11 +436,11 @@ struct Renderer::CommandBuffers final
     }
 };
 
-struct Renderer::CommandPool final
+struct Engine::CommandPool final
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Device & device;
 
@@ -448,7 +448,7 @@ struct Renderer::CommandPool final
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(std::string_view name, Renderer & renderer, Library & library, Device & device) : name{name}, renderer{renderer}, library{library}, device{device}
+    CommandPool(std::string_view name, Engine & engine, Library & library, Device & device) : name{name}, engine{engine}, library{library}, device{device}
     {}
 
     void create()
@@ -460,9 +460,9 @@ struct Renderer::CommandPool final
     }
 };
 
-struct Renderer::CommandPools : utils::NonCopyable
+struct Engine::CommandPools : utils::NonCopyable
 {
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Instance & instance;
     PhysicalDevice & physicalDevice;
@@ -487,7 +487,7 @@ struct Renderer::CommandPools : utils::NonCopyable
     std::mutex commandPoolsMutex;
     CommandPoolsType commandPools;
 
-    CommandPools(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
+    CommandPools(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
     {}
 
     [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary)
@@ -498,7 +498,7 @@ struct Renderer::CommandPools : utils::NonCopyable
         auto & perThreadCommandPools = commandPools[threadId];
         auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
         if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
-            CommandPool commandPool{name, renderer, library, device};
+            CommandPool commandPool{name, engine, library, device};
             commandPool.commandPoolCreateInfo = {
                 .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
                 .queueFamilyIndex = queueFamilyIndex,
@@ -515,9 +515,9 @@ struct Renderer::CommandPools : utils::NonCopyable
     }
 };
 
-struct Renderer::Queue final : utils::NonCopyable
+struct Engine::Queue final : utils::NonCopyable
 {
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     Instance & instance;
     PhysicalDevice & physicalDevice;
@@ -527,8 +527,8 @@ struct Renderer::Queue final : utils::NonCopyable
 
     vk::Queue queue;
 
-    Queue(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device, CommandPools & commandPools)
-        : renderer{renderer}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}, commandPools{commandPools}
+    Queue(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device, CommandPools & commandPools)
+        : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}, commandPools{commandPools}
     {
         queue = device.device.getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, library.dispatcher);
         device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
@@ -556,7 +556,7 @@ struct Renderer::Queue final : utils::NonCopyable
 
     [[nodiscard]] CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const
     {
-        CommandBuffers commandBuffers{name, renderer, library, device};
+        CommandBuffers commandBuffers{name, engine, library, device};
         commandBuffers.commandBufferAllocateInfo = {
             .commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level),
             .level = level,
@@ -592,18 +592,18 @@ struct Renderer::Queue final : utils::NonCopyable
     }
 };
 
-struct Renderer::Queues final : utils::NonCopyable
+struct Engine::Queues final : utils::NonCopyable
 {
     Queue graphics;
     Queue compute;
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
-    Queues(Renderer & renderer, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device, CommandPools & commandPools)
-        : graphics{renderer, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device, commandPools}
-        , compute{renderer, library, instance, physicalDevice, physicalDevice.computeQueueCreateInfo, device, commandPools}
-        , transferHostToDevice{renderer, library, instance, physicalDevice, physicalDevice.transferHostToDeviceQueueCreateInfo, device, commandPools}
-        , transferDeviceToHost{renderer, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device, commandPools}
+    Queues(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device, CommandPools & commandPools)
+        : graphics{engine, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device, commandPools}
+        , compute{engine, library, instance, physicalDevice, physicalDevice.computeQueueCreateInfo, device, commandPools}
+        , transferHostToDevice{engine, library, instance, physicalDevice, physicalDevice.transferHostToDeviceQueueCreateInfo, device, commandPools}
+        , transferDeviceToHost{engine, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device, commandPools}
     {}
 
     void waitIdle() const
@@ -692,13 +692,13 @@ struct Renderer::Queues final : utils::NonCopyable
     INVARIANT(false, "Unknown shader stage {}", fmt::underlying(shaderStage));
 }
 
-struct Renderer::ShaderModule final
+struct Engine::ShaderModule final
     : utils::NonCopyable
     , utils::NonMoveable
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -709,7 +709,7 @@ struct Renderer::ShaderModule final
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    ShaderModule(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
         load();
     }
@@ -718,7 +718,7 @@ private:
     void load()
     {
         shaderStage = shaderNameToStage(name);
-        code = renderer.io->loadShader(name);
+        code = engine.io->loadShader(name);
 
         vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
         shaderModuleCreateInfo.setCode(code);
@@ -875,7 +875,7 @@ private:
     INVARIANT(false, "Shader stage {} is unknown", fmt::underlying(shaderStageFlagBits));
 }
 
-struct Renderer::ShaderModuleReflection final
+struct Engine::ShaderModuleReflection final
     : utils::NonCopyable
     , utils::NonMoveable
 {
@@ -957,11 +957,11 @@ private:
     }
 };
 
-struct Renderer::ShaderStages final
+struct Engine::ShaderStages final
 {
     using PipelineShaderStageCreateInfoChain = vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -970,7 +970,7 @@ struct Renderer::ShaderStages final
     std::deque<std::string> names;
     std::vector<PipelineShaderStageCreateInfoChain> shaderStages;
 
-    ShaderStages(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    ShaderStages(Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
     {}
 
     void append(const ShaderModule & shaderModule, std::string_view entryPoint)
@@ -994,11 +994,11 @@ struct Renderer::ShaderStages final
     }
 };
 
-struct Renderer::RenderPass final : utils::NonCopyable
+struct Engine::RenderPass final : utils::NonCopyable
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -1011,7 +1011,7 @@ struct Renderer::RenderPass final : utils::NonCopyable
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    RenderPass(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    RenderPass(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
         init();
     }
@@ -1055,11 +1055,11 @@ private:
     }
 };
 
-struct Renderer::Framebuffer final : utils::NonCopyable
+struct Engine::Framebuffer final : utils::NonCopyable
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -1074,8 +1074,8 @@ struct Renderer::Framebuffer final : utils::NonCopyable
     std::vector<vk::UniqueFramebuffer> framebufferHolders;
     std::vector<vk::Framebuffer> framebuffers;
 
-    Framebuffer(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
-        : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
+    Framebuffer(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
+        : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
     {
         init();
     }
@@ -1106,13 +1106,13 @@ private:
     }
 };
 
-struct Renderer::PipelineCache final : utils::NonCopyable
+struct Engine::PipelineCache final : utils::NonCopyable
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -1120,7 +1120,7 @@ struct Renderer::PipelineCache final : utils::NonCopyable
     vk::UniquePipelineCache pipelineCacheHolder;
     vk::PipelineCache pipelineCache;
 
-    PipelineCache(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    PipelineCache(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
         load();
     }
@@ -1142,11 +1142,11 @@ private:
     void load();
 };
 
-struct Renderer::GraphicsPipelines final : utils::NonCopyable
+struct Engine::GraphicsPipelines final : utils::NonCopyable
 {
     const std::string name;
 
-    Renderer & renderer;
+    Engine & engine;
     Library & library;
     PhysicalDevice & physicalDevice;
     Device & device;
@@ -1178,9 +1178,9 @@ struct Renderer::GraphicsPipelines final : utils::NonCopyable
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
 
-    GraphicsPipelines(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width,
+    GraphicsPipelines(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width,
                       uint32_t height)
-        : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
+        : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
     {
         load();
     }
@@ -1292,9 +1292,9 @@ private:
     }
 };
 
-std::vector<uint8_t> Renderer::PipelineCache::loadPipelineCacheData() const
+std::vector<uint8_t> Engine::PipelineCache::loadPipelineCacheData() const
 {
-    auto cacheData = renderer.io->loadPipelineCache(name.c_str());
+    auto cacheData = engine.io->loadPipelineCache(name.c_str());
     if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
@@ -1327,7 +1327,7 @@ std::vector<uint8_t> Renderer::PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-void Renderer::PipelineCache::load()
+void Engine::PipelineCache::load()
 {
     auto cacheData = loadPipelineCacheData();
 
@@ -1365,11 +1365,11 @@ void Renderer::PipelineCache::load()
     device.setDebugUtilsObjectName(pipelineCache, name);
 }
 
-bool Renderer::PipelineCache::flush()
+bool Engine::PipelineCache::flush()
 {
     ASSERT(pipelineCache);
     auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
-    if (!renderer.io->savePipelineCache(data, name.c_str())) {
+    if (!engine.io->savePipelineCache(data, name.c_str())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }
@@ -1396,7 +1396,7 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
     INVARIANT(false, "Unknown vk::DebugUtilsMessageSeverityFlagBitsEXT {}", fmt::underlying(messageSeverity));
 }
 
-void Renderer::Library::init()
+void Engine::Library::init()
 {
     using namespace std::string_view_literals;
     SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
@@ -1412,7 +1412,7 @@ void Renderer::Library::init()
 #endif
 #endif
 }
-vk::Bool32 Renderer::Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+vk::Bool32 Engine::Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
     auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
     if (!spdlog::should_log(lvl)) {
@@ -1428,15 +1428,15 @@ vk::Bool32 Renderer::Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSever
     return VK_FALSE;
 }
 
-vk::Bool32 Renderer::Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+vk::Bool32 Engine::Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    if (renderer.shouldMute(static_cast<uint32_t>(callbackData.messageIdNumber))) {
+    if (engine.shouldMute(static_cast<uint32_t>(callbackData.messageIdNumber))) {
         return VK_FALSE;
     }
     return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
 }
 
-void Renderer::Instance::init()
+void Engine::Instance::init()
 {
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     if (library.dispatcher.vkEnumerateInstanceVersion) {
@@ -1541,7 +1541,7 @@ void Renderer::Instance::init()
             SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : renderer.requiredInstanceExtensions) {
+    for (const char * requiredExtension : engine.requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
         }
@@ -1554,7 +1554,7 @@ void Renderer::Instance::init()
         {
             vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
             debugUtilsMessengerCallbackData = *pCallbackData;
-            return static_cast<Renderer::Instance *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
+            return static_cast<Engine::Instance *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
@@ -1579,7 +1579,7 @@ void Renderer::Instance::init()
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto mute0x822806FA = renderer.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        auto mute0x822806FA = engine.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
         instance = *instanceHolder;
     }
@@ -1594,7 +1594,7 @@ void Renderer::Instance::init()
     }
 }
 
-auto Renderer::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
+auto Engine::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
@@ -1609,7 +1609,7 @@ auto Renderer::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<co
     return missingExtensions;
 }
 
-uint32_t Renderer::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface) const
+uint32_t Engine::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface) const
 {
     uint32_t bestMatchQueueFamily = VK_QUEUE_FAMILY_IGNORED;
     vk::QueueFlags bestMatchQueueFalgs;
@@ -1647,7 +1647,7 @@ uint32_t Renderer::PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFl
     return bestMatchQueueFamily;
 }
 
-bool Renderer::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
+bool Engine::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
 {
     auto physicalDeviceType = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
@@ -1693,7 +1693,7 @@ bool Renderer::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDevic
         return false;
     }
 
-    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(renderer.requiredDeviceExtensions);
+    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(engine.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
         return false;
     }
@@ -1756,7 +1756,7 @@ bool Renderer::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDevic
     return true;
 }
 
-bool Renderer::PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
+bool Engine::PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
 {
     auto extension = extensions.find(extensionName);
     if (extension != std::end(extensions)) {
@@ -1783,7 +1783,7 @@ bool Renderer::PhysicalDevice::enableExtensionIfAvailable(const char * extension
     return false;
 }
 
-void Renderer::PhysicalDevice::init()
+void Engine::PhysicalDevice::init()
 {
     extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
@@ -1823,7 +1823,7 @@ void Renderer::PhysicalDevice::init()
     queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
-auto Renderer::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -> PhysicalDevice &
+auto Engine::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -> PhysicalDevice &
 {
     static constexpr auto kPhysicalDeviceTypesPrioritized = {
         vk::PhysicalDeviceType::eDiscreteGpu, vk::PhysicalDeviceType::eIntegratedGpu, vk::PhysicalDeviceType::eVirtualGpu, vk::PhysicalDeviceType::eCpu, vk::PhysicalDeviceType::eOther,
@@ -1844,14 +1844,14 @@ auto Renderer::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const
     return *bestPhysicalDevice;
 }
 
-void Renderer::PhysicalDevices::init()
+void Engine::PhysicalDevices::init()
 {
     for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
-        physicalDevices.push_back(std::make_unique<PhysicalDevice>(renderer, library, instance, physicalDevice));
+        physicalDevices.push_back(std::make_unique<PhysicalDevice>(engine, library, instance, physicalDevice));
     }
 }
 
-void Renderer::Device::create()
+void Engine::Device::create()
 {
     const auto setFeatures = [](const auto & pointers, auto & features)
     {
@@ -1874,7 +1874,7 @@ void Renderer::Device::create()
             INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
         }
     }
-    for (const char * requiredExtension : renderer.requiredDeviceExtensions) {
+    for (const char * requiredExtension : engine.requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
         }
@@ -1902,7 +1902,7 @@ void Renderer::Device::create()
     setDebugUtilsObjectName(device, name);
 }
 
-void Renderer::Fences::create(std::size_t count)
+void Engine::Fences::create(std::size_t count)
 {
     for (std::size_t i = 0; i < count; ++i) {
         fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
@@ -1917,32 +1917,32 @@ void Renderer::Fences::create(std::size_t count)
     }
 }
 
-vk::Result Renderer::Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
+vk::Result Engine::Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
 {
     return device.device.waitForFences(fences, waitAll ? VK_TRUE : VK_FALSE, duration.count(), library.dispatcher);
 }
 
-vk::Result Renderer::Fences::wait(std::size_t fenceIndex, std::chrono::nanoseconds duration)
+vk::Result Engine::Fences::wait(std::size_t fenceIndex, std::chrono::nanoseconds duration)
 {
     return device.device.waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), library.dispatcher);
 }
 
-void Renderer::Fences::resetAll()
+void Engine::Fences::resetAll()
 {
     device.device.resetFences(fences, library.dispatcher);
 }
 
-void Renderer::Fences::reset(std::size_t fenceIndex)
+void Engine::Fences::reset(std::size_t fenceIndex)
 {
     device.device.resetFences(fences.at(fenceIndex), library.dispatcher);
 }
 
-Renderer::Renderer(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : io{io}, debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+Engine::Engine(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : io{io}, debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
 {}
 
-Renderer::~Renderer() = default;
+Engine::~Engine() = default;
 
-auto Renderer::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
+auto Engine::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
 {
     if (!enabled) {
         return {mutex, mutedMessageIdNumbers, {}};
@@ -1954,29 +1954,29 @@ auto Renderer::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdN
     return {mutex, mutedMessageIdNumbers, std::move(messageIdNumbers)};
 }
 
-void Renderer::addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions)
+void Engine::addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions)
 {
     requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), std::cbegin(instanceExtensions), std::cend(instanceExtensions));
 }
 
-void Renderer::addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions)
+void Engine::addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions)
 {
     requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), std::cbegin(deviceExtensions), std::cend(deviceExtensions));
 }
 
-void Renderer::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
+void Engine::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks, *this);
     instance = std::make_unique<Instance>(applicationName, applicationVersion, *this, *library);
     physicalDevices = std::make_unique<PhysicalDevices>(*this, *library, *instance);
 }
 
-vk::Instance Renderer::getInstance() const
+vk::Instance Engine::getInstance() const
 {
     return instance->instance;
 }
 
-void Renderer::createDevice(vk::SurfaceKHR surface)
+void Engine::createDevice(vk::SurfaceKHR surface)
 {
     using namespace std::string_view_literals;
     static constexpr auto deviceName = "device"sv;
@@ -1984,46 +1984,46 @@ void Renderer::createDevice(vk::SurfaceKHR surface)
     memoryAllocator = device->makeMemoryAllocator();
     commandPools = std::make_unique<CommandPools>(*this, *library, *instance, device->physicalDevice, *device);
     queues = std::make_unique<Queues>(*this, *library, *instance, device->physicalDevice, *device, *commandPools);
-    static constexpr auto pipelineCacheName = "renderer_pipeline_cache"sv;
+    static constexpr auto pipelineCacheName = "engine_pipeline_cache"sv;
     pipelineCache = std::make_unique<PipelineCache>(pipelineCacheName, *this, *library, device->physicalDevice, *device);
 }
 
-vk::PhysicalDevice Renderer::getPhysicalDevice() const
+vk::PhysicalDevice Engine::getPhysicalDevice() const
 {
     return device->physicalDevice.physicalDevice;
 }
 
-vk::Device Renderer::getDevice() const
+vk::Device Engine::getDevice() const
 {
     return device->device;
 }
 
-uint32_t Renderer::getGraphicsQueueFamilyIndex() const
+uint32_t Engine::getGraphicsQueueFamilyIndex() const
 {
     return device->physicalDevice.graphicsQueueCreateInfo.familyIndex;
 }
 
-uint32_t Renderer::getGraphicsQueueIndex() const
+uint32_t Engine::getGraphicsQueueIndex() const
 {
     return device->physicalDevice.graphicsQueueCreateInfo.index;
 }
 
-void Renderer::loadScene(scene::Scene & scene)
+void Engine::loadScene(scene::Scene & scene)
 {
     (void)scene;
 }
 
-void Renderer::flushCaches() const
+void Engine::flushCaches() const
 {
     if (!pipelineCache->flush()) {
         return;
     }
 }
 
-bool Renderer::shouldMute(uint32_t messageIdNumber) const
+bool Engine::shouldMute(uint32_t messageIdNumber) const
 {
     std::lock_guard<std::mutex> lock{mutex};
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-}  // namespace renderer
+}  // namespace engine

@@ -1,11 +1,11 @@
-#include <renderer/debug_utils.hpp>
+#include <engine/debug_utils.hpp>
 #include <utils/assert.hpp>
 
 #include <algorithm>
 #include <iterator>
 #include <utility>
 
-namespace renderer
+namespace engine
 {
 
 template<typename Object>
@@ -67,4 +67,4 @@ auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_T
 template class ScopedDebugUtilsLabel<vk::Queue>;
 template class ScopedDebugUtilsLabel<vk::CommandBuffer>;
 
-}  // namespace renderer
+}  // namespace engine

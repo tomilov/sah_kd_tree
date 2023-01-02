@@ -5,7 +5,7 @@
 #include <array>
 #include <type_traits>
 
-namespace renderer
+namespace engine
 {
 
 using LabelColor = std::array<float, 4>;
@@ -54,4 +54,4 @@ static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
 static_assert(std::is_move_constructible_v<ScopedCommandBufferLabel>);
 static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
 
-}  // namespace renderer
+}  // namespace engine

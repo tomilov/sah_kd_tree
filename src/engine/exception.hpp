@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace renderer
+namespace engine
 {
 
 class RuntimeError : public std::runtime_error
@@ -12,4 +12,4 @@ public:
     ~RuntimeError() override = default;
 };
 
-}  // namespace renderer
+}  // namespace engine

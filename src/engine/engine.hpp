@@ -1,7 +1,7 @@
 #pragma once
 
-#include <renderer/renderer_export.h>
-#include <renderer/vma.hpp>
+#include <engine/engine_export.h>
+#include <engine/vma.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
@@ -24,9 +24,9 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace renderer
+namespace engine
 {
-class RENDERER_EXPORT Renderer final : utils::NonCopyable
+class ENGINE_EXPORT Engine final : utils::NonCopyable
 {
 public:
     class Io
@@ -49,7 +49,7 @@ public:
         ~DebugUtilsMessageMuteGuard();
 
     private:
-        friend Renderer;
+        friend Engine;
 
         std::mutex & mutex;
         std::unordered_multiset<uint32_t> & mutedMessageIdNumbers;
@@ -58,8 +58,8 @@ public:
         DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, const std::initializer_list<uint32_t> & messageIdNumbers);
     };
 
-    Renderer(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
-    ~Renderer();
+    Engine(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
+    ~Engine();
 
     [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true);
 
@@ -125,4 +125,4 @@ private:
     bool shouldMute(uint32_t messageIdNumber) const;
 };
 
-}  // namespace renderer
+}  // namespace engine

@@ -16,7 +16,7 @@
 
 VK_DEFINE_HANDLE(VmaAllocator)
 
-namespace renderer
+namespace engine
 {
 
 class MemoryAllocator final : utils::NonCopyable
@@ -148,4 +148,4 @@ static_assert(!std::is_copy_assignable_v<MemoryAllocator::Image>);
 static_assert(std::is_move_constructible_v<MemoryAllocator::Image>);
 static_assert(std::is_move_assignable_v<MemoryAllocator::Image>);
 
-}  // namespace renderer
+}  // namespace engine

@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace renderer
+namespace engine
 {
 
 template<typename ChainHead, typename... ChainTail>
@@ -18,4 +18,4 @@ std::vector<ChainHead> toChainHeads(const std::vector<vk::StructureChain<ChainHe
     return chainHeads;
 }
 
-}  // namespace renderer
+}  // namespace engine

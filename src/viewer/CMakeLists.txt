@@ -72,8 +72,8 @@ qt6_add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"
     PRIVATE
-        "renderer_io.hpp"
-        "renderer_io.cpp"
+        "engine_io.hpp"
+        "engine_io.cpp"
         "main.cpp")
 target_link_libraries(
     "${PROJECT_NAME}"
@@ -81,7 +81,7 @@ target_link_libraries(
         "lib${PROJECT_NAME}"
         "libutils"
         "libcommon"
-        "librenderer"
+        "libengine"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets

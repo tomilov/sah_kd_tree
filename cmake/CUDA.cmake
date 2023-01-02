@@ -5,7 +5,6 @@ else()
 endif()
 
 find_package(CUDAToolkit REQUIRED)
-set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr --extended-lambda")
 
 set(CMAKE_CUDA_STANDARD 17)

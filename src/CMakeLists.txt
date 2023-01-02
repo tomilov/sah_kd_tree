@@ -49,6 +49,6 @@ add_subdirectory("scene_loader")
 add_subdirectory("builder")
 add_subdirectory("fuzzer")
 add_subdirectory("scene")
-add_subdirectory("renderer")
+add_subdirectory("engine")
 add_subdirectory("viewer")
 

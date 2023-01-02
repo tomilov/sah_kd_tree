@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/format.hpp>
+#include <engine/format.hpp>
 #include <utils/assert.hpp>
 
 #include <fmt/format.h>
@@ -11,7 +11,7 @@
 
 #include <cstddef>
 
-namespace renderer
+namespace engine
 {
 
 struct AllocationCallbacks
@@ -126,4 +126,4 @@ private:
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 };
 
-}  // namespace renderer
+}  // namespace engine

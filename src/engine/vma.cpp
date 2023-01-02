@@ -1,5 +1,5 @@
-#include <renderer/exception.hpp>
-#include <renderer/vma.hpp>
+#include <engine/exception.hpp>
+#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
 
@@ -22,7 +22,7 @@
 #endif
 #include <vk_mem_alloc.h>
 
-namespace renderer
+namespace engine
 {
 
 MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
@@ -717,4 +717,4 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
     // bytesMoved, bytesFreed, allocationsMoved, deviceMemoryBlocksFreed
 }
 
-}  // namespace renderer
+}  // namespace engine

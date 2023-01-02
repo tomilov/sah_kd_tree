@@ -1,6 +1,6 @@
-#include <renderer/exception.hpp>
-#include <renderer/memory.hpp>
-#include <renderer/renderer.hpp>
+#include <engine/exception.hpp>
+#include <engine/memory.hpp>
+#include <engine/engine.hpp>
 
 #include <common/version.hpp>
 
@@ -14,7 +14,7 @@
 namespace
 {
 
-class RendererIo final : public renderer::Renderer::Io
+class EngineIo final : public engine::Engine::Io
 {
 public:
     using Io::Io;
@@ -31,7 +31,7 @@ public:
 
         std::ifstream cacheFile{cacheFilePath, std::ios::in | std::ios::binary | std::ios::ate};
         if (!cacheFile.is_open()) {
-            throw renderer::RuntimeError(fmt::format("Cannot open pipeline cache file {} for read", cacheFilePath));
+            throw engine::RuntimeError(fmt::format("Cannot open pipeline cache file {} for read", cacheFilePath));
         }
 
         auto size = cacheFile.tellg();
@@ -75,7 +75,7 @@ public:
 
         std::ifstream shaderFile{shaderFilePath, std::ios::in | std::ios::binary | std::ios::ate};
         if (!shaderFile.is_open()) {
-            throw renderer::RuntimeError(fmt::format("Cannot open shader file {}", shaderFilePath));
+            throw engine::RuntimeError(fmt::format("Cannot open shader file {}", shaderFilePath));
         }
 
         auto size = shaderFile.tellg();
@@ -83,13 +83,13 @@ public:
 
         std::vector<uint32_t> code;
         if ((size_t(size) % sizeof *std::data(code)) != 0) {
-            throw renderer::RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
+            throw engine::RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
         }
         code.resize(size_t(size) / sizeof *std::data(code));
         using RawDataType = std::ifstream::char_type *;
         shaderFile.read(RawDataType(std::data(code)), size);
         if (shaderFile.tellg() != size) {
-            throw renderer::RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
+            throw engine::RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
         }
 
         return code;
@@ -100,16 +100,16 @@ public:
 
 int main(int /*argc*/, char * /*argv*/[])
 {
-    auto rendererIo = std::make_unique<RendererIo>();
-    renderer::Renderer renderer{rendererIo.get()};
+    auto engineIo = std::make_unique<EngineIo>();
+    engine::Engine engine{engineIo.get()};
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-    renderer::AllocationCallbacks allocationCallbacks;
+    engine::AllocationCallbacks allocationCallbacks;
     {
-        using A = renderer::Allocator<int, vk::SystemAllocationScope::eInstance>;
+        using A = engine::Allocator<int, vk::SystemAllocationScope::eInstance>;
         A a{allocationCallbacks.allocationCallbacks};
         std::vector<int, A> v{a};
         v.push_back(1);
     }
-    renderer.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
-    renderer.createDevice();
+    engine.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
+    engine.createDevice();
 }
