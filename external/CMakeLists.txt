@@ -40,12 +40,12 @@ target_compile_definitions(
         GLM_FORCE_PURE)
 
 
+add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
+
+
 set(SPDLOG_FMT_EXTERNAL ON)
 set(SPDLOG_SYSTEM_INCLUDES ON)
 add_subdirectory("spdlog" EXCLUDE_FROM_ALL SYSTEM)
-
-
-add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
 
 
 add_library("SPIRV-Reflect" STATIC)

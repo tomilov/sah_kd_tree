@@ -671,7 +671,7 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
     }
 };
 
-[[nodiscard]] constexpr vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
+[[nodiscard]] vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
 {
     using namespace std::string_view_literals;
     if (shaderName.ends_with(".vert")) {
@@ -707,7 +707,7 @@ struct Renderer::Impl::Queues final : utils::NonCopyable
     }
 }
 
-[[nodiscard]] constexpr const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
+[[nodiscard]] const char * shaderStageToName(vk::ShaderStageFlagBits shaderStage)
 {
     switch (shaderStage) {
     case vk::ShaderStageFlagBits::eVertex:
@@ -787,7 +787,7 @@ private:
     }
 };
 
-[[nodiscard]] constexpr vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorType descriptorType)
+[[nodiscard]] vk::DescriptorType spvReflectDescriiptorTypeToVk(SpvReflectDescriptorType descriptorType)
 {
     switch (descriptorType) {
     case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
@@ -818,7 +818,7 @@ private:
     INVARIANT(false, "Unknown spv descriptor type {}", fmt::underlying(descriptorType));
 }
 
-[[nodiscard]] constexpr SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorType descriptorType)
+[[nodiscard]] SpvReflectDescriptorType vkDescriptorTypeToSpvReflect(vk::DescriptorType descriptorType)
 {
     switch (descriptorType) {
     case vk::DescriptorType::eSampler:
@@ -857,7 +857,7 @@ private:
     INVARIANT(false, "Descriptor type {} is unknown", fmt::underlying(descriptorType));
 }
 
-[[nodiscard]] constexpr vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStageFlagBits shaderStageFlagBits)
+[[nodiscard]] vk::ShaderStageFlagBits spvReflectShaderStageToVk(SpvReflectShaderStageFlagBits shaderStageFlagBits)
 {
     switch (shaderStageFlagBits) {
     case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
@@ -892,7 +892,7 @@ private:
     INVARIANT(false, "Unknown spv shader stage {}", fmt::underlying(shaderStageFlagBits));
 }
 
-[[nodiscard]] constexpr SpvReflectShaderStageFlagBits vkShaderStageToSpvReflect(vk::ShaderStageFlagBits shaderStageFlagBits)
+[[nodiscard]] SpvReflectShaderStageFlagBits vkShaderStageToSpvReflect(vk::ShaderStageFlagBits shaderStageFlagBits)
 {
     switch (shaderStageFlagBits) {
     case vk::ShaderStageFlagBits::eVertex:
@@ -1488,8 +1488,7 @@ void Renderer::DebugUtilsMessageMuteGuard::Impl::unmute()
         }
     }
 }
-
-constexpr spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
+ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
 {
     switch (messageSeverity) {
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
