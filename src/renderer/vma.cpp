@@ -26,7 +26,7 @@ namespace renderer
 {
 
 MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-                            uint32_t deviceApiVersion, vk::Device device)
+                                 uint32_t deviceApiVersion, vk::Device device)
     : allocationCallbacks{allocationCallbacks}, dispatcher{dispatcher}
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
@@ -113,8 +113,7 @@ struct MemoryAllocator::Resource
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
-            buffer = vk::UniqueBuffer{newBuffer,
-                                      vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+            buffer = vk::UniqueBuffer{newBuffer, vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             vk::resultCheck(result, "Cannot create buffer");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
@@ -166,8 +165,7 @@ struct MemoryAllocator::Resource
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
-            image = vk::UniqueImage{newImage,
-                                    vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+            image = vk::UniqueImage{newImage, vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
             vk::resultCheck(result, "Cannot create image");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
