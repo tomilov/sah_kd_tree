@@ -1,18 +1,18 @@
 [submodule "Vulkan-Headers"]
 	path = external/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
-[submodule "external/VulkanMemoryAllocator"]
+[submodule "VulkanMemoryAllocator"]
 	path = external/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-[submodule "external/gli"]
+[submodule "gli"]
 	path = external/gli
 	url = https://github.com/g-truc/gli.git
-[submodule "external/spdlog"]
+[submodule "spdlog"]
 	path = external/spdlog
 	url = https://github.com/gabime/spdlog.git
-[submodule "external/fmt"]
+[submodule "fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
-[submodule "external/SPIRV-Reflect"]
+[submodule "SPIRV-Reflect"]
 	path = external/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
