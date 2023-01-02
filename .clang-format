@@ -5,11 +5,15 @@ ColumnLimit: 250
 ---
 Language: Cpp
 AccessModifierOffset: -4
+ConstructorInitializerIndentWidth: 4
 Standard: Latest
 AllowShortFunctionsOnASingleLine: false
 DerivePointerAlignment: false
 PointerAlignment: Middle
+AlignArrayOfStructures: None
+AllowAllArgumentsOnNextLine: true
 BreakBeforeBraces: Custom
+BreakBeforeBinaryOperators: All
 IndentCaseLabels: false
 BraceWrapping:
     AfterFunction: true
@@ -29,7 +33,6 @@ BraceWrapping:
     SplitEmptyFunction: false
     SplitEmptyRecord: true
     SplitEmptyNamespace: true
-    IndentBraces: true
 UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true

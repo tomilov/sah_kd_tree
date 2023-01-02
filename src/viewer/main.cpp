@@ -75,7 +75,8 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
         engine.setInitialProperties(initialProperties);
     }
 
-    const auto saveSettings = [&engine] {
+    const auto saveSettings = [&engine]
+    {
         auto rootObjects = engine.rootObjects();
         INVARIANT(std::size(rootObjects) == 1, "Expected single object");
         auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
@@ -127,14 +128,14 @@ int main(int argc, char * argv[])
     if ((false)) {
         // The pattern can also be changed at runtime by setting the QT_MESSAGE_PATTERN environment variable;
         // if both qSetMessagePattern() is called and QT_MESSAGE_PATTERN is set, the environment variable takes precedence.
-        QString messagePattern =
-            "[%{time process} tid=%{threadid}] %{type}:%{category}: %{message} (%{file}:%{line}"
+        QString messagePattern
+            = "[%{time process} tid=%{threadid}] %{type}:%{category}: %{message} (%{file}:%{line}"
 #ifndef QT_DEBUG
-            " %{function}"
+              " %{function}"
 #endif
-            ")"
+              ")"
 #if __GLIBC__
-            R"(%{if-fatal}\n%{backtrace depth=32 separator="\n"}%{endif})";
+              R"(%{if-fatal}\n%{backtrace depth=32 separator="\n"}%{endif})";
 #endif
         ;
         // "%{time yyyy/MM/dd dddd HH:mm:ss.zzz t}"
@@ -142,7 +143,8 @@ int main(int argc, char * argv[])
     }
     {
         spdlog::set_level(spdlog::level::level_enum(SPDLOG_ACTIVE_LEVEL));
-        static constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message) {
+        static constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message)
+        {
             auto lvl = qtMsgTypeToSpdlogLevel(msgType);
             if (!spdlog::should_log(lvl)) {
                 return;
@@ -231,13 +233,14 @@ int main(int argc, char * argv[])
 
     QQmlApplicationEngine engine;
     engine.setBaseUrl(QUrl{QStringLiteral("qrc:///%1/").arg(QString::fromUtf8(sah_kd_tree::kProjectName))});
-    //engine.addImportPath(":/sah_kd_tree/imports");
+    // engine.addImportPath(":/sah_kd_tree/imports");
 
     if (!QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
         qFatal("unreachable");
     }
 
-    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &renderer](QObject * object, const QUrl & url) {
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &renderer](QObject * object, const QUrl & url)
+    {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
             return;

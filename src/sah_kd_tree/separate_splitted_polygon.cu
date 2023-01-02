@@ -21,7 +21,8 @@ void sah_kd_tree::Builder::separateSplittedPolygon()
     auto nodeSplitDimensions = node.splitDimension.data().get();
     auto polygonSides = polygon.side.data().get();
     U layerBase = layer.base;
-    const auto isSplittedPolygon = [layerBase, polygonNodes, nodeSplitDimensions, polygonSides] __host__ __device__(U polygon) -> bool {
+    const auto isSplittedPolygon = [layerBase, polygonNodes, nodeSplitDimensions, polygonSides] __host__ __device__(U polygon) -> bool
+    {
         U polygonNode = polygonNodes[polygon];
         if (polygonNode < layerBase) {
             return false;

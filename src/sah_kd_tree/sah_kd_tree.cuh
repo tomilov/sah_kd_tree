@@ -248,7 +248,8 @@ struct Triangle
         using TriangleType = thrust::iterator_value_t<TriangleIterator>;
         thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
         count = U(t.size());
-        const auto transposeComponent = [this](typename Triangle::Component & component) {
+        const auto transposeComponent = [this](typename Triangle::Component & component)
+        {
             component.a.resize(count);
             component.b.resize(count);
             component.c.resize(count);
@@ -261,4 +262,4 @@ struct Triangle
 };
 
 SAH_KD_TREE_EXPORT void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder);
-}  // namespace sah_kd_tree
+}  // namespace SAH_KD_TREE_NO_EXPORT

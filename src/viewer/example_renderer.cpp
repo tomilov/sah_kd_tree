@@ -389,7 +389,9 @@ void ExampleRenderer::init(int framesInFlight)
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
 
     // Now just need some descriptors.
-    VkDescriptorPoolSize descPoolSizes[] = {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1}};
+    VkDescriptorPoolSize descPoolSizes[] = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
+    };
     VkDescriptorPoolCreateInfo descPoolInfo;
     memset(&descPoolInfo, 0, sizeof(descPoolInfo));
     descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

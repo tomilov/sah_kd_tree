@@ -53,7 +53,8 @@ bool Builder::checkTree(const Projection & x, const Projection & y, const Projec
     auto polygonZMins = z.polygon.min.data().get();
     auto polygonZMaxs = z.polygon.max.data().get();
 
-    const auto checkPolygon = [polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
+    const auto checkPolygon = [polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool
+    {
         F polygonXMin = polygonXMins[polygon];
         F polygonXMax = polygonXMaxs[polygon];
         assert(!(polygonXMax < polygonXMin));
@@ -98,7 +99,8 @@ bool Builder::checkTree(const Projection & x, const Projection & y, const Projec
     auto splitDimensions = node.splitDimension.data().get();
     auto splitPositions = node.splitPos.data().get();
 
-    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool {
+    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool
+    {
         I splitDimension = splitDimensions[node];
         if (splitDimension < 0) {
             return true;

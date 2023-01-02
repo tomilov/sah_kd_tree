@@ -16,22 +16,20 @@ namespace renderer
 
 struct AllocationCallbacks
 {
-    const vk::AllocationCallbacks allocationCallbacks = [this] {
+    const vk::AllocationCallbacks allocationCallbacks = [this]
+    {
         vk::AllocationCallbacks allocationCallbacks;
 
         allocationCallbacks.pUserData = this;
 
-        allocationCallbacks.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) -> void * {
-            return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, vk::SystemAllocationScope(allocationScope));
-        };
+        allocationCallbacks.pfnAllocation
+            = [](void * pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) -> void * { return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, vk::SystemAllocationScope(allocationScope)); };
         allocationCallbacks.pfnReallocation = nullptr;
         allocationCallbacks.pfnFree = [](void * pUserData, void * pMemory) { return static_cast<AllocationCallbacks *>(pUserData)->free(pMemory); };
-        allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope));
-        };
-        allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope));
-        };
+        allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+        { return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope)); };
+        allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+        { return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope)); };
 
         return allocationCallbacks;
     }();

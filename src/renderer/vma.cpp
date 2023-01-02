@@ -463,7 +463,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
 
             switch (resource.defragmentationMoveOperation) {
             case AllocationCreateInfo::DefragmentationMoveOperation::kCopy: {
-                const auto createBuffer = [this, &device, &move, &beginMemoryBarrier, &endMemoryBarrier, &wantsMemoryBarrier](Resource::BufferResource & bufferResource) {
+                const auto createBuffer = [this, &device, &move, &beginMemoryBarrier, &endMemoryBarrier, &wantsMemoryBarrier](Resource::BufferResource & bufferResource)
+                {
                     auto buffer = device.createBufferUnique(bufferResource.bufferCreateInfo, allocationCallbacks, dispatcher);
 
                     const auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *buffer));
@@ -480,7 +481,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                     wantsMemoryBarrier = true;
                 };
 
-                const auto createImage = [this, &device, &move, &beginImageBarriers, &endImageBarriers, queueFamilyIndex](Resource::ImageResource & imageResource) {
+                const auto createImage = [this, &device, &move, &beginImageBarriers, &endImageBarriers, queueFamilyIndex](Resource::ImageResource & imageResource)
+                {
                     auto image = device.createImageUnique(imageResource.imageCreateInfo, allocationCallbacks, dispatcher);
 
                     const auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
@@ -534,12 +536,14 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
             case AllocationCreateInfo::DefragmentationMoveOperation::kDestroy: {
                 move.operation = VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY;
 
-                const auto destroyBuffer = [](Resource::BufferResource & bufferResource) {
+                const auto destroyBuffer = [](Resource::BufferResource & bufferResource)
+                {
                     bufferResource.buffer.reset();
                     bufferResource.allocation = VK_NULL_HANDLE;
                 };
 
-                const auto destroyImage = [](Resource::ImageResource & imageResource) {
+                const auto destroyImage = [](Resource::ImageResource & imageResource)
+                {
                     imageResource.image.reset();
                     imageResource.allocation = VK_NULL_HANDLE;
                 };
@@ -570,7 +574,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
 
             const auto & srcAllocationInfo = srcAllocationInfos[i];
 
-            const auto moveBuffer = [&commandBuffer, this, &srcAllocationInfo, &move](Resource::BufferResource & bufferResource) {
+            const auto moveBuffer = [&commandBuffer, this, &srcAllocationInfo, &move](Resource::BufferResource & bufferResource)
+            {
                 VmaAllocationInfo dstAllocationInfo = {};
                 vmaGetAllocationInfo(allocator, move.dstTmpAllocation, &dstAllocationInfo);
 
@@ -587,7 +592,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                 commandBuffer->copyBuffer2(copyBufferInfo, dispatcher);
             };
 
-            const auto moveImage = [&commandBuffer, this](Resource::ImageResource & imageResource) {
+            const auto moveImage = [&commandBuffer, this](Resource::ImageResource & imageResource)
+            {
                 const auto & imageCreateInfo = imageResource.imageCreateInfo;
 
                 std::vector<vk::ImageCopy2> regions;

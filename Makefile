@@ -131,7 +131,5 @@ cmake-graphviz:
 	xdg-open sah_kd_tree.png
 .PHONY: format
 format:
-	@git update-index --refresh
-	@git diff-index --quiet @ --
 	@git add $(ROOT_DIR)
-	@git clang-format $( git rev-list --max-parents=0 @ ) -- .
+	@git clang-format $(shell git rev-list --max-parents=0 @ )

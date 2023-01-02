@@ -22,7 +22,8 @@ void Builder::calculateRope(Projection & x, const Projection & y, const Projecti
     auto rightChildren = node.rightChild.data().get();
     auto splitDimensions = node.splitDimension.data().get();
     auto splitPositions = node.splitPos.data().get();
-    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
+    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U
+    {
         U siblingNode = node;
         for (;;) {
             if (siblingNode == 0) {

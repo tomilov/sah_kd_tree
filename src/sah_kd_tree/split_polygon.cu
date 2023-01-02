@@ -47,7 +47,8 @@ void Builder::splitPolygon(Projection & x, const Projection & y, const Projectio
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = thrust::iterator_value_t<decltype(splittedPolygonBboxBegin)>;
 
-    const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygon) -> SplittedPolygonBboxType {
+    const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygon) -> SplittedPolygonBboxType
+    {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
         U polygonNode = polygonNodes[polygon];

@@ -62,8 +62,8 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     {
         pFlags |= aiProcess_RemoveComponent;
         // all except aiComponent_MESHES
-        auto excludeAllComponents = aiComponent_NORMALS | aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS | aiComponent_TEXCOORDS | aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS | aiComponent_TEXTURES | aiComponent_LIGHTS |
-                                    aiComponent_CAMERAS | aiComponent_MATERIALS;
+        auto excludeAllComponents = aiComponent_NORMALS | aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS | aiComponent_TEXCOORDS | aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS | aiComponent_TEXTURES | aiComponent_LIGHTS
+                                    | aiComponent_CAMERAS | aiComponent_MATERIALS;
         importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, excludeAllComponents);
     }
     QElapsedTimer sceneLoadTimer;

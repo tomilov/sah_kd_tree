@@ -325,7 +325,8 @@ struct TestInput
     void mutateTriangles(ptrdiff_t action)
     {
         assert(!boxWorld);
-        const auto getTriangle = [this] {
+        const auto getTriangle = [this]
+        {
             assert(!std::empty(triangles));
             return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
         };
@@ -452,12 +453,14 @@ struct TestInput
     void mutateBoxes(ptrdiff_t action)
     {
         assert(boxWorld);
-        const auto getBox = [this] {
+        const auto getBox = [this]
+        {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
             return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(gen, UniformIntParam(0, int(std::size(triangles) / kBoxTriangleCount - 1))));
         };
-        const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex {
+        const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
+        {
             const Vertex * vertices[] = {&box[0].a, &box[0].b, &box[2].b, &box[2].c, &box[4].b, &box[4].c, &box[5].c, &box[6].c};
             [[maybe_unused]] const auto vertexLess = [](auto l, auto r) { return *l < *r; };
             assert(std::adjacent_find(std::cbegin(vertices), std::cend(vertices), std::not_fn(vertexLess)) == std::cend(vertices));

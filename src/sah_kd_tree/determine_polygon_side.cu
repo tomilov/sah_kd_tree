@@ -23,7 +23,8 @@ void Builder::determinePolygonSide(const Projection & projection)
     auto nodeSplitDimensions = node.splitDimension.data().get();
     auto eventKinds = projection.event.kind.data().get();
 
-    const auto isNotLeftEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool {
+    const auto isNotLeftEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] != dimension) {
             return false;
         }
@@ -35,7 +36,8 @@ void Builder::determinePolygonSide(const Projection & projection)
     auto eventPolygons = projection.event.polygon.data().get();
     auto layerSplitEvents = projection.layer.splitEvent.data().get();
     U layerBase = layer.base;
-    const auto toPolygonSide = [polygonRightEvents, eventPolygons, eventNodes, layerBase, layerSplitEvents, eventKinds] __host__ __device__(U eventLeft) -> I {
+    const auto toPolygonSide = [polygonRightEvents, eventPolygons, eventNodes, layerBase, layerSplitEvents, eventKinds] __host__ __device__(U eventLeft) -> I
+    {
         U eventRight = polygonRightEvents[eventPolygons[eventLeft]];
         assert(!(eventRight < eventLeft));
         U eventNode = eventNodes[eventLeft];
@@ -51,7 +53,8 @@ void Builder::determinePolygonSide(const Projection & projection)
             return +1;  // goes to right child node
         }
     };
-    const auto isNotRightEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool {
+    const auto isNotRightEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] != dimension) {
             return false;
         }

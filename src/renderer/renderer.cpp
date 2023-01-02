@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <bitset>
 #include <chrono>
+#include <deque>
 #include <exception>
 #include <initializer_list>
 #include <iterator>
@@ -65,7 +66,7 @@ struct Renderer::Impl final : utils::NonCopyable
     struct RenderPass;
     struct Framebuffer;
     struct PipelineCache;
-    struct Pipeline;
+    struct GraphicsPipelines;
 
     utils::CheckedPtr<const Io> io = nullptr;
 
@@ -753,7 +754,6 @@ struct Renderer::Impl::ShaderModule final
     , utils::NonMoveable
 {
     const std::string name;
-    const std::string entryPoint;
 
     Renderer & renderer;
     Library & library;
@@ -766,8 +766,7 @@ struct Renderer::Impl::ShaderModule final
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(std::string_view name, std::string_view entryPoint, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device)
-        : name{name}, entryPoint{entryPoint}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
+    ShaderModule(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
     {
         load();
     }
@@ -1024,26 +1023,31 @@ struct Renderer::Impl::ShaderStages final
     PhysicalDevice & physicalDevice;
     Device & device;
 
+    std::deque<std::string> entryPoints;
+    std::deque<std::string> names;
     std::vector<PipelineShaderStageCreateInfoChain> shaderStages;
 
     ShaderStages(Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device) : renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}
     {}
 
-    void append(const ShaderModule & shaderModule)
+    void append(const ShaderModule & shaderModule, std::string_view entryPoint)
     {
+        entryPoints.emplace_back(entryPoint);
+        const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, entryPoint));
+
         auto & pipelineShaderStageCreateInfoChain = shaderStages.emplace_back();
         auto & pipelineShaderStageCreateInfo = pipelineShaderStageCreateInfoChain.get<vk::PipelineShaderStageCreateInfo>();
         pipelineShaderStageCreateInfo = {
             .flags = {},
             .stage = shaderModule.shaderStage,
             .module = shaderModule.shaderModule,
-            .pName = shaderModule.entryPoint.c_str(),
+            .pName = entryPoints.back().c_str(),
             .pSpecializationInfo = nullptr,
         };
         auto & debugUtilsObjectNameInfo = pipelineShaderStageCreateInfoChain.get<vk::DebugUtilsObjectNameInfoEXT>();
         debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
         debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
-        debugUtilsObjectNameInfo.pObjectName = shaderModule.name.c_str();
+        debugUtilsObjectNameInfo.pObjectName = name.c_str();
     }
 };
 
@@ -1153,7 +1157,7 @@ private:
                 auto framebufferName = fmt::format("{} #{}/{}", name, i++, std::size(imageViews));
                 device.setDebugUtilsObjectName(framebuffers.back(), framebufferName);
             } else {
-                device.setDebugUtilsObjectName(framebuffers.back(), std::string{name});
+                device.setDebugUtilsObjectName(framebuffers.back(), name);
             }
         }
     }
@@ -1195,7 +1199,7 @@ private:
     void load();
 };
 
-struct Renderer::Impl::Pipeline final : utils::NonCopyable
+struct Renderer::Impl::GraphicsPipelines final : utils::NonCopyable
 {
     const std::string name;
 
@@ -1207,8 +1211,8 @@ struct Renderer::Impl::Pipeline final : utils::NonCopyable
     RenderPass & renderPass;
     PipelineCache & pipelineCache;
 
-    const float width;
-    const float height;
+    const uint32_t width;
+    const uint32_t height;
 
     vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
@@ -1225,12 +1229,13 @@ struct Renderer::Impl::Pipeline final : utils::NonCopyable
     vk::UniquePipelineLayout pipelineLayoutHolder;
     vk::PipelineLayout pipelineLayout;
 
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesHeads;
     std::vector<vk::GraphicsPipelineCreateInfo> graphicsPipelineCreateInfos;
 
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
 
-    Pipeline(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, float width, float height)
+    GraphicsPipelines(std::string_view name, Renderer & renderer, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width, uint32_t height)
         : name{name}, renderer{renderer}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
     {
         load();
@@ -1250,21 +1255,16 @@ private:
         viewport = {
             .x = 0.0f,
             .y = 0.0f,
-            .width = width,
-            .height = height,
+            .width = utils::autoCast(width),
+            .height = utils::autoCast(height),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
         };
 
-        scissor = {.offset =
-                       {
-                           .x = 0,
-                           .y = 0,
-                       },
-                   .extent = {
-                       .width = utils::autoCast(std::floor(width)),
-                       .height = utils::autoCast(std::floor(height)),
-                   }};
+        scissor = {
+            .offset = {.x = 0, .y = 0},
+            .extent = {.width = width, .height = height},
+        };
 
         pipelineViewportStateCreateInfo.flags = {};
         pipelineViewportStateCreateInfo.setViewports(viewport);
@@ -1292,7 +1292,7 @@ private:
             .srcAlphaBlendFactor = vk::BlendFactor::eZero,
             .dstAlphaBlendFactor = vk::BlendFactor::eZero,
             .alphaBlendOp = vk::BlendOp::eAdd,
-            .colorWriteMask = vk::FlagTraits<vk::ColorComponentFlagBits>::allFlags,
+            .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
         };
 
         pipelineColorBlendStateCreateInfo.flags = {};
@@ -1319,7 +1319,7 @@ private:
         pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
         pipelineLayout = *pipelineLayoutHolder;
 
-        auto shaderStagesHeads = toChainHeads(shaderStages.shaderStages);
+        shaderStagesHeads = toChainHeads(shaderStages.shaderStages);
         auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfos.emplace_back();
         graphicsPipelineCreateInfo.flags = {};
         graphicsPipelineCreateInfo.setStages(shaderStagesHeads);
@@ -1488,7 +1488,7 @@ void Renderer::DebugUtilsMessageMuteGuard::Impl::unmute()
         }
     }
 }
- spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
+spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity)
 {
     switch (messageSeverity) {
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose: {
@@ -1607,7 +1607,8 @@ void Renderer::Impl::Instance::init()
     }
 
     if ((false)) {
-        const auto enableLayerIfAvailable = [this](const char * layerName) -> bool {
+        const auto enableLayerIfAvailable = [this](const char * layerName) -> bool
+        {
             auto layer = layers.find(layerName);
             if (layer == std::end(layers)) {
                 return false;
@@ -1628,7 +1629,8 @@ void Renderer::Impl::Instance::init()
         }
     }
 
-    const auto enableExtensionIfAvailable = [this](const char * extensionName) -> bool {
+    const auto enableExtensionIfAvailable = [this](const char * extensionName) -> bool
+    {
         auto extension = extensions.find(extensionName);
         if (extension != std::end(extensions)) {
             if (enabledExtensionSet.insert(extensionName).second) {
@@ -1689,8 +1691,9 @@ void Renderer::Impl::Instance::init()
 
     auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
     if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes,
-                                                                                 const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32 {
+        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback
+            = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32
+        {
             vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
             debugUtilsMessengerCallbackData = *pCallbackData;
             return static_cast<Renderer::Impl *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
@@ -1793,7 +1796,8 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
         return false;
     }
 
-    const auto checkFeaturesCanBeEnabled = [](const auto & pointers, auto & features) -> bool {
+    const auto checkFeaturesCanBeEnabled = [](const auto & pointers, auto & features) -> bool
+    {
         for (const auto & p : pointers) {
             if (features.*p == VK_FALSE) {
                 SPDLOG_ERROR("Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
@@ -1851,7 +1855,8 @@ bool Renderer::Impl::PhysicalDevice::checkPhysicalDeviceRequirements(vk::Physica
     transferHostToDeviceQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eTransfer);
     transferDeviceToHostQueueCreateInfo.familyIndex = transferHostToDeviceQueueCreateInfo.familyIndex;
 
-    const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool {
+    const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool
+    {
         if (queueCreateInfo.familyIndex == VK_QUEUE_FAMILY_IGNORED) {
             return false;
         }
@@ -1990,7 +1995,8 @@ void Renderer::Impl::PhysicalDevices::init()
 
 void Renderer::Impl::Device::create()
 {
-    const auto setFeatures = [](const auto & pointers, auto & features) {
+    const auto setFeatures = [](const auto & pointers, auto & features)
+    {
         for (auto p : pointers) {
             features.*p = VK_TRUE;
         }

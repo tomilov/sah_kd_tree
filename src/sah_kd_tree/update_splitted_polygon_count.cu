@@ -11,7 +11,8 @@ void sah_kd_tree::Builder::updateSplittedPolygonCount()
     auto nodePolygonCountLefts = node.polygonCountLeft.data().get();
     auto nodePolygonCountRights = node.polygonCountRight.data().get();
     auto nodePolygonCounts = node.polygonCount.data().get();
-    const auto toSplittedPolygonCount = [nodeSplitDimensions, nodePolygonCountLefts, nodePolygonCountRights, nodePolygonCounts] __host__ __device__(U layerNode) -> U {
+    const auto toSplittedPolygonCount = [nodeSplitDimensions, nodePolygonCountLefts, nodePolygonCountRights, nodePolygonCounts] __host__ __device__(U layerNode) -> U
+    {
         if (nodeSplitDimensions[layerNode] < 0) {
             return 0;
         }

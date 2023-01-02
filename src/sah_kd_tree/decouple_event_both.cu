@@ -17,7 +17,8 @@ void sah_kd_tree::Projection::decoupleEventBoth(const thrust::device_vector<I> &
 
     auto & eventLeft = event.polygonCountLeft;
     assert(!(eventLeft.size() < event.count));
-    const auto isLeftPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool {
+    const auto isLeftPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] < 0) {
             return false;
         }
@@ -28,7 +29,8 @@ void sah_kd_tree::Projection::decoupleEventBoth(const thrust::device_vector<I> &
 
     auto & eventRight = event.polygonCountRight;
     assert(!(eventRight.size() < event.count));
-    const auto isRightPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool {
+    const auto isRightPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] < 0) {
             return false;
         }

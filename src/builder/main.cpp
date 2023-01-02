@@ -36,7 +36,8 @@ int main(int argc, char * argv[])
 
     commandLineParser.process(application);
 
-    const auto buildTree = [&] {
+    const auto buildTree = [&]
+    {
         QString cachePath = commandLineParser.value(cachePathOption);
         const QStringList args = commandLineParser.positionalArguments();
         if (args.count() < 1) {
