@@ -126,7 +126,9 @@ void Viewer::frameStart()
         }
 
         const auto getInstanceProcAddress = [vulkanInstance](const char * name) -> PFN_vkVoidFunction { return vulkanInstance->getInstanceProcAddr(name); };
-        renderer = std::make_unique<Renderer>(getInstanceProcAddress, vulkanInstance, *vulkanPhysicalDevice, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
+        PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = utils::autoCast(getInstanceProcAddress("vkGetInstanceProcAddr"));
+        PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr = utils::autoCast(getInstanceProcAddress("vkGetDeviceProcAddr"));
+        renderer = std::make_unique<Renderer>(vkGetInstanceProcAddr, vulkanInstance, *vulkanPhysicalDevice, vkGetDeviceProcAddr, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
     }
     if (renderer) {
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = w->graphicsStateInfo();

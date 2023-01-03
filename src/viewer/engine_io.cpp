@@ -62,7 +62,7 @@ std::vector<uint8_t> EngineIo::loadPipelineCache(std::string_view pipelineCacheN
                 << QStringLiteral("Failed to read pipeline cache data '%1' from file '%2': bytes read %4 != file size %5: %3").arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString()).arg(bytesRead).arg(cacheFileSize);
             continue;
         }
-        qCInfo(viewerEngineIoCategory).noquote() << QStringLiteral("Pipeline cache data '%1' successfully read from file '%2'").arg(cacheFileName, cacheFile.fileName());
+        qCInfo(viewerEngineIoCategory).noquote() << QStringLiteral("Pipeline cache data file '%1' successfully read from '%2'").arg(cacheFileName, cacheDir.path());
         return cacheData;
     }
     qCWarning(viewerEngineIoCategory).noquote() << QStringLiteral("Failed to load pipeline cache from '%1' location").arg(cacheFileName);
@@ -101,7 +101,7 @@ bool EngineIo::savePipelineCache(const std::vector<uint8_t> & data, std::string_
         qCWarning(viewerEngineIoCategory).noquote() << QStringLiteral("Failed to commit writing of pipeline cache data '%1' to file '%2'").arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
         return false;
     }
-    qCInfo(viewerEngineIoCategory).noquote() << QStringLiteral("Pipeline cache data '%1' successfully written to file '%2'").arg(cacheFileName, cacheFile.fileName());
+    qCInfo(viewerEngineIoCategory).noquote() << QStringLiteral("Pipeline cache data file '%1' successfully written to '%2'").arg(cacheFileName, cacheDir.path());
     return true;
 }
 

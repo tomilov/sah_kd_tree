@@ -9,16 +9,12 @@
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickWindow>
 
-#include <functional>
-
 namespace viewer
 {
 class Renderer
 {
 public:
-    using GetInstanceProcAddress = std::function<PFN_vkVoidFunction(const char * name)>;
-
-    Renderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue);
+    Renderer(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue);
     ~Renderer();
 
     void setT(float t);
@@ -33,37 +29,39 @@ private:
         Fragment,
     };
 
-    GetInstanceProcAddress getInstanceProcAddress;
-    QVulkanInstance * instance = nullptr;
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
+    vk::Instance instance;
     vk::PhysicalDevice physicalDevice;
+    PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr = nullptr;
     vk::Device device;
     uint32_t queueFamilyIndex = 0;
     vk::Queue queue;
 
+    QVulkanFunctions * instanceFunctions = nullptr;
+    QVulkanDeviceFunctions * deviceFunctions = nullptr;
+
     float t = 0;
 
-    QByteArray m_vert;
-    QByteArray m_frag;
+    QByteArray vertexShader;
+    QByteArray fragmentShader;
 
     bool pipelineLayoutsAndDescriptorsInitialized = false;
     bool pipelinesInitialized = false;
-    QVulkanDeviceFunctions * m_devFuncs = nullptr;
-    QVulkanFunctions * m_funcs = nullptr;
 
-    VkBuffer m_vbuf = VK_NULL_HANDLE;
-    VkDeviceMemory m_vbufMem = VK_NULL_HANDLE;
-    VkBuffer m_ubuf = VK_NULL_HANDLE;
-    VkDeviceMemory m_ubufMem = VK_NULL_HANDLE;
-    VkDeviceSize m_allocPerUbuf = 0;
+    VkBuffer vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory uniformBufferMemory = VK_NULL_HANDLE;
+    VkDeviceSize uniformBufferPerFrameSize = 0;
 
-    VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
+    VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
-    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_resLayout = VK_NULL_HANDLE;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+    VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 
-    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSet m_ubufDescriptor = VK_NULL_HANDLE;
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet uniformBufferDescriptorSet = VK_NULL_HANDLE;
 
     void prepareShader(Stage stage);
     void initPipelineLayouts(int framesInFlight);
