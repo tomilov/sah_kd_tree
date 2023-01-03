@@ -41,10 +41,10 @@ qt6_add_qml_module(
         "${PROJECT_NAME}.cpp"
         "engine_io.hpp"
         "engine_io.cpp"
-        "qml_engine_wrapper.hpp"
-        "qml_engine_wrapper.cpp"
-        "example_renderer.hpp"
-        "example_renderer.cpp")
+        "engine_wrapper.hpp"
+        "engine_wrapper.cpp"
+        "renderer.hpp"
+        "renderer.cpp")
 
 
 process_shaders()

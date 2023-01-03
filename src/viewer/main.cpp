@@ -1,5 +1,5 @@
 #include <utils/assert.hpp>
-#include <viewer/qml_engine_wrapper.hpp>
+#include <viewer/engine_wrapper.hpp>
 
 #include <common/version.hpp>
 #include <engine/engine.hpp>
@@ -235,13 +235,13 @@ int main(int argc, char * argv[])
 
     QQmlApplicationEngine qmlApplicationEngine;
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
-    // qmlApplicationEngine.addImportPath(":/sah_kd_tree/imports");
+    // qmlApplicationEngine.addImportPath(QStringLiteral(":/%1/imports").arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
         qFatal("unreachable");
     }
 
-    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &engine = engine.get()](QObject * object, const QUrl & url)
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &engine](QObject * object, const QUrl & url)
     {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
@@ -254,12 +254,12 @@ int main(int argc, char * argv[])
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
-            engine.addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-            engine.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = engine.getPhysicalDevice();
-            vk::Device device = engine.getDevice();
-            uint32_t queueFamilyIndex = engine.getGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = engine.getGraphicsQueueIndex();
+            engine.get().addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            engine.get().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
+            vk::PhysicalDevice physicalDevice = engine.get().getPhysicalDevice();
+            vk::Device device = engine.get().getDevice();
+            uint32_t queueFamilyIndex = engine.get().getGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = engine.get().getGraphicsQueueIndex();
             INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);

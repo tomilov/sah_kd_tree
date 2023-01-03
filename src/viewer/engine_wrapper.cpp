@@ -1,7 +1,7 @@
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/engine_io.hpp>
-#include <viewer/qml_engine_wrapper.hpp>
+#include <viewer/engine_wrapper.hpp>
 
 #include <common/version.hpp>
 #include <engine/engine.hpp>

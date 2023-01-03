@@ -1,5 +1,5 @@
 #include <utils/auto_cast.hpp>
-#include <viewer/example_renderer.hpp>
+#include <viewer/renderer.hpp>
 
 #include <common/version.hpp>
 
@@ -18,14 +18,14 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
-Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.example_renderer")
+Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.renderer")
 }  // namespace
 
-ExampleRenderer::ExampleRenderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
+Renderer::Renderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
     : getInstanceProcAddress{getInstanceProcAddress}, instance{instance}, physicalDevice{physicalDevice}, device{device}, queueFamilyIndex{queueFamilyIndex}, queue{queue}
 {}
 
-ExampleRenderer::~ExampleRenderer()
+Renderer::~Renderer()
 {
     qDebug("cleanup");
     if (!m_devFuncs) return;
@@ -47,7 +47,7 @@ ExampleRenderer::~ExampleRenderer()
     qDebug("released");
 }
 
-void ExampleRenderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
     if (m_vert.isEmpty()) prepareShader(VertexStage);
     if (m_frag.isEmpty()) prepareShader(FragmentStage);
@@ -75,7 +75,7 @@ static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 const int kUBufSize = 4;
 
-void ExampleRenderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
 {
     if (!pipelineInitialized) {
         pipelineInitialized = true;
@@ -107,7 +107,7 @@ void ExampleRenderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass ren
     m_devFuncs->vkCmdDraw(cb, 4, 1, 0, 0);
 }
 
-void ExampleRenderer::prepareShader(Stage stage)
+void Renderer::prepareShader(Stage stage)
 {
     const auto kUri = QStringLiteral("SahKdTree");
     QString filename;
@@ -136,7 +136,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
-void ExampleRenderer::initPipelineLayouts(int framesInFlight)
+void Renderer::initPipelineLayouts(int framesInFlight)
 {
     qDebug("init");
 
@@ -261,7 +261,7 @@ void ExampleRenderer::initPipelineLayouts(int framesInFlight)
     if (err != VK_SUCCESS) qWarning("Failed to create pipeline layout: %d", err);
 }
 
-void ExampleRenderer::initPipelines(vk::RenderPass renderPass)
+void Renderer::initPipelines(vk::RenderPass renderPass)
 {
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

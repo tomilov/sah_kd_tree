@@ -1,7 +1,7 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
-#include <viewer/example_renderer.hpp>
-#include <viewer/qml_engine_wrapper.hpp>
+#include <viewer/engine_wrapper.hpp>
+#include <viewer/renderer.hpp>
 #include <viewer/viewer.hpp>
 
 #include <engine/engine.hpp>
@@ -30,7 +30,7 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 class Viewer::CleanupJob : public QRunnable
 {
 public:
-    CleanupJob(std::unique_ptr<ExampleRenderer> && renderer) : renderer{std::move(renderer)}
+    CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
     {}
 
     void run() override
@@ -39,7 +39,7 @@ public:
     }
 
 private:
-    std::unique_ptr<ExampleRenderer> renderer;
+    std::unique_ptr<Renderer> renderer;
 };
 
 Viewer::Viewer()
@@ -118,12 +118,14 @@ void Viewer::frameStart()
 
         auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
         Q_CHECK_PTR(vulkanInstance);
-        VkQueue queue = VK_NULL_HANDLE;
-        vulkanInstance->deviceFunctions(*vulkanDevice)->vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->get().getGraphicsQueueIndex(), &queue);
-        INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
+        {
+            VkQueue queue = VK_NULL_HANDLE;
+            vulkanInstance->deviceFunctions(*vulkanDevice)->vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->get().getGraphicsQueueIndex(), &queue);
+            INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
+        }
 
         const auto getInstanceProcAddress = [vulkanInstance](const char * name) -> PFN_vkVoidFunction { return vulkanInstance->getInstanceProcAddr(name); };
-        renderer = std::make_unique<ExampleRenderer>(getInstanceProcAddress, vulkanInstance, *vulkanPhysicalDevice, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
+        renderer = std::make_unique<Renderer>(getInstanceProcAddress, vulkanInstance, *vulkanPhysicalDevice, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
     }
     if (renderer) {
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = w->graphicsStateInfo();

@@ -13,13 +13,13 @@
 
 namespace viewer
 {
-class ExampleRenderer
+class Renderer
 {
 public:
     using GetInstanceProcAddress = std::function<PFN_vkVoidFunction(const char * name)>;
 
-    ExampleRenderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue);
-    ~ExampleRenderer();
+    Renderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue);
+    ~Renderer();
 
     void setT(qreal t)
     {

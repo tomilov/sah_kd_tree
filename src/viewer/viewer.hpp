@@ -10,7 +10,7 @@
 namespace viewer
 {
 class Engine;
-class ExampleRenderer;
+class Renderer;
 
 class Viewer : public QQuickItem
 {
@@ -48,7 +48,7 @@ private:
 
     qreal t = 0.0;
 
-    std::unique_ptr<ExampleRenderer> renderer;
+    std::unique_ptr<Renderer> renderer;
 
     QTimer * const updateTimer = new QTimer{this};
 
