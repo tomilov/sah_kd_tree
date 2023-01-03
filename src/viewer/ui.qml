@@ -13,6 +13,8 @@ ApplicationWindow {
     visibility: Window.AutomaticVisibility
 
     SahKdTreeViewer {
+        anchors.fill: parent
+
         engine: SahKdTreeEngine
         SequentialAnimation on t {
             NumberAnimation {

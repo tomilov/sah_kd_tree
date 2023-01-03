@@ -38,7 +38,7 @@ constexpr bool isIncludes(const From & value)
     if constexpr (std::is_same_v<To, bool>) {
         return true;
     } else {
-        return !isLess(value, (std::numeric_limits<To>::min)()) && !isLess((std::numeric_limits<To>::max)(), value);
+        return !isLess(value, (std::numeric_limits<To>::lowest)()) && !isLess((std::numeric_limits<To>::max)(), value);
     }
 }
 

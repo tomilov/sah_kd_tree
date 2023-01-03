@@ -1,19 +1,24 @@
 #pragma once
 
+#include <vulkan/vulkan.hpp>
+
 #include <QtCore/QByteArray>
-#include <QtCore/QObject>
-#include <QtCore/QSize>
+#include <QtCore/QSizeF>
 #include <QtGui/QVulkanDeviceFunctions>
 #include <QtGui/QVulkanFunctions>
+#include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickWindow>
+
+#include <functional>
 
 namespace viewer
 {
-class ExampleRenderer : public QObject
+class ExampleRenderer
 {
-    Q_OBJECT
-
 public:
+    using GetInstanceProcAddress = std::function<PFN_vkVoidFunction(const char * name)>;
+
+    ExampleRenderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue);
     ~ExampleRenderer();
 
     void setT(qreal t)
@@ -21,19 +26,8 @@ public:
         m_t = t;
     }
 
-    void setViewportSize(const QSize & size)
-    {
-        m_viewportSize = size;
-    }
-
-    void setWindow(QQuickWindow * window)
-    {
-        m_window = window;
-    }
-
-public Q_SLOTS:
-    void frameStart();
-    void mainPassRecordingStart();
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size);
 
 private:
     enum Stage
@@ -42,16 +36,20 @@ private:
         FragmentStage
     };
 
-    QSize m_viewportSize;
+    GetInstanceProcAddress getInstanceProcAddress;
+    QVulkanInstance * instance = nullptr;
+    vk::PhysicalDevice physicalDevice;
+    vk::Device device;
+    uint32_t queueFamilyIndex = 0;
+    vk::Queue queue;
+
     qreal m_t = 0;
-    QQuickWindow * m_window;
 
     QByteArray m_vert;
     QByteArray m_frag;
 
     bool m_initialized = false;
-    VkPhysicalDevice m_physDev = VK_NULL_HANDLE;
-    VkDevice m_dev = VK_NULL_HANDLE;
+    bool pipelineInitialized = false;
     QVulkanDeviceFunctions * m_devFuncs = nullptr;
     QVulkanFunctions * m_funcs = nullptr;
 
@@ -71,7 +69,8 @@ private:
     VkDescriptorSet m_ubufDescriptor = VK_NULL_HANDLE;
 
     void prepareShader(Stage stage);
-    void init(int framesInFlight);
+    void initPipelineLayouts(int framesInFlight);
+    void initPipelines(vk::RenderPass renderPass);
 };
 
 }  // namespace viewer

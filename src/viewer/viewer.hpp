@@ -1,13 +1,15 @@
 #pragma once
 
-#include <viewer/qml_engine_wrapper.hpp>
-
 #include <QtCore/QObject>
+#include <QtCore/QTimer>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 
+#include <memory>
+
 namespace viewer
 {
+class Engine;
 class ExampleRenderer;
 
 class Viewer : public QQuickItem
@@ -16,6 +18,8 @@ class Viewer : public QQuickItem
     QML_NAMED_ELEMENT(SahKdTreeViewer)
 
     Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged)
+    Q_PROPERTY(int fps MEMBER fps NOTIFY fpsChanged)
+
     Q_PROPERTY(qreal t MEMBER t NOTIFY tChanged)
 
 public:
@@ -24,6 +28,8 @@ public:
 
 Q_SIGNALS:
     void engineChanged(viewer::Engine * engine);
+    void fpsChanged(int fps);
+
     void tChanged(qreal t);
 
 private Q_SLOTS:
@@ -31,11 +37,20 @@ private Q_SLOTS:
 
     void sync();
     void cleanup();
+    void frameStart();
+    void renderPassRecordingStart();
 
 private:
-    qreal t = 0.0;
-    std::unique_ptr<ExampleRenderer> renderer;
+    class CleanupJob;
+
     Engine * engine = nullptr;
+    int fps = 144;
+
+    qreal t = 0.0;
+
+    std::unique_ptr<ExampleRenderer> renderer;
+
+    QTimer * const updateTimer = new QTimer{this};
 
     void releaseResources() override;
 };

@@ -1,3 +1,4 @@
+#include <utils/auto_cast.hpp>
 #include <viewer/example_renderer.hpp>
 
 #include <common/version.hpp>
@@ -20,68 +21,71 @@ Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
 Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.example_renderer")
 }  // namespace
 
+ExampleRenderer::ExampleRenderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
+    : getInstanceProcAddress{getInstanceProcAddress}, instance{instance}, physicalDevice{physicalDevice}, device{device}, queueFamilyIndex{queueFamilyIndex}, queue{queue}
+{}
+
 ExampleRenderer::~ExampleRenderer()
 {
     qDebug("cleanup");
     if (!m_devFuncs) return;
 
-    m_devFuncs->vkDestroyPipeline(m_dev, m_pipeline, nullptr);
-    m_devFuncs->vkDestroyPipelineLayout(m_dev, m_pipelineLayout, nullptr);
-    m_devFuncs->vkDestroyDescriptorSetLayout(m_dev, m_resLayout, nullptr);
+    m_devFuncs->vkDestroyPipeline(device, m_pipeline, nullptr);
+    m_devFuncs->vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
+    m_devFuncs->vkDestroyDescriptorSetLayout(device, m_resLayout, nullptr);
 
-    m_devFuncs->vkDestroyDescriptorPool(m_dev, m_descriptorPool, nullptr);
+    m_devFuncs->vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
 
-    m_devFuncs->vkDestroyPipelineCache(m_dev, m_pipelineCache, nullptr);
+    m_devFuncs->vkDestroyPipelineCache(device, m_pipelineCache, nullptr);
 
-    m_devFuncs->vkDestroyBuffer(m_dev, m_vbuf, nullptr);
-    m_devFuncs->vkFreeMemory(m_dev, m_vbufMem, nullptr);
+    m_devFuncs->vkDestroyBuffer(device, m_vbuf, nullptr);
+    m_devFuncs->vkFreeMemory(device, m_vbufMem, nullptr);
 
-    m_devFuncs->vkDestroyBuffer(m_dev, m_ubuf, nullptr);
-    m_devFuncs->vkFreeMemory(m_dev, m_ubufMem, nullptr);
+    m_devFuncs->vkDestroyBuffer(device, m_ubuf, nullptr);
+    m_devFuncs->vkFreeMemory(device, m_ubufMem, nullptr);
 
     qDebug("released");
 }
 
-void ExampleRenderer::frameStart()
+void ExampleRenderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    QSGRendererInterface * rif = m_window->rendererInterface();
-
-    // We are not prepared for anything other than running with the RHI and its Vulkan backend.
-    Q_ASSERT(rif->graphicsApi() == QSGRendererInterface::Vulkan);
-
     if (m_vert.isEmpty()) prepareShader(VertexStage);
     if (m_frag.isEmpty()) prepareShader(FragmentStage);
 
-    if (!m_initialized) init(m_window->graphicsStateInfo().framesInFlight);
-}
+    if (!m_initialized) {
+        m_initialized = true;
+        initPipelineLayouts(graphicsStateInfo.framesInFlight);
+    }
 
-static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
-
-const int UBUF_SIZE = 4;
-
-void ExampleRenderer::mainPassRecordingStart()
-{
     // This example demonstrates the simple case: prepending some commands to
     // the scenegraph's main renderpass. It does not create its own passes,
     // rendertargets, etc. so no synchronization is needed.
 
-    const QQuickWindow::GraphicsStateInfo & stateInfo(m_window->graphicsStateInfo());
-    QSGRendererInterface * rif = m_window->rendererInterface();
-
-    VkDeviceSize ubufOffset = stateInfo.currentFrameSlot * m_allocPerUbuf;
+    VkDeviceSize ubufOffset = graphicsStateInfo.currentFrameSlot * m_allocPerUbuf;
     void * p = nullptr;
-    VkResult err = m_devFuncs->vkMapMemory(m_dev, m_ubufMem, ubufOffset, m_allocPerUbuf, 0, &p);
+    VkResult err = m_devFuncs->vkMapMemory(device, m_ubufMem, ubufOffset, m_allocPerUbuf, 0, &p);
+    Q_CHECK_PTR(p);
     if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
     float t = m_t;
     memcpy(p, &t, 4);
-    m_devFuncs->vkUnmapMemory(m_dev, m_ubufMem);
+    m_devFuncs->vkUnmapMemory(device, m_ubufMem);
+}
 
-    m_window->beginExternalCommands();
+static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
+
+const int kUBufSize = 4;
+
+void ExampleRenderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
+{
+    if (!pipelineInitialized) {
+        pipelineInitialized = true;
+        initPipelines(renderPass);
+    }
 
     // Must query the command buffer _after_ beginExternalCommands(), this is
     // actually important when running on Vulkan because what we get here is a
     // new secondary command buffer, not the primary one.
-    VkCommandBuffer cb = *static_cast<VkCommandBuffer *>(rif->getResource(m_window, QSGRendererInterface::CommandListResource));
+    VkCommandBuffer cb = commandBuffer;
     Q_ASSERT(cb);
 
     // Do not assume any state persists on the command buffer. (it may be a
@@ -92,17 +96,15 @@ void ExampleRenderer::mainPassRecordingStart()
     VkDeviceSize vbufOffset = 0;
     m_devFuncs->vkCmdBindVertexBuffers(cb, 0, 1, &m_vbuf, &vbufOffset);
 
-    uint32_t dynamicOffset = m_allocPerUbuf * stateInfo.currentFrameSlot;
+    uint32_t dynamicOffset = m_allocPerUbuf * graphicsStateInfo.currentFrameSlot;
     m_devFuncs->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_ubufDescriptor, 1, &dynamicOffset);
 
-    VkViewport vp = {0, 0, float(m_viewportSize.width()), float(m_viewportSize.height()), 0.0f, 1.0f};
+    VkViewport vp = {0, 0, utils::autoCast(size.width()), utils::autoCast(size.height()), 0.0f, 1.0f};
     m_devFuncs->vkCmdSetViewport(cb, 0, 1, &vp);
-    VkRect2D scissor = {{0, 0}, {uint32_t(m_viewportSize.width()), uint32_t(m_viewportSize.height())}};
+    VkRect2D scissor = {{0, 0}, {utils::autoCast(size.width()), utils::autoCast(size.height())}};
     m_devFuncs->vkCmdSetScissor(cb, 0, 1, &scissor);
 
     m_devFuncs->vkCmdDraw(cb, 4, 1, 0, 0);
-
-    m_window->endExternalCommands();
 }
 
 void ExampleRenderer::prepareShader(Stage stage)
@@ -134,48 +136,38 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
-void ExampleRenderer::init(int framesInFlight)
+void ExampleRenderer::initPipelineLayouts(int framesInFlight)
 {
     qDebug("init");
 
     Q_ASSERT(framesInFlight <= 3);
-    m_initialized = true;
 
-    QSGRendererInterface * rif = m_window->rendererInterface();
-    QVulkanInstance * inst = static_cast<QVulkanInstance *>(rif->getResource(m_window, QSGRendererInterface::VulkanInstanceResource));
-    Q_ASSERT(inst && inst->isValid());
+    Q_ASSERT(instance && instance->isValid());
 
-    m_physDev = *static_cast<VkPhysicalDevice *>(rif->getResource(m_window, QSGRendererInterface::PhysicalDeviceResource));
-    m_dev = *static_cast<VkDevice *>(rif->getResource(m_window, QSGRendererInterface::DeviceResource));
-    Q_ASSERT(m_physDev && m_dev);
+    Q_ASSERT(physicalDevice && device);
 
-    m_devFuncs = inst->deviceFunctions(m_dev);
-    m_funcs = inst->functions();
+    m_devFuncs = instance->deviceFunctions(device);
+    m_funcs = instance->functions();
     Q_ASSERT(m_devFuncs && m_funcs);
-
-    VkRenderPass rp = *static_cast<VkRenderPass *>(rif->getResource(m_window, QSGRendererInterface::RenderPassResource));
-    Q_ASSERT(rp);
 
     // For simplicity we just use host visible buffers instead of device local + staging.
 
-    VkPhysicalDeviceProperties physDevProps;
-    m_funcs->vkGetPhysicalDeviceProperties(m_physDev, &physDevProps);
+    VkPhysicalDeviceProperties physDevProps = {};
+    m_funcs->vkGetPhysicalDeviceProperties(physicalDevice, &physDevProps);
 
-    VkPhysicalDeviceMemoryProperties physDevMemProps;
-    m_funcs->vkGetPhysicalDeviceMemoryProperties(m_physDev, &physDevMemProps);
+    VkPhysicalDeviceMemoryProperties physDevMemProps = {};
+    m_funcs->vkGetPhysicalDeviceMemoryProperties(physicalDevice, &physDevMemProps);
 
-    VkBufferCreateInfo bufferInfo;
-    memset(&bufferInfo, 0, sizeof(bufferInfo));
+    VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = sizeof(vertices);
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    VkResult err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_vbuf);
+    VkResult err = m_devFuncs->vkCreateBuffer(device, &bufferInfo, nullptr, &m_vbuf);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex buffer: %d", err);
 
-    VkMemoryRequirements memReq;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_vbuf, &memReq);
-    VkMemoryAllocateInfo allocInfo;
-    memset(&allocInfo, 0, sizeof(allocInfo));
+    VkMemoryRequirements memReq = {};
+    m_devFuncs->vkGetBufferMemoryRequirements(device, m_vbuf, &memReq);
+    VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memReq.size;
 
@@ -192,15 +184,15 @@ void ExampleRenderer::init(int framesInFlight)
     if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
 
     allocInfo.memoryTypeIndex = memTypeIndex;
-    err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_vbufMem);
+    err = m_devFuncs->vkAllocateMemory(device, &allocInfo, nullptr, &m_vbufMem);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     void * p = nullptr;
-    err = m_devFuncs->vkMapMemory(m_dev, m_vbufMem, 0, allocInfo.allocationSize, 0, &p);
+    err = m_devFuncs->vkMapMemory(device, m_vbufMem, 0, allocInfo.allocationSize, 0, &p);
     if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
     memcpy(p, vertices, sizeof(vertices));
-    m_devFuncs->vkUnmapMemory(m_dev, m_vbufMem);
-    err = m_devFuncs->vkBindBufferMemory(m_dev, m_vbuf, m_vbufMem, 0);
+    m_devFuncs->vkUnmapMemory(device, m_vbufMem);
+    err = m_devFuncs->vkBindBufferMemory(device, m_vbuf, m_vbufMem, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
 
     // Now have a uniform buffer with enough space for the buffer data for each
@@ -216,13 +208,13 @@ void ExampleRenderer::init(int framesInFlight)
     // watch out for the buffer offset alignment requirement, which may be as
     // large as 256 bytes.
 
-    m_allocPerUbuf = aligned(UBUF_SIZE, physDevProps.limits.minUniformBufferOffsetAlignment);
+    m_allocPerUbuf = aligned(kUBufSize, physDevProps.limits.minUniformBufferOffsetAlignment);
 
     bufferInfo.size = framesInFlight * m_allocPerUbuf;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    err = m_devFuncs->vkCreateBuffer(m_dev, &bufferInfo, nullptr, &m_ubuf);
+    err = m_devFuncs->vkCreateBuffer(device, &bufferInfo, nullptr, &m_ubuf);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create uniform buffer: %d", err);
-    m_devFuncs->vkGetBufferMemoryRequirements(m_dev, m_ubuf, &memReq);
+    m_devFuncs->vkGetBufferMemoryRequirements(device, m_ubuf, &memReq);
     memTypeIndex = -1;
     for (uint32_t i = 0; i < physDevMemProps.memoryTypeCount; ++i) {
         if (memReq.memoryTypeBits & (1 << i)) {
@@ -236,63 +228,59 @@ void ExampleRenderer::init(int framesInFlight)
 
     allocInfo.allocationSize = framesInFlight * m_allocPerUbuf;
     allocInfo.memoryTypeIndex = memTypeIndex;
-    err = m_devFuncs->vkAllocateMemory(m_dev, &allocInfo, nullptr, &m_ubufMem);
+    err = m_devFuncs->vkAllocateMemory(device, &allocInfo, nullptr, &m_ubufMem);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
-    err = m_devFuncs->vkBindBufferMemory(m_dev, m_ubuf, m_ubufMem, 0);
+    err = m_devFuncs->vkBindBufferMemory(device, m_ubuf, m_ubufMem, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind uniform buffer memory: %d", err);
 
     // Now onto the pipeline.
 
-    VkPipelineCacheCreateInfo pipelineCacheInfo;
-    memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
+    VkPipelineCacheCreateInfo pipelineCacheInfo = {};
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    err = m_devFuncs->vkCreatePipelineCache(m_dev, &pipelineCacheInfo, nullptr, &m_pipelineCache);
+    err = m_devFuncs->vkCreatePipelineCache(device, &pipelineCacheInfo, nullptr, &m_pipelineCache);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create pipeline cache: %d", err);
 
-    VkDescriptorSetLayoutBinding descLayoutBinding;
-    memset(&descLayoutBinding, 0, sizeof(descLayoutBinding));
+    VkDescriptorSetLayoutBinding descLayoutBinding = {};
     descLayoutBinding.binding = 0;
     descLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     descLayoutBinding.descriptorCount = 1;
     descLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    VkDescriptorSetLayoutCreateInfo layoutInfo;
-    memset(&layoutInfo, 0, sizeof(layoutInfo));
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings = &descLayoutBinding;
-    err = m_devFuncs->vkCreateDescriptorSetLayout(m_dev, &layoutInfo, nullptr, &m_resLayout);
+    err = m_devFuncs->vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_resLayout);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor set layout: %d", err);
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo;
-    memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &m_resLayout;
-    err = m_devFuncs->vkCreatePipelineLayout(m_dev, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
+    err = m_devFuncs->vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
     if (err != VK_SUCCESS) qWarning("Failed to create pipeline layout: %d", err);
+}
 
-    VkGraphicsPipelineCreateInfo pipelineInfo;
-    memset(&pipelineInfo, 0, sizeof(pipelineInfo));
+void ExampleRenderer::initPipelines(vk::RenderPass renderPass)
+{
+    VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
-    VkShaderModuleCreateInfo shaderInfo;
-    memset(&shaderInfo, 0, sizeof(shaderInfo));
+    VkShaderModuleCreateInfo shaderInfo = {};
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderInfo.codeSize = std::size(m_vert);
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_vert.constData());
-    VkShaderModule vertShaderModule;
-    err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &vertShaderModule);
+    VkShaderModule vertShaderModule = {};
+    VkResult err = m_devFuncs->vkCreateShaderModule(device, &shaderInfo, nullptr, &vertShaderModule);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex shader module: %d", err);
 
     shaderInfo.codeSize = std::size(m_frag);
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(m_frag.constData());
-    VkShaderModule fragShaderModule;
-    err = m_devFuncs->vkCreateShaderModule(m_dev, &shaderInfo, nullptr, &fragShaderModule);
+    VkShaderModule fragShaderModule = {};
+    err = m_devFuncs->vkCreateShaderModule(device, &shaderInfo, nullptr, &fragShaderModule);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create fragment shader module: %d", err);
 
-    VkPipelineShaderStageCreateInfo stageInfo[2];
-    memset(&stageInfo, 0, sizeof(stageInfo));
+    VkPipelineShaderStageCreateInfo stageInfo[2] = {};
     stageInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     stageInfo[0].module = vertShaderModule;
@@ -313,8 +301,7 @@ void ExampleRenderer::init(int framesInFlight)
         VK_FORMAT_R32G32_SFLOAT,  // 'vertices' only has 2 floats per vertex
         0                         // offset
     };
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo;
-    memset(&vertexInputInfo, 0, sizeof(vertexInputInfo));
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &vertexBinding;
@@ -323,48 +310,40 @@ void ExampleRenderer::init(int framesInFlight)
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
     VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamicInfo;
-    memset(&dynamicInfo, 0, sizeof(dynamicInfo));
+    VkPipelineDynamicStateCreateInfo dynamicInfo = {};
     dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicInfo.dynamicStateCount = 2;
     dynamicInfo.pDynamicStates = dynStates;
     pipelineInfo.pDynamicState = &dynamicInfo;
 
-    VkPipelineViewportStateCreateInfo viewportInfo;
-    memset(&viewportInfo, 0, sizeof(viewportInfo));
+    VkPipelineViewportStateCreateInfo viewportInfo = {};
     viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportInfo.viewportCount = viewportInfo.scissorCount = 1;
     pipelineInfo.pViewportState = &viewportInfo;
 
-    VkPipelineInputAssemblyStateCreateInfo iaInfo;
-    memset(&iaInfo, 0, sizeof(iaInfo));
+    VkPipelineInputAssemblyStateCreateInfo iaInfo = {};
     iaInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     iaInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     pipelineInfo.pInputAssemblyState = &iaInfo;
 
-    VkPipelineRasterizationStateCreateInfo rsInfo;
-    memset(&rsInfo, 0, sizeof(rsInfo));
+    VkPipelineRasterizationStateCreateInfo rsInfo = {};
     rsInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rsInfo.lineWidth = 1.0f;
     pipelineInfo.pRasterizationState = &rsInfo;
 
-    VkPipelineMultisampleStateCreateInfo msInfo;
-    memset(&msInfo, 0, sizeof(msInfo));
+    VkPipelineMultisampleStateCreateInfo msInfo = {};
     msInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     msInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     pipelineInfo.pMultisampleState = &msInfo;
 
-    VkPipelineDepthStencilStateCreateInfo dsInfo;
-    memset(&dsInfo, 0, sizeof(dsInfo));
+    VkPipelineDepthStencilStateCreateInfo dsInfo = {};
     dsInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     pipelineInfo.pDepthStencilState = &dsInfo;
 
     // SrcAlpha, One
-    VkPipelineColorBlendStateCreateInfo blendInfo;
-    memset(&blendInfo, 0, sizeof(blendInfo));
+    VkPipelineColorBlendStateCreateInfo blendInfo = {};
     blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    VkPipelineColorBlendAttachmentState blend;
-    memset(&blend, 0, sizeof(blend));
+    VkPipelineColorBlendAttachmentState blend = {};
     blend.blendEnable = true;
     blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -379,12 +358,12 @@ void ExampleRenderer::init(int framesInFlight)
 
     pipelineInfo.layout = m_pipelineLayout;
 
-    pipelineInfo.renderPass = rp;
+    pipelineInfo.renderPass = renderPass;
 
-    err = m_devFuncs->vkCreateGraphicsPipelines(m_dev, m_pipelineCache, 1, &pipelineInfo, nullptr, &m_pipeline);
+    err = m_devFuncs->vkCreateGraphicsPipelines(device, m_pipelineCache, 1, &pipelineInfo, nullptr, &m_pipeline);
 
-    m_devFuncs->vkDestroyShaderModule(m_dev, vertShaderModule, nullptr);
-    m_devFuncs->vkDestroyShaderModule(m_dev, fragShaderModule, nullptr);
+    m_devFuncs->vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    m_devFuncs->vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
 
@@ -392,38 +371,35 @@ void ExampleRenderer::init(int framesInFlight)
     VkDescriptorPoolSize descPoolSizes[] = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
     };
-    VkDescriptorPoolCreateInfo descPoolInfo;
-    memset(&descPoolInfo, 0, sizeof(descPoolInfo));
+    VkDescriptorPoolCreateInfo descPoolInfo = {};
     descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descPoolInfo.flags = 0;  // won't use vkFreeDescriptorSets
     descPoolInfo.maxSets = 1;
     descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
     descPoolInfo.pPoolSizes = descPoolSizes;
-    err = m_devFuncs->vkCreateDescriptorPool(m_dev, &descPoolInfo, nullptr, &m_descriptorPool);
+    err = m_devFuncs->vkCreateDescriptorPool(device, &descPoolInfo, nullptr, &m_descriptorPool);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
 
-    VkDescriptorSetAllocateInfo descAllocInfo;
-    memset(&descAllocInfo, 0, sizeof(descAllocInfo));
+    VkDescriptorSetAllocateInfo descAllocInfo = {};
     descAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     descAllocInfo.descriptorPool = m_descriptorPool;
     descAllocInfo.descriptorSetCount = 1;
     descAllocInfo.pSetLayouts = &m_resLayout;
-    err = m_devFuncs->vkAllocateDescriptorSets(m_dev, &descAllocInfo, &m_ubufDescriptor);
+    err = m_devFuncs->vkAllocateDescriptorSets(device, &descAllocInfo, &m_ubufDescriptor);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
 
-    VkWriteDescriptorSet writeInfo;
-    memset(&writeInfo, 0, sizeof(writeInfo));
+    VkWriteDescriptorSet writeInfo = {};
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeInfo.dstSet = m_ubufDescriptor;
     writeInfo.dstBinding = 0;
     writeInfo.descriptorCount = 1;
     writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    VkDescriptorBufferInfo bufInfo;
+    VkDescriptorBufferInfo bufInfo = {};
     bufInfo.buffer = m_ubuf;
     bufInfo.offset = 0;  // dynamic offset is used so this is ignored
-    bufInfo.range = UBUF_SIZE;
+    bufInfo.range = kUBufSize;
     writeInfo.pBufferInfo = &bufInfo;
-    m_devFuncs->vkUpdateDescriptorSets(m_dev, 1, &writeInfo, 0, nullptr);
+    m_devFuncs->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
 }
 
 }  // namespace viewer
