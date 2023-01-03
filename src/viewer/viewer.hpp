@@ -20,7 +20,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged)
     Q_PROPERTY(int fps MEMBER fps NOTIFY fpsChanged)
 
-    Q_PROPERTY(qreal t MEMBER t NOTIFY tChanged)
+    Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
 
 public:
     Viewer();
@@ -46,7 +46,7 @@ private:
     Engine * engine = nullptr;
     int fps = 144;
 
-    qreal t = 0.0;
+    float t = 0.0;
 
     std::unique_ptr<Renderer> renderer;
 

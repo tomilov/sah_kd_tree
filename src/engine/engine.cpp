@@ -262,6 +262,7 @@ struct Engine::PhysicalDevice final : utils::NonCopyable
     std::unordered_map<uint32_t /*queueFamilyIndex*/, std::size_t /*count*/> usedQueueFamilySizes;
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
 
+    QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics queue"};
     QueueCreateInfo graphicsQueueCreateInfo{"Graphics queue"};
     QueueCreateInfo computeQueueCreateInfo{"Compute queue"};
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
@@ -612,13 +613,15 @@ struct Engine::Queue final : utils::NonCopyable
 
 struct Engine::Queues final : utils::NonCopyable
 {
+    Queue externalGraphics;
     Queue graphics;
     Queue compute;
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
     Queues(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device, CommandPools & commandPools)
-        : graphics{engine, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device, commandPools}
+        : externalGraphics{engine, library, instance, physicalDevice, physicalDevice.externalGraphicsQueueCreateInfo, device, commandPools}
+        , graphics{engine, library, instance, physicalDevice, physicalDevice.graphicsQueueCreateInfo, device, commandPools}
         , compute{engine, library, instance, physicalDevice, physicalDevice.computeQueueCreateInfo, device, commandPools}
         , transferHostToDevice{engine, library, instance, physicalDevice, physicalDevice.transferHostToDeviceQueueCreateInfo, device, commandPools}
         , transferDeviceToHost{engine, library, instance, physicalDevice, physicalDevice.transferDeviceToHostQueueCreateInfo, device, commandPools}
@@ -626,6 +629,7 @@ struct Engine::Queues final : utils::NonCopyable
 
     void waitIdle() const
     {
+        externalGraphics.waitIdle();
         graphics.waitIdle();
         compute.waitIdle();
         transferHostToDevice.waitIdle();
@@ -1735,7 +1739,8 @@ bool Engine::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceT
         presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
     }
 
-    graphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
+    externalGraphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
+    graphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics);
     computeQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eCompute);
     transferHostToDeviceQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eTransfer);
     transferDeviceToHostQueueCreateInfo.familyIndex = transferHostToDeviceQueueCreateInfo.familyIndex;
@@ -1753,6 +1758,9 @@ bool Engine::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceT
         queueCreateInfo.index = queueIndex;
         return true;
     };
+    if (!calculateQueueIndex(externalGraphicsQueueCreateInfo)) {
+        return false;
+    }
     if (!calculateQueueIndex(graphicsQueueCreateInfo)) {
         return false;
     }
@@ -2039,12 +2047,12 @@ vk::Device Engine::getDevice() const
 
 uint32_t Engine::getGraphicsQueueFamilyIndex() const
 {
-    return device->physicalDevice.graphicsQueueCreateInfo.familyIndex;
+    return device->physicalDevice.externalGraphicsQueueCreateInfo.familyIndex;
 }
 
 uint32_t Engine::getGraphicsQueueIndex() const
 {
-    return device->physicalDevice.graphicsQueueCreateInfo.index;
+    return device->physicalDevice.externalGraphicsQueueCreateInfo.index;
 }
 
 void Engine::loadScene(scene::Scene & scene)

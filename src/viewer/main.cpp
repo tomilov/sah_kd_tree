@@ -3,6 +3,7 @@
 
 #include <common/version.hpp>
 #include <engine/engine.hpp>
+#include <engine/format.hpp>
 
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -225,7 +226,7 @@ int main(int argc, char * argv[])
         }
     }
     if (!vulkanInstance.create()) {
-        qCCritical(viewerMainCategory) << "Cannot create Vulkan instance";
+        qCCritical(viewerMainCategory) << QStringLiteral("Cannot create Vulkan instance: %1").arg(QString::fromStdString(fmt::to_string(vk::Result(vulkanInstance.errorCode()))));
         return EXIT_FAILURE;
     }
 

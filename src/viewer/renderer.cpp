@@ -23,7 +23,15 @@ Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.renderer")
 
 Renderer::Renderer(GetInstanceProcAddress getInstanceProcAddress, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
     : getInstanceProcAddress{getInstanceProcAddress}, instance{instance}, physicalDevice{physicalDevice}, device{device}, queueFamilyIndex{queueFamilyIndex}, queue{queue}
-{}
+{
+    Q_ASSERT(instance && instance->isValid());
+
+    Q_ASSERT(physicalDevice && device);
+
+    m_devFuncs = instance->deviceFunctions(device);
+    m_funcs = instance->functions();
+    Q_ASSERT(m_devFuncs && m_funcs);
+}
 
 Renderer::~Renderer()
 {
@@ -47,27 +55,25 @@ Renderer::~Renderer()
     qDebug("released");
 }
 
+void Renderer::setT(float t)
+{
+    this->t = t;
+}
+
 void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    if (m_vert.isEmpty()) prepareShader(VertexStage);
-    if (m_frag.isEmpty()) prepareShader(FragmentStage);
-
-    if (!m_initialized) {
-        m_initialized = true;
+    if (!pipelineLayoutsAndDescriptorsInitialized) {
+        pipelineLayoutsAndDescriptorsInitialized = true;
         initPipelineLayouts(graphicsStateInfo.framesInFlight);
+        initDescriptors();
     }
-
-    // This example demonstrates the simple case: prepending some commands to
-    // the scenegraph's main renderpass. It does not create its own passes,
-    // rendertargets, etc. so no synchronization is needed.
 
     VkDeviceSize ubufOffset = graphicsStateInfo.currentFrameSlot * m_allocPerUbuf;
     void * p = nullptr;
     VkResult err = m_devFuncs->vkMapMemory(device, m_ubufMem, ubufOffset, m_allocPerUbuf, 0, &p);
     Q_CHECK_PTR(p);
     if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
-    float t = m_t;
-    memcpy(p, &t, 4);
+    memcpy(p, &t, sizeof t);
     m_devFuncs->vkUnmapMemory(device, m_ubufMem);
 }
 
@@ -77,8 +83,8 @@ const int kUBufSize = 4;
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
 {
-    if (!pipelineInitialized) {
-        pipelineInitialized = true;
+    if (!pipelinesInitialized) {
+        pipelinesInitialized = true;
         initPipelines(renderPass);
     }
 
@@ -110,24 +116,31 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 void Renderer::prepareShader(Stage stage)
 {
     const auto kUri = QStringLiteral("SahKdTree");
-    QString filename;
-    if (stage == VertexStage) {
-        filename = QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.vert.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri);
-    } else {
-        Q_ASSERT(stage == FragmentStage);
-        filename = QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.frag.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri);
+    QString stageName;
+    switch (stage) {
+    case Stage::Vertex: {
+        stageName = QStringLiteral("vert");
+        break;
     }
-    QFile f(filename);
-    if (!f.open(QIODevice::ReadOnly)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(filename));
-
-    const QByteArray contents = f.readAll();
-
-    if (stage == VertexStage) {
-        m_vert = contents;
-        Q_ASSERT(!m_vert.isEmpty());
-    } else {
-        m_frag = contents;
-        Q_ASSERT(!m_frag.isEmpty());
+    case Stage::Fragment: {
+        stageName = QStringLiteral("frag");
+        break;
+    }
+    }
+    INVARIANT(!stageName.isEmpty(), "Unknown stage {}", fmt::underlying(stage));
+    QFile shaderFile{QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.%3.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri, stageName)};
+    if (!shaderFile.open(QIODevice::ReadOnly)) {
+        QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(shaderFile.fileName()));
+    }
+    switch (stage) {
+    case Stage::Vertex: {
+        m_vert = shaderFile.readAll();
+        break;
+    }
+    case Stage::Fragment: {
+        m_frag = shaderFile.readAll();
+        break;
+    }
     }
 }
 
@@ -141,14 +154,6 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     qDebug("init");
 
     Q_ASSERT(framesInFlight <= 3);
-
-    Q_ASSERT(instance && instance->isValid());
-
-    Q_ASSERT(physicalDevice && device);
-
-    m_devFuncs = instance->deviceFunctions(device);
-    m_funcs = instance->functions();
-    Q_ASSERT(m_devFuncs && m_funcs);
 
     // For simplicity we just use host visible buffers instead of device local + staging.
 
@@ -194,19 +199,6 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     m_devFuncs->vkUnmapMemory(device, m_vbufMem);
     err = m_devFuncs->vkBindBufferMemory(device, m_vbuf, m_vbufMem, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
-
-    // Now have a uniform buffer with enough space for the buffer data for each
-    // (potentially) in-flight frame. (as we will write the contents every
-    // frame, and so would need to wait for command buffer completion if there
-    // was only one, and that would not be nice)
-
-    // Could have three buffers and three descriptor sets, or one buffer and
-    // one descriptor set and dynamic offset. We chose the latter in this
-    // example.
-
-    // We use one memory allocation for all uniform buffers, but then have to
-    // watch out for the buffer offset alignment requirement, which may be as
-    // large as 256 bytes.
 
     m_allocPerUbuf = aligned(kUBufSize, physDevProps.limits.minUniformBufferOffsetAlignment);
 
@@ -261,8 +253,53 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     if (err != VK_SUCCESS) qWarning("Failed to create pipeline layout: %d", err);
 }
 
+void Renderer::initDescriptors()
+{
+    VkDescriptorPoolSize descPoolSizes[] = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
+    };
+    VkDescriptorPoolCreateInfo descPoolInfo = {};
+    descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descPoolInfo.flags = 0;  // won't use vkFreeDescriptorSets
+    descPoolInfo.maxSets = 1;
+    descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
+    descPoolInfo.pPoolSizes = descPoolSizes;
+    VkResult err = m_devFuncs->vkCreateDescriptorPool(device, &descPoolInfo, nullptr, &m_descriptorPool);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
+
+    VkDescriptorSetAllocateInfo descAllocInfo = {};
+    descAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descAllocInfo.descriptorPool = m_descriptorPool;
+    descAllocInfo.descriptorSetCount = 1;
+    descAllocInfo.pSetLayouts = &m_resLayout;
+    err = m_devFuncs->vkAllocateDescriptorSets(device, &descAllocInfo, &m_ubufDescriptor);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
+
+    VkWriteDescriptorSet writeInfo = {};
+    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeInfo.dstSet = m_ubufDescriptor;
+    writeInfo.dstBinding = 0;
+    writeInfo.descriptorCount = 1;
+    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    VkDescriptorBufferInfo bufInfo = {};
+    bufInfo.buffer = m_ubuf;
+    bufInfo.offset = 0;  // dynamic offset is used so this is ignored
+    bufInfo.range = kUBufSize;
+    writeInfo.pBufferInfo = &bufInfo;
+    m_devFuncs->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
+}
+
 void Renderer::initPipelines(vk::RenderPass renderPass)
 {
+    if (m_vert.isEmpty()) {
+        prepareShader(Stage::Vertex);
+        Q_ASSERT(!m_vert.isEmpty());
+    }
+    if (m_frag.isEmpty()) {
+        prepareShader(Stage::Fragment);
+        Q_ASSERT(!m_frag.isEmpty());
+    }
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
@@ -366,40 +403,6 @@ void Renderer::initPipelines(vk::RenderPass renderPass)
     m_devFuncs->vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
-
-    // Now just need some descriptors.
-    VkDescriptorPoolSize descPoolSizes[] = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
-    };
-    VkDescriptorPoolCreateInfo descPoolInfo = {};
-    descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descPoolInfo.flags = 0;  // won't use vkFreeDescriptorSets
-    descPoolInfo.maxSets = 1;
-    descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
-    descPoolInfo.pPoolSizes = descPoolSizes;
-    err = m_devFuncs->vkCreateDescriptorPool(device, &descPoolInfo, nullptr, &m_descriptorPool);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
-
-    VkDescriptorSetAllocateInfo descAllocInfo = {};
-    descAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descAllocInfo.descriptorPool = m_descriptorPool;
-    descAllocInfo.descriptorSetCount = 1;
-    descAllocInfo.pSetLayouts = &m_resLayout;
-    err = m_devFuncs->vkAllocateDescriptorSets(device, &descAllocInfo, &m_ubufDescriptor);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
-
-    VkWriteDescriptorSet writeInfo = {};
-    writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeInfo.dstSet = m_ubufDescriptor;
-    writeInfo.dstBinding = 0;
-    writeInfo.descriptorCount = 1;
-    writeInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    VkDescriptorBufferInfo bufInfo = {};
-    bufInfo.buffer = m_ubuf;
-    bufInfo.offset = 0;  // dynamic offset is used so this is ignored
-    bufInfo.range = kUBufSize;
-    writeInfo.pBufferInfo = &bufInfo;
-    m_devFuncs->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
 }
 
 }  // namespace viewer
