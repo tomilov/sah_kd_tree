@@ -18,8 +18,8 @@ namespace viewer
 {
 namespace
 {
-Q_DECLARE_LOGGING_CATEGORY(exampleRendererCategory)
-Q_LOGGING_CATEGORY(exampleRendererCategory, "viewer.renderer")
+Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
+Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 }  // namespace
 
 Renderer::Renderer(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
@@ -83,7 +83,7 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
     void * p = nullptr;
     VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, ubufOffset, uniformBufferPerFrameSize, 0, &p);
     Q_CHECK_PTR(p);
-    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
     memcpy(p, &t, sizeof t);
     deviceFunctions->vkUnmapMemory(device, uniformBufferMemory);
 }
@@ -141,7 +141,7 @@ void Renderer::prepareShader(Stage stage)
     INVARIANT(!stageName.isEmpty(), "Unknown stage {}", fmt::underlying(stage));
     QFile shaderFile{QLatin1String(":/%1/imports/%2/shaders/fullscreen_triangle.%3.spv").arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri, stageName)};
     if (!shaderFile.open(QIODevice::ReadOnly)) {
-        QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(shaderFile.fileName()));
+        QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to read shader %s", qPrintable(shaderFile.fileName()));
     }
     switch (stage) {
     case Stage::Vertex: {
@@ -179,7 +179,7 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     bufferInfo.size = sizeof(vertices);
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     VkResult err = deviceFunctions->vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex buffer: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements memReq = {};
     deviceFunctions->vkGetBufferMemoryRequirements(device, vertexBuffer, &memReq);
@@ -197,27 +197,27 @@ void Renderer::initPipelineLayouts(int framesInFlight)
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
 
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = deviceFunctions->vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to allocate vertex buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     void * p = nullptr;
     err = deviceFunctions->vkMapMemory(device, vertexBufferMemory, 0, allocInfo.allocationSize, 0, &p);
     INVARIANT(p, "Just initialized");
-    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
     memcpy(p, vertices, sizeof(vertices));
     deviceFunctions->vkUnmapMemory(device, vertexBufferMemory);
     err = deviceFunctions->vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
 
     uniformBufferPerFrameSize = aligned(kUBufSize, physDevProps.limits.minUniformBufferOffsetAlignment);
 
     bufferInfo.size = framesInFlight * uniformBufferPerFrameSize;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     err = deviceFunctions->vkCreateBuffer(device, &bufferInfo, nullptr, &uniformBuffer);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create uniform buffer: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create uniform buffer: %d", err);
     deviceFunctions->vkGetBufferMemoryRequirements(device, uniformBuffer, &memReq);
     memTypeIndex = -1;
     for (uint32_t i = 0; i < physDevMemProps.memoryTypeCount; ++i) {
@@ -228,22 +228,22 @@ void Renderer::initPipelineLayouts(int framesInFlight)
             }
         }
     }
-    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
+    if (memTypeIndex == uint32_t(-1)) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to find host visible and coherent memory type");
 
     allocInfo.allocationSize = framesInFlight * uniformBufferPerFrameSize;
     allocInfo.memoryTypeIndex = memTypeIndex;
     err = deviceFunctions->vkAllocateMemory(device, &allocInfo, nullptr, &uniformBufferMemory);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to allocate uniform buffer memory of size %u: %d", uint(allocInfo.allocationSize), err);
 
     err = deviceFunctions->vkBindBufferMemory(device, uniformBuffer, uniformBufferMemory, 0);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to bind uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind uniform buffer memory: %d", err);
 
     // Now onto the pipeline.
 
     VkPipelineCacheCreateInfo pipelineCacheInfo = {};
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     err = deviceFunctions->vkCreatePipelineCache(device, &pipelineCacheInfo, nullptr, &pipelineCache);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create pipeline cache: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create pipeline cache: %d", err);
 
     VkDescriptorSetLayoutBinding descLayoutBinding = {};
     descLayoutBinding.binding = 0;
@@ -255,7 +255,7 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     layoutInfo.bindingCount = 1;
     layoutInfo.pBindings = &descLayoutBinding;
     err = deviceFunctions->vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor set layout: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create descriptor set layout: %d", err);
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -277,7 +277,7 @@ void Renderer::initDescriptors()
     descPoolInfo.poolSizeCount = sizeof(descPoolSizes) / sizeof(descPoolSizes[0]);
     descPoolInfo.pPoolSizes = descPoolSizes;
     VkResult err = deviceFunctions->vkCreateDescriptorPool(device, &descPoolInfo, nullptr, &descriptorPool);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create descriptor pool: %d", err);
 
     VkDescriptorSetAllocateInfo descAllocInfo = {};
     descAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -285,7 +285,7 @@ void Renderer::initDescriptors()
     descAllocInfo.descriptorSetCount = 1;
     descAllocInfo.pSetLayouts = &descriptorSetLayout;
     err = deviceFunctions->vkAllocateDescriptorSets(device, &descAllocInfo, &uniformBufferDescriptorSet);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to allocate descriptor set");
 
     VkWriteDescriptorSet writeInfo = {};
     writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -312,13 +312,13 @@ void Renderer::initPipelines(vk::RenderPass renderPass)
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(vertexShader.constData());
     VkShaderModule vertShaderModule = {};
     VkResult err = deviceFunctions->vkCreateShaderModule(device, &shaderInfo, nullptr, &vertShaderModule);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create vertex shader module: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create vertex shader module: %d", err);
 
     shaderInfo.codeSize = std::size(fragmentShader);
     shaderInfo.pCode = reinterpret_cast<const quint32 *>(fragmentShader.constData());
     VkShaderModule fragShaderModule = {};
     err = deviceFunctions->vkCreateShaderModule(device, &shaderInfo, nullptr, &fragShaderModule);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create fragment shader module: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create fragment shader module: %d", err);
 
     VkPipelineShaderStageCreateInfo stageInfo[2] = {};
     stageInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -405,7 +405,7 @@ void Renderer::initPipelines(vk::RenderPass renderPass)
     deviceFunctions->vkDestroyShaderModule(device, vertShaderModule, nullptr);
     deviceFunctions->vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(exampleRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create graphics pipeline: %d", err);
 }
 
 }  // namespace viewer

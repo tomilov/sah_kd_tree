@@ -125,9 +125,13 @@ void Viewer::frameStart()
             INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
         }
 
-        const auto getInstanceProcAddress = [vulkanInstance](const char * name) -> PFN_vkVoidFunction { return vulkanInstance->getInstanceProcAddr(name); };
-        PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = utils::autoCast(getInstanceProcAddress("vkGetInstanceProcAddr"));
-        PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr = utils::autoCast(getInstanceProcAddress("vkGetDeviceProcAddr"));
+#ifdef GET_INSTANCE_PROC_ADDR
+#error "!"
+#endif
+#define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
+        GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
+        GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
+#undef GET_INSTANCE_PROC_ADDR
         renderer = std::make_unique<Renderer>(vkGetInstanceProcAddr, vulkanInstance, *vulkanPhysicalDevice, vkGetDeviceProcAddr, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
     }
     if (renderer) {
