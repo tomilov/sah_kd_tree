@@ -15,7 +15,6 @@ ApplicationWindow {
     SahKdTreeViewer {
         anchors.fill: parent
 
-        engine: SahKdTreeEngine
         SequentialAnimation on t {
             NumberAnimation {
                 to: 1

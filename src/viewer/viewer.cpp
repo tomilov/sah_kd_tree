@@ -103,22 +103,23 @@ void Viewer::frameStart()
     if (!renderer) {
         auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
         Q_CHECK_PTR(vulkanInstance);
-        INVARIANT(vulkanInstance->vkInstance() == engine->get().getInstance(), "Should match");
 
         auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
         Q_CHECK_PTR(vulkanPhysicalDevice);
-        INVARIANT(*vulkanPhysicalDevice == engine->get().getPhysicalDevice(), "Should match");
 
         auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
         Q_CHECK_PTR(vulkanInstance);
-        INVARIANT(*vulkanDevice == engine->get().getDevice(), "Should match");
 
         uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
-        INVARIANT(queueFamilyIndex == engine->get().getGraphicsQueueFamilyIndex(), "Should match");
 
         auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
         Q_CHECK_PTR(vulkanInstance);
-        {
+
+        if (engine) {
+            INVARIANT(vulkanInstance->vkInstance() == engine->get().getInstance(), "Should match");
+            INVARIANT(*vulkanPhysicalDevice == engine->get().getPhysicalDevice(), "Should match");
+            INVARIANT(*vulkanDevice == engine->get().getDevice(), "Should match");
+            INVARIANT(queueFamilyIndex == engine->get().getGraphicsQueueFamilyIndex(), "Should match");
             VkQueue queue = VK_NULL_HANDLE;
             vulkanInstance->deviceFunctions(*vulkanDevice)->vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->get().getGraphicsQueueIndex(), &queue);
             INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
