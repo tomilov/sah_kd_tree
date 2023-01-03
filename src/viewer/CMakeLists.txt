@@ -18,25 +18,33 @@ endif()
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "libutils"
         Qt6::Gui
         Qt6::Qml
-        Qt6::Quick)
+        Qt6::Quick
+    PUBLIC
+        "libutils"
+        "libengine")
 
 qt6_add_qml_module(
     "lib${PROJECT_NAME}"
+    OUTPUT_DIRECTORY
+        "lib"
     URI
         SahKdTree
     VERSION
         1.0
+    RESOURCE_PREFIX
+        "/${CMAKE_PROJECT_NAME}/imports"
     SOURCES
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "engine_io.hpp"
+        "engine_io.cpp"
+        "qml_engine_wrapper.hpp"
+        "qml_engine_wrapper.cpp"
         "example_renderer.hpp"
-        "example_renderer.cpp"
-    RESOURCE_PREFIX
-        "/sah_kd_tree/imports")
+        "example_renderer.cpp")
 
 
 process_shaders()
@@ -72,8 +80,6 @@ qt6_add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"
     PRIVATE
-        "engine_io.hpp"
-        "engine_io.cpp"
         "main.cpp")
 target_link_libraries(
     "${PROJECT_NAME}"
@@ -81,7 +87,6 @@ target_link_libraries(
         "lib${PROJECT_NAME}"
         "libutils"
         "libcommon"
-        "libengine"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets
@@ -96,7 +101,7 @@ qt6_add_resources(
     "${PROJECT_NAME}"
     "ui"
     PREFIX
-        "/sah_kd_tree"
+        "/${CMAKE_PROJECT_NAME}"
     FILES
         "ui.qml")
 

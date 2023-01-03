@@ -1,8 +1,8 @@
 #pragma once
 
-#include <utils/fast_pimpl.hpp>
-#include <viewer/viewer_export.h>
+#include <viewer/qml_engine_wrapper.hpp>
 
+#include <QtCore/QObject>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 
@@ -10,36 +10,32 @@ namespace viewer
 {
 class ExampleRenderer;
 
-class VIEWER_EXPORT Viewer : public QQuickItem
+class Viewer : public QQuickItem
 {
     Q_OBJECT
-    Q_PROPERTY(qreal t READ t WRITE setT NOTIFY tChanged)
     QML_NAMED_ELEMENT(SahKdTreeViewer)
+
+    Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged)
+    Q_PROPERTY(qreal t MEMBER t NOTIFY tChanged)
 
 public:
     Viewer();
     ~Viewer();
 
-    qreal t() const;
-
 Q_SIGNALS:
+    void engineChanged(viewer::Engine * engine);
     void tChanged(qreal t);
-
-public Q_SLOTS:
-    void setT(qreal t);
-
-    void sync();
-    void cleanup();
 
 private Q_SLOTS:
     void onWindowChanged(QQuickWindow * window);
 
-private:
-    struct Impl;
+    void sync();
+    void cleanup();
 
-    static constexpr std::size_t kSize = 16;
-    static constexpr std::size_t kAlignment = 8;
-    utils::FastPimpl<Impl, 16, 8> impl_;
+private:
+    qreal t = 0.0;
+    std::unique_ptr<ExampleRenderer> renderer;
+    Engine * engine = nullptr;
 
     void releaseResources() override;
 };

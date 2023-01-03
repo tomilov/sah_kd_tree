@@ -1,7 +1,8 @@
-#include <engine/exception.hpp>
-#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
+
+#include <engine/exception.hpp>
+#include <engine/vma.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

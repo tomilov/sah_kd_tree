@@ -1,8 +1,7 @@
+#include <common/version.hpp>
+#include <engine/engine.hpp>
 #include <engine/exception.hpp>
 #include <engine/memory.hpp>
-#include <engine/engine.hpp>
-
-#include <common/version.hpp>
 
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>

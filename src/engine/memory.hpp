@@ -1,7 +1,8 @@
 #pragma once
 
-#include <engine/format.hpp>
 #include <utils/assert.hpp>
+
+#include <engine/format.hpp>
 
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>

@@ -13,6 +13,7 @@ ApplicationWindow {
     visibility: Window.AutomaticVisibility
 
     SahKdTreeViewer {
+        engine: SahKdTreeEngine
         SequentialAnimation on t {
             NumberAnimation {
                 to: 1

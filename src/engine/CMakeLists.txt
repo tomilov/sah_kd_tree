@@ -22,6 +22,7 @@ target_sources(
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "fwd.hpp"
         "vma.hpp"
         "vma.cpp"
         "exception.hpp"

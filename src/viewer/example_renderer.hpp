@@ -1,7 +1,5 @@
 #pragma once
 
-#include <viewer/viewer_export.h>
-
 #include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QSize>

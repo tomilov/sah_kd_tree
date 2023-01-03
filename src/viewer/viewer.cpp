@@ -19,63 +19,49 @@ Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 }  // namespace
 
-struct Viewer::Impl
-{
-    qreal m_t = 0;
-
-    void sync(QQuickWindow * window);
-
-    void cleanup();
-    void releaseResources(QQuickWindow * window);
-
-private:
-    class CleanupJob;
-
-    std::unique_ptr<ExampleRenderer> m_renderer;
-};
-
-class Viewer::Impl::CleanupJob : public QRunnable
+class CleanupJob : public QRunnable
 {
 public:
-    CleanupJob(std::unique_ptr<ExampleRenderer> && renderer) : m_renderer{std::move(renderer)}
+    CleanupJob(std::unique_ptr<ExampleRenderer> && renderer) : renderer{std::move(renderer)}
     {}
 
     void run() override
     {
-        m_renderer.reset();
+        renderer.reset();
     }
 
 private:
-    std::unique_ptr<ExampleRenderer> m_renderer;
+    std::unique_ptr<ExampleRenderer> renderer;
 };
 
-void Viewer::Impl::sync(QQuickWindow * window)
+void Viewer::sync()
 {
-    INVARIANT(window, "Window should exist");
-    if (!m_renderer) {
-        m_renderer = std::make_unique<ExampleRenderer>();
+    auto w = window();
+    INVARIANT(w, "Window should exist");
+    if (!renderer) {
+        renderer = std::make_unique<ExampleRenderer>();
 
         // Initializing resources is done before starting to record the
         // renderpass, regardless of wanting an underlay or overlay.
-        connect(window, &QQuickWindow::beforeRendering, m_renderer.get(), &ExampleRenderer::frameStart, Qt::DirectConnection);
+        connect(w, &QQuickWindow::beforeRendering, renderer.get(), &ExampleRenderer::frameStart, Qt::DirectConnection);
         // Here we want an underlay and therefore connect to
         // beforeRenderPassRecording. Changing to afterRenderPassRecording
         // would render the squircle on top (overlay).
-        connect(window, &QQuickWindow::beforeRenderPassRecording, m_renderer.get(), &ExampleRenderer::mainPassRecordingStart, Qt::DirectConnection);
+        connect(w, &QQuickWindow::beforeRenderPassRecording, renderer.get(), &ExampleRenderer::mainPassRecordingStart, Qt::DirectConnection);
     }
-    m_renderer->setViewportSize(window->size() * window->devicePixelRatio());
-    m_renderer->setT(m_t);
-    m_renderer->setWindow(window);
+    renderer->setViewportSize(w->size() * w->devicePixelRatio());
+    renderer->setT(t);
+    renderer->setWindow(w);
 }
 
-void Viewer::Impl::cleanup()
+void Viewer::cleanup()
 {
-    m_renderer.reset();
+    renderer.reset();
 }
 
-void Viewer::Impl::releaseResources(QQuickWindow * window)
+void Viewer::releaseResources()
 {
-    window->scheduleRenderJob(new CleanupJob{std::move(m_renderer)}, QQuickWindow::BeforeSynchronizingStage);
+    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::BeforeSynchronizingStage);
 }
 
 Viewer::Viewer()
@@ -85,58 +71,20 @@ Viewer::Viewer()
 
 Viewer::~Viewer() = default;
 
-qreal Viewer::t() const
+void Viewer::onWindowChanged(QQuickWindow * w)
 {
-    return impl_->m_t;
-}
-
-void Viewer::setT(qreal t)
-{
-    if (t == impl_->m_t) {
-        return;
-    }
-    impl_->m_t = t;
-    Q_EMIT tChanged(impl_->m_t);
-
-    if (auto w = window()) {
-        w->update();
-    }
-}
-
-void Viewer::sync()
-{
-    impl_->sync(window());
-}
-
-// The safe way to release custom graphics resources is to both connect to
-// sceneGraphInvalidated() and implement releaseResources(). To support
-// threaded render loops the latter performs the ExampleRenderer destruction
-// via scheduleRenderJob(). Note that the Viewer may be gone by the time
-// the QRunnable is invoked.
-
-void Viewer::cleanup()
-{
-    impl_->cleanup();
-}
-
-void Viewer::onWindowChanged(QQuickWindow * window)
-{
-    if (!window) {
+    if (!w) {
         qCDebug(viewerCategory) << "Window lost";
         return;
     }
 
-    INVARIANT(window->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
+    INVARIANT(w->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
 
-    connect(window, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::DirectConnection);
-    connect(window, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::DirectConnection);
+    connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::DirectConnection);
+    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::DirectConnection);
+    connect(this, &Viewer::tChanged, w, &QQuickWindow::update);
 
-    window->setColor(Qt::GlobalColor::black);
-}
-
-void Viewer::releaseResources()
-{
-    impl_->releaseResources(window());
+    w->setColor(Qt::GlobalColor::black);
 }
 
 }  // namespace viewer

@@ -1,11 +1,10 @@
 #pragma once
 
-#include <engine/engine_export.h>
-#include <engine/vma.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
+#include <engine/vma.hpp>
 #include <scene/scene.hpp>
 
 #include <fmt/format.h>
@@ -23,6 +22,8 @@
 
 #include <cstddef>
 #include <cstdint>
+
+#include <engine/engine_export.h>
 
 namespace engine
 {
@@ -55,16 +56,18 @@ public:
         std::unordered_multiset<uint32_t> & mutedMessageIdNumbers;
         std::vector<uint32_t> messageIdNumbers;
 
-        DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, const std::initializer_list<uint32_t> & messageIdNumbers);
+        void mute();
+
+        DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, std::initializer_list<uint32_t> messageIdNumbers);
     };
 
     Engine(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
     ~Engine();
 
-    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true);
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
 
-    void addRequiredInstanceExtensions(const std::vector<const char *> & requiredInstanceExtensions);
-    void addRequiredDeviceExtensions(const std::vector<const char *> & requiredDeviceExtensions);
+    void addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions);
+    void addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions);
 
     void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName = std::nullopt, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr);
     [[nodiscard]] vk::Instance getInstance() const;
@@ -80,9 +83,6 @@ public:
     void flushCaches() const;
 
 private:
-    using StringUnorderedSet = std::unordered_set<const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
-    using StringUnorderedMultiMap = std::unordered_multimap<const char *, const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
-
     struct Library;
     struct Instance;
     struct QueueCreateInfo;
@@ -103,10 +103,10 @@ private:
     struct PipelineCache;
     struct GraphicsPipelines;
 
-    utils::CheckedPtr<const Io> io = nullptr;
+    const utils::CheckedPtr<const Io> io;
 
     mutable std::mutex mutex;
-    std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
+    mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
 
     const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
 

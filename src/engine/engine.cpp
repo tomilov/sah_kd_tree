@@ -1,8 +1,3 @@
-#include <engine/debug_utils.hpp>
-#include <engine/exception.hpp>
-#include <engine/format.hpp>
-#include <engine/engine.hpp>
-#include <engine/utils.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
@@ -11,6 +6,11 @@
 
 #include <common/config.hpp>
 #include <common/version.hpp>
+#include <engine/debug_utils.hpp>
+#include <engine/engine.hpp>
+#include <engine/exception.hpp>
+#include <engine/format.hpp>
+#include <engine/utils.hpp>
 
 #include <fmt/format.h>
 #include <fmt/std.h>
@@ -41,6 +41,9 @@
 namespace engine
 {
 
+using StringUnorderedSet = std::unordered_set<const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
+using StringUnorderedMultiMap = std::unordered_multimap<const char *, const char *, std::hash<std::string_view>, std::equal_to<std::string_view>>;
+
 void Engine::DebugUtilsMessageMuteGuard::unmute()
 {
     if (std::empty(messageIdNumbers)) {
@@ -50,8 +53,9 @@ void Engine::DebugUtilsMessageMuteGuard::unmute()
         std::lock_guard<std::mutex> lock{mutex};
         while (!std::empty(messageIdNumbers)) {
             auto messageIdNumber = messageIdNumbers.back();
-            auto erasedCount = mutedMessageIdNumbers.erase(messageIdNumber);
-            INVARIANT(erasedCount == 1, "messageId {:#x} of muted message is not found", messageIdNumber);
+            auto unmutedMessageIdNumber = mutedMessageIdNumbers.find(messageIdNumber);
+            INVARIANT(unmutedMessageIdNumber != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
+            mutedMessageIdNumbers.erase(unmutedMessageIdNumber);
             messageIdNumbers.pop_back();
         }
     }
@@ -67,9 +71,19 @@ Engine::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
     unmute();
 }
 
-Engine::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, const std::initializer_list<uint32_t> & messageIdNumbers)
+void Engine::DebugUtilsMessageMuteGuard::mute()
+{
+    if (!std::empty(messageIdNumbers)) {
+        std::lock_guard<std::mutex> lock{mutex};
+        mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
+    }
+}
+
+Engine::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, std::initializer_list<uint32_t> messageIdNumbers)
     : mutex{mutex}, mutedMessageIdNumbers{mutedMessageIdNumbers}, messageIdNumbers{messageIdNumbers}
-{}
+{
+    mute();
+}
 
 struct Engine::Library final : utils::NonCopyable
 {
@@ -199,7 +213,7 @@ struct Engine::PhysicalDevice final : utils::NonCopyable
         physicalDeviceProperties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-                       vk::PhysicalDeviceMeshShaderFeaturesNV>
+                       vk::PhysicalDeviceMeshShaderFeaturesEXT>
         physicalDeviceFeatures2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> physicalDeviceMemoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -226,15 +240,15 @@ struct Engine::PhysicalDevice final : utils::NonCopyable
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*> physicalDeviceAccelerationStructureFeatures = {
             &vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesNV::*> physicalDeviceMeshShaderFeatures = {
-            &vk::PhysicalDeviceMeshShaderFeaturesNV::meshShader,
-            &vk::PhysicalDeviceMeshShaderFeaturesNV::taskShader,
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesEXT::*> physicalDeviceMeshShaderFeatures = {
+            &vk::PhysicalDeviceMeshShaderFeaturesEXT::meshShader,
+            &vk::PhysicalDeviceMeshShaderFeaturesEXT::taskShader,
         };
     };
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
         VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,       VK_NV_MESH_SHADER_EXTENSION_NAME,
+        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,       VK_EXT_MESH_SHADER_EXTENSION_NAME,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {};
 
@@ -257,6 +271,9 @@ struct Engine::PhysicalDevice final : utils::NonCopyable
     {
         init();
     }
+
+    [[nodiscard]] std::string getDeviceName() const;
+    [[nodiscard]] std::string getPipelineCacheUUID() const;
 
     [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
     [[nodiscard]] uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
@@ -295,7 +312,7 @@ struct Engine::Fences final
     Library & library;
     Device & device;
 
-    vk::FenceCreateInfo fenceCreateInfo;
+    vk::StructureChain<vk::FenceCreateInfo> fenceCreateInfoChain;
 
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
@@ -322,7 +339,7 @@ struct Engine::Device final : utils::NonCopyable
     PhysicalDevice & physicalDevice;
 
     vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-                       vk::PhysicalDeviceMeshShaderFeaturesNV>
+                       vk::PhysicalDeviceMeshShaderFeaturesEXT>
         deviceCreateInfoChain;
     vk::UniqueDevice deviceHolder;
     vk::Device device;
@@ -357,7 +374,7 @@ struct Engine::Device final : utils::NonCopyable
     }
 
     template<typename Object>
-    void setDebugUtilsObjectTag(Object object, uint64_t tagName, size_t tagSize, const void * tag) const
+    void setDebugUtilsObjectTag(Object object, uint64_t tagName, uint32_t tagSize, const void * tag) const
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         debugUtilsObjectTagInfo.objectType = object.objectType;
@@ -386,7 +403,7 @@ struct Engine::Device final : utils::NonCopyable
         debugUtilsObjectTagInfo.objectType = object.objectType;
         debugUtilsObjectTagInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
-        debugUtilsObjectTagInfo.tagSize = std::size(tag);
+        debugUtilsObjectTagInfo.tagSize = uint32_t(std::size(tag));
         debugUtilsObjectTagInfo.pTag = std::data(tag);
         device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
     }
@@ -394,7 +411,8 @@ struct Engine::Device final : utils::NonCopyable
     [[nodiscard]] Fences createFences(std::string_view name, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
     {
         Fences fences{name, engine, library, *this};
-        fences.fenceCreateInfo = {
+        auto & fenceCreateInfo = fences.fenceCreateInfoChain.get<vk::FenceCreateInfo>();
+        fenceCreateInfo = {
             .flags = fenceCreateFlags,
         };
         fences.create();
@@ -428,9 +446,9 @@ struct Engine::CommandBuffers final
 
             if (std::size(commandBuffersHolder) > 1) {
                 auto commandBufferName = fmt::format("{} #{}/{}", name, i++, std::size(commandBuffersHolder));
-                device.setDebugUtilsObjectName(commandBuffers.back(), commandBufferName);
+                device.setDebugUtilsObjectName(*commandBuffer, commandBufferName);
             } else {
-                device.setDebugUtilsObjectName(commandBuffers.back(), name);
+                device.setDebugUtilsObjectName(*commandBuffer, name);
             }
         }
     }
@@ -1178,8 +1196,7 @@ struct Engine::GraphicsPipelines final : utils::NonCopyable
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
 
-    GraphicsPipelines(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width,
-                      uint32_t height)
+    GraphicsPipelines(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width, uint32_t height)
         : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
     {
         load();
@@ -1594,6 +1611,16 @@ void Engine::Instance::init()
     }
 }
 
+std::string Engine::PhysicalDevice::getDeviceName() const
+{
+    return physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceName;
+}
+
+std::string Engine::PhysicalDevice::getPipelineCacheUUID() const
+{
+    return fmt::to_string(physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.pipelineCacheUUID);
+}
+
 auto Engine::PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
 {
     StringUnorderedSet missingExtensions;
@@ -1684,7 +1711,7 @@ bool Engine::PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceT
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceMeshShaderFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesNV>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceMeshShaderFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>())) {
         return false;
     }
 
@@ -1804,6 +1831,16 @@ void Engine::PhysicalDevice::init()
     physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
     INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+
+    auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
+    SPDLOG_INFO("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    SPDLOG_INFO("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
+    SPDLOG_INFO("vendorID {:04x}", physicalDeviceProperties.vendorID);
+    SPDLOG_INFO("deviceID {:04x}", physicalDeviceProperties.deviceID);
+    SPDLOG_INFO("deviceType {}", physicalDeviceProperties.deviceType);
+    SPDLOG_INFO("deviceName {}", std::data(physicalDeviceProperties.deviceName));
+    SPDLOG_INFO("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
+
     {
         auto & physicalDeviceIDProperties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceIDProperties>();
         SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
@@ -1830,12 +1867,16 @@ auto Engine::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -
     };
     PhysicalDevice * bestPhysicalDevice = nullptr;
     for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {
+        size_t i = 0;
         for (const auto & physicalDevice : physicalDevices) {
             if (physicalDevice->checkPhysicalDeviceRequirements(physicalDeviceType, surface)) {
+                SPDLOG_INFO("Physical device #{} of type {} is suitable", i, physicalDeviceType);
                 if (!bestPhysicalDevice) {  // respect GPU reordering layers
+                    SPDLOG_INFO("Physical device #{} is chosen", i);
                     bestPhysicalDevice = physicalDevice.get();
                 }
             }
+            ++i;
         }
     }
     if (!bestPhysicalDevice) {
@@ -1846,7 +1887,9 @@ auto Engine::PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) const -
 
 void Engine::PhysicalDevices::init()
 {
+    size_t i = 0;
     for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
+        SPDLOG_INFO("Create physical device #{}", i++);
         physicalDevices.push_back(std::make_unique<PhysicalDevice>(engine, library, instance, physicalDevice));
     }
 }
@@ -1867,7 +1910,7 @@ void Engine::Device::create()
     setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceVulkan12Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>());
     setFeatures(PhysicalDevice::RequiredFeatures::rayTracingPipelineFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>());
     setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceAccelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
-    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesNV>());
+    setFeatures(PhysicalDevice::RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>());
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
@@ -1904,15 +1947,17 @@ void Engine::Device::create()
 
 void Engine::Fences::create(std::size_t count)
 {
+    const auto & fenceCreateInfo = fenceCreateInfoChain.get<vk::FenceCreateInfo>();
     for (std::size_t i = 0; i < count; ++i) {
         fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
-        fences.push_back(*fencesHolder.back());
+        auto fence = *fencesHolder.back();
+        fences.push_back(fence);
 
         if (count > 1) {
             auto fenceName = fmt::format("{} #{}/{}", name, i++, count);
-            device.setDebugUtilsObjectName(fences.back(), fenceName);
+            device.setDebugUtilsObjectName(fence, fenceName);
         } else {
-            device.setDebugUtilsObjectName(fences.back(), name);
+            device.setDebugUtilsObjectName(fence, name);
         }
     }
 }
@@ -1942,14 +1987,10 @@ Engine::Engine(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> m
 
 Engine::~Engine() = default;
 
-auto Engine::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) -> DebugUtilsMessageMuteGuard
+auto Engine::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     if (!enabled) {
         return {mutex, mutedMessageIdNumbers, {}};
-    }
-    {
-        std::lock_guard<std::mutex> lock{mutex};
-        mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
     }
     return {mutex, mutedMessageIdNumbers, std::move(messageIdNumbers)};
 }
@@ -1978,14 +2019,12 @@ vk::Instance Engine::getInstance() const
 
 void Engine::createDevice(vk::SurfaceKHR surface)
 {
-    using namespace std::string_view_literals;
-    static constexpr auto deviceName = "device"sv;
-    device = std::make_unique<Device>(deviceName, *this, *library, *instance, physicalDevices->pickPhisicalDevice(surface));
+    auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
+    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, *library, *instance, physicalDevice);
     memoryAllocator = device->makeMemoryAllocator();
     commandPools = std::make_unique<CommandPools>(*this, *library, *instance, device->physicalDevice, *device);
     queues = std::make_unique<Queues>(*this, *library, *instance, device->physicalDevice, *device, *commandPools);
-    static constexpr auto pipelineCacheName = "engine_pipeline_cache"sv;
-    pipelineCache = std::make_unique<PipelineCache>(pipelineCacheName, *this, *library, device->physicalDevice, *device);
+    pipelineCache = std::make_unique<PipelineCache>(physicalDevice.getPipelineCacheUUID(), *this, *library, physicalDevice, *device);
 }
 
 vk::PhysicalDevice Engine::getPhysicalDevice() const

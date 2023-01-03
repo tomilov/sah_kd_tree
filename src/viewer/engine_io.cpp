@@ -25,6 +25,9 @@ Q_DECLARE_LOGGING_CATEGORY(viewerEngineIoCategory)
 Q_LOGGING_CATEGORY(viewerEngineIoCategory, "viewer.engine_io")
 }  // namespace
 
+EngineIo::EngineIo(QString shaderLocation) : shaderLocation{shaderLocation}
+{}
+
 std::vector<uint8_t> EngineIo::loadPipelineCache(std::string_view pipelineCacheName) const
 {
     auto cacheFileName = QString::fromStdString(std::string{pipelineCacheName});
@@ -106,7 +109,6 @@ std::vector<uint32_t> EngineIo::loadShader(std::string_view shaderName) const
 {
     auto shaderFileName = QString::fromStdString(std::string{shaderName});
     shaderFileName.append(QStringLiteral(".spv"));
-    auto shaderLocation = QStringLiteral(":/shaders");
     QDir shaderDir{shaderLocation};
     if (!shaderDir.exists()) {
         qCWarning(viewerEngineIoCategory).noquote() << QStringLiteral("Possible location '%1' of shader directory '%2' does not exists").arg(shaderDir.path(), shaderFileName);

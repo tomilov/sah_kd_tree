@@ -72,7 +72,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     const auto assimpScene = importer.ReadFile(qPrintable(sceneFileInfo.filePath()), pFlags);
     qCDebug(sceneLoaderLog).noquote() << QStringLiteral("scene loaded in %1 ms").arg(sceneLoadTimer.nsecsElapsed() * 1E-6);
     if (!assimpScene) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("unable to load scene %1: %2").arg(sceneFileInfo.filePath(), QString::fromLocal8Bit(importer.GetErrorString()));
+        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("unable to load scene %1: %2").arg(sceneFileInfo.filePath(), QString::fromUtf8(importer.GetErrorString()));
         return false;
     }
     {

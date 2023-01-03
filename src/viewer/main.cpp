@@ -1,7 +1,8 @@
 #include <utils/assert.hpp>
-#include <viewer/engine_io.hpp>
+#include <viewer/qml_engine_wrapper.hpp>
 
 #include <common/version.hpp>
+#include <engine/engine.hpp>
 
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -116,7 +117,7 @@ spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
 int main(int argc, char * argv[])
 {
     {
-        auto projectName = QString::fromLocal8Bit(sah_kd_tree::kProjectName);
+        auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
         QVersionNumber applicationVersion{sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch, sah_kd_tree::kProjectVersionTweak};
 
         QCoreApplication::setOrganizationName(projectName);
@@ -160,11 +161,12 @@ int main(int argc, char * argv[])
     qCInfo(viewerMainCategory).noquote() << QStringLiteral("Settings path: %1").arg(QSettings{}.fileName());
 
     {
-        QDirIterator resources{":/", QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
+        QDirIterator resources{QStringLiteral(":/"), QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
         while (resources.hasNext()) {
             qCDebug(viewerMainCategory) << resources.next();
         }
     }
+    auto resourcesBasePath = QUrl{QStringLiteral("qrc:///%1/").arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
 
     auto application = createApplication(argc, argv);
     if (!application) {
@@ -181,15 +183,15 @@ int main(int argc, char * argv[])
 
     constexpr bool kUseEngine = true;
 
-    auto engineIo = std::make_unique<viewer::EngineIo>();
-    engine::Engine engine{engineIo.get(), {0x0, 0xB3D4346B, 0xDC18AD6B}};
+    viewer::Engine engine;
+    viewer::EngineSingletonForeign::setEngine(&engine);
 
     QVulkanInstance vulkanInstance;
     if (kUseEngine) {
-        engine.addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
+        engine.get().addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(engine.getInstance());
+        engine.get().createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(engine.get().getInstance());
     } else {
         {
             QVersionNumber apiVersion(1, 3);
@@ -204,7 +206,7 @@ int main(int argc, char * argv[])
             auto supportedLayers = vulkanInstance.supportedLayers();
             for (const auto & layer : layers) {
                 if (!supportedLayers.contains(layer)) {
-                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromLocal8Bit(layer));
+                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromUtf8(layer));
                     return EXIT_FAILURE;
                 }
             }
@@ -215,7 +217,7 @@ int main(int argc, char * argv[])
             auto supportedExtensions = vulkanInstance.supportedExtensions();
             for (const auto & instanceExtension : instanceExtensions) {
                 if (!supportedExtensions.contains(instanceExtension)) {
-                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromLocal8Bit(instanceExtension));
+                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromUtf8(instanceExtension));
                     return EXIT_FAILURE;
                 }
             }
@@ -232,14 +234,14 @@ int main(int argc, char * argv[])
     quickGraphicsConfiguration.setDepthBufferFor2D(true);
 
     QQmlApplicationEngine qmlApplicationEngine;
-    qmlApplicationEngine.setBaseUrl(QUrl{QStringLiteral("qrc:///%1/").arg(QString::fromUtf8(sah_kd_tree::kProjectName))});
+    qmlApplicationEngine.setBaseUrl(resourcesBasePath);
     // qmlApplicationEngine.addImportPath(":/sah_kd_tree/imports");
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
         qFatal("unreachable");
     }
 
-    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &engine](QObject * object, const QUrl & url)
+    const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &engine = engine.get()](QObject * object, const QUrl & url)
     {
         if (!object) {
             qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
