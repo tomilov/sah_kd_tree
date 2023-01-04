@@ -138,7 +138,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     // TODO: check memory heaps
 
     // TODO: check physical device surface capabilities
-    if ((surface)) {
+    if (surface) {
         physicalDeviceSurfaceInfo.surface = surface;
         surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
         surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);

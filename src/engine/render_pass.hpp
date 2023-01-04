@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/utils.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -21,7 +22,7 @@ struct ShaderModule;
 
 struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 {
-    using PipelineShaderStageCreateInfoChain = vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
+    using PipelineShaderStageCreateInfoChains = StructureChains<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
 
     Engine & engine;
     Library & library;
@@ -30,7 +31,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     std::deque<std::string> entryPoints;
     std::deque<std::string> names;
-    std::vector<PipelineShaderStageCreateInfoChain> shaderStages;
+    PipelineShaderStageCreateInfoChains shaderStages;
 
     ShaderStages(Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
     {}

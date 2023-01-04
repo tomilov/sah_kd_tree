@@ -3,7 +3,6 @@
 #include <engine/library.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <engine/render_pass.hpp>
-#include <engine/utils.hpp>
 #include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
@@ -90,10 +89,9 @@ void GraphicsPipelines::load()
     pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
     pipelineLayout = *pipelineLayoutHolder;
 
-    shaderStagesHeads = toChainHeads(shaderStages.shaderStages);
     auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfos.emplace_back();
     graphicsPipelineCreateInfo.flags = {};
-    graphicsPipelineCreateInfo.setStages(shaderStagesHeads);
+    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
     graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;

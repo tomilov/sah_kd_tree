@@ -16,8 +16,8 @@ void ShaderStages::append(const ShaderModule & shaderModule, std::string_view en
     entryPoints.emplace_back(entryPoint);
     const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, entryPoint));
 
-    auto & pipelineShaderStageCreateInfoChain = shaderStages.emplace_back();
-    auto & pipelineShaderStageCreateInfo = pipelineShaderStageCreateInfoChain.get<vk::PipelineShaderStageCreateInfo>();
+    shaderStages.resize(shaderStages.size() + 1);
+    auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
     pipelineShaderStageCreateInfo = {
         .flags = {},
         .stage = shaderModule.shaderStage,
@@ -25,7 +25,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, std::string_view en
         .pName = entryPoints.back().c_str(),
         .pSpecializationInfo = nullptr,
     };
-    auto & debugUtilsObjectNameInfo = pipelineShaderStageCreateInfoChain.get<vk::DebugUtilsObjectNameInfoEXT>();
+    auto & debugUtilsObjectNameInfo = shaderStages.back<vk::DebugUtilsObjectNameInfoEXT>();
     debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
     debugUtilsObjectNameInfo.pObjectName = name.c_str();

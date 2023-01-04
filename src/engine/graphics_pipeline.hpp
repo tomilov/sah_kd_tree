@@ -52,7 +52,6 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
     vk::UniquePipelineLayout pipelineLayoutHolder;
     vk::PipelineLayout pipelineLayout;
 
-    std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesHeads;
     std::vector<vk::GraphicsPipelineCreateInfo> graphicsPipelineCreateInfos;
 
     std::vector<vk::UniquePipeline> pipelineHolders;
