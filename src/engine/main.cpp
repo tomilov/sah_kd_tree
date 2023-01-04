@@ -13,7 +13,7 @@
 namespace
 {
 
-class EngineIo final : public engine::Engine::Io
+class EngineIo final : public engine::Io
 {
 public:
     using Io::Io;
@@ -100,7 +100,7 @@ public:
 int main(int /*argc*/, char * /*argv*/[])
 {
     auto engineIo = std::make_unique<EngineIo>();
-    engine::Engine engine{engineIo.get()};
+    engine::Engine engine;
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     engine::AllocationCallbacks allocationCallbacks;
     {

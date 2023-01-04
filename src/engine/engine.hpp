@@ -27,20 +27,41 @@
 
 namespace engine
 {
+
+struct Library;
+struct Instance;
+struct QueueCreateInfo;
+struct PhysicalDevice;
+struct PhysicalDevices;
+struct Fences;
+struct Device;
+struct CommandBuffers;
+struct CommandPool;
+struct CommandPools;
+struct Queue;
+struct Queues;
+struct ShaderModule;
+struct ShaderModuleReflection;
+struct ShaderStages;
+struct RenderPass;
+struct Framebuffer;
+struct PipelineCache;
+struct GraphicsPipelines;
+
+class Io
+{
+public:
+    virtual ~Io() = default;
+
+    [[nodiscard]] virtual std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const = 0;
+    [[nodiscard]] virtual bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const = 0;
+
+    [[nodiscard]] virtual std::vector<uint32_t> loadShader(std::string_view shaderName) const = 0;
+};
+
 class ENGINE_EXPORT Engine final : utils::NonCopyable
 {
 public:
-    class Io
-    {
-    public:
-        virtual ~Io() = default;
-
-        [[nodiscard]] virtual std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const = 0;
-        [[nodiscard]] virtual bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const = 0;
-
-        [[nodiscard]] virtual std::vector<uint32_t> loadShader(std::string_view shaderName) const = 0;
-    };
-
     class DebugUtilsMessageMuteGuard final
     {
     public:
@@ -61,17 +82,19 @@ public:
         DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, std::initializer_list<uint32_t> messageIdNumbers);
     };
 
-    Engine(utils::CheckedPtr<const Io> io, std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
+    Engine(std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
     ~Engine();
 
     [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
+    bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
     void addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions);
-    void addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions);
-
+    const std::vector<const char *> & getRequiredInstanceExtensions() const;
     void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName = std::nullopt, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr);
     [[nodiscard]] vk::Instance getInstance() const;
 
+    void addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions);
+    const std::vector<const char *> & getRequiredDeviceExtensions() const;
     void createDevice(vk::SurfaceKHR surface = {});
     [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const;
     [[nodiscard]] vk::Device getDevice() const;
@@ -80,31 +103,7 @@ public:
 
     void loadScene(scene::Scene & scene);
 
-    void flushCaches() const;
-
 private:
-    struct Library;
-    struct Instance;
-    struct QueueCreateInfo;
-    struct PhysicalDevice;
-    struct PhysicalDevices;
-    struct Fences;
-    struct Device;
-    struct CommandBuffers;
-    struct CommandPool;
-    struct CommandPools;
-    struct Queue;
-    struct Queues;
-    struct ShaderModule;
-    struct ShaderModuleReflection;
-    struct ShaderStages;
-    struct RenderPass;
-    struct Framebuffer;
-    struct PipelineCache;
-    struct GraphicsPipelines;
-
-    const utils::CheckedPtr<const Io> io;
-
     mutable std::mutex mutex;
     mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
 
@@ -120,9 +119,7 @@ private:
     std::unique_ptr<MemoryAllocator> memoryAllocator;
     std::unique_ptr<CommandPools> commandPools;
     std::unique_ptr<Queues> queues;
-    std::unique_ptr<PipelineCache> pipelineCache;
-
-    bool shouldMute(uint32_t messageIdNumber) const;
+    // std::unique_ptr<PipelineCache> pipelineCache;
 };
 
 }  // namespace engine

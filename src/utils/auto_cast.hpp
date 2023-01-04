@@ -35,7 +35,7 @@ constexpr bool isLess(const L & lhs, const R & rhs)
 template<typename To, typename From>
 constexpr bool isIncludes(const From & value)
 {
-    if constexpr (std::is_same_v<To, bool>) {
+    if constexpr (std::is_same_v<To, bool> && (std::is_arithmetic_v<From> || std::is_pointer_v<From>)) {
         return true;
     } else {
         return !isLess(value, (std::numeric_limits<To>::lowest)()) && !isLess((std::numeric_limits<To>::max)(), value);
@@ -59,8 +59,9 @@ constexpr To convertIfIncludes(From && value)
 }
 
 template<typename Source>
-struct autoCast
+class autoCast
 {
+public:
     constexpr autoCast(Source && source) noexcept : source{source}
     {}
 

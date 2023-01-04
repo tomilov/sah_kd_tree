@@ -29,7 +29,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr std::size_t kSize = 296;
+    static constexpr std::size_t kSize = 272;
     static constexpr std::size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

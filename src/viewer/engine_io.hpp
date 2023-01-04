@@ -7,7 +7,7 @@
 namespace viewer
 {
 
-class EngineIo final : public engine::Engine::Io
+class EngineIo final : public engine::Io
 {
 public:
     EngineIo(QString shaderLocation);

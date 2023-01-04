@@ -25,7 +25,8 @@ Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 Renderer::Renderer(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
     : vkGetInstanceProcAddr{vkGetInstanceProcAddr}, instance{instance->vkInstance()}, physicalDevice{physicalDevice}, vkGetDeviceProcAddr{vkGetDeviceProcAddr}, device{device}, queueFamilyIndex{queueFamilyIndex}, queue{queue}
 {
-    Q_ASSERT(instance && instance->isValid());
+    Q_ASSERT(instance);
+    Q_ASSERT(instance->isValid());
     Q_ASSERT(physicalDevice);
     Q_ASSERT(device);
 
@@ -46,7 +47,6 @@ Renderer::Renderer(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInsta
 
 Renderer::~Renderer()
 {
-    qDebug("cleanup");
     if (!deviceFunctions) return;
 
     deviceFunctions->vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -62,8 +62,6 @@ Renderer::~Renderer()
 
     deviceFunctions->vkDestroyBuffer(device, uniformBuffer, nullptr);
     deviceFunctions->vkFreeMemory(device, uniformBufferMemory, nullptr);
-
-    qDebug("released");
 }
 
 void Renderer::setT(float t)
@@ -82,31 +80,23 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
     VkDeviceSize ubufOffset = graphicsStateInfo.currentFrameSlot * uniformBufferPerFrameSize;
     void * p = nullptr;
     VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, ubufOffset, uniformBufferPerFrameSize, 0, &p);
-    Q_CHECK_PTR(p);
-    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
+    INVARIANT(p, "Just successfully initialized");
     memcpy(p, &t, sizeof t);
     deviceFunctions->vkUnmapMemory(device, uniformBufferMemory);
 }
 
 static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
-const int kUBufSize = 4;
-
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
 {
     if (!pipelinesInitialized) {
         pipelinesInitialized = true;
-        initPipelines(renderPass);
+        initGraphicsPipelines(renderPass);
     }
 
-    // Must query the command buffer _after_ beginExternalCommands(), this is
-    // actually important when running on Vulkan because what we get here is a
-    // new secondary command buffer, not the primary one.
     VkCommandBuffer cb = commandBuffer;
     Q_ASSERT(cb);
-
-    // Do not assume any state persists on the command buffer. (it may be a
-    // brand new one that just started recording)
 
     deviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -162,11 +152,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 
 void Renderer::initPipelineLayouts(int framesInFlight)
 {
-    qDebug("init");
-
     Q_ASSERT(framesInFlight <= 3);
-
-    // For simplicity we just use host visible buffers instead of device local + staging.
 
     VkPhysicalDeviceProperties physDevProps = {};
     instanceFunctions->vkGetPhysicalDeviceProperties(physicalDevice, &physDevProps);
@@ -205,14 +191,14 @@ void Renderer::initPipelineLayouts(int framesInFlight)
 
     void * p = nullptr;
     err = deviceFunctions->vkMapMemory(device, vertexBufferMemory, 0, allocInfo.allocationSize, 0, &p);
-    INVARIANT(p, "Just initialized");
-    if (err != VK_SUCCESS || !p) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
+    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
+    INVARIANT(p, "Just successfully initialized");
     memcpy(p, vertices, sizeof(vertices));
     deviceFunctions->vkUnmapMemory(device, vertexBufferMemory);
     err = deviceFunctions->vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
 
-    uniformBufferPerFrameSize = aligned(kUBufSize, physDevProps.limits.minUniformBufferOffsetAlignment);
+    uniformBufferPerFrameSize = aligned(sizeof t, physDevProps.limits.minUniformBufferOffsetAlignment);
 
     bufferInfo.size = framesInFlight * uniformBufferPerFrameSize;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
@@ -237,8 +223,6 @@ void Renderer::initPipelineLayouts(int framesInFlight)
 
     err = deviceFunctions->vkBindBufferMemory(device, uniformBuffer, uniformBufferMemory, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind uniform buffer memory: %d", err);
-
-    // Now onto the pipeline.
 
     VkPipelineCacheCreateInfo pipelineCacheInfo = {};
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -296,12 +280,12 @@ void Renderer::initDescriptors()
     VkDescriptorBufferInfo bufInfo = {};
     bufInfo.buffer = uniformBuffer;
     bufInfo.offset = 0;  // dynamic offset is used so this is ignored
-    bufInfo.range = kUBufSize;
+    bufInfo.range = sizeof t;
     writeInfo.pBufferInfo = &bufInfo;
     deviceFunctions->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
 }
 
-void Renderer::initPipelines(vk::RenderPass renderPass)
+void Renderer::initGraphicsPipelines(vk::RenderPass renderPass)
 {
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -332,9 +316,11 @@ void Renderer::initPipelines(vk::RenderPass renderPass)
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = stageInfo;
 
-    VkVertexInputBindingDescription vertexBinding = {0,                  // binding
-                                                     2 * sizeof(float),  // stride
-                                                     VK_VERTEX_INPUT_RATE_VERTEX};
+    VkVertexInputBindingDescription vertexBinding = {
+        0,                  // binding
+        2 * sizeof(float),  // stride
+        VK_VERTEX_INPUT_RATE_VERTEX,
+    };
     VkVertexInputAttributeDescription vertexAttr = {
         0,                        // location
         0,                        // binding
@@ -380,7 +366,6 @@ void Renderer::initPipelines(vk::RenderPass renderPass)
     dsInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     pipelineInfo.pDepthStencilState = &dsInfo;
 
-    // SrcAlpha, One
     VkPipelineColorBlendStateCreateInfo blendInfo = {};
     blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     VkPipelineColorBlendAttachmentState blend = {};

@@ -15,7 +15,7 @@ namespace viewer
 struct Engine::Impl final : utils::NonCopyable
 {
     EngineIo engineIo{QStringLiteral("shaders:")};
-    engine::Engine engine{&engineIo, {0x0, 0xB3D4346B, 0xDC18AD6B}};
+    engine::Engine engine{{0x0, 0xB3D4346B, 0xDC18AD6B, 0xD7FA5F44}};
 };
 
 Engine::Engine(QObject * parent) : QObject{parent}

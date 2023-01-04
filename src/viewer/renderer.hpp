@@ -66,7 +66,7 @@ private:
     void prepareShader(Stage stage);
     void initPipelineLayouts(int framesInFlight);
     void initDescriptors();
-    void initPipelines(vk::RenderPass renderPass);
+    void initGraphicsPipelines(vk::RenderPass renderPass);
 };
 
 }  // namespace viewer

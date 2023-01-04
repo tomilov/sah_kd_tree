@@ -161,7 +161,7 @@ int main(int argc, char * argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
     qCInfo(viewerMainCategory).noquote() << QStringLiteral("Settings path: %1").arg(QSettings{}.fileName());
 
-    {
+    if ((false)) {
         QDirIterator resources{QStringLiteral(":/"), QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
         while (resources.hasNext()) {
             qCDebug(viewerMainCategory) << resources.next();
@@ -189,6 +189,7 @@ int main(int argc, char * argv[])
 
     QVulkanInstance vulkanInstance;
     if (kUseEngine) {
+        vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
         engine.get().addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         engine.get().createInstance(APPLICATION_NAME, kApplicationVersion);
