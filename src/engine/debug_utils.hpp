@@ -5,6 +5,8 @@
 #include <array>
 #include <type_traits>
 
+#include <engine/engine_export.h>
+
 namespace engine
 {
 
@@ -16,13 +18,13 @@ template<typename Object>
 void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
 
 template<>
-void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, const char * labelName, const LabelColor & color);
+void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, const char * labelName, const LabelColor & color) ENGINE_EXPORT;
 
 template<>
-void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, const char * labelName, const LabelColor & color);
+void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, const char * labelName, const LabelColor & color) ENGINE_EXPORT;
 
 template<typename Object>
-class ScopedDebugUtilsLabel
+class ENGINE_EXPORT ScopedDebugUtilsLabel
 {
     static_assert(std::is_same_v<Object, vk::Queue> || std::is_same_v<Object, vk::CommandBuffer>);
 

@@ -9,8 +9,11 @@
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickWindow>
 
+#include <cstdint>
+
 namespace viewer
 {
+
 class Renderer
 {
 public:

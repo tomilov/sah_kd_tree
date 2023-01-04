@@ -16,6 +16,8 @@
 
 #include <memory>
 
+#include <cstddef>
+
 namespace scene_loader
 {
 namespace

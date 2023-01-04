@@ -1,5 +1,6 @@
 #include <scene_loader/assimp_wrappers.hpp>
 #include <scene_loader/scene_loader.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -179,7 +180,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     if (triangleCount < 0) {
         return false;
     }
-    scene.triangles.resize(size_t(triangleCount));
+    scene.triangles.resize(utils::autoCast(triangleCount));
     const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
     const int readLen = dataStream.readRawData(reinterpret_cast<char *>(scene.triangles.data()), len);
     if (readLen != len) {

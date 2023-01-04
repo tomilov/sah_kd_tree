@@ -1,16 +1,16 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
-#include <viewer/viewer_export.h>
-
-#include <engine/fwd.hpp>
 
 #include <QtCore/QObject>
 #include <QtQml/QJSEngine>
 #include <QtQml/QQmlEngine>
 
 #include <cstddef>
+
+#include <viewer/viewer_export.h>
 
 namespace viewer
 {
@@ -23,14 +23,14 @@ public:
     explicit Engine(QObject * parent = nullptr);
     ~Engine();
 
-    engine::Engine & get();
-    const engine::Engine & get() const;
+    engine::Engine & getEngine();
+    const engine::Engine & getEngine() const;
 
 private:
     struct Impl;
 
-    static constexpr std::size_t kSize = 272;
-    static constexpr std::size_t kAlignment = 8;
+    static constexpr size_t kSize = 248;
+    static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 

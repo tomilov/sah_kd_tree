@@ -1,10 +1,10 @@
 #pragma once
 
-#include <utils/utils_export.h>
-
 #include <fmt/format.h>
 
 #include <string_view>
+
+#include <utils/utils_export.h>
 
 namespace utils
 {

@@ -30,4 +30,5 @@ target_link_libraries(
         assimp::assimp
     PUBLIC
         Qt6::Core
-        "libscene")
+        "libscene"
+        "libutils")

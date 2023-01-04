@@ -1,13 +1,13 @@
 #pragma once
 
-#include <scene_loader/scene_loader_export.h>
-
 #include <scene/scene.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 
 #include <tuple>
+
+#include <scene_loader/scene_loader_export.h>
 
 namespace scene_loader
 {

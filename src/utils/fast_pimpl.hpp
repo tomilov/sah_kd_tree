@@ -9,7 +9,7 @@
 namespace utils
 {
 
-template<typename T, std::size_t kSize, std::size_t kAlignment>
+template<typename T, size_t kSize, size_t kAlignment>
 class FastPimpl final
 {
 public:
@@ -76,7 +76,7 @@ public:
 private:
     alignas(kAlignment) std::byte storage_[kSize];
 
-    template<std::size_t kActualSize, std::size_t kActualAlignment>
+    template<size_t kActualSize, size_t kActualAlignment>
     struct Validate
     {
         static_assert(kSize == kActualSize);

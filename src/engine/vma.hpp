@@ -6,20 +6,25 @@
 #include <vulkan/vulkan.hpp>
 
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
 
+#include <cstddef>
 #include <cstdint>
+
+#include <engine/engine_export.h>
 
 VK_DEFINE_HANDLE(VmaAllocator)
 
 namespace engine
 {
+struct Library;
 
-class MemoryAllocator final : utils::NonCopyable
+class ENGINE_EXPORT MemoryAllocator final : utils::NonCopyable
 {
 public:
     struct CreateInfo
@@ -47,8 +52,7 @@ public:
     class Buffer;
     class Image;
 
-    MemoryAllocator(const CreateInfo & features, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-                    uint32_t deviceApiVersion, vk::Device device);
+    MemoryAllocator(const CreateInfo & features, Library & library, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device);
     ~MemoryAllocator();
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
@@ -69,13 +73,12 @@ public:
 private:
     struct Resource;
 
-    const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
-    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher;
+    Library & library;
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 };
 
-struct MemoryAllocator::AllocationCreateInfo
+struct ENGINE_EXPORT MemoryAllocator::AllocationCreateInfo
 {
     enum class AllocationType
     {
@@ -96,7 +99,7 @@ struct MemoryAllocator::AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
-class MemoryAllocator::Buffer final  // TODO(tomilov): make buffer suballocator
+class ENGINE_EXPORT MemoryAllocator::Buffer final  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
@@ -110,8 +113,8 @@ public:
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
 private:
-    static constexpr std::size_t kSize = 200;
-    static constexpr std::size_t kAlignment = 8;
+    static constexpr size_t kSize = 200;
+    static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
@@ -120,7 +123,7 @@ static_assert(!std::is_copy_assignable_v<MemoryAllocator::Buffer>);
 static_assert(std::is_move_constructible_v<MemoryAllocator::Buffer>);
 static_assert(std::is_move_assignable_v<MemoryAllocator::Buffer>);
 
-class MemoryAllocator::Image final
+class ENGINE_EXPORT MemoryAllocator::Image final
 {
 public:
     Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
@@ -138,8 +141,8 @@ public:
     static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
 
 private:
-    static constexpr std::size_t kSize = 200;
-    static constexpr std::size_t kAlignment = 8;
+    static constexpr size_t kSize = 200;
+    static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 

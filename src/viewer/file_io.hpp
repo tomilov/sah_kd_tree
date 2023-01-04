@@ -1,17 +1,18 @@
 #pragma once
 
-#include <engine/engine.hpp>
+#include <engine/file_io.hpp>
 
 #include <QtCore/QString>
+
+#include <cstdint>
 
 namespace viewer
 {
 
-class EngineIo final : public engine::Io
+class FileIo final : public engine::FileIo
 {
 public:
-    EngineIo(QString shaderLocation);
-    ~EngineIo() = default;
+    FileIo(QString shaderLocation);
 
     std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override;
     bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override;

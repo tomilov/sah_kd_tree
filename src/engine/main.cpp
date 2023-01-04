@@ -1,7 +1,9 @@
 #include <common/version.hpp>
 #include <engine/engine.hpp>
 #include <engine/exception.hpp>
+#include <engine/file_io.hpp>
 #include <engine/memory.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
@@ -10,13 +12,16 @@
 #include <filesystem>
 #include <fstream>
 
+#include <cstddef>
+#include <cstdint>
+
 namespace
 {
 
-class EngineIo final : public engine::Io
+class FileIo final : public engine::FileIo
 {
 public:
-    using Io::Io;
+    using engine::FileIo::FileIo;
 
     std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override
     {
@@ -37,7 +42,7 @@ public:
         cacheFile.seekg(0);
 
         std::vector<uint8_t> data;
-        data.resize(std::size_t(size) / sizeof *std::data(data));
+        data.resize(size_t(utils::autoCast(size)) / sizeof *std::data(data));
         using RawDataType = std::ifstream::char_type *;
         cacheFile.read(RawDataType(std::data(data)), size);
 
@@ -81,10 +86,10 @@ public:
         shaderFile.seekg(0);
 
         std::vector<uint32_t> code;
-        if ((size_t(size) % sizeof *std::data(code)) != 0) {
+        if ((size_t(utils::autoCast(size)) % sizeof *std::data(code)) != 0) {
             throw engine::RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
         }
-        code.resize(size_t(size) / sizeof *std::data(code));
+        code.resize(size_t(utils::autoCast(size)) / sizeof *std::data(code));
         using RawDataType = std::ifstream::char_type *;
         shaderFile.read(RawDataType(std::data(code)), size);
         if (shaderFile.tellg() != size) {
@@ -99,7 +104,7 @@ public:
 
 int main(int /*argc*/, char * /*argv*/[])
 {
-    auto engineIo = std::make_unique<EngineIo>();
+    auto fileIo = std::make_unique<FileIo>();
     engine::Engine engine;
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     engine::AllocationCallbacks allocationCallbacks;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <sah_kd_tree/sah_kd_tree_export.h>
-
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -9,6 +7,8 @@
 #include <thrust/tuple.h>
 
 #include <limits>
+
+#include <sah_kd_tree/sah_kd_tree_export.h>
 
 namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
 {

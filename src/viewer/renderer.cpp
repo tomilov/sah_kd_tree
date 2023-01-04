@@ -1,8 +1,7 @@
+#include <common/version.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/renderer.hpp>
-
-#include <common/version.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
@@ -13,6 +12,8 @@
 #include <QtCore/QString>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QSGRendererInterface>
+
+#include <cstdint>
 
 namespace viewer
 {

@@ -49,7 +49,7 @@ SpaceAfterTemplateKeyword: false
 IncludeBlocks: Regroup
 IncludeIsMainRegex: (_test)?$
 IncludeCategories:
-  - Regex: ^<(sah_kd_tree|builder|scene_loader|fuzzer|renderer|utils|viewer)/
+  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene|fuzzer|engine|utils|viewer)/.*\.(hpp|cuh)>
     Priority: 2
   - Regex: ^<thrust/
     Priority: 4
@@ -69,10 +69,16 @@ IncludeCategories:
     Priority: 8
   - Regex: ^<vulkan/.*\.h>$
     Priority: 8
-  - Regex: \.h>$
-    Priority: 9
-  - Regex: ^<c(assert|stdlib|stdint|string|math|stddef)>$
+  - Regex: ^<spirv_reflect\.h>$
     Priority: 8
+  - Regex: ^<gtest/gtest\.h>$
+    Priority: 8
+  - Regex: \.h>$
+    Priority: 10
+  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene|fuzzer|engine|utils|viewer)/.*\.h>
+    Priority: 11
+  - Regex: ^<c(assert|stdlib|stdint|string|math|stddef)>$
+    Priority: 9
   - Regex: ^<[[:alnum:]_]+>$
     Priority: 7
   - Regex: .*

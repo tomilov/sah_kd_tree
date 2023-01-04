@@ -1,9 +1,8 @@
-#include <utils/assert.hpp>
-#include <viewer/engine_wrapper.hpp>
-
 #include <common/version.hpp>
 #include <engine/engine.hpp>
 #include <engine/format.hpp>
+#include <utils/assert.hpp>
+#include <viewer/engine_wrapper.hpp>
 
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -35,6 +34,7 @@
 
 #include <memory>
 
+#include <cstdint>
 #include <cstdlib>
 
 namespace
@@ -190,10 +190,10 @@ int main(int argc, char * argv[])
     QVulkanInstance vulkanInstance;
     if (kUseEngine) {
         vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
-        engine.get().addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
+        engine.getEngine().addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.get().createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(engine.get().getInstance());
+        engine.getEngine().createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(engine.getEngine().getInstance());
     } else {
         {
             QVersionNumber apiVersion(1, 3);
@@ -256,12 +256,12 @@ int main(int argc, char * argv[])
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
-            engine.get().addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-            engine.get().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = engine.get().getPhysicalDevice();
-            vk::Device device = engine.get().getDevice();
-            uint32_t queueFamilyIndex = engine.get().getGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = engine.get().getGraphicsQueueIndex();
+            engine.getEngine().addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            engine.getEngine().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
+            vk::PhysicalDevice physicalDevice = engine.getEngine().getPhysicalDevice();
+            vk::Device device = engine.getEngine().getDevice();
+            uint32_t queueFamilyIndex = engine.getEngine().getGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = engine.getEngine().getGraphicsQueueIndex();
             INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);

@@ -8,17 +8,20 @@
 #include <type_traits>
 #include <utility>
 
+#include <cstddef>
 #include <cstdint>
 
+#include <engine/engine_export.h>
+
 template<typename FlagBitsType>
-std::size_t getFlagBitsMaxNameLength()
+size_t getFlagBitsMaxNameLength()
 {
     using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
     auto mask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
-    std::size_t maxLength = 0;
+    size_t maxLength = 0;
     while (mask != 0) {
         auto bit = (mask & (mask - 1)) ^ mask;
-        std::size_t length = fmt::formatted_size("{}", FlagBitsType{bit});
+        size_t length = fmt::formatted_size("{}", FlagBitsType{bit});
         if (maxLength < length) {
             maxLength = length;
         }

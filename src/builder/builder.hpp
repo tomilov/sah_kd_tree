@@ -1,8 +1,8 @@
 #pragma once
 
-#include <builder/builder_export.h>
-
 #include <QtCore/QString>
+
+#include <builder/builder_export.h>
 
 namespace builder
 {

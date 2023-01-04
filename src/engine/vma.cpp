@@ -1,16 +1,13 @@
+#include <engine/exception.hpp>
+#include <engine/format.hpp>
+#include <engine/library.hpp>
+#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
 
-#include <engine/exception.hpp>
-#include <engine/vma.hpp>
-
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
-
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <variant>
+#include <vulkan/vulkan.hpp>
 
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
@@ -21,14 +18,19 @@
 #define VMA_DEBUG_GLOBAL_MUTEX 1
 #define VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT 1
 #endif
+#include <memory>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
 #include <vk_mem_alloc.h>
+
+#include <cstdint>
 
 namespace engine
 {
 
-MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Instance instance, vk::PhysicalDevice physicalDevice,
-                                 uint32_t deviceApiVersion, vk::Device device)
-    : allocationCallbacks{allocationCallbacks}, dispatcher{dispatcher}
+MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, Library & library, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device) : library{library}
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = vk::Instance::NativeType(instance);
@@ -36,8 +38,8 @@ MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<con
     allocatorInfo.device = vk::Device::NativeType(device);
     allocatorInfo.vulkanApiVersion = deviceApiVersion;
 
-    if (allocationCallbacks) {
-        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*allocationCallbacks);
+    if (library.allocationCallbacks) {
+        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*library.allocationCallbacks);
     }
 
     allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
@@ -56,7 +58,7 @@ MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, vk::Optional<con
 #error "macro name collision"
 #endif
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-#define DISPATCH(f) dispatcher.f
+#define DISPATCH(f) library.dispatcher.f
 #else
 #define DISPATCH(f) f
 #endif
@@ -99,6 +101,8 @@ MemoryAllocator::~MemoryAllocator()
 
 struct MemoryAllocator::Resource
 {
+    using ResourceDestroy = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
+
     struct BufferResource
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
@@ -114,7 +118,7 @@ struct MemoryAllocator::Resource
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
-            buffer = vk::UniqueBuffer{newBuffer, vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+            buffer = vk::UniqueBuffer{newBuffer, ResourceDestroy{resource.getAllocationInfoNative().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
             vk::resultCheck(result, "Cannot create buffer");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
@@ -166,7 +170,7 @@ struct MemoryAllocator::Resource
             const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
             const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
-            image = vk::UniqueImage{newImage, vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>{resource.getAllocationInfoNative().device, resource.memoryAllocator->allocationCallbacks, resource.memoryAllocator->dispatcher}};
+            image = vk::UniqueImage{newImage, ResourceDestroy{resource.getAllocationInfoNative().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
             vk::resultCheck(result, "Cannot create image");
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
@@ -362,7 +366,7 @@ vk::AccessFlags2 MemoryAllocator::Image::accessFlagsForImageLayout(vk::ImageLayo
     case vk::ImageLayout::eShaderReadOnlyOptimal:
         return vk::AccessFlagBits2::eShaderRead;
     default:
-        INVARIANT(false, "Unhandled ImageLayout: {}", fmt::underlying(imageLayout));
+        INVARIANT(false, "Unhandled ImageLayout: {}", imageLayout);
     }
 }
 
@@ -492,7 +496,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             case AllocationCreateInfo::DefragmentationMoveOperation::kCopy: {
                 const auto createBuffer = [this, &device, &move, &beginMemoryBarrier, &endMemoryBarrier, &wantsMemoryBarrier](Resource::BufferResource & bufferResource)
                 {
-                    auto buffer = device.createBufferUnique(bufferResource.bufferCreateInfo, allocationCallbacks, dispatcher);
+                    auto buffer = device.createBufferUnique(bufferResource.bufferCreateInfo, library.allocationCallbacks, library.dispatcher);
 
                     const auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *buffer));
                     vk::resultCheck(result, "Cannot bind buffer memory");
@@ -510,7 +514,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
 
                 const auto createImage = [this, &device, &move, &beginImageBarriers, &endImageBarriers, queueFamilyIndex](Resource::ImageResource & imageResource)
                 {
-                    auto image = device.createImageUnique(imageResource.imageCreateInfo, allocationCallbacks, dispatcher);
+                    auto image = device.createImageUnique(imageResource.imageCreateInfo, library.allocationCallbacks, library.dispatcher);
 
                     const auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
                     vk::resultCheck(result, "Cannot bind image memory");
@@ -589,7 +593,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             }
             dependencyInfo.setImageMemoryBarriers(beginImageBarriers);
 
-            commandBuffer->pipelineBarrier2(dependencyInfo, dispatcher);
+            commandBuffer->pipelineBarrier2(dependencyInfo, library.dispatcher);
         }
 
         for (uint32_t i = 0; i < defragmentationPassMoveInfo.moveCount; ++i) {
@@ -616,7 +620,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 copyBufferInfo.setSrcBuffer(*bufferResource.buffer);
                 copyBufferInfo.setDstBuffer(*bufferResource.newBuffer);
                 copyBufferInfo.setRegions(region);
-                commandBuffer->copyBuffer2(copyBufferInfo, dispatcher);
+                commandBuffer->copyBuffer2(copyBufferInfo, library.dispatcher);
             };
 
             const auto moveImage = [&commandBuffer, this](Resource::ImageResource & imageResource)
@@ -667,7 +671,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 copyImageInfo.setDstImageLayout(vk::ImageLayout::eTransferDstOptimal);
                 copyImageInfo.setRegions(regions);
 
-                commandBuffer->copyImage2(copyImageInfo, dispatcher);
+                commandBuffer->copyImage2(copyImageInfo, library.dispatcher);
             };
 
             auto & resource = *static_cast<MemoryAllocator::Resource *>(srcAllocationInfo.pUserData);
@@ -682,7 +686,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             }
             dependencyInfo.setImageMemoryBarriers(endImageBarriers);
 
-            commandBuffer->pipelineBarrier2(dependencyInfo, dispatcher);
+            commandBuffer->pipelineBarrier2(dependencyInfo, library.dispatcher);
         }
 
         // submit commands

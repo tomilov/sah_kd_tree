@@ -1,6 +1,5 @@
-#include <utils/assert.hpp>
-
 #include <engine/debug_utils.hpp>
+#include <utils/assert.hpp>
 
 #include <algorithm>
 #include <iterator>

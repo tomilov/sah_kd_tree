@@ -1,10 +1,5 @@
 #pragma once
 
-#include <utils/assert.hpp>
-
-#include <engine/format.hpp>
-
-#include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
 #include <limits>
@@ -12,10 +7,12 @@
 
 #include <cstddef>
 
+#include <engine/engine_export.h>
+
 namespace engine
 {
 
-struct AllocationCallbacks
+struct ENGINE_EXPORT AllocationCallbacks
 {
     const vk::AllocationCallbacks allocationCallbacks = [this]
     {
@@ -35,32 +32,10 @@ struct AllocationCallbacks
         return allocationCallbacks;
     }();
 
-    [[nodiscard]] void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope)
-    {
-        auto pMemory = ::operator new(size, std::align_val_t(alignment));
-        if ((false)) {
-            fmt::print("Allocation mem size {}, alignment {}, system allocation scope: {}, address {}\n", size, alignment, allocationScope, fmt::ptr(pMemory));
-        }
-        return pMemory;
-    }
-
-    void free(void * pMemory)
-    {
-        if ((false)) {
-            fmt::print("Free mem  address {}\n", fmt::ptr(pMemory));
-        }
-        return ::operator delete(static_cast<void *>(pMemory));
-    }
-
-    void internalAllocation(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
-    {
-        fmt::print("Internal allocation mem size {}, allocation type: {}, system allocation scope: {}\n", size, allocationType, allocationScope);
-    }
-
-    void internalFreeNotification(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
-    {
-        fmt::print("Internal free mem size {}, allocation type: {}, system allocation scope: {}\n", size, allocationType, allocationScope);
-    }
+    [[nodiscard]] void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope);
+    void free(void * pMemory);
+    void internalAllocation(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
+    void internalFreeNotification(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
 };
 
 template<typename T, vk::SystemAllocationScope systemAllocationScope>
@@ -82,12 +57,12 @@ public:
     Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept : allocationCallbacks{rhs.allocationCallbacks}
     {}
 
-    [[nodiscard]] T * allocate(std::size_t n) const
+    [[nodiscard]] T * allocate(size_t n) const
     {
         if (n == 0) {
             return nullptr;
         }
-        if (std::numeric_limits<std::size_t>::max() / sizeof(T) < n) {
+        if (std::numeric_limits<size_t>::max() / sizeof(T) < n) {
             throw std::bad_array_new_length{};
         }
         if (!allocationCallbacks) {
@@ -100,7 +75,7 @@ public:
         return static_cast<T *>(p);
     }
 
-    void deallocate(T * p, [[maybe_unused]] std::size_t n) const noexcept
+    void deallocate(T * p, [[maybe_unused]] size_t n) const noexcept
     {
         if (!p) {
             return;

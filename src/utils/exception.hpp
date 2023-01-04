@@ -1,8 +1,8 @@
 #pragma once
 
-#include <utils/utils_export.h>
-
 #include <stdexcept>
+
+#include <utils/utils_export.h>
 
 namespace utils
 {

@@ -1,26 +1,19 @@
 #pragma once
 
 #include <utils/checked_ptr.hpp>
-#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <engine/vma.hpp>
-#include <scene/scene.hpp>
-
-#include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
 
-#include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>
@@ -30,34 +23,8 @@ namespace engine
 
 struct Library;
 struct Instance;
-struct QueueCreateInfo;
-struct PhysicalDevice;
 struct PhysicalDevices;
-struct Fences;
 struct Device;
-struct CommandBuffers;
-struct CommandPool;
-struct CommandPools;
-struct Queue;
-struct Queues;
-struct ShaderModule;
-struct ShaderModuleReflection;
-struct ShaderStages;
-struct RenderPass;
-struct Framebuffer;
-struct PipelineCache;
-struct GraphicsPipelines;
-
-class Io
-{
-public:
-    virtual ~Io() = default;
-
-    [[nodiscard]] virtual std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const = 0;
-    [[nodiscard]] virtual bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const = 0;
-
-    [[nodiscard]] virtual std::vector<uint32_t> loadShader(std::string_view shaderName) const = 0;
-};
 
 class ENGINE_EXPORT Engine final : utils::NonCopyable
 {
@@ -101,8 +68,6 @@ public:
     [[nodiscard]] uint32_t getGraphicsQueueFamilyIndex() const;
     [[nodiscard]] uint32_t getGraphicsQueueIndex() const;
 
-    void loadScene(scene::Scene & scene);
-
 private:
     mutable std::mutex mutex;
     mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
@@ -116,10 +81,6 @@ private:
     std::unique_ptr<Instance> instance;
     std::unique_ptr<PhysicalDevices> physicalDevices;
     std::unique_ptr<Device> device;
-    std::unique_ptr<MemoryAllocator> memoryAllocator;
-    std::unique_ptr<CommandPools> commandPools;
-    std::unique_ptr<Queues> queues;
-    // std::unique_ptr<PipelineCache> pipelineCache;
 };
 
 }  // namespace engine

@@ -31,10 +31,40 @@ target_sources(
         "debug_utils.cpp"
         "utils.hpp"
         "utils.cpp"
+        "types.hpp"
+        "types.cpp"
+        "file_io.hpp"
+        "file_io.cpp"
         "memory.hpp"
         "memory.cpp"
         "format.hpp"
-        "format.cpp")
+        "format.cpp"
+        "library.hpp"
+        "library.cpp"
+        "instance.hpp"
+        "instance.cpp"
+        "physical_device.hpp"
+        "physical_device.cpp"
+        "fence.hpp"
+        "fence.cpp"
+        "device.hpp"
+        "device.cpp"
+        "command_buffer.hpp"
+        "command_buffer.cpp"
+        "command_pool.hpp"
+        "command_pool.cpp"
+        "queue.hpp"
+        "queue.cpp"
+        "shader_module.hpp"
+        "shader_module.cpp"
+        "render_pass.hpp"
+        "render_pass.cpp"
+        "framebuffer.hpp"
+        "framebuffer.cpp"
+        "pipeline_cache.hpp"
+        "pipeline_cache.cpp"
+        "graphics_pipeline.hpp"
+        "graphics_pipeline.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -45,7 +75,6 @@ target_link_libraries(
         "SPIRV-Reflect"
     PUBLIC
         Vulkan::Headers
-        "libscene"
         "libutils")
 
 add_executable("${PROJECT_NAME}")
