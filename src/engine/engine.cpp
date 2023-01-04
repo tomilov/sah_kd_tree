@@ -3,6 +3,7 @@
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -81,16 +82,6 @@ bool Engine::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-void Engine::addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions)
-{
-    requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), std::cbegin(instanceExtensions), std::cend(instanceExtensions));
-}
-
-const std::vector<const char *> & Engine::getRequiredInstanceExtensions() const
-{
-    return requiredInstanceExtensions;
-}
-
 void Engine::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks, *this);
@@ -103,20 +94,11 @@ vk::Instance Engine::getInstance() const
     return instance->instance;
 }
 
-void Engine::addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions)
-{
-    requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), std::cbegin(deviceExtensions), std::cend(deviceExtensions));
-}
-
-const std::vector<const char *> & Engine::getRequiredDeviceExtensions() const
-{
-    return requiredDeviceExtensions;
-}
-
 void Engine::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
     device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, *library, *instance, physicalDevice);
+    vma = device->makeMemoryAllocator();
 }
 
 vk::PhysicalDevice Engine::getPhysicalDevice() const

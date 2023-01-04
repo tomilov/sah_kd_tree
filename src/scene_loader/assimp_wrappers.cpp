@@ -12,11 +12,12 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
-#include <QtCore/QStringLiteral>
 
 #include <memory>
 
 #include <cstddef>
+
+using namespace Qt::StringLiterals;
 
 namespace scene_loader
 {
@@ -115,7 +116,7 @@ AssimpLoggerGuard::~AssimpLoggerGuard()
 
 bool AssimpProgressHandler::Update(float percentage)
 {
-    qCInfo(assimpWrappersLog).noquote() << QStringLiteral("%1 loaded").arg(qreal(percentage));
+    qCInfo(assimpWrappersLog).noquote() << u"%1 loaded"_s.arg(qreal(percentage));
     return true;
 }
 

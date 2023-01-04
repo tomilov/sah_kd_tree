@@ -16,7 +16,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QSettings>
 #include <QtCore/QString>
-#include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtCore/QVersionNumber>
@@ -32,10 +31,13 @@
 #include <QtQuick/QSGRendererInterface>
 #include <QtWidgets/QApplication>
 
+#include <iterator>
 #include <memory>
 
 #include <cstdint>
 #include <cstdlib>
+
+using namespace Qt::StringLiterals;
 
 namespace
 {
@@ -159,15 +161,15 @@ int main(int argc, char * argv[])
     }
 
     QSettings::setDefaultFormat(QSettings::IniFormat);
-    qCInfo(viewerMainCategory).noquote() << QStringLiteral("Settings path: %1").arg(QSettings{}.fileName());
+    qCInfo(viewerMainCategory).noquote() << u"Settings path: %1"_s.arg(QSettings{}.fileName());
 
     if ((false)) {
-        QDirIterator resources{QStringLiteral(":/"), QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
+        QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
         while (resources.hasNext()) {
             qCDebug(viewerMainCategory) << resources.next();
         }
     }
-    auto resourcesBasePath = QUrl{QStringLiteral("qrc:///%1/").arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
+    auto resourcesBasePath = QUrl{u"qrc:///%1/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
 
     auto application = createApplication(argc, argv);
     if (!application) {
@@ -190,7 +192,8 @@ int main(int argc, char * argv[])
     QVulkanInstance vulkanInstance;
     if (kUseEngine) {
         vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
-        engine.getEngine().addRequiredInstanceExtensions({VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
+        auto & requiredInstanceExtensions = engine.getEngine().requiredInstanceExtensions;
+        requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         engine.getEngine().createInstance(APPLICATION_NAME, kApplicationVersion);
         vulkanInstance.setVkInstance(engine.getEngine().getInstance());
@@ -208,7 +211,7 @@ int main(int argc, char * argv[])
             auto supportedLayers = vulkanInstance.supportedLayers();
             for (const auto & layer : layers) {
                 if (!supportedLayers.contains(layer)) {
-                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Layer %1 is not installed").arg(QString::fromUtf8(layer));
+                    qCCritical(viewerMainCategory).noquote() << u"Layer %1 is not installed"_s.arg(QString::fromUtf8(layer));
                     return EXIT_FAILURE;
                 }
             }
@@ -219,7 +222,7 @@ int main(int argc, char * argv[])
             auto supportedExtensions = vulkanInstance.supportedExtensions();
             for (const auto & instanceExtension : instanceExtensions) {
                 if (!supportedExtensions.contains(instanceExtension)) {
-                    qCCritical(viewerMainCategory).noquote() << QStringLiteral("Instance extension %1 is not supported").arg(QString::fromUtf8(instanceExtension));
+                    qCCritical(viewerMainCategory).noquote() << u"Instance extension %1 is not supported"_s.arg(QString::fromUtf8(instanceExtension));
                     return EXIT_FAILURE;
                 }
             }
@@ -227,7 +230,7 @@ int main(int argc, char * argv[])
         }
     }
     if (!vulkanInstance.create()) {
-        qCCritical(viewerMainCategory) << QStringLiteral("Cannot create Vulkan instance: %1").arg(QString::fromStdString(fmt::to_string(vk::Result(vulkanInstance.errorCode()))));
+        qCCritical(viewerMainCategory) << u"Cannot create Vulkan instance: %1"_s.arg(QString::fromStdString(fmt::to_string(vk::Result(vulkanInstance.errorCode()))));
         return EXIT_FAILURE;
     }
 
@@ -237,7 +240,7 @@ int main(int argc, char * argv[])
 
     QQmlApplicationEngine qmlApplicationEngine;
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
-    // qmlApplicationEngine.addImportPath(QStringLiteral(":/%1/imports").arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
+    // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
         qFatal("unreachable");
@@ -246,17 +249,18 @@ int main(int argc, char * argv[])
     const auto onObjectCreated = [&vulkanInstance, &quickGraphicsConfiguration, &engine](QObject * object, const QUrl & url)
     {
         if (!object) {
-            qCCritical(viewerMainCategory).noquote() << QStringLiteral("Unable to create object from URL %1").arg(url.toString());
+            qCCritical(viewerMainCategory).noquote() << u"Unable to create object from URL %1"_s.arg(url.toString());
             return;
         }
-        qCInfo(viewerMainCategory).noquote() << QStringLiteral("Object from URL %1 successfully created").arg(url.toString());
+        qCInfo(viewerMainCategory).noquote() << u"Object from URL %1 successfully created"_s.arg(url.toString());
         auto applicationWindow = qobject_cast<QQuickWindow *>(object);
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
-            engine.getEngine().addRequiredDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            auto & requiredDeviceExtensions = engine.getEngine().requiredDeviceExtensions;
+            requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
             engine.getEngine().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
             vk::PhysicalDevice physicalDevice = engine.getEngine().getPhysicalDevice();
             vk::Device device = engine.getEngine().getDevice();

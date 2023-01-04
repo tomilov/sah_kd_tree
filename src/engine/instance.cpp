@@ -176,7 +176,7 @@ void Instance::init()
             SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : engine.getRequiredInstanceExtensions()) {
+    for (const char * requiredExtension : engine.requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
         }

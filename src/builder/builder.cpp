@@ -8,9 +8,10 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
-#include <QtCore/QStringLiteral>
 
 #include <iterator>
+
+using namespace Qt::StringLiterals;
 
 namespace builder
 {
@@ -25,7 +26,7 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
     scene_loader::SceneLoader sceneLoader;
     QFileInfo sceneFileInfo{sceneFileName};
     if (!sceneLoader.load(sceneFileInfo)) {
-        qCDebug(builderLog).noquote() << QStringLiteral("Cannot load scene from file %1").arg(sceneFileName);
+        qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
     auto trianglesBegin = std::data(sceneLoader.scene.triangles);
@@ -38,7 +39,7 @@ bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float e
     scene_loader::SceneLoader sceneLoader;
     QFileInfo sceneFileInfo{sceneFileName};
     if (!sceneLoader.cachingLoad(sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
-        qCDebug(builderLog).noquote() << QStringLiteral("Cannot load scene from file %1").arg(sceneFileName);
+        qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
     auto trianglesBegin = std::data(sceneLoader.scene.triangles);

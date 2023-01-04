@@ -1,6 +1,13 @@
 #include <common/version.hpp>
+#include <engine/device.hpp>
+#include <engine/engine.hpp>
+#include <engine/instance.hpp>
+#include <engine/library.hpp>
+#include <engine/physical_device.hpp>
+#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/checked_ptr.hpp>
 #include <viewer/renderer.hpp>
 
 #include <QtCore/QByteArray>
@@ -15,6 +22,8 @@
 
 #include <cstdint>
 
+using namespace Qt::StringLiterals;
+
 namespace viewer
 {
 namespace
@@ -23,54 +32,139 @@ Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
 Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 }  // namespace
 
-Renderer::Renderer(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
-    : vkGetInstanceProcAddr{vkGetInstanceProcAddr}, instance{instance->vkInstance()}, physicalDevice{physicalDevice}, vkGetDeviceProcAddr{vkGetDeviceProcAddr}, device{device}, queueFamilyIndex{queueFamilyIndex}, queue{queue}
+struct Renderer::Impl
 {
-    Q_ASSERT(instance);
-    Q_ASSERT(instance->isValid());
-    Q_ASSERT(physicalDevice);
-    Q_ASSERT(device);
+    enum class Stage
+    {
+        Vertex,
+        Fragment,
+    };
 
-    instanceFunctions = instance->functions();
-    Q_ASSERT(instanceFunctions);
-    deviceFunctions = instance->deviceFunctions(device);
-    Q_ASSERT(deviceFunctions);
+    engine::Engine & engine;
+    FileIo & fileIo;
 
-    if (vertexShader.isEmpty()) {
-        prepareShader(Stage::Vertex);
-        Q_ASSERT(!vertexShader.isEmpty());
+    engine::Library & library_NEW = *utils::CheckedPtr(engine.library.get());
+    engine::Instance & instance_NEW = *utils::CheckedPtr(engine.instance.get());
+    engine::PhysicalDevices & physicalDevices_NEW = *utils::CheckedPtr(engine.physicalDevices.get());
+    engine::Device & device_NEW = *utils::CheckedPtr(engine.device.get());
+    engine::MemoryAllocator & vma = *utils::CheckedPtr(engine.vma.get());
+
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
+    vk::Instance instance;
+    vk::PhysicalDevice physicalDevice;
+    PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr = nullptr;
+    vk::Device device;
+    uint32_t queueFamilyIndex = 0;
+    vk::Queue queue;
+
+    QVulkanFunctions * instanceFunctions = nullptr;
+    QVulkanDeviceFunctions * deviceFunctions = nullptr;
+
+    float t = 0;
+
+    QByteArray vertexShader;
+    QByteArray fragmentShader;
+
+    bool pipelineLayoutsAndDescriptorsInitialized = false;
+    bool pipelinesInitialized = false;
+
+    VkBuffer vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer uniformBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory uniformBufferMemory = VK_NULL_HANDLE;
+    VkDeviceSize uniformBufferPerFrameSize = 0;
+
+    VkPipelineCache pipelineCache = VK_NULL_HANDLE;
+
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+    VkPipeline graphicsPipeline = VK_NULL_HANDLE;
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet uniformBufferDescriptorSet = VK_NULL_HANDLE;
+
+    Impl(engine::Engine & engine, FileIo & fileIo, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
+         uint32_t queueFamilyIndex, vk::Queue queue)
+        : engine{engine}
+        , fileIo{fileIo}
+        , vkGetInstanceProcAddr{vkGetInstanceProcAddr}
+        , instance{instance->vkInstance()}
+        , physicalDevice{physicalDevice}
+        , vkGetDeviceProcAddr{vkGetDeviceProcAddr}
+        , device{device}
+        , queueFamilyIndex{queueFamilyIndex}
+        , queue{queue}
+    {
+        Q_ASSERT(instance);
+        Q_ASSERT(instance->isValid());
+        Q_ASSERT(physicalDevice);
+        Q_ASSERT(device);
+
+        instanceFunctions = instance->functions();
+        Q_ASSERT(instanceFunctions);
+        deviceFunctions = instance->deviceFunctions(device);
+        Q_ASSERT(deviceFunctions);
+
+        init();
     }
-    if (fragmentShader.isEmpty()) {
-        prepareShader(Stage::Fragment);
-        Q_ASSERT(!fragmentShader.isEmpty());
+
+    ~Impl()
+    {
+        if (!deviceFunctions) return;
+
+        deviceFunctions->vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        deviceFunctions->vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        deviceFunctions->vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+        deviceFunctions->vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
+        deviceFunctions->vkDestroyPipelineCache(device, pipelineCache, nullptr);
+
+        deviceFunctions->vkDestroyBuffer(device, vertexBuffer, nullptr);
+        deviceFunctions->vkFreeMemory(device, vertexBufferMemory, nullptr);
+
+        deviceFunctions->vkDestroyBuffer(device, uniformBuffer, nullptr);
+        deviceFunctions->vkFreeMemory(device, uniformBufferMemory, nullptr);
     }
-}
 
-Renderer::~Renderer()
-{
-    if (!deviceFunctions) return;
+    void setT(float t)
+    {
+        this->t = t;
+    }
 
-    deviceFunctions->vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    deviceFunctions->vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    deviceFunctions->vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size);
 
-    deviceFunctions->vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+private:
+    void init();
+    void prepareShader(Stage stage);
+    void initPipelineLayouts(int framesInFlight);
+    void initDescriptors();
+    void initGraphicsPipelines(vk::RenderPass renderPass);
+};
 
-    deviceFunctions->vkDestroyPipelineCache(device, pipelineCache, nullptr);
+Renderer::Renderer(engine::Engine & engine, FileIo & fileIo, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
+                   uint32_t queueFamilyIndex, vk::Queue queue)
+    : impl_{engine, fileIo, vkGetInstanceProcAddr, instance, physicalDevice, vkGetDeviceProcAddr, device, queueFamilyIndex, queue}
+{}
 
-    deviceFunctions->vkDestroyBuffer(device, vertexBuffer, nullptr);
-    deviceFunctions->vkFreeMemory(device, vertexBufferMemory, nullptr);
-
-    deviceFunctions->vkDestroyBuffer(device, uniformBuffer, nullptr);
-    deviceFunctions->vkFreeMemory(device, uniformBufferMemory, nullptr);
-}
+Renderer::~Renderer() = default;
 
 void Renderer::setT(float t)
 {
-    this->t = t;
+    return impl_->setT(t);
+}
+void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+{
+    return impl_->frameStart(graphicsStateInfo);
 }
 
-void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
+{
+    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, size);
+}
+
+void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
     if (!pipelineLayoutsAndDescriptorsInitialized) {
         pipelineLayoutsAndDescriptorsInitialized = true;
@@ -89,7 +183,7 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
 
 static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, QSizeF size)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
     if (!pipelinesInitialized) {
         pipelinesInitialized = true;
@@ -115,17 +209,29 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
     deviceFunctions->vkCmdDraw(cb, 4, 1, 0, 0);
 }
 
-void Renderer::prepareShader(Stage stage)
+void Renderer::Impl::init()
 {
-    const auto kUri = QStringLiteral("SahKdTree");
+    if (vertexShader.isEmpty()) {
+        prepareShader(Stage::Vertex);
+        Q_ASSERT(!vertexShader.isEmpty());
+    }
+    if (fragmentShader.isEmpty()) {
+        prepareShader(Stage::Fragment);
+        Q_ASSERT(!fragmentShader.isEmpty());
+    }
+}
+
+void Renderer::Impl::prepareShader(Stage stage)
+{
+    const auto kUri = u"SahKdTree"_s;
     QString stageName;
     switch (stage) {
     case Stage::Vertex: {
-        stageName = QStringLiteral("vert");
+        stageName = u"vert"_s;
         break;
     }
     case Stage::Fragment: {
-        stageName = QStringLiteral("frag");
+        stageName = u"frag"_s;
         break;
     }
     }
@@ -151,7 +257,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
-void Renderer::initPipelineLayouts(int framesInFlight)
+void Renderer::Impl::initPipelineLayouts(int framesInFlight)
 {
     Q_ASSERT(framesInFlight <= 3);
 
@@ -250,7 +356,7 @@ void Renderer::initPipelineLayouts(int framesInFlight)
     if (err != VK_SUCCESS) qWarning("Failed to create pipeline layout: %d", err);
 }
 
-void Renderer::initDescriptors()
+void Renderer::Impl::initDescriptors()
 {
     VkDescriptorPoolSize descPoolSizes[] = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1},
@@ -286,7 +392,7 @@ void Renderer::initDescriptors()
     deviceFunctions->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
 }
 
-void Renderer::initGraphicsPipelines(vk::RenderPass renderPass)
+void Renderer::Impl::initGraphicsPipelines(vk::RenderPass renderPass)
 {
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

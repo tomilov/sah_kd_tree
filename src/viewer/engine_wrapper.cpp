@@ -8,19 +8,21 @@
 #include <QtCore/QDir>
 #include <QtCore/QString>
 
+using namespace Qt::StringLiterals;
+
 namespace viewer
 {
 
 struct Engine::Impl final : utils::NonCopyable
 {
-    FileIo fileIo{QStringLiteral("shaders:")};
+    FileIo fileIo{u"shaders:"_s};
     engine::Engine engine{{0x0, 0xB3D4346B, 0xDC18AD6B, 0xD7FA5F44}};
 };
 
 Engine::Engine(QObject * parent) : QObject{parent}
 {
-    auto shaderLocation = QStringLiteral(":/%1/imports/SahKdTree/shaders/").arg(QString::fromUtf8(sah_kd_tree::kProjectName));
-    QDir::addSearchPath(QStringLiteral("shaders"), shaderLocation);
+    auto shaderLocation = u":/%1/imports/SahKdTree/shaders/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName));
+    QDir::addSearchPath(u"shaders"_s, shaderLocation);
 }
 
 Engine::~Engine() = default;
@@ -33,6 +35,16 @@ engine::Engine & Engine::getEngine()
 const engine::Engine & Engine::getEngine() const
 {
     return impl_->engine;
+}
+
+FileIo & Engine::getFileIo()
+{
+    return impl_->fileIo;
+}
+
+const FileIo & Engine::getFileIo() const
+{
+    return impl_->fileIo;
 }
 
 void EngineSingletonForeign::setEngine(Engine * engine)

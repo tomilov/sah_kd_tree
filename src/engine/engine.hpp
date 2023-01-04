@@ -25,6 +25,7 @@ struct Library;
 struct Instance;
 struct PhysicalDevices;
 struct Device;
+class MemoryAllocator;
 
 class ENGINE_EXPORT Engine final : utils::NonCopyable
 {
@@ -55,24 +56,14 @@ public:
     [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
     bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
-    void addRequiredInstanceExtensions(const std::vector<const char *> & instanceExtensions);
-    const std::vector<const char *> & getRequiredInstanceExtensions() const;
     void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName = std::nullopt, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr);
     [[nodiscard]] vk::Instance getInstance() const;
 
-    void addRequiredDeviceExtensions(const std::vector<const char *> & deviceExtensions);
-    const std::vector<const char *> & getRequiredDeviceExtensions() const;
     void createDevice(vk::SurfaceKHR surface = {});
     [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const;
     [[nodiscard]] vk::Device getDevice() const;
     [[nodiscard]] uint32_t getGraphicsQueueFamilyIndex() const;
     [[nodiscard]] uint32_t getGraphicsQueueIndex() const;
-
-private:
-    mutable std::mutex mutex;
-    mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
-
-    const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
 
     std::vector<const char *> requiredInstanceExtensions;
     std::vector<const char *> requiredDeviceExtensions;
@@ -81,6 +72,13 @@ private:
     std::unique_ptr<Instance> instance;
     std::unique_ptr<PhysicalDevices> physicalDevices;
     std::unique_ptr<Device> device;
+    std::unique_ptr<MemoryAllocator> vma;
+
+private:
+    mutable std::mutex mutex;
+    mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
+
+    const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
 };
 
 }  // namespace engine

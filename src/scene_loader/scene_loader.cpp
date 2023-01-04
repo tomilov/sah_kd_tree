@@ -15,7 +15,8 @@
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
-#include <QtCore/QStringLiteral>
+
+using namespace Qt::StringLiterals;
 
 namespace scene_loader
 {
@@ -38,7 +39,7 @@ bool checkDataStreamStatus(QDataStream & dataStream, const LoggingCategory loggi
 {
     const auto status = dataStream.status();
     if (status != QDataStream::Ok) {
-        qCWarning(loggingCategory).noquote() << QStringLiteral("%1 (data stream error: %2 %3)").arg(description, toString(status), dataStream.device()->errorString());
+        qCWarning(loggingCategory).noquote() << u"%1 (data stream error: %2 %3)"_s.arg(description, toString(status), dataStream.device()->errorString());
         return false;
     }
     return true;
@@ -71,16 +72,15 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     sceneLoadTimer.start();
     Q_ASSERT(importer.ValidateFlags(pFlags));
     const auto assimpScene = importer.ReadFile(qPrintable(sceneFileInfo.filePath()), pFlags);
-    qCDebug(sceneLoaderLog).noquote() << QStringLiteral("scene loaded in %1 ms").arg(sceneLoadTimer.nsecsElapsed() * 1E-6);
+    qCDebug(sceneLoaderLog).noquote() << u"scene loaded in %1 ms"_s.arg(sceneLoadTimer.nsecsElapsed() * 1E-6);
     if (!assimpScene) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("unable to load scene %1: %2").arg(sceneFileInfo.filePath(), QString::fromUtf8(importer.GetErrorString()));
+        qCCritical(sceneLoaderLog).noquote() << u"unable to load scene %1: %2"_s.arg(sceneFileInfo.filePath(), QString::fromUtf8(importer.GetErrorString()));
         return false;
     }
     {
         aiMemoryInfo memoryInfo;
         importer.GetMemoryRequirements(memoryInfo);
-        qCDebug(sceneLoaderLog).noquote() << QStringLiteral("scene memory info (%1 total): textures %2, materials %3, meshes %4, nodes %5, animations %6, cameras %7, lights %8")
-                                                 .arg(memoryInfo.total)
+        qCDebug(sceneLoaderLog).noquote() << u"scene memory info (%1 total): textures %2, materials %3, meshes %4, nodes %5, animations %6, cameras %7, lights %8"_s.arg(memoryInfo.total)
                                                  .arg(memoryInfo.textures)
                                                  .arg(memoryInfo.materials)
                                                  .arg(memoryInfo.meshes)
@@ -97,17 +97,17 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     qCInfo(sceneLoaderLog) << "scene has meshes (required):" << assimpScene->HasMeshes();
     qCInfo(sceneLoaderLog) << "scene has textures:" << assimpScene->HasTextures();
     if (!assimpScene->HasMeshes()) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("Scene %1 is empty").arg(sceneFileInfo.filePath());
+        qCCritical(sceneLoaderLog).noquote() << u"Scene %1 is empty"_s.arg(sceneFileInfo.filePath());
         return false;
     }
 
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("scene flags: %1").arg(assimpScene->mFlags);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of animations: %1").arg(assimpScene->mNumAnimations);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of cameras: %1").arg(assimpScene->mNumCameras);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of lights: %1").arg(assimpScene->mNumLights);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of materials: %1").arg(assimpScene->mNumMaterials);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of meshes: %1").arg(assimpScene->mNumMeshes);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("number of textures: %1").arg(assimpScene->mNumTextures);
+    qCInfo(sceneLoaderLog).noquote() << u"scene flags: %1"_s.arg(assimpScene->mFlags);
+    qCInfo(sceneLoaderLog).noquote() << u"number of animations: %1"_s.arg(assimpScene->mNumAnimations);
+    qCInfo(sceneLoaderLog).noquote() << u"number of cameras: %1"_s.arg(assimpScene->mNumCameras);
+    qCInfo(sceneLoaderLog).noquote() << u"number of lights: %1"_s.arg(assimpScene->mNumLights);
+    qCInfo(sceneLoaderLog).noquote() << u"number of materials: %1"_s.arg(assimpScene->mNumMaterials);
+    qCInfo(sceneLoaderLog).noquote() << u"number of meshes: %1"_s.arg(assimpScene->mNumMeshes);
+    qCInfo(sceneLoaderLog).noquote() << u"number of textures: %1"_s.arg(assimpScene->mNumTextures);
 
     unsigned int numVertices = 0;
     unsigned int numFaces = 0;
@@ -115,8 +115,8 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
         numVertices += assimpScene->mMeshes[i]->mNumVertices;
         numFaces += assimpScene->mMeshes[i]->mNumFaces;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("total number of vertices: %1").arg(numVertices);
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("total number of faces: %1").arg(numFaces);
+    qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(numVertices);
+    qCInfo(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(numFaces);
 
     scene.triangles.resize(numFaces);
     {
@@ -126,13 +126,13 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
             const aiMesh & mesh = *assimpScene->mMeshes[m];
             // qCDebug(sceneLoader) << mesh.mName.C_Str();
             if ((mesh.mPrimitiveTypes & ~(aiPrimitiveType_TRIANGLE | aiPrimitiveType_NGONEncodingFlag)) != 0) {
-                qCWarning(sceneLoaderLog).noquote() << QStringLiteral("mesh %1 contains not only triangles (possibly NGON-encoded)").arg(m);
+                qCWarning(sceneLoaderLog).noquote() << u"mesh %1 contains not only triangles (possibly NGON-encoded)"_s.arg(m);
                 return false;
             }
             for (unsigned int f = 0; f < mesh.mNumFaces; ++f) {
                 const aiFace & face = mesh.mFaces[f];
                 if (face.mNumIndices != 3) {
-                    qCWarning(sceneLoaderLog).noquote() << QStringLiteral("number of vertices %1 is not equal to 3, face %2 of mesh %3 is not a triangle").arg(numVertices).arg(f).arg(m);
+                    qCWarning(sceneLoaderLog).noquote() << u"number of vertices %1 is not equal to 3, face %2 of mesh %3 is not a triangle"_s.arg(numVertices).arg(f).arg(m);
                     return false;
                 }
                 auto A = toVertex(mesh.mVertices[face.mIndices[0]]);
@@ -168,13 +168,13 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     loadTimer.start();
     QFile cacheEntryFile{cacheEntryFileInfo.filePath()};
     if (!cacheEntryFile.open(QFile::ReadOnly)) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("unable to open file %1 to read triangle from: %2").arg(cacheEntryFile.fileName(), toString(cacheEntryFile.error()));
+        qCCritical(sceneLoaderLog).noquote() << u"unable to open file %1 to read triangle from: %2"_s.arg(cacheEntryFile.fileName(), toString(cacheEntryFile.error()));
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("start to load triangles from file %1").arg(cacheEntryFile.fileName());
+    qCInfo(sceneLoaderLog).noquote() << u"start to load triangles from file %1"_s.arg(cacheEntryFile.fileName());
     QDataStream dataStream{&cacheEntryFile};
     qint32 triangleCount = 0;
-    if (!checkDataStreamStatus(dataStream >> triangleCount, sceneLoaderLog, QStringLiteral("unable to read count of triangles to file %1").arg(cacheEntryFile.fileName()))) {
+    if (!checkDataStreamStatus(dataStream >> triangleCount, sceneLoaderLog, u"unable to read count of triangles to file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
     if (triangleCount < 0) {
@@ -184,13 +184,13 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
     const int readLen = dataStream.readRawData(reinterpret_cast<char *>(scene.triangles.data()), len);
     if (readLen != len) {
-        qCInfo(sceneLoaderLog).noquote() << QStringLiteral("unable to read triangles from file %1: need %2 bytes, read %3 bytes").arg(cacheEntryFile.fileName()).arg(len).arg(readLen);
+        qCInfo(sceneLoaderLog).noquote() << u"unable to read triangles from file %1: need %2 bytes, read %3 bytes"_s.arg(cacheEntryFile.fileName()).arg(len).arg(readLen);
         return false;
     }
-    if (!checkDataStreamStatus(dataStream, sceneLoaderLog, QStringLiteral("unable to read triangles from file %1").arg(cacheEntryFile.fileName()))) {
+    if (!checkDataStreamStatus(dataStream, sceneLoaderLog, u"unable to read triangles from file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%3 ms to load %1 triangles from file %2").arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"%3 ms to load %1 triangles from file %2"_s.arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 
@@ -200,41 +200,41 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     saveTimer.start();
     QFile cacheEntryFile{cacheEntryFileInfo.filePath()};
     if (!cacheEntryFile.open(QFile::NewOnly)) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("unable to open file %1 to write triangles to: %2").arg(cacheEntryFile.fileName(), toString(cacheEntryFile.error()));
+        qCCritical(sceneLoaderLog).noquote() << u"unable to open file %1 to write triangles to: %2"_s.arg(cacheEntryFile.fileName(), toString(cacheEntryFile.error()));
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("start to save triangles to file %1").arg(cacheEntryFile.fileName());
+    qCInfo(sceneLoaderLog).noquote() << u"start to save triangles to file %1"_s.arg(cacheEntryFile.fileName());
     QDataStream dataStream{&cacheEntryFile};
     auto triangleCount = qint32(std::size(scene.triangles));
-    if (!checkDataStreamStatus(dataStream << triangleCount, sceneLoaderLog, QStringLiteral("unable to write count of triangles to file %1").arg(cacheEntryFile.fileName()))) {
+    if (!checkDataStreamStatus(dataStream << triangleCount, sceneLoaderLog, u"unable to write count of triangles to file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
     const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
     const int writeLen = dataStream.writeRawData(reinterpret_cast<const char *>(scene.triangles.data()), len);
     if (len != writeLen) {
-        qCInfo(sceneLoaderLog).noquote() << QStringLiteral("unable to write triangles to file %1: want %2 bytes, but written %3 bytes").arg(cacheEntryFile.fileName()).arg(len).arg(writeLen);
+        qCInfo(sceneLoaderLog).noquote() << u"unable to write triangles to file %1: want %2 bytes, but written %3 bytes"_s.arg(cacheEntryFile.fileName()).arg(len).arg(writeLen);
         return false;
     }
-    if (!checkDataStreamStatus(dataStream, sceneLoaderLog, QStringLiteral("unable to write triangles to file %1").arg(cacheEntryFile.fileName()))) {
+    if (!checkDataStreamStatus(dataStream, sceneLoaderLog, u"unable to write triangles to file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << QStringLiteral("%1 triangles successfuly saved to file %2 in %3 ms").arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"%1 triangles successfuly saved to file %2 in %3 ms"_s.arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 
 bool SceneLoader::cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir)
 {
     if (!sceneFileInfo.exists()) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("File %1 does not exist").arg(sceneFileInfo.fileName());
+        qCCritical(sceneLoaderLog).noquote() << u"File %1 does not exist"_s.arg(sceneFileInfo.fileName());
         return false;
     }
     if (!cacheDir.exists()) {
-        qCCritical(sceneLoaderLog).noquote() << QStringLiteral("Dir %1 does not exist").arg(cacheDir.path());
+        qCCritical(sceneLoaderLog).noquote() << u"Dir %1 does not exist"_s.arg(cacheDir.path());
         return false;
     }
     QFileInfo cacheEntryFileInfo = getCacheEntryFileInfo(sceneFileInfo, cacheDir);
     if (cacheEntryFileInfo.exists()) {
-        qCInfo(sceneLoaderLog).noquote() << QStringLiteral("triangles file for scene %1 exists").arg(sceneFileInfo.filePath());
+        qCInfo(sceneLoaderLog).noquote() << u"triangles file for scene %1 exists"_s.arg(sceneFileInfo.filePath());
         return loadFromCache(cacheEntryFileInfo);
     }
     if (!load(sceneFileInfo)) {

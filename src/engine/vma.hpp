@@ -23,6 +23,9 @@ VK_DEFINE_HANDLE(VmaAllocator)
 namespace engine
 {
 struct Library;
+struct Instance;
+struct PhysicalDevice;
+struct Device;
 
 class ENGINE_EXPORT MemoryAllocator final : utils::NonCopyable
 {
@@ -52,7 +55,7 @@ public:
     class Buffer;
     class Image;
 
-    MemoryAllocator(const CreateInfo & features, Library & library, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device);
+    MemoryAllocator(const CreateInfo & features, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device);
     ~MemoryAllocator();
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
@@ -74,6 +77,9 @@ private:
     struct Resource;
 
     Library & library;
+    Instance & instance;
+    PhysicalDevice & physicalDevice;
+    Device & device;
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 };

@@ -130,7 +130,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         return false;
     }
 
-    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(engine.getRequiredDeviceExtensions());
+    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(engine.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
         return false;
     }

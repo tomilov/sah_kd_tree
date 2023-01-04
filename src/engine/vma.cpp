@@ -1,6 +1,9 @@
+#include <engine/device.hpp>
 #include <engine/exception.hpp>
 #include <engine/format.hpp>
+#include <engine/instance.hpp>
 #include <engine/library.hpp>
+#include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
@@ -9,6 +12,14 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
+#include <memory>
+#include <type_traits>
+#include <utility>
+#include <variant>
+
+#include <cstdint>
+
+// clang-format off
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
@@ -18,25 +29,19 @@
 #define VMA_DEBUG_GLOBAL_MUTEX 1
 #define VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT 1
 #endif
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <variant>
-
 #include <vk_mem_alloc.h>
-
-#include <cstdint>
+// clang-format on
 
 namespace engine
 {
 
-MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, Library & library, vk::Instance instance, vk::PhysicalDevice physicalDevice, uint32_t deviceApiVersion, vk::Device device) : library{library}
+MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.instance = vk::Instance::NativeType(instance);
-    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice);
-    allocatorInfo.device = vk::Device::NativeType(device);
-    allocatorInfo.vulkanApiVersion = deviceApiVersion;
+    allocatorInfo.instance = vk::Instance::NativeType(instance.instance);
+    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice.physicalDevice);
+    allocatorInfo.device = vk::Device::NativeType(device.device);
+    allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
 
     if (library.allocationCallbacks) {
         allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*library.allocationCallbacks);
@@ -288,19 +293,17 @@ VmaAllocationCreateInfo MemoryAllocator::Resource::makeAllocationCreateInfo(cons
 {
     VmaAllocationCreateInfo allocationCreateInfoNative = {};
     allocationCreateInfoNative.pUserData = this;
+    allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
     switch (allocationCreateInfo.type) {
     case AllocationCreateInfo::AllocationType::kAuto: {
-        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
         break;
     }
     case AllocationCreateInfo::AllocationType::kStaging: {
         allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
         break;
     }
     case AllocationCreateInfo::AllocationType::kReadback: {
         allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
         break;
     }
     }

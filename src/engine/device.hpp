@@ -93,7 +93,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
         return setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
     }
 
-    [[nodiscard]] std::unique_ptr<MemoryAllocator> makeMemoryAllocator() const;
+    [[nodiscard]] std::unique_ptr<MemoryAllocator> makeMemoryAllocator();
     [[nodiscard]] Fences createFences(std::string_view name, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
 
 private:

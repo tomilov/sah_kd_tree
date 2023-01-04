@@ -28,45 +28,29 @@ public:
         return p;
     }
 
-    T * get() const &
+    T * get() const
     {
         ASSERT_MSG(checked, "CheckedPtr contents were not checked before dereferencing");
         INVARIANT(p, "Empty CheckedPtr");
         return p;
     }
 
-    T * get() &&
-    {
-        rvalueDisabled();
-    }
-
-    T * operator->() const &
+    T * operator->() const
     {
         return get();
     }
-    T * operator->() &&
-    {
-        rvalueDisabled();
-    }
 
-    T & operator*() const &
+    T & operator*() const
     {
         return *get();
-    }
-    T & operator*() &&
-    {
-        rvalueDisabled();
     }
 
 private:
     mutable bool checked = false;
     T * p = nullptr;
-
-    [[noreturn]] void rvalueDisabled()
-    {
-        static_assert(sizeof(T) == 0, "Don't use temporary CheckedPtr, check it first, then dereference");
-        std::abort();
-    }
 };
+
+template<typename T>
+CheckedPtr(T * p) -> CheckedPtr<T>;
 
 }  // namespace utils

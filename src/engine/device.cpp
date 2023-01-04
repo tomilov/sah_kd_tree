@@ -43,7 +43,7 @@ void Device::create()
             INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
         }
     }
-    for (const char * requiredExtension : engine.getRequiredDeviceExtensions()) {
+    for (const char * requiredExtension : engine.requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
         }
@@ -71,9 +71,9 @@ void Device::create()
     setDebugUtilsObjectName(device, name);
 }
 
-std::unique_ptr<MemoryAllocator> Device::makeMemoryAllocator() const
+std::unique_ptr<MemoryAllocator> Device::makeMemoryAllocator()
 {
-    return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library, instance.instance, physicalDevice.physicalDevice, physicalDevice.apiVersion, device);
+    return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library, instance, physicalDevice, *this);
 }
 
 Fences Device::createFences(std::string_view name, size_t count, vk::FenceCreateFlags fenceCreateFlags)
