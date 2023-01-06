@@ -134,7 +134,7 @@ void Viewer::frameStart()
             vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getGraphicsQueueIndex(), &queue);
             INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
 
-            renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getFileIo(), vkGetInstanceProcAddr, vulkanInstance, *vulkanPhysicalDevice, vkGetDeviceProcAddr, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
+            renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager(), vkGetInstanceProcAddr, vulkanInstance, *vulkanPhysicalDevice, vkGetDeviceProcAddr, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
         }
     }
     if (renderer) {

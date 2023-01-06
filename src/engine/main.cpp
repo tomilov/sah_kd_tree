@@ -85,18 +85,18 @@ public:
         auto size = shaderFile.tellg();
         shaderFile.seekg(0);
 
-        std::vector<uint32_t> code;
-        if ((size_t(utils::autoCast(size)) % sizeof *std::data(code)) != 0) {
+        std::vector<uint32_t> spirv;
+        if ((size_t(utils::autoCast(size)) % sizeof *std::data(spirv)) != 0) {
             throw engine::RuntimeError(fmt::format("Size of shader file {} is not multiple of 4", shaderFilePath));
         }
-        code.resize(size_t(utils::autoCast(size)) / sizeof *std::data(code));
+        spirv.resize(size_t(utils::autoCast(size)) / sizeof *std::data(spirv));
         using RawDataType = std::ifstream::char_type *;
-        shaderFile.read(RawDataType(std::data(code)), size);
+        shaderFile.read(RawDataType(std::data(spirv)), size);
         if (shaderFile.tellg() != size) {
             throw engine::RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
         }
 
-        return code;
+        return spirv;
     }
 };
 

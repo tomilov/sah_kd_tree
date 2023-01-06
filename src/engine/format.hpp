@@ -20,12 +20,13 @@ size_t getFlagBitsMaxNameLength()
     auto mask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
     size_t maxLength = 0;
     while (mask != 0) {
-        auto bit = (mask & (mask - 1)) ^ mask;
+        auto nextMask = mask & (mask - 1);
+        auto bit = nextMask ^ mask;
         size_t length = fmt::formatted_size("{}", FlagBitsType{bit});
         if (maxLength < length) {
             maxLength = length;
         }
-        mask &= mask - 1;
+        mask = nextMask;
     }
     return maxLength;
 }
@@ -56,16 +57,17 @@ struct fmt::formatter<vk::Flags<FlagBitsType>, char> : fmt::formatter<fmt::strin
         constexpr auto allFlags = static_cast<MaskType>(FlagTraits::allFlags);
         auto mask = static_cast<MaskType>(flags);
         while (mask != 0) {
-            const auto bit = (mask & (mask - 1)) ^ mask;
+            auto nextMask = mask & (mask - 1);
+            auto bit = nextMask ^ mask;
             if ((~allFlags & bit) == 0) {
                 out = fmt::format_to(out, "{}", FlagBitsType{bit});
             } else {
                 out = fmt::format_to(out, "{:#x}", bit);
             }
-            mask &= mask - 1;
-            if (mask != 0) {
+            if (nextMask != 0) {
                 *out++ = '|';
             }
+            mask = nextMask;
         }
         return out;
     }

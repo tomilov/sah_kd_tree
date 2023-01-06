@@ -70,6 +70,9 @@ public:
     {
         if constexpr (std::is_same_v<Source, Destination>) {
             return std::forward<Source>(source);
+        } else if constexpr (std::is_arithmetic_v<Source> && std::is_enum_v<Destination>) {
+            static_assert(!std::is_same_v<Source, bool>);
+            return static_cast<Destination>(convertIfIncludes<std::underlying_type_t<Destination>>(source));
         } else if constexpr (std::is_arithmetic_v<Source> && std::is_arithmetic_v<Destination>) {
             static_assert(!std::is_same_v<Source, bool>);
             return convertIfIncludes<Destination>(source);

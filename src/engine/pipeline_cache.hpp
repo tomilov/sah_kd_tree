@@ -16,32 +16,27 @@
 namespace engine
 {
 class Engine;
+class FileIo;
 struct Library;
 struct PhysicalDevice;
 struct Device;
-class FileIo;
 
 struct ENGINE_EXPORT PipelineCache final : utils::NonCopyable
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
     const std::string name;
-    const utils::CheckedPtr<const FileIo> fileIo;
 
-    Engine & engine;
-    Library & library;
-    PhysicalDevice & physicalDevice;
-    Device & device;
+    const Engine & engine;
+    const utils::CheckedPtr<const FileIo> fileIo;
+    const Library & library;
+    const PhysicalDevice & physicalDevice;
+    const Device & device;
 
     vk::UniquePipelineCache pipelineCacheHolder;
     vk::PipelineCache pipelineCache;
 
-    PipelineCache(std::string_view name, utils::CheckedPtr<const FileIo> fileIo, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device)
-        : name{name}, fileIo{fileIo}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
-    {
-        load();
-    }
-
+    PipelineCache(std::string_view name, const Engine & engine, utils::CheckedPtr<const FileIo> fileIo);
     ~PipelineCache();
 
     [[nodiscard]] bool flush();

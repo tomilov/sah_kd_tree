@@ -48,13 +48,20 @@ set(SPDLOG_SYSTEM_INCLUDES ON)
 add_subdirectory("spdlog" EXCLUDE_FROM_ALL SYSTEM)
 
 
+set(SPIRV_HEADERS_SKIP_EXAMPLES YES)
+set(SPIRV_HEADERS_SKIP_INSTALL YES)
+add_subdirectory("SPIRV-Headers" EXCLUDE_FROM_ALL SYSTEM)
+
+
 add_library("SPIRV-Reflect" STATIC)
 target_sources(
     "SPIRV-Reflect"
     PRIVATE
         "SPIRV-Reflect/spirv_reflect.h"
-        "SPIRV-Reflect/spirv_reflect.cpp")
+        "SPIRV-Reflect/spirv_reflect.cpp"
+        "SPIRV-Reflect/common/output_stream.h"
+        "SPIRV-Reflect/common/output_stream.cpp")
 target_include_directories(
     "SPIRV-Reflect"
-    PUBLIC
+    SYSTEM PUBLIC
         "SPIRV-Reflect")

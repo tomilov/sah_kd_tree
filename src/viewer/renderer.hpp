@@ -16,12 +16,12 @@
 
 namespace viewer
 {
-class FileIo;
+class ResourceManager;
 
 class Renderer
 {
 public:
-    Renderer(engine::Engine & engine, FileIo & fileIo, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
+    Renderer(engine::Engine & engine, ResourceManager & resourceManager, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
              uint32_t queueFamilyIndex, vk::Queue queue);
     ~Renderer();
 
@@ -33,7 +33,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 280;
+    static constexpr size_t kSize = 312;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

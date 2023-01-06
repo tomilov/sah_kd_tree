@@ -55,23 +55,23 @@ IncludeCategories:
     Priority: 4
   - Regex: ^<vulkan/.*\.hpp>$
     Priority: 5
+  - Regex: ^<\.\./SPIRV\-Reflect/
+    Priority: 5
+  - Regex: ^<gtest/gtest\.h>$
+    Priority: 5
   - Regex: ^<assimp/
     Priority: 5
   - Regex: ^<fmt/
     Priority: 5
   - Regex: ^<spdlog/
     Priority: 5
+  - Regex: ^<vk_mem_alloc.h>$
+    Priority: 5
   - Regex: ^<(Q[A-Z]|Qt)
     Priority: 6
   - Regex: \.hpp>$
     Priority: 3
-  - Regex: ^<vk_mem_alloc.h>$
-    Priority: 8
   - Regex: ^<vulkan/.*\.h>$
-    Priority: 8
-  - Regex: ^<spirv_reflect\.h>$
-    Priority: 8
-  - Regex: ^<gtest/gtest\.h>$
     Priority: 8
   - Regex: \.h>$
     Priority: 10

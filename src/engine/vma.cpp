@@ -104,7 +104,7 @@ MemoryAllocator::~MemoryAllocator()
     vmaDestroyAllocator(allocator);
 }
 
-struct MemoryAllocator::Resource
+struct Resource
 {
     using ResourceDestroy = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
 
@@ -117,6 +117,9 @@ struct MemoryAllocator::Resource
         VmaAllocation allocation = VK_NULL_HANDLE;
 
         vk::UniqueBuffer newBuffer = {};
+
+        BufferResource()
+        {}
 
         BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, bufferCreateInfo{bufferCreateInfo}
         {
@@ -148,10 +151,14 @@ struct MemoryAllocator::Resource
 
         ~BufferResource()
         {
-            vmaDestroyBuffer(allocator, buffer.release(), allocation);
+            INVARIANT((!allocator == !allocation) || (!buffer == !allocation), "Incosistent {}, {}, {}", !allocator, !allocation, !buffer);
+            if (allocator) {
+                vmaDestroyBuffer(allocator, buffer.release(), allocation);
+            }
         }
     };
 
+    static_assert(std::is_default_constructible_v<BufferResource>);
     static_assert(!std::is_copy_constructible_v<BufferResource>);
     static_assert(!std::is_copy_assignable_v<BufferResource>);
     static_assert(std::is_move_constructible_v<BufferResource>);
@@ -169,6 +176,9 @@ struct MemoryAllocator::Resource
         VmaAllocation allocation = VK_NULL_HANDLE;
 
         vk::UniqueImage newImage = {};
+
+        ImageResource()
+        {}
 
         ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, imageCreateInfo{imageCreateInfo}
         {
@@ -204,7 +214,10 @@ struct MemoryAllocator::Resource
 
         ~ImageResource()
         {
-            vmaDestroyImage(allocator, image.release(), allocation);
+            INVARIANT((!allocator == !allocation) || (!image == !allocation), "Incosistent {}, {}, {}", !allocator, !allocation, !image);
+            if (allocator) {
+                vmaDestroyImage(allocator, image.release(), allocation);
+            }
         }
 
         vk::ImageSubresourceRange getImageSubresourceRange() const
@@ -219,6 +232,7 @@ struct MemoryAllocator::Resource
         }
     };
 
+    static_assert(std::is_default_constructible_v<ImageResource>);
     static_assert(!std::is_copy_constructible_v<ImageResource>);
     static_assert(!std::is_copy_assignable_v<ImageResource>);
     static_assert(std::is_move_constructible_v<ImageResource>);
@@ -227,6 +241,8 @@ struct MemoryAllocator::Resource
     MemoryAllocator * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
     std::variant<BufferResource, ImageResource> resource;
+
+    Resource() = default;
 
     Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
     Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
@@ -264,24 +280,30 @@ private:
     VmaAllocationCreateInfo makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo);
 };
 
-MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+static_assert(std::is_default_constructible_v<Resource>);
+static_assert(!std::is_copy_constructible_v<Resource>);
+static_assert(!std::is_copy_assignable_v<Resource>);
+static_assert(std::is_move_constructible_v<Resource>);
+static_assert(std::is_move_assignable_v<Resource>);
+
+Resource::Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
     : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
 {}
 
-MemoryAllocator::Resource::Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+Resource::Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
     : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
 {}
 
-MemoryAllocator::Resource::~Resource() = default;
+Resource::~Resource() = default;
 
-VmaAllocatorInfo MemoryAllocator::Resource::getAllocationInfoNative() const
+VmaAllocatorInfo Resource::getAllocationInfoNative() const
 {
     VmaAllocatorInfo allocatorInfo = {};
     vmaGetAllocatorInfo(memoryAllocator->allocator, &allocatorInfo);
     return allocatorInfo;
 }
 
-vk::MemoryPropertyFlags MemoryAllocator::Resource::getMemoryPropertyFlags() const
+vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const
 {
     const auto allocation = std::visit([](const auto & resource) { return resource.allocation; }, resource);
     vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
@@ -289,7 +311,7 @@ vk::MemoryPropertyFlags MemoryAllocator::Resource::getMemoryPropertyFlags() cons
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
-VmaAllocationCreateInfo MemoryAllocator::Resource::makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo)
+VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo)
 {
     VmaAllocationCreateInfo allocationCreateInfoNative = {};
     allocationCreateInfoNative.pUserData = this;
@@ -310,50 +332,54 @@ VmaAllocationCreateInfo MemoryAllocator::Resource::makeAllocationCreateInfo(cons
     return allocationCreateInfoNative;
 }
 
-MemoryAllocator::Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
+Buffer::Buffer() = default;
+
+Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
 {}
 
-MemoryAllocator::Buffer::Buffer(Buffer &&) = default;
+Buffer::Buffer(Buffer &&) = default;
 
-auto MemoryAllocator::Buffer::operator=(Buffer &&) -> Buffer & = default;
+auto Buffer::operator=(Buffer &&) -> Buffer & = default;
 
-MemoryAllocator::Buffer::~Buffer() = default;
+Buffer::~Buffer() = default;
 
-vk::Buffer MemoryAllocator::Buffer::getBuffer() const
+vk::Buffer Buffer::getBuffer() const
 {
     return *impl_->getBufferResource().buffer;
 }
 
-vk::MemoryPropertyFlags MemoryAllocator::Buffer::getMemoryPropertyFlags() const
+vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
 {
     return impl_->getMemoryPropertyFlags();
 }
 
-MemoryAllocator::Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
+Image::Image() = default;
+
+Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
 {}
 
-MemoryAllocator::Image::Image(Image &&) = default;
+Image::Image(Image &&) = default;
 
-auto MemoryAllocator::Image::operator=(Image &&) -> Image & = default;
+auto Image::operator=(Image &&) -> Image & = default;
 
-MemoryAllocator::Image::~Image() = default;
+Image::~Image() = default;
 
-vk::Image MemoryAllocator::Image::getImage() const
+vk::Image Image::getImage() const
 {
     return *impl_->getImageResource().image;
 }
 
-vk::MemoryPropertyFlags MemoryAllocator::Image::getMemoryPropertyFlags() const
+vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const
 {
     return impl_->getMemoryPropertyFlags();
 }
 
-vk::ImageLayout MemoryAllocator::Image::exchangeLayout(vk::ImageLayout layout)
+vk::ImageLayout Image::exchangeLayout(vk::ImageLayout layout)
 {
     return std::exchange(impl_->getImageResource().layout, layout);
 }
 
-vk::AccessFlags2 MemoryAllocator::Image::accessFlagsForImageLayout(vk::ImageLayout imageLayout)
+vk::AccessFlags2 Image::accessFlagsForImageLayout(vk::ImageLayout imageLayout)
 {
     switch (imageLayout) {
     case vk::ImageLayout::ePreinitialized:
@@ -493,7 +519,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             vmaGetAllocationInfo(allocator, move.srcAllocation, &srcAllocationInfo);
 
             INVARIANT(srcAllocationInfo.pUserData, "Expected non-nullptr");
-            auto & resource = *static_cast<MemoryAllocator::Resource *>(srcAllocationInfo.pUserData);
+            auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
 
             switch (resource.defragmentationMoveOperation) {
             case AllocationCreateInfo::DefragmentationMoveOperation::kCopy: {
@@ -677,7 +703,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 commandBuffer->copyImage2(copyImageInfo, library.dispatcher);
             };
 
-            auto & resource = *static_cast<MemoryAllocator::Resource *>(srcAllocationInfo.pUserData);
+            auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
             std::visit(utils::Overloaded{moveBuffer, moveImage}, resource.resource);
         }
 
@@ -708,7 +734,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             const auto updateImage = [](Resource::ImageResource & imageResource) { imageResource.image = std::move(imageResource.newImage); };
 
             const auto & srcAllocationInfo = srcAllocationInfos[i];
-            auto & resource = *static_cast<MemoryAllocator::Resource *>(srcAllocationInfo.pUserData);
+            auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
             std::visit(utils::Overloaded{updateBuffer, updateImage}, resource.resource);
         }
 

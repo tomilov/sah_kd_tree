@@ -73,9 +73,16 @@ target_link_libraries(
         "gli"
         "VulkanMemoryAllocator"
         "SPIRV-Reflect"
+        "libcodegen"
     PUBLIC
         Vulkan::Headers
         "libutils")
+
+set_source_files_properties(
+    "shader_module.cpp"
+    PROPERTIES
+        COMPILE_FLAGS
+            "-Werror=switch")
 
 add_executable("${PROJECT_NAME}")
 target_sources(

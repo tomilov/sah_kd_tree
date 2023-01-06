@@ -26,6 +26,7 @@ struct Instance;
 struct PhysicalDevices;
 struct Device;
 class MemoryAllocator;
+struct PipelineCache;
 
 class ENGINE_EXPORT Engine final : utils::NonCopyable
 {

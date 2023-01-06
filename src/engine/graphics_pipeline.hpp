@@ -16,26 +16,22 @@ namespace engine
 {
 class Engine;
 struct Library;
-struct PhysicalDevice;
 struct Device;
 struct ShaderStages;
-struct RenderPass;
-struct PipelineCache;
 
 struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
 {
     const std::string name;
 
-    Engine & engine;
-    Library & library;
-    PhysicalDevice & physicalDevice;
-    Device & device;
-    ShaderStages & shaderStages;
-    RenderPass & renderPass;
-    PipelineCache & pipelineCache;
-
-    const uint32_t width;
-    const uint32_t height;
+    const Engine & engine;
+    const Library & library;
+    const Device & device;
+    const ShaderStages & shaderStages;
+    const vk::RenderPass renderPass;
+    const vk::PipelineCache pipelineCache;
+    const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts;
+    const std::vector<vk::PushConstantRange> & pushConstantRange;
+    const vk::Extent2D extent;
 
     vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
@@ -46,6 +42,7 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
     vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;
     vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
     vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
+    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
 
     vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 
@@ -57,11 +54,8 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
 
-    GraphicsPipelines(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, ShaderStages & shaderStages, RenderPass & renderPass, PipelineCache & pipelineCache, uint32_t width, uint32_t height)
-        : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}, shaderStages{shaderStages}, renderPass{renderPass}, pipelineCache{pipelineCache}, width{width}, height{height}
-    {
-        load();
-    }
+    GraphicsPipelines(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, vk::PipelineCache pipelineCache, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts,
+                      const std::vector<vk::PushConstantRange> & pushConstantRange, vk::Extent2D extent);
 
 private:
     void load();

@@ -14,7 +14,7 @@
 
 namespace viewer
 {
-class FileIo;
+class ResourceManager;
 
 class VIEWER_EXPORT Engine : public QObject
 {
@@ -25,15 +25,12 @@ public:
     ~Engine();
 
     engine::Engine & getEngine();
-    const engine::Engine & getEngine() const;
-
-    FileIo & getFileIo();
-    const FileIo & getFileIo() const;
+    ResourceManager & getResourceManager();
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 256;
+    static constexpr size_t kSize = 368;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

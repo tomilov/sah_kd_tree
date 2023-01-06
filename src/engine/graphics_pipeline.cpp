@@ -1,8 +1,8 @@
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/library.hpp>
-#include <engine/pipeline_cache.hpp>
-#include <engine/render_pass.hpp>
+#include <engine/shader_module.hpp>
 #include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
@@ -11,6 +11,22 @@
 
 namespace engine
 {
+
+GraphicsPipelines::GraphicsPipelines(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, vk::PipelineCache pipelineCache, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts,
+                                     const std::vector<vk::PushConstantRange> & pushConstantRange, vk::Extent2D extent)
+    : name{name}
+    , engine{engine}
+    , library{*engine.library}
+    , device{*engine.device}
+    , shaderStages{shaderStages}
+    , renderPass{renderPass}
+    , pipelineCache{pipelineCache}
+    , descriptorSetLayouts{descriptorSetLayouts}
+    , pushConstantRange{pushConstantRange}
+    , extent{extent}
+{
+    load();
+}
 
 void GraphicsPipelines::load()
 {
@@ -25,15 +41,15 @@ void GraphicsPipelines::load()
     viewport = {
         .x = 0.0f,
         .y = 0.0f,
-        .width = utils::autoCast(width),
-        .height = utils::autoCast(height),
+        .width = utils::autoCast(extent.width),
+        .height = utils::autoCast(extent.height),
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
 
     scissor = {
         .offset = {.x = 0, .y = 0},
-        .extent = {.width = width, .height = height},
+        .extent = extent,
     };
 
     pipelineViewportStateCreateInfo.flags = {};
@@ -65,12 +81,6 @@ void GraphicsPipelines::load()
         .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
     };
 
-    pipelineColorBlendStateCreateInfo.flags = {};
-    pipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
-    pipelineColorBlendStateCreateInfo.logicOp = vk::LogicOp::eCopy;
-    pipelineColorBlendStateCreateInfo.setAttachments(pipelineColorBlendAttachmentState);
-    pipelineColorBlendStateCreateInfo.blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}};
-
     pipelineMultisampleStateCreateInfo = {
         .flags = {},
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
@@ -81,9 +91,27 @@ void GraphicsPipelines::load()
         .alphaToOneEnable = VK_FALSE,
     };
 
+    pipelineDepthStencilStateCreateInfo = {
+        .flags = {},
+        .depthTestEnable = VK_FALSE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = vk::CompareOp::eNever,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 0.0f,
+    };
+
+    pipelineColorBlendStateCreateInfo.flags = {};
+    pipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
+    pipelineColorBlendStateCreateInfo.logicOp = vk::LogicOp::eCopy;
+    pipelineColorBlendStateCreateInfo.setAttachments(pipelineColorBlendAttachmentState);
+    pipelineColorBlendStateCreateInfo.blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}};
+
     pipelineLayoutCreateInfo.flags = {};
-    pipelineLayoutCreateInfo.setLayoutCount = 1;
-    pipelineLayoutCreateInfo.setSetLayouts(nullptr);
+    pipelineLayoutCreateInfo.setSetLayouts(descriptorSetLayouts);
     pipelineLayoutCreateInfo.setPushConstantRanges(nullptr);
 
     pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
@@ -98,16 +126,16 @@ void GraphicsPipelines::load()
     graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
     graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
     graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
-    graphicsPipelineCreateInfo.pDepthStencilState = nullptr;
+    graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
     graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
     graphicsPipelineCreateInfo.pDynamicState = nullptr;
     graphicsPipelineCreateInfo.layout = pipelineLayout;
-    graphicsPipelineCreateInfo.renderPass = renderPass.renderPass;
+    graphicsPipelineCreateInfo.renderPass = renderPass;
     graphicsPipelineCreateInfo.subpass = 0;
     graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
     graphicsPipelineCreateInfo.basePipelineIndex = 0;
 
-    auto result = device.device.createGraphicsPipelinesUnique(pipelineCache.pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
+    auto result = device.device.createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
     vk::resultCheck(result.result, fmt::format("Failed to create graphics pipeline '{}'", name).c_str());
     pipelineHolders = std::move(result.value);
     pipelines.reserve(std::size(pipelineHolders));

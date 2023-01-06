@@ -1,9 +1,9 @@
 #include <builder/builder.hpp>
 
+#include <gtest/gtest.h>
+
 #include <QtCore/QDir>
 #include <QtCore/QString>
-
-#include <gtest/gtest.h>
 
 using builder::buildSceneFromFile;
 using builder::buildSceneFromFileOrCache;

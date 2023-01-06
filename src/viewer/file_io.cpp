@@ -1,3 +1,4 @@
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/file_io.hpp>
 
@@ -52,7 +53,7 @@ std::vector<uint8_t> FileIo::loadPipelineCache(std::string_view pipelineCacheNam
             qCWarning(viewerFileIoCategory).noquote() << u"Possible location '%1' of pipeline cache file '%2' cannot be opened to read: %3"_s.arg(cacheFile.fileName(), cacheFileName, cacheFile.errorString());
             continue;
         }
-        auto cacheFileSize = std::size(cacheFile);
+        auto cacheFileSize = cacheFile.size();
         size_t dataSize = utils::autoCast(cacheFileSize);
         std::vector<uint8_t> cacheData(dataSize);
         qint64 bytesRead = cacheFile.read(utils::autoCast(std::data(cacheData)), cacheFileSize);
@@ -127,10 +128,12 @@ std::vector<uint32_t> FileIo::loadShader(std::string_view shaderName) const
         qCWarning(viewerFileIoCategory).noquote() << u"Possible location '%1' of shader file '%2' cannot be opened to read: %3"_s.arg(shaderFile.fileName(), shaderFileName, shaderFile.errorString());
         return {};
     }
-    auto shaderFileSize = std::size(shaderFile);
+    auto shaderFileSize = shaderFile.size();
     size_t dataSize = utils::autoCast(shaderFileSize);
-    std::vector<uint32_t> shaderData(dataSize);
-    qint64 bytesRead = shaderFile.read(utils::autoCast(std::data(shaderData)), shaderFileSize);
+    std::vector<uint32_t> spirv;
+    INVARIANT((dataSize % sizeof *std::data(spirv)) == 0, "Expected whole number of double words for SPIR-V");
+    spirv.resize(dataSize / sizeof *std::data(spirv));
+    qint64 bytesRead = shaderFile.read(utils::autoCast(std::data(spirv)), shaderFileSize);
     if (bytesRead < 0) {
         qCWarning(viewerFileIoCategory).noquote() << u"Failed to read shader data '%1' from file '%2': %3"_s.arg(shaderFileName, shaderFile.fileName(), shaderFile.errorString());
         return {};
@@ -140,7 +143,7 @@ std::vector<uint32_t> FileIo::loadShader(std::string_view shaderName) const
         return {};
     }
     qCInfo(viewerFileIoCategory).noquote() << u"Shader data '%1' successfully read from file '%2'"_s.arg(shaderFileName, shaderFile.fileName());
-    return shaderData;
+    return spirv;
 }
 
 }  // namespace viewer

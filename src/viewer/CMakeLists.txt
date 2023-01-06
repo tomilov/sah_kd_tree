@@ -41,6 +41,8 @@ qt6_add_qml_module(
         "${PROJECT_NAME}.cpp"
         "file_io.hpp"
         "file_io.cpp"
+        "resource_manager.hpp"
+        "resource_manager.cpp"
         "engine_wrapper.hpp"
         "engine_wrapper.cpp"
         "renderer.hpp"

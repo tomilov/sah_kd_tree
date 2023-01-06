@@ -1,6 +1,7 @@
 #include <common/version.hpp>
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
+#include <engine/graphics_pipeline.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -9,6 +10,7 @@
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
 #include <viewer/renderer.hpp>
+#include <viewer/resource_manager.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
@@ -41,13 +43,16 @@ struct Renderer::Impl
     };
 
     engine::Engine & engine;
-    FileIo & fileIo;
+    ResourceManager & resourceManager;
 
     engine::Library & library_NEW = *utils::CheckedPtr(engine.library.get());
     engine::Instance & instance_NEW = *utils::CheckedPtr(engine.instance.get());
     engine::PhysicalDevices & physicalDevices_NEW = *utils::CheckedPtr(engine.physicalDevices.get());
     engine::Device & device_NEW = *utils::CheckedPtr(engine.device.get());
     engine::MemoryAllocator & vma = *utils::CheckedPtr(engine.vma.get());
+
+    std::shared_ptr<const Resources> resources;
+    std::shared_ptr<const engine::GraphicsPipelines> graphicsPipelines;
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
     vk::Instance instance;
@@ -83,10 +88,10 @@ struct Renderer::Impl
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet uniformBufferDescriptorSet = VK_NULL_HANDLE;
 
-    Impl(engine::Engine & engine, FileIo & fileIo, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
+    Impl(engine::Engine & engine, ResourceManager & resourceManager, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
          uint32_t queueFamilyIndex, vk::Queue queue)
         : engine{engine}
-        , fileIo{fileIo}
+        , resourceManager{resourceManager}
         , vkGetInstanceProcAddr{vkGetInstanceProcAddr}
         , instance{instance->vkInstance()}
         , physicalDevice{physicalDevice}
@@ -143,9 +148,9 @@ private:
     void initGraphicsPipelines(vk::RenderPass renderPass);
 };
 
-Renderer::Renderer(engine::Engine & engine, FileIo & fileIo, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
-                   uint32_t queueFamilyIndex, vk::Queue queue)
-    : impl_{engine, fileIo, vkGetInstanceProcAddr, instance, physicalDevice, vkGetDeviceProcAddr, device, queueFamilyIndex, queue}
+Renderer::Renderer(engine::Engine & engine, ResourceManager & resourceManager, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr,
+                   vk::Device device, uint32_t queueFamilyIndex, vk::Queue queue)
+    : impl_{engine, resourceManager, vkGetInstanceProcAddr, instance, physicalDevice, vkGetDeviceProcAddr, device, queueFamilyIndex, queue}
 {}
 
 Renderer::~Renderer() = default;
@@ -166,15 +171,18 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
+    if (!resources) {
+        resources = resourceManager.getOrCreateResources(utils::autoCast(graphicsStateInfo.framesInFlight));
+    }
     if (!pipelineLayoutsAndDescriptorsInitialized) {
         pipelineLayoutsAndDescriptorsInitialized = true;
         initPipelineLayouts(graphicsStateInfo.framesInFlight);
         initDescriptors();
     }
 
-    VkDeviceSize ubufOffset = graphicsStateInfo.currentFrameSlot * uniformBufferPerFrameSize;
+    VkDeviceSize uniformBufferOffset = graphicsStateInfo.currentFrameSlot * uniformBufferPerFrameSize;
     void * p = nullptr;
-    VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, ubufOffset, uniformBufferPerFrameSize, 0, &p);
+    VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, uniformBufferOffset, uniformBufferPerFrameSize, 0, &p);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
     INVARIANT(p, "Just successfully initialized");
     memcpy(p, &t, sizeof t);
@@ -185,6 +193,15 @@ static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
+    if (!graphicsPipelines) {
+        if (resources) {
+            vk::Extent2D extent = {
+                .width = utils::autoCast(size.width()),
+                .height = utils::autoCast(size.height()),
+            };
+            graphicsPipelines = resources->createGraphicsPipelines(renderPass, extent);
+        }
+    }
     if (!pipelinesInitialized) {
         pipelinesInitialized = true;
         initGraphicsPipelines(renderPass);

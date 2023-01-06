@@ -24,13 +24,16 @@ execute_process(
     WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}"
     COMMAND
-        "${GIT_EXECUTABLE}" describe --always --tags --dirty --abbrev=40
+        "${GIT_EXECUTABLE}" describe
+            --always
+            --tags
+            --dirty
+            --abbrev=40
     OUTPUT_VARIABLE
         PROJECT_GIT_HASH
     RESULTS_VARIABLE
         GIT_RETURN_CODE
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 if(NOT GIT_RETURN_CODE STREQUAL "0")
     message(FATAL_ERROR "Not a git repository")
 endif()

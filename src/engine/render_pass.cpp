@@ -11,26 +11,6 @@
 namespace engine
 {
 
-void ShaderStages::append(const ShaderModule & shaderModule, std::string_view entryPoint)
-{
-    entryPoints.emplace_back(entryPoint);
-    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, entryPoint));
-
-    shaderStages.resize(shaderStages.size() + 1);
-    auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
-    pipelineShaderStageCreateInfo = {
-        .flags = {},
-        .stage = shaderModule.shaderStage,
-        .module = shaderModule.shaderModule,
-        .pName = entryPoints.back().c_str(),
-        .pSpecializationInfo = nullptr,
-    };
-    auto & debugUtilsObjectNameInfo = shaderStages.back<vk::DebugUtilsObjectNameInfoEXT>();
-    debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
-    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
-    debugUtilsObjectNameInfo.pObjectName = name.c_str();
-}
-
 void RenderPass::init()
 {
     attachmentReference = {

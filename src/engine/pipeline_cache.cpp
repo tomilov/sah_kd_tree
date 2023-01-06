@@ -1,4 +1,5 @@
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/file_io.hpp>
 #include <engine/format.hpp>
 #include <engine/library.hpp>
@@ -49,6 +50,12 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
         return {};
     }
     return cacheData;
+}
+
+PipelineCache::PipelineCache(std::string_view name, const Engine & engine, utils::CheckedPtr<const FileIo> fileIo)
+    : name{name}, engine{engine}, fileIo{fileIo}, library{*engine.library}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
+{
+    load();
 }
 
 void PipelineCache::load()

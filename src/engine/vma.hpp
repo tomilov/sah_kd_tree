@@ -27,10 +27,15 @@ struct Instance;
 struct PhysicalDevice;
 struct Device;
 
+struct AllocationCreateInfo;
+struct Resource;
+class Buffer;
+class Image;
+
 class ENGINE_EXPORT MemoryAllocator final : utils::NonCopyable
 {
 public:
-    struct CreateInfo
+    struct ENGINE_EXPORT CreateInfo
     {
         static constexpr std::initializer_list<const char *> kOptionalExtensions = {
             VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
@@ -49,11 +54,6 @@ public:
             return createInfo;
         }
     };
-
-    struct AllocationCreateInfo;
-
-    class Buffer;
-    class Image;
 
     MemoryAllocator(const CreateInfo & features, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device);
     ~MemoryAllocator();
@@ -74,7 +74,7 @@ public:
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 
 private:
-    struct Resource;
+    friend Resource;
 
     Library & library;
     Instance & instance;
@@ -84,7 +84,7 @@ private:
     VmaAllocator allocator = VK_NULL_HANDLE;
 };
 
-struct ENGINE_EXPORT MemoryAllocator::AllocationCreateInfo
+struct ENGINE_EXPORT AllocationCreateInfo
 {
     enum class AllocationType
     {
@@ -105,9 +105,10 @@ struct ENGINE_EXPORT MemoryAllocator::AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
-class ENGINE_EXPORT MemoryAllocator::Buffer final  // TODO(tomilov): make buffer suballocator
+class ENGINE_EXPORT Buffer final  // TODO(tomilov): make buffer suballocator
 {
 public:
+    Buffer();
     Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Buffer(Buffer &&);
@@ -124,14 +125,16 @@ private:
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
-static_assert(!std::is_copy_constructible_v<MemoryAllocator::Buffer>);
-static_assert(!std::is_copy_assignable_v<MemoryAllocator::Buffer>);
-static_assert(std::is_move_constructible_v<MemoryAllocator::Buffer>);
-static_assert(std::is_move_assignable_v<MemoryAllocator::Buffer>);
+static_assert(std::is_default_constructible_v<Buffer>);
+static_assert(!std::is_copy_constructible_v<Buffer>);
+static_assert(!std::is_copy_assignable_v<Buffer>);
+static_assert(std::is_move_constructible_v<Buffer>);
+static_assert(std::is_move_assignable_v<Buffer>);
 
-class ENGINE_EXPORT MemoryAllocator::Image final
+class ENGINE_EXPORT Image final
 {
 public:
+    Image();
     Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Image(Image &&);
@@ -152,9 +155,10 @@ private:
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
-static_assert(!std::is_copy_constructible_v<MemoryAllocator::Image>);
-static_assert(!std::is_copy_assignable_v<MemoryAllocator::Image>);
-static_assert(std::is_move_constructible_v<MemoryAllocator::Image>);
-static_assert(std::is_move_assignable_v<MemoryAllocator::Image>);
+static_assert(std::is_default_constructible_v<Image>);
+static_assert(!std::is_copy_constructible_v<Image>);
+static_assert(!std::is_copy_assignable_v<Image>);
+static_assert(std::is_move_constructible_v<Image>);
+static_assert(std::is_move_assignable_v<Image>);
 
 }  // namespace engine
