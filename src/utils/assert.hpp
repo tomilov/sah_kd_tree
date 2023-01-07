@@ -1,5 +1,7 @@
 #pragma once
 
+#include <common/config.hpp>
+
 #include <fmt/format.h>
 #include <spdlog/common.h>
 
@@ -9,12 +11,6 @@
 
 namespace utils
 {
-
-#ifdef NDEBUG
-inline constexpr bool kEnableAssert = false;
-#else
-inline constexpr bool kEnableAssert = true;
-#endif
 
 namespace impl
 {
@@ -27,7 +23,7 @@ void throwInvariantError [[noreturn]] (const char * expression, spdlog::source_l
 }  // namespace utils
 
 // clang-format off
-#define ASSERT_MSG(condition, format, ...) do if constexpr (utils::kEnableAssert) if (!(condition)) utils::impl::assertFailed(#condition, {__FILE__, __LINE__, static_cast<const char *>(__FUNCTION__)}, fmt::vformat(FMT_STRING(format), fmt::make_format_args(__VA_ARGS__))); while (false)
+#define ASSERT_MSG(condition, format, ...) do if constexpr (sah_kd_tree::kIsDebugBuild) if (!(condition)) utils::impl::assertFailed(#condition, {__FILE__, __LINE__, static_cast<const char *>(__FUNCTION__)}, fmt::vformat(FMT_STRING(format), fmt::make_format_args(__VA_ARGS__))); while (false)
 #define ASSERT(condition) ASSERT_MSG(condition, "")
 #define INVARIANT(condition, format,  ...) do if (!(condition)) { utils::impl::throwInvariantError(#condition, {__FILE__, __LINE__, static_cast<const char *>(__FUNCTION__)}, fmt::vformat(FMT_STRING(format), fmt::make_format_args(__VA_ARGS__))); } while (false)
 // clang-format on

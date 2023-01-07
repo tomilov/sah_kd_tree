@@ -52,7 +52,9 @@ struct Renderer::Impl
     engine::MemoryAllocator & vma = *utils::CheckedPtr(engine.vma.get());
 
     std::shared_ptr<const Resources> resources;
-    Resources::GraphicsPipeline graphicsPipeline_NEW;
+    std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline_NEW;
+
+    // TODO: descriptor allocator + descriptor layout cache
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
     vk::Instance instance;
@@ -171,8 +173,10 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    if (!resources) {
-        resources = resourceManager.getOrCreateResources(utils::autoCast(graphicsStateInfo.framesInFlight));
+    uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
+    if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
+        graphicsPipeline_NEW = nullptr;
+        resources = resourceManager.getOrCreateResources(framesInFlight);
     }
     if (!pipelineLayoutsAndDescriptorsInitialized) {
         pipelineLayoutsAndDescriptorsInitialized = true;
@@ -193,12 +197,16 @@ static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
-    if (!graphicsPipeline_NEW.pipeline) {
-        if (resources) {
-            vk::Extent2D extent = {
-                .width = utils::autoCast(size.width()),
-                .height = utils::autoCast(size.height()),
-            };
+    if (resources) {
+        vk::Extent2D extent = {
+            .width = utils::autoCast(size.width()),
+            .height = utils::autoCast(size.height()),
+        };
+        if (!graphicsPipeline_NEW) {
+            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
+        } else if (graphicsPipeline_NEW->pipelineLayout.renderPass != renderPass) {
+            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
+        } else if (graphicsPipeline_NEW->pipelineLayout.extent != extent) {
             graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
         }
     }

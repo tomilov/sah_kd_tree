@@ -24,7 +24,7 @@ void throwInvariantError(const char * expression, spdlog::source_loc source_loc,
 {
     auto errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation{}{}"), expression, (std::empty(message) ? ""sv : ": "sv), message);
     spdlog::log(source_loc, spdlog::level::critical, "{}", errorMessage);
-    if constexpr (utils::kEnableAssert) {
+    if constexpr (sah_kd_tree::kIsDebugBuild) {
         std::abort();
     } else {
         throw InvariantError{errorMessage};

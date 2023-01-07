@@ -35,6 +35,14 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 
 }  // namespace
 
+Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine &engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState &pipelineVertexInputState, const engine::ShaderStages &shaderStages, vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> &descriptorSetLayouts, const std::vector<vk::PushConstantRange> &pushConstantRanges, vk::Extent2D extent)
+    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent}
+    , pipelines{engine, pipelineCache}
+{
+    pipelines.add(pipelineLayout);
+    pipelines.create();
+}
+
 Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
     : engine{engine}
     , fileIo{fileIo}
@@ -48,13 +56,9 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint3
     init();
 }
 
-auto Resources::createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const -> GraphicsPipeline
+auto Resources::createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const -> std::unique_ptr<const Resources::GraphicsPipeline>
 {
-    auto graphicsPipelineLayout = std::make_unique<const engine::GraphicsPipelineLayout>("rasterization", engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent);
-    auto graphicsPipeline = std::make_unique<engine::GraphicsPipelines>(engine, pipelineCache->pipelineCache);
-    graphicsPipeline->add(*graphicsPipelineLayout);
-    graphicsPipeline->create();
-    return {std::move(graphicsPipelineLayout), std::move(graphicsPipeline)};
+    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent);
 }
 
 void Resources::init()

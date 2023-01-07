@@ -5,6 +5,7 @@
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
 #include <viewer/file_io.hpp>
+#include <engine/graphics_pipeline.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -14,6 +15,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include <string_view>
 
 using namespace Qt::StringLiterals;
 
@@ -32,9 +34,17 @@ class Resources : public std::enable_shared_from_this<Resources>
 public:
     struct GraphicsPipeline
     {
-        std::unique_ptr<const engine::GraphicsPipelineLayout> pipelineLayout;
-        std::unique_ptr<const engine::GraphicsPipelines> pipeline;
+        engine::GraphicsPipelineLayout pipelineLayout;
+        engine::GraphicsPipelines pipelines;
+
+        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass,
+                         const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent);
     };
+
+    uint32_t getFramesInFlight() const
+    {
+        return framesInFlight;
+    }
 
     std::shared_ptr<Resources> get()
     {
@@ -51,7 +61,7 @@ public:
         return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
     }
 
-    GraphicsPipeline createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const;
+    std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const;
 
 private:
     const engine::Engine & engine;

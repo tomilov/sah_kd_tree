@@ -478,6 +478,8 @@ void ShaderModuleReflection::reflect()
     }
 }
 
+// TODO: merge set layout bindings, merge push constants
+
 ShaderStages::ShaderStages(const Engine & engine) : engine{engine}, library{*engine.library}, device{*engine.device}
 {}
 
