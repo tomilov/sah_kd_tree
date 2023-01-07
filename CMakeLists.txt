@@ -23,5 +23,5 @@ endif()
 add_subdirectory("external" EXCLUDE_FROM_ALL SYSTEM)
 add_subdirectory("src")
 
-option(GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
+option(SAH_KD_TREE_GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
 add_subdirectory("docs")

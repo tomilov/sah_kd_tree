@@ -107,10 +107,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{.name = "Host -> Device transfer queue"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{.name = "Device -> Host transfer queue"};
 
-    PhysicalDevice(Engine & engine, Library & library, Instance & instance, vk::PhysicalDevice physicalDevice) : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}
-    {
-        init();
-    }
+    PhysicalDevice(Engine & engine, vk::PhysicalDevice physicalDevice);
 
     [[nodiscard]] std::string getDeviceName() const;
     [[nodiscard]] std::string getPipelineCacheUUID() const;
@@ -133,10 +130,7 @@ struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 
     std::list<PhysicalDevice> physicalDevices;
 
-    PhysicalDevices(Engine & engine, Library & library, Instance & instance) : engine{engine}, library{library}, instance{instance}
-    {
-        init();
-    }
+    PhysicalDevices(Engine & engine);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 

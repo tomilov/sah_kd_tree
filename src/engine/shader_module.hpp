@@ -8,8 +8,10 @@
 #include <vulkan/vulkan.hpp>
 
 #include <deque>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <cstdint>
@@ -33,7 +35,7 @@ struct ENGINE_EXPORT ShaderModule final : utils::NonCopyable
     const std::string name;
 
     const Engine & engine;
-    const utils::CheckedPtr<const FileIo> fileIo;
+    const FileIo & fileIo;
     const Library & library;
     const Device & device;
 
@@ -43,21 +45,29 @@ struct ENGINE_EXPORT ShaderModule final : utils::NonCopyable
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(std::string_view name, const Engine & engine, utils::CheckedPtr<const FileIo> fileIo);
+    ShaderModule(std::string_view name, const Engine & engine, const FileIo & fileIo);
 
 private:
     void load();
 };
 
+struct ENGINE_EXPORT PipelineVertexInputState final : utils::OnlyMoveable
+{
+    std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions;
+    std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
+    std::optional<vk::PipelineVertexInputStateCreateInfo> pipelineVertexInputStateCreateInfo;
+};
+
 struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
 {
-    struct DescriptorSetLayout
+    struct DescriptorSetLayout final : utils::OnlyMoveable
     {
         uint32_t set = 0;
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
     };
 
     const ShaderModule & shaderModule;
+    const std::string entryPoint;
 
     static constexpr size_t kSize = 1208;
     static constexpr size_t kAlignment = 8;
@@ -66,10 +76,13 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
     vk::ShaderStageFlagBits shaderStage = {};
     std::vector<DescriptorSetLayout> descriptorSetLayouts;
     std::vector<vk::DescriptorSetLayoutCreateInfo> descriptorSetLayoutCreateInfos;
+    std::vector<std::string> descriptorNames;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
-    ShaderModuleReflection(const ShaderModule & shaderModule);
+    ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint);
     ~ShaderModuleReflection();
+
+    [[nodiscard]] PipelineVertexInputState getPipelineVertexInputState(uint32_t vertexBufferBinding) const;
 
 private:
     void reflect();

@@ -12,31 +12,49 @@
 namespace engine
 {
 
-GraphicsPipelines::GraphicsPipelines(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, vk::PipelineCache pipelineCache, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts,
-                                     const std::vector<vk::PushConstantRange> & pushConstantRange, vk::Extent2D extent)
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const PipelineVertexInputState & pipelineVertexInputState, const ShaderStages & shaderStages, vk::RenderPass renderPass,
+                                               const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent)
     : name{name}
     , engine{engine}
     , library{*engine.library}
     , device{*engine.device}
+    , pipelineVertexInputState{pipelineVertexInputState}
     , shaderStages{shaderStages}
     , renderPass{renderPass}
-    , pipelineCache{pipelineCache}
     , descriptorSetLayouts{descriptorSetLayouts}
-    , pushConstantRange{pushConstantRange}
+    , pushConstantRanges{pushConstantRanges}
     , extent{extent}
 {
-    load();
+    init();
 }
 
-void GraphicsPipelines::load()
+void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo) const
 {
-    pipelineVertexInputStateCreateInfo.flags = {};
-    pipelineVertexInputStateCreateInfo.setVertexBindingDescriptions(nullptr);
-    pipelineVertexInputStateCreateInfo.setVertexAttributeDescriptions(nullptr);
+    name = this->name;
 
+    graphicsPipelineCreateInfo.flags = {};
+    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
+    graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputState.pipelineVertexInputStateCreateInfo.value();
+    graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+    graphicsPipelineCreateInfo.pTessellationState = nullptr;
+    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+    graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+    graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+    graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+    graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+    graphicsPipelineCreateInfo.pDynamicState = nullptr;
+    graphicsPipelineCreateInfo.layout = pipelineLayout;
+    graphicsPipelineCreateInfo.renderPass = renderPass;
+    graphicsPipelineCreateInfo.subpass = 0;
+    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+    graphicsPipelineCreateInfo.basePipelineIndex = 0;
+}
+
+void GraphicsPipelineLayout::init()
+{
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
-    pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleList);
+    pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
 
     viewport = {
         .x = 0.0f,
@@ -71,12 +89,12 @@ void GraphicsPipelines::load()
     };
 
     pipelineColorBlendAttachmentState = {
-        .blendEnable = VK_FALSE,
-        .srcColorBlendFactor = vk::BlendFactor::eZero,
-        .dstColorBlendFactor = vk::BlendFactor::eZero,
+        .blendEnable = VK_TRUE,
+        .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
+        .dstColorBlendFactor = vk::BlendFactor::eOne,
         .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eZero,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha,
+        .dstAlphaBlendFactor = vk::BlendFactor::eOne,
         .alphaBlendOp = vk::BlendOp::eAdd,
         .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
     };
@@ -110,37 +128,40 @@ void GraphicsPipelines::load()
     pipelineColorBlendStateCreateInfo.setAttachments(pipelineColorBlendAttachmentState);
     pipelineColorBlendStateCreateInfo.blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
+    dynamicStates = {
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor,
+    };
+    pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
+
     pipelineLayoutCreateInfo.flags = {};
     pipelineLayoutCreateInfo.setSetLayouts(descriptorSetLayouts);
-    pipelineLayoutCreateInfo.setPushConstantRanges(nullptr);
+    pipelineLayoutCreateInfo.setPushConstantRanges(pushConstantRanges);
 
     pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
     pipelineLayout = *pipelineLayoutHolder;
+    device.setDebugUtilsObjectName(pipelineLayout, name);
+}
 
-    auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfos.emplace_back();
-    graphicsPipelineCreateInfo.flags = {};
-    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
-    graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputStateCreateInfo;
-    graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
-    graphicsPipelineCreateInfo.pTessellationState = nullptr;
-    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
-    graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
-    graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
-    graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
-    graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
-    graphicsPipelineCreateInfo.pDynamicState = nullptr;
-    graphicsPipelineCreateInfo.layout = pipelineLayout;
-    graphicsPipelineCreateInfo.renderPass = renderPass;
-    graphicsPipelineCreateInfo.subpass = 0;
-    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
-    graphicsPipelineCreateInfo.basePipelineIndex = 0;
+GraphicsPipelines::GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache) : engine{engine}, library{*engine.library}, device{*engine.device}, pipelineCache{pipelineCache}
+{}
 
+void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout)
+{
+    graphicsPipelineLayout.fill(names.emplace_back(), graphicsPipelineCreateInfos.emplace_back());
+}
+
+void GraphicsPipelines::create()
+{
     auto result = device.device.createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
-    vk::resultCheck(result.result, fmt::format("Failed to create graphics pipeline '{}'", name).c_str());
+    INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipelines {}", fmt::join(names, ","));
     pipelineHolders = std::move(result.value);
     pipelines.reserve(std::size(pipelineHolders));
+    size_t i = 0;
     for (const auto & pipelineHolder : pipelineHolders) {
         pipelines.push_back(*pipelineHolder);
+        device.setDebugUtilsObjectName(pipelines.back(), names.at(i));
+        ++i;
     }
 }
 

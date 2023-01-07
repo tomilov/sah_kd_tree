@@ -261,5 +261,5 @@ struct Triangle
     }
 };
 
-SAH_KD_TREE_EXPORT void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder);
+void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
 }  // namespace SAH_KD_TREE_NO_EXPORT

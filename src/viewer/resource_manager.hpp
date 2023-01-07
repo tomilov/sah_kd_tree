@@ -27,12 +27,31 @@ struct UniformBuffer
 };
 #pragma pack(pop)
 
-class Resources
+class Resources : public std::enable_shared_from_this<Resources>
 {
 public:
-    Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight);
+    struct GraphicsPipeline
+    {
+        std::unique_ptr<const engine::GraphicsPipelineLayout> pipelineLayout;
+        std::unique_ptr<const engine::GraphicsPipelines> pipeline;
+    };
 
-    std::unique_ptr<engine::GraphicsPipelines> createGraphicsPipelines(vk::RenderPass renderPass, vk::Extent2D extent) const;
+    std::shared_ptr<Resources> get()
+    {
+        return shared_from_this();
+    }
+
+    std::shared_ptr<const Resources> get() const
+    {
+        return shared_from_this();
+    }
+
+    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
+    {
+        return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
+    }
+
+    GraphicsPipeline createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const;
 
 private:
     const engine::Engine & engine;
@@ -50,12 +69,15 @@ private:
     engine::Buffer uniformBuffer;
     engine::Buffer vertexBuffer;
 
-    vk::UniqueDescriptorSetLayout descriptorSetLayoutHolder;
+    engine::PipelineVertexInputState pipelineVertexInputState;
+    std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
 
-    std::vector<vk::PushConstantRange> pushConstantRange;
+    std::vector<vk::PushConstantRange> pushConstantRanges;
 
     std::unique_ptr<const engine::PipelineCache> pipelineCache;
+
+    Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight);
 
     void init();
 };
@@ -63,8 +85,7 @@ private:
 class ResourceManager
 {
 public:
-    ResourceManager(engine::Engine & engine) : engine{engine}
-    {}
+    ResourceManager(engine::Engine & engine);
 
     std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight);
 

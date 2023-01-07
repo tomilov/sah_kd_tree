@@ -14,8 +14,6 @@ namespace engine
 {
 class Engine;
 struct Library;
-struct Instance;
-struct PhysicalDevice;
 struct QueueCreateInfo;
 struct Device;
 struct CommandBuffers;
@@ -25,19 +23,13 @@ struct ENGINE_EXPORT Queue final : utils::NonCopyable
 {
     Engine & engine;
     Library & library;
-    Instance & instance;
-    PhysicalDevice & physicalDevice;
     QueueCreateInfo & queueCreateInfo;
     Device & device;
     CommandPools & commandPools;
 
     vk::Queue queue;
 
-    Queue(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, QueueCreateInfo & queueCreateInfo, Device & device, CommandPools & commandPools)
-        : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}, queueCreateInfo{queueCreateInfo}, device{device}, commandPools{commandPools}
-    {
-        init();
-    }
+    Queue(Engine & engine, QueueCreateInfo & queueCreateInfo, CommandPools & commandPools);
 
     ~Queue();
 
@@ -62,7 +54,7 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
-    Queues(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device, CommandPools & commandPools);
+    Queues(Engine & engine, CommandPools & commandPools);
 
     void waitIdle() const;
 };

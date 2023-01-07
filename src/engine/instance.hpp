@@ -52,10 +52,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{library}
-    {
-        init();
-    }
+    Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine);
 
     [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const;
 

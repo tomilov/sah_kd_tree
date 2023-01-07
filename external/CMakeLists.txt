@@ -65,3 +65,7 @@ target_include_directories(
     "SPIRV-Reflect"
     SYSTEM PUBLIC
         "SPIRV-Reflect")
+
+
+add_subdirectory("nlohmann")
+

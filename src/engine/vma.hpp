@@ -22,6 +22,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
 
 namespace engine
 {
+class Engine;
 struct Library;
 struct Instance;
 struct PhysicalDevice;
@@ -35,27 +36,12 @@ class Image;
 class ENGINE_EXPORT MemoryAllocator final : utils::NonCopyable
 {
 public:
-    struct ENGINE_EXPORT CreateInfo
-    {
-        static constexpr std::initializer_list<const char *> kOptionalExtensions = {
-            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
-            VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
-        };
-
-        bool memoryBudgetEnabled = false;
-        bool memoryPriorityEnabled = false;
-
-        template<typename DeviceExtensions>
-        static CreateInfo create(const DeviceExtensions & deviceExtensions)
-        {
-            CreateInfo createInfo;
-            createInfo.memoryBudgetEnabled = deviceExtensions.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-            createInfo.memoryPriorityEnabled = deviceExtensions.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
-            return createInfo;
-        }
+    static inline constexpr std::initializer_list<const char *> kOptionalExtensions = {
+        VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
+        VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
     };
 
-    MemoryAllocator(const CreateInfo & features, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device);
+    MemoryAllocator(Engine & engine);
     ~MemoryAllocator();
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
@@ -82,6 +68,8 @@ private:
     Device & device;
 
     VmaAllocator allocator = VK_NULL_HANDLE;
+
+    void init();
 };
 
 struct ENGINE_EXPORT AllocationCreateInfo
@@ -105,7 +93,7 @@ struct ENGINE_EXPORT AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
-class ENGINE_EXPORT Buffer final  // TODO(tomilov): make buffer suballocator
+class ENGINE_EXPORT Buffer final : utils::OnlyMoveable  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer();
@@ -131,7 +119,7 @@ static_assert(!std::is_copy_assignable_v<Buffer>);
 static_assert(std::is_move_constructible_v<Buffer>);
 static_assert(std::is_move_assignable_v<Buffer>);
 
-class ENGINE_EXPORT Image final
+class ENGINE_EXPORT Image final : utils::OnlyMoveable
 {
 public:
     Image();

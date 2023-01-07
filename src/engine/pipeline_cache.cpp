@@ -19,7 +19,7 @@ namespace engine
 
 std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 {
-    auto cacheData = fileIo->loadPipelineCache(name.c_str());
+    auto cacheData = fileIo.loadPipelineCache(name.c_str());
     if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
@@ -52,8 +52,7 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Engine & engine, utils::CheckedPtr<const FileIo> fileIo)
-    : name{name}, engine{engine}, fileIo{fileIo}, library{*engine.library}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
+PipelineCache::PipelineCache(std::string_view name, const Engine & engine, const FileIo & fileIo) : name{name}, engine{engine}, fileIo{fileIo}, library{*engine.library}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
 {
     load();
 }
@@ -109,7 +108,7 @@ bool PipelineCache::flush()
 {
     ASSERT(pipelineCache);
     auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
-    if (!fileIo->savePipelineCache(data, name.c_str())) {
+    if (!fileIo.savePipelineCache(data, name.c_str())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }

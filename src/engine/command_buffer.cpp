@@ -1,5 +1,6 @@
 #include <engine/command_buffer.hpp>
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/format.hpp>
 #include <engine/library.hpp>
 
@@ -9,6 +10,12 @@
 
 namespace engine
 {
+
+CommandBuffers::CommandBuffers(std::string_view name, Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
+    : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}, commandBufferAllocateInfo{commandBufferAllocateInfo}
+{
+    create();
+}
 
 void CommandBuffers::create()
 {

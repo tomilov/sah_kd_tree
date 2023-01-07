@@ -42,6 +42,11 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
 
 }  // namespace
 
+Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{*engine.library}
+{
+    init();
+}
+
 std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const
 {
     return instance.enumeratePhysicalDevices(library.dispatcher);

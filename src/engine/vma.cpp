@@ -1,4 +1,5 @@
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/exception.hpp>
 #include <engine/format.hpp>
 #include <engine/instance.hpp>
@@ -35,68 +36,9 @@
 namespace engine
 {
 
-MemoryAllocator::MemoryAllocator(const CreateInfo & createInfo, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
+MemoryAllocator::MemoryAllocator(Engine & engine) : library{*engine.library}, instance{*engine.instance}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
 {
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.instance = vk::Instance::NativeType(instance.instance);
-    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice.physicalDevice);
-    allocatorInfo.device = vk::Device::NativeType(device.device);
-    allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
-
-    if (library.allocationCallbacks) {
-        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*library.allocationCallbacks);
-    }
-
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    if (createInfo.memoryBudgetEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-    }
-    if (createInfo.memoryPriorityEnabled) {
-        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
-    }
-
-    VmaVulkanFunctions vulkanFunctions = {};
-#ifdef DISPATCH
-#error "macro name collision"
-#endif
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-#define DISPATCH(f) library.dispatcher.f
-#else
-#define DISPATCH(f) f
-#endif
-    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
-    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
-    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
-    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
-    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
-    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
-    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
-    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
-    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
-    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
-    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
-    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
-    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
-    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
-    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
-    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
-    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
-    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
-    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
-    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
-    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
-    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
-#undef DISPATCH
-
-    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-
-    const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
-    vk::resultCheck(result, "Cannot create allocator");
+    init();
 }
 
 MemoryAllocator::~MemoryAllocator()
@@ -104,11 +46,11 @@ MemoryAllocator::~MemoryAllocator()
     vmaDestroyAllocator(allocator);
 }
 
-struct Resource
+struct Resource final : utils::OnlyMoveable
 {
     using ResourceDestroy = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
 
-    struct BufferResource
+    struct BufferResource final : utils::OnlyMoveable
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::BufferCreateInfo bufferCreateInfo;
@@ -164,7 +106,7 @@ struct Resource
     static_assert(std::is_move_constructible_v<BufferResource>);
     static_assert(std::is_move_assignable_v<BufferResource>);
 
-    struct ImageResource
+    struct ImageResource final : utils::OnlyMoveable
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::ImageCreateInfo imageCreateInfo;
@@ -749,6 +691,70 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
     VmaDefragmentationStats defragmentationStats = {};
     vmaEndDefragmentation(allocator, defragmentationContext, &defragmentationStats);
     // bytesMoved, bytesFreed, allocationsMoved, deviceMemoryBlocksFreed
+}
+
+void MemoryAllocator::init()
+{
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.instance = vk::Instance::NativeType(instance.instance);
+    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice.physicalDevice);
+    allocatorInfo.device = vk::Device::NativeType(device.device);
+    allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
+
+    if (library.allocationCallbacks) {
+        allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*library.allocationCallbacks);
+    }
+
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    if (physicalDevice.enabledExtensionSet.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+    }
+    if (physicalDevice.enabledExtensionSet.contains(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+    }
+
+    VmaVulkanFunctions vulkanFunctions = {};
+#ifdef DISPATCH
+#error "macro name collision"
+#endif
+#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#define DISPATCH(f) library.dispatcher.f
+#else
+#define DISPATCH(f) f
+#endif
+    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
+    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
+    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
+    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
+    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
+    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
+    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
+    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
+    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
+    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
+    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
+    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
+    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
+    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
+    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
+    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
+    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
+    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
+    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
+    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
+    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
+    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
+#undef DISPATCH
+
+    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+
+    const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
+    vk::resultCheck(result, "Cannot create allocator");
 }
 
 }  // namespace engine

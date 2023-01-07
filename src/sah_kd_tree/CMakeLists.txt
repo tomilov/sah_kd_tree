@@ -1,4 +1,7 @@
-project("sah_kd_tree")
+project(
+    "sah_kd_tree"
+    LANGUAGES
+        CUDA)
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
@@ -50,8 +53,9 @@ target_compile_options(
     "lib${PROJECT_NAME}"
     PRIVATE
         "-Wno-unused-parameter"
-        "-Wno-deprecated-copy")
-if(BUILD_FUZZER)
+        "-Wno-deprecated-copy"
+        "-Wno-unused-function")
+if(${SAH_KD_TREE_BUILD_FUZZER})
     target_compile_options(
         "lib${PROJECT_NAME}"
         PRIVATE

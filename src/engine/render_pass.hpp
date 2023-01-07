@@ -13,7 +13,6 @@ namespace engine
 {
 class Engine;
 struct Library;
-struct PhysicalDevice;
 struct Device;
 
 struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
@@ -22,7 +21,6 @@ struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
 
     Engine & engine;
     Library & library;
-    PhysicalDevice & physicalDevice;
     Device & device;
 
     vk::AttachmentReference attachmentReference;
@@ -33,10 +31,7 @@ struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    RenderPass(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device) : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}
-    {
-        init();
-    }
+    RenderPass(std::string_view name, Engine & engine);
 
 private:
     void init();

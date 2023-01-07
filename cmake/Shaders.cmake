@@ -4,7 +4,7 @@ find_package(
     COMPONENTS
         glslangValidator)
 
-function(process_shaders)
+function(process_directory_shaders)
     file(
         GLOB_RECURSE
             shader_files

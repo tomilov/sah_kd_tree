@@ -21,9 +21,6 @@ namespace engine
 class Engine;
 struct Library;
 struct Device;
-struct Instance;
-struct PhysicalDevice;
-struct Device;
 
 struct ENGINE_EXPORT CommandPool final
 {
@@ -37,8 +34,7 @@ struct ENGINE_EXPORT CommandPool final
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(std::string_view name, Engine & engine, Library & library, Device & device) : name{name}, engine{engine}, library{library}, device{device}
-    {}
+    CommandPool(std::string_view name, Engine & engine);
 
     void create();
 };
@@ -47,8 +43,6 @@ struct CommandPools : utils::NonCopyable
 {
     Engine & engine;
     Library & library;
-    Instance & instance;
-    PhysicalDevice & physicalDevice;
     Device & device;
 
     using CommandPoolInfo = std::pair<uint32_t /*queueFamilyIndex*/, vk::CommandBufferLevel>;
@@ -64,8 +58,7 @@ struct CommandPools : utils::NonCopyable
     mutable std::mutex commandPoolsMutex;
     CommandPoolsType commandPools;
 
-    CommandPools(Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice, Device & device) : engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}, device{device}
-    {}
+    CommandPools(Engine & engine);
 
     [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary);
 };

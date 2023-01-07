@@ -28,7 +28,7 @@ struct ENGINE_EXPORT PipelineCache final : utils::NonCopyable
     const std::string name;
 
     const Engine & engine;
-    const utils::CheckedPtr<const FileIo> fileIo;
+    const FileIo & fileIo;
     const Library & library;
     const PhysicalDevice & physicalDevice;
     const Device & device;
@@ -36,7 +36,7 @@ struct ENGINE_EXPORT PipelineCache final : utils::NonCopyable
     vk::UniquePipelineCache pipelineCacheHolder;
     vk::PipelineCache pipelineCache;
 
-    PipelineCache(std::string_view name, const Engine & engine, utils::CheckedPtr<const FileIo> fileIo);
+    PipelineCache(std::string_view name, const Engine & engine, const FileIo & fileIo);
     ~PipelineCache();
 
     [[nodiscard]] bool flush();

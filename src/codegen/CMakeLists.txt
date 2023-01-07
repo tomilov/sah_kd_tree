@@ -5,15 +5,14 @@ set(CMAKE_CXX_STANDARD 20)
 get_target_property(vulkan_registry_path Vulkan::Registry INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(spirv_headers_path "SPIRV-Headers" INTERFACE_INCLUDE_DIRECTORIES)
 
-message(STATUS "spirv_headers_include_directories ${vulkan_registry_path}")
-message(STATUS "vulkan_headers_include_directories ${spirv_headers_path}")
-
 set(Python3_FIND_VIRTUALENV FIRST)
 find_package(
     Python3
     REQUIRED
     COMPONENTS
         Interpreter)
+
+find_program(clang_format_executable NAMES clang-format)
 
 add_custom_command(
     MAIN_DEPENDENCY
@@ -28,15 +27,6 @@ add_custom_command(
             --vulkan-registry="${vulkan_registry_path}/vk.xml"
             --spirv="${spirv_headers_path}"
             --output-dir="${CMAKE_CURRENT_BINARY_DIR}"
-    OUTPUT
-        "spirv_format_raw.hpp"
-        "spirv_format_raw.cpp")
-
-find_program(clang_format_executable NAMES clang-format)
-add_custom_command(
-    DEPENDS
-        "spirv_format_raw.hpp"
-        "spirv_format_raw.cpp"
     COMMAND
         "${clang_format_executable}"
             -i
@@ -44,9 +34,13 @@ add_custom_command(
             "spirv_format_raw.hpp"
             "spirv_format_raw.cpp"
     COMMAND
-        "${CMAKE_COMMAND}" -E rename "spirv_format_raw.hpp" "spirv_format.hpp"
+        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_raw.hpp" "spirv_format.hpp"
     COMMAND
-        "${CMAKE_COMMAND}" -E rename "spirv_format_raw.cpp" "spirv_format.cpp"
+        "${CMAKE_COMMAND}" -E rm "spirv_format_raw.hpp"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_raw.cpp" "spirv_format.cpp"
+    COMMAND
+        "${CMAKE_COMMAND}" -E rm "spirv_format_raw.cpp"
     OUTPUT
         "spirv_format.hpp"
         "spirv_format.cpp")

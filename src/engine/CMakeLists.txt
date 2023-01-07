@@ -64,7 +64,9 @@ target_sources(
         "pipeline_cache.hpp"
         "pipeline_cache.cpp"
         "graphics_pipeline.hpp"
-        "graphics_pipeline.cpp")
+        "graphics_pipeline.cpp"
+        "spirv_reflect_dump.hpp"
+        "spirv_reflect_dump.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -74,12 +76,14 @@ target_link_libraries(
         "VulkanMemoryAllocator"
         "SPIRV-Reflect"
         "libcodegen"
+        "VkLayer_utils" # from system
+        "nlohmann_json"
     PUBLIC
         Vulkan::Headers
         "libutils")
 
 set_source_files_properties(
-    "shader_module.cpp"
+    "spirv_reflect_dump.cpp"
     PROPERTIES
         COMPILE_FLAGS
             "-Werror=switch")
@@ -99,3 +103,11 @@ target_compile_definitions(
         APPLICATION_NAME="${PROJECT_NAME}")
 
 add_subdirectory("tests")
+
+if(${ipo_is_supported})
+    set_target_properties(
+        "lib${PROJECT_NAME}"
+        "${PROJECT_NAME}"
+        PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()

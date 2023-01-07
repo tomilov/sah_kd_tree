@@ -85,8 +85,8 @@ bool Engine::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
 void Engine::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks, *this);
-    instance = std::make_unique<Instance>(applicationName, applicationVersion, *this, *library);
-    physicalDevices = std::make_unique<PhysicalDevices>(*this, *library, *instance);
+    instance = std::make_unique<Instance>(applicationName, applicationVersion, *this);
+    physicalDevices = std::make_unique<PhysicalDevices>(*this);
 }
 
 vk::Instance Engine::getInstance() const
@@ -97,8 +97,8 @@ vk::Instance Engine::getInstance() const
 void Engine::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
-    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, *library, *instance, physicalDevice);
-    vma = device->makeMemoryAllocator();
+    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, physicalDevice);
+    vma = std::make_unique<MemoryAllocator>(*this);
 }
 
 vk::PhysicalDevice Engine::getPhysicalDevice() const

@@ -16,6 +16,12 @@
 [submodule "SPIRV-Reflect"]
 	path = external/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "nlohmann"]
+	path = external/nlohmann
+	url = https://github.com/nlohmann/json.git
+[submodule "Vulkan-ValidationLayers"]
+	path = external/Vulkan-ValidationLayers
+	url = https://github.com/KhronosGroup/Vulkan-ValidationLayers.git
 [submodule "SPIRV-Headers"]
 	path = external/SPIRV-Headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers.git

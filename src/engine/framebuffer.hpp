@@ -16,7 +16,6 @@ namespace engine
 {
 class Engine;
 struct Library;
-struct PhysicalDevice;
 struct Device;
 struct RenderPass;
 
@@ -26,7 +25,6 @@ struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
 
     Engine & engine;
     Library & library;
-    PhysicalDevice & physicalDevice;
     Device & device;
     RenderPass & renderPass;
 
@@ -39,11 +37,7 @@ struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
     std::vector<vk::UniqueFramebuffer> framebufferHolders;
     std::vector<vk::Framebuffer> framebuffers;
 
-    Framebuffer(std::string_view name, Engine & engine, Library & library, PhysicalDevice & physicalDevice, Device & device, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
-        : name{name}, engine{engine}, library{library}, physicalDevice{physicalDevice}, device{device}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
-    {
-        init();
-    }
+    Framebuffer(std::string_view name, Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews);
 
 private:
     void init();

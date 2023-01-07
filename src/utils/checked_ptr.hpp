@@ -2,8 +2,6 @@
 
 #include <utils/assert.hpp>
 
-#include <memory>
-
 #include <cstddef>
 
 namespace utils
@@ -13,7 +11,7 @@ template<typename T>
 class CheckedPtr
 {
 public:
-    constexpr CheckedPtr(std::nullptr_t)
+    constexpr CheckedPtr(std::nullptr_t) noexcept
     {}
 
     constexpr CheckedPtr(T * p) : p{p}

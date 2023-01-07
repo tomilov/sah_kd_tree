@@ -49,7 +49,7 @@ qt6_add_qml_module(
         "renderer.cpp")
 
 
-process_shaders()
+process_directory_shaders()
 
 target_sources(
     "lib${PROJECT_NAME}"

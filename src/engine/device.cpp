@@ -15,7 +15,7 @@
 namespace engine
 {
 
-Device::Device(std::string_view name, Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{library}, instance{instance}, physicalDevice{physicalDevice}
+Device::Device(std::string_view name, Engine & engine, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{*engine.library}, instance{*engine.instance}, physicalDevice{physicalDevice}
 {
     create();
 }
@@ -53,7 +53,7 @@ void Device::create()
             SPDLOG_WARN("Device extension '{}' is not available", optionalExtension);
         }
     }
-    for (const char * optionalVmaExtension : MemoryAllocator::CreateInfo::kOptionalExtensions) {
+    for (const char * optionalVmaExtension : MemoryAllocator::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalVmaExtension)) {
             SPDLOG_WARN("Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension);
         }
@@ -71,14 +71,9 @@ void Device::create()
     setDebugUtilsObjectName(device, name);
 }
 
-std::unique_ptr<MemoryAllocator> Device::makeMemoryAllocator()
-{
-    return std::make_unique<MemoryAllocator>(MemoryAllocator::CreateInfo::create(physicalDevice.enabledExtensionSet), library, instance, physicalDevice, *this);
-}
-
 Fences Device::createFences(std::string_view name, size_t count, vk::FenceCreateFlags fenceCreateFlags)
 {
-    return {name, engine, library, *this, count, fenceCreateFlags};
+    return {name, engine, count, fenceCreateFlags};
 }
 
 void Device::setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const

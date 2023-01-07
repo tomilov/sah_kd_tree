@@ -1,4 +1,5 @@
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/fence.hpp>
 #include <engine/library.hpp>
 
@@ -29,6 +30,11 @@ void Fences::create(size_t count)
             device.setDebugUtilsObjectName(fence, name);
         }
     }
+}
+
+Fences::Fences(std::string_view name, Engine & engine, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}, fenceCreateFlags{fenceCreateFlags}
+{
+    create(count);
 }
 
 vk::Result Fences::wait(bool waitAll, std::chrono::nanoseconds duration)

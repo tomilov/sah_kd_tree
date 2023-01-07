@@ -58,6 +58,9 @@ constexpr To convertIfIncludes(From && value)
     return static_cast<To>(std::forward<From>(value));
 }
 
+template<typename>
+inline constexpr bool kIsAlwaysFalse = false;
+
 template<typename Source>
 class autoCast
 {
@@ -68,21 +71,38 @@ public:
     template<typename Destination>
     constexpr operator Destination() const &&
     {
-        if constexpr (std::is_same_v<Source, Destination>) {
-            return std::forward<Source>(source);
-        } else if constexpr (std::is_arithmetic_v<Source> && std::is_enum_v<Destination>) {
-            static_assert(!std::is_same_v<Source, bool>);
-            return static_cast<Destination>(convertIfIncludes<std::underlying_type_t<Destination>>(source));
-        } else if constexpr (std::is_arithmetic_v<Source> && std::is_arithmetic_v<Destination>) {
-            static_assert(!std::is_same_v<Source, bool>);
-            return convertIfIncludes<Destination>(source);
-        } else if constexpr (std::is_arithmetic_v<Source> && std::is_pointer_v<Destination>) {
-            static_assert(!std::is_same_v<Source, bool>);
-            return reinterpret_cast<Destination>(convertIfIncludes<uintptr_t>(source));
-        } else if constexpr (std::is_pointer_v<Source> && std::is_arithmetic_v<Destination>) {
-            return convertIfIncludes<Destination>(reinterpret_cast<uintptr_t>(source));
-        } else if constexpr (std::is_pointer_v<Source> && std::is_pointer_v<Destination>) {
-            return reinterpret_cast<Destination>(source);
+        using S = std::remove_reference_t<Source>;
+        if constexpr (std::is_same_v<S, Destination>) {
+            return static_cast<Destination>(std::forward<Source>(source));
+        } else if constexpr (std::is_enum_v<S>) {
+            if constexpr (std::is_enum_v<Destination>) {
+                using SourceUnderlyingType = std::underlying_type_t<S>;
+                using DestinationUnderlyingType = std::underlying_type_t<Destination>;
+                return static_cast<Destination>(convertIfIncludes<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
+            } else {
+                return static_cast<Destination>(source);
+            }
+        } else if constexpr (std::is_arithmetic_v<S>) {
+            if constexpr (std::is_enum_v<Destination>) {
+                static_assert(!std::is_same_v<S, bool>);
+                return static_cast<Destination>(convertIfIncludes<std::underlying_type_t<Destination>>(source));
+            } else if constexpr (std::is_arithmetic_v<Destination>) {
+                static_assert(!std::is_same_v<S, bool>);
+                return convertIfIncludes<Destination>(source);
+            } else if constexpr (std::is_pointer_v<Destination>) {
+                static_assert(!std::is_same_v<S, bool>);
+                return reinterpret_cast<Destination>(convertIfIncludes<uintptr_t>(source));
+            } else {
+                return static_cast<Destination>(source);
+            }
+        } else if constexpr (std::is_pointer_v<S>) {
+            if constexpr (std::is_arithmetic_v<Destination>) {
+                return convertIfIncludes<Destination>(reinterpret_cast<uintptr_t>(source));
+            } else if constexpr (std::is_pointer_v<Destination>) {
+                return reinterpret_cast<Destination>(source);
+            } else {
+                return static_cast<Destination>(source);
+            }
         } else {
             return static_cast<Destination>(std::forward<Source>(source));
         }

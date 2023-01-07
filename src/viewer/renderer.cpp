@@ -52,7 +52,7 @@ struct Renderer::Impl
     engine::MemoryAllocator & vma = *utils::CheckedPtr(engine.vma.get());
 
     std::shared_ptr<const Resources> resources;
-    std::shared_ptr<const engine::GraphicsPipelines> graphicsPipelines;
+    Resources::GraphicsPipeline graphicsPipeline_NEW;
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
     vk::Instance instance;
@@ -193,13 +193,13 @@ static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
-    if (!graphicsPipelines) {
+    if (!graphicsPipeline_NEW.pipeline) {
         if (resources) {
             vk::Extent2D extent = {
                 .width = utils::autoCast(size.width()),
                 .height = utils::autoCast(size.height()),
             };
-            graphicsPipelines = resources->createGraphicsPipelines(renderPass, extent);
+            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
         }
     }
     if (!pipelinesInitialized) {

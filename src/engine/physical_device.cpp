@@ -21,6 +21,11 @@
 namespace engine
 {
 
+PhysicalDevice::PhysicalDevice(Engine & engine, vk::PhysicalDevice physicalDevice) : engine{engine}, library{*engine.library}, instance{*engine.instance}, physicalDevice{physicalDevice}
+{
+    init();
+}
+
 std::string PhysicalDevice::getDeviceName() const
 {
     return physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceName;
@@ -65,15 +70,15 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
                 continue;
             }
         }
+        using MaskType = vk::QueueFlags::MaskType;
         // auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags); // TODO: change at fix
-        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(vk::QueueFlags::MaskType(desiredQueueFlags) ^ vk::QueueFlags::MaskType(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
+        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(MaskType(desiredQueueFlags) ^ MaskType(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
         if (!currentExtraQueueFlags) {
             bestMatchQueueFamily = queueFamilyIndex;
             bestMatchQueueFalgs = queueFlags;
             break;
         }
-        using MaskType = vk::QueueFlags::MaskType;
-        using Bitset = std::bitset<std::numeric_limits<VkQueueFlags>::digits>;
+        using Bitset = std::bitset<std::numeric_limits<MaskType>::digits>;
         if ((bestMatchQueueFamily == VK_QUEUE_FAMILY_IGNORED) || (Bitset(MaskType(currentExtraQueueFlags)).count() < Bitset(MaskType(bestMatchExtraQueueFlags)).count())) {
             bestMatchExtraQueueFlags = currentExtraQueueFlags;
 
@@ -274,6 +279,11 @@ void PhysicalDevice::init()
     queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
+PhysicalDevices::PhysicalDevices(Engine & engine) : engine{engine}, library{*engine.library}, instance{*engine.instance}
+{
+    init();
+}
+
 auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevice &
 {
     static constexpr auto kPhysicalDeviceTypesPrioritized = {
@@ -304,7 +314,7 @@ void PhysicalDevices::init()
     size_t i = 0;
     for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
         SPDLOG_INFO("Create physical device #{}", i++);
-        physicalDevices.emplace_back(engine, library, instance, physicalDevice);
+        physicalDevices.emplace_back(engine, physicalDevice);
     }
 }
 

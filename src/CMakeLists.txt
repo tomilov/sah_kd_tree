@@ -12,12 +12,25 @@ include(GenerateExportHeader)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
+include(CheckIPOSupported)
+check_ipo_supported(
+    RESULT
+        ipo_is_supported
+    OUTPUT
+        ipo_support_check_error
+    LANGUAGES
+        CXX)
+if(NOT ${ipo_is_supported})
+    message(WARNING "LTO is not supported: ${ipo_support_check_error}")
+endif()
+
 include_directories(
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}")
 add_compile_options(
     "-Wall"
-    "-Wextra")
+    "-Wextra"
+    "-Weffc++")
 
 link_libraries(fmt::fmt)
 
@@ -36,11 +49,11 @@ if(BUILD_TESTING)
 endif()
 
 cmake_dependent_option(
-    BUILD_FUZZER
+    SAH_KD_TREE_BUILD_FUZZER
     "Whether to build 'fuzzer' target"
-    ON
+        ON
     "CMAKE_CXX_COMPILER_ID STREQUAL Clang"
-    OFF)
+        OFF)
 
 add_subdirectory("common")
 add_subdirectory("utils")

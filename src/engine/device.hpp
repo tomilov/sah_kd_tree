@@ -38,7 +38,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(std::string_view name, Engine & engine, Library & library, Instance & instance, PhysicalDevice & physicalDevice);
+    Device(std::string_view name, Engine & engine, PhysicalDevice & physicalDevice);
 
     void create();
 
@@ -93,7 +93,6 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
         return setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
     }
 
-    [[nodiscard]] std::unique_ptr<MemoryAllocator> makeMemoryAllocator();
     [[nodiscard]] Fences createFences(std::string_view name, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
 
 private:

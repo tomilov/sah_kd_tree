@@ -1,6 +1,7 @@
 #include <engine/command_buffer.hpp>
 #include <engine/command_pool.hpp>
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/library.hpp>
 
 #include <fmt/std.h>
@@ -15,6 +16,9 @@
 
 namespace engine
 {
+
+CommandPool::CommandPool(std::string_view name, Engine & engine) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}
+{}
 
 void CommandPool::create()
 {
@@ -32,6 +36,9 @@ size_t CommandPools::CommandPoolHash::operator()(const CommandPoolInfo & command
     return hash;
 }
 
+CommandPools::CommandPools(Engine & engine) : engine{engine}, library{*engine.library}, device{*engine.device}
+{}
+
 vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level)
 {
     std::lock_guard<std::mutex> lock{commandPoolsMutex};
@@ -40,7 +47,7 @@ vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t que
     auto & perThreadCommandPools = commandPools[threadId];
     auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
     if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
-        CommandPool commandPool{name, engine, library, device};
+        CommandPool commandPool{name, engine};
         commandPool.commandPoolCreateInfo = {
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
             .queueFamilyIndex = queueFamilyIndex,

@@ -1,4 +1,4 @@
-if(NOT GENERATE_DOCS)
+if(NOT ${SAH_KD_TREE_GENERATE_DOCS})
     return()
 endif()
 

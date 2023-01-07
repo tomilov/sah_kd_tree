@@ -33,11 +33,7 @@ struct ENGINE_EXPORT Fences final : utils::NonCopyable
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
-    Fences(std::string_view name, Engine & engine, Library & library, Device & device, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled)
-        : name{name}, engine{engine}, library{library}, device{device}, fenceCreateFlags{fenceCreateFlags}
-    {
-        create(count);
-    }
+    Fences(std::string_view name, Engine & engine, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
 
     [[nodiscard]] vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
     [[nodiscard]] vk::Result wait(size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());

@@ -1,4 +1,5 @@
 #include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <engine/library.hpp>
 #include <engine/render_pass.hpp>
 #include <engine/shader_module.hpp>
@@ -10,6 +11,11 @@
 
 namespace engine
 {
+
+RenderPass::RenderPass(std::string_view name, Engine & engine) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}
+{
+    init();
+}
 
 void RenderPass::init()
 {
