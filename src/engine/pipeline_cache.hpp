@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -15,11 +16,6 @@
 
 namespace engine
 {
-class Engine;
-class FileIo;
-struct Library;
-struct PhysicalDevice;
-struct Device;
 
 struct ENGINE_EXPORT PipelineCache final : utils::NonCopyable
 {

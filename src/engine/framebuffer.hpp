@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -14,10 +15,6 @@
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct Device;
-struct RenderPass;
 
 struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
 {

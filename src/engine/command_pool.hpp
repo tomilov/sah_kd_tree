@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -18,9 +19,6 @@
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct Device;
 
 struct ENGINE_EXPORT CommandPool final
 {

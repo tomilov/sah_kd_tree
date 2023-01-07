@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -22,11 +23,6 @@ VK_DEFINE_HANDLE(VmaAllocator)
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct Instance;
-struct PhysicalDevice;
-struct Device;
 
 struct AllocationCreateInfo;
 struct Resource;

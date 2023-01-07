@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -12,12 +13,6 @@
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct QueueCreateInfo;
-struct Device;
-struct CommandBuffers;
-struct CommandPools;
 
 struct ENGINE_EXPORT Queue final : utils::NonCopyable
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -16,12 +17,6 @@
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct Instance;
-struct PhysicalDevice;
-struct Fences;
-class MemoryAllocator;
 
 struct ENGINE_EXPORT Device final : utils::NonCopyable
 {

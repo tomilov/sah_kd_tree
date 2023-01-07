@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/debug_utils.hpp>
+#include <engine/fwd.hpp>
 #include <engine/library.hpp>
 #include <engine/types.hpp>
 #include <utils/noncopyable.hpp>

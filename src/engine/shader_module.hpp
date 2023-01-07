@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <engine/utils.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
@@ -25,10 +26,6 @@ struct ShaderModule;
 
 namespace engine
 {
-class Engine;
-class FileIo;
-struct Library;
-struct Device;
 
 struct ENGINE_EXPORT ShaderModule final : utils::NonCopyable
 {

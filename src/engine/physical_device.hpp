@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <engine/types.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -19,9 +20,6 @@
 
 namespace engine
 {
-class Engine;
-struct Library;
-struct Instance;
 
 struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 {
