@@ -11,30 +11,30 @@ def gen_spirv_format(args):
 
     hpp_path = os.path.join(args.output_dir, f"{fn}_raw.hpp")
     cpp_path = os.path.join(args.output_dir, f"{fn}_raw.cpp")
-    with open(hpp_path, "wt") as hpp, open(cpp_path, "wt") as cpp:
-        def println_hpp(text=''):
-            print(text, file=hpp)
+    with open(hpp_path, "wt") as hpp_file, open(cpp_path, "wt") as cpp_file:
+        def hpp(text=''):
+            print(text, file=hpp_file)
 
-        def println_cpp(text=''):
-            print(text, file=cpp)
+        def cpp(text=''):
+            print(text, file=cpp_file)
 
-        println_hpp('#pragma once')
-        println_hpp()
-        println_hpp('#include <codegen/codegen_export.h>')
-        println_hpp()
-        println_hpp('#include <../SPIRV-Reflect/spirv_reflect.h>')
-        println_hpp()
-        println_hpp('namespace codegen::spv')
-        println_hpp('{')
-        println_hpp()
+        hpp('#pragma once')
+        hpp()
+        hpp('#include <codegen/codegen_export.h>')
+        hpp()
+        hpp('#include <../SPIRV-Reflect/spirv_reflect.h>')
+        hpp()
+        hpp('namespace codegen::spv')
+        hpp('{')
+        hpp()
 
-        println_cpp(f'#include <codegen/{fn}.hpp>')
-        println_cpp()
-        println_cpp('#include <type_traits>')
-        println_cpp()
-        println_cpp('namespace codegen::spv')
-        println_cpp('{')
-        println_cpp()
+        cpp(f'#include <codegen/{fn}.hpp>')
+        cpp()
+        cpp('#include <type_traits>')
+        cpp()
+        cpp('namespace codegen::spv')
+        cpp('{')
+        cpp()
 
         for key, value in spv.items():
             if not isinstance(value, dict):
@@ -47,64 +47,64 @@ def gen_spirv_format(args):
                 prefix += 1
             prefix = max(prefix, 1)
             var_name = key[:prefix].lower() + key[prefix:]
-            println_hpp(f'const char * toString({enum_name} {var_name}) CODEGEN_EXPORT;')
-            println_cpp(f'const char * toString({enum_name} {var_name})')
-            println_cpp('{')
-            println_cpp(f'switch (static_cast<std::underlying_type_t<{enum_name}>>({var_name})) {{')
+            hpp(f'[[nodiscard]] const char * toString({enum_name} {var_name}) CODEGEN_EXPORT;')
+            cpp(f'const char * toString({enum_name} {var_name})')
+            cpp('{')
+            cpp(f'switch (static_cast<std::underlying_type_t<{enum_name}>>({var_name})) {{')
             enum = sorted(list(value.items()), key=lambda item: (item[1], item[0]))
             values = set()
             for enum_value_name, value in enum:
                 assert isinstance(value, int)
                 if not value in values:
                     values.add(value)
-                    println_cpp(f'case {value}: return "{enum_value_name}";')
-            println_cpp('}')
-            println_cpp('return nullptr;')
-            println_cpp(f'}}  // toString({enum_name})')
-            println_cpp()
+                    cpp(f'case {value}: return "{enum_value_name}";')
+            cpp('}')
+            cpp('return nullptr;')
+            cpp(f'}}  // toString({enum_name})')
+            cpp()
 
-        println_cpp('}  // namespace codegen::spv')
+        cpp('}  // namespace codegen::spv')
 
-        println_hpp()
-        println_hpp('}  // namespace codegen::spv')
+        hpp()
+        hpp('}  // namespace codegen::spv')
 
 
 def gen_vk_format_utils(args):
-    fn = "vk_fomrat_utils"
+    fn = "vk_format_utils"
 
     hpp_path = os.path.join(args.output_dir, f"{fn}_raw.hpp")
     cpp_path = os.path.join(args.output_dir, f"{fn}_raw.cpp")
-    with open(hpp_path, "wt") as hpp, open(cpp_path, "wt") as cpp:
-        def println_hpp(text=''):
-            print(text, file=hpp)
+    with open(hpp_path, "wt") as hpp_file, open(cpp_path, "wt") as cpp_file:
+        def hpp(text=''):
+            print(text, file=hpp_file)
 
-        def println_cpp(text=''):
-            print(text, file=cpp)
+        def cpp(text=''):
+            print(text, file=cpp_file)
 
-        println_hpp('#pragma once')
-        println_hpp()
-        println_hpp('#include <codegen/codegen_export.h>')
-        println_hpp()
-        println_hpp('#include <../SPIRV-Reflect/spirv_reflect.h>')
-        println_hpp()
-        println_hpp('namespace codegen::vk')
-        println_hpp('{')
-        println_hpp()
+        hpp('#pragma once')
+        hpp()
+        hpp('#include <vulkan/vulkan.hpp>')
+        hpp()
+        hpp('#include <codegen/codegen_export.h>')
+        hpp()
+        hpp('namespace codegen::vk')
+        hpp('{')
+        hpp()
 
-        println_cpp(f'#include <codegen/{fn}.hpp>')
-        println_cpp()
-        println_cpp('#include <type_traits>')
-        println_cpp()
-        println_cpp('namespace codegen::vk')
-        println_cpp('{')
-        println_cpp()
+        cpp(f'#include <codegen/{fn}.hpp>')
+        cpp()
+        cpp('#include <type_traits>')
+        cpp()
+        cpp('namespace codegen::vk')
+        cpp('{')
+        cpp()
 
         #
 
-        println_cpp('}  // namespace codegen::vk')
+        cpp('}  // namespace codegen::vk')
 
-        println_hpp()
-        println_hpp('}  // namespace codegen::vk')
+        hpp()
+        hpp('}  // namespace codegen::vk')
 
 
 if __name__ == "__main__":
@@ -115,4 +115,4 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     gen_spirv_format(args)
-    gen_vk_format_utils(args)
+    #gen_vk_format_utils(args)

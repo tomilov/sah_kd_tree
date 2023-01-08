@@ -21,6 +21,10 @@ SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' '
 
 .DEFAULT_GOAL := build
 
+.PHONY: print-cuda-arch
+print-cuda-arch:
+	@echo $(CUDA_ARCH)
+
 .PHONY: configure
 configure:
 	@cmake -E make_directory $(BUILD_DIR)

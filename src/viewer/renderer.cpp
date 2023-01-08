@@ -5,7 +5,6 @@
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
-#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
@@ -49,7 +48,6 @@ struct Renderer::Impl
     engine::Instance & instance_NEW = *utils::CheckedPtr(engine.instance.get());
     engine::PhysicalDevices & physicalDevices_NEW = *utils::CheckedPtr(engine.physicalDevices.get());
     engine::Device & device_NEW = *utils::CheckedPtr(engine.device.get());
-    engine::MemoryAllocator & vma = *utils::CheckedPtr(engine.vma.get());
 
     std::shared_ptr<const Resources> resources;
     std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline_NEW;

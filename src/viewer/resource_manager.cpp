@@ -35,9 +35,9 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 
 }  // namespace
 
-Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine &engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState &pipelineVertexInputState, const engine::ShaderStages &shaderStages, vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> &descriptorSetLayouts, const std::vector<vk::PushConstantRange> &pushConstantRanges, vk::Extent2D extent)
-    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent}
-    , pipelines{engine, pipelineCache}
+Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages,
+                                              vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent)
+    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent}, pipelines{engine, pipelineCache}
 {
     pipelines.add(pipelineLayout);
     pipelines.create();
