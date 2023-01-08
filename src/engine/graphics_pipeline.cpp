@@ -13,7 +13,7 @@ namespace engine
 {
 
 GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const PipelineVertexInputState & pipelineVertexInputState, const ShaderStages & shaderStages, vk::RenderPass renderPass,
-                                               const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent)
+                                               const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges)
     : name{name}
     , engine{engine}
     , library{*engine.library}
@@ -23,7 +23,6 @@ GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engi
     , renderPass{renderPass}
     , descriptorSetLayouts{descriptorSetLayouts}
     , pushConstantRanges{pushConstantRanges}
-    , extent{extent}
 {
     init();
 }
@@ -37,7 +36,6 @@ void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreate
     graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputState.pipelineVertexInputStateCreateInfo.value();
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;
-    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
     graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
     graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
     graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
@@ -55,24 +53,6 @@ void GraphicsPipelineLayout::init()
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
     pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
-
-    viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = utils::autoCast(extent.width),
-        .height = utils::autoCast(extent.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-    };
-
-    scissor = {
-        .offset = {.x = 0, .y = 0},
-        .extent = extent,
-    };
-
-    pipelineViewportStateCreateInfo.flags = {};
-    pipelineViewportStateCreateInfo.setViewports(viewport);
-    pipelineViewportStateCreateInfo.setScissors(scissor);
 
     pipelineRasterizationStateCreateInfo = {
         .flags = {},

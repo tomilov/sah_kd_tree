@@ -103,6 +103,8 @@ public:
     vk::Buffer getBuffer() const;
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
+    // MappedBufferPointer map()
+
 private:
     static constexpr size_t kSize = 200;
     static constexpr size_t kAlignment = 8;

@@ -30,12 +30,8 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     const vk::RenderPass renderPass;
     const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts;
     const std::vector<vk::PushConstantRange> & pushConstantRanges;
-    const vk::Extent2D extent;
 
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
-    vk::Viewport viewport;
-    vk::Rect2D scissor;
-    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
     vk::PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo;
     vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;
     vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
@@ -50,7 +46,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     vk::PipelineLayout pipelineLayout;
 
     GraphicsPipelineLayout(std::string_view name, const Engine & engine, const PipelineVertexInputState & pipelineVertexInputState, const ShaderStages & shaderStages, vk::RenderPass renderPass,
-                           const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent);
+                           const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges);
 
 private:
     friend GraphicsPipelines;

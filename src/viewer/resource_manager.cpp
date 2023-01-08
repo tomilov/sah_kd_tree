@@ -36,8 +36,8 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 }  // namespace
 
 Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages,
-                                              vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent)
-    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent}, pipelines{engine, pipelineCache}
+                                              vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges)
+    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges}, pipelines{engine, pipelineCache}
 {
     pipelines.add(pipelineLayout);
     pipelines.create();
@@ -56,9 +56,9 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint3
     init();
 }
 
-auto Resources::createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const -> std::unique_ptr<const Resources::GraphicsPipeline>
+auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges, extent);
+    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges);
 }
 
 void Resources::init()
@@ -70,7 +70,7 @@ void Resources::init()
     shaderStages.append(fragmentShader, fragmentShaderReflection.entryPoint);
 
     vk::DeviceSize minUniformBufferOffsetAlignment = engine.device->physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minUniformBufferOffsetAlignment;
-    vk::DeviceSize uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
+    uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst;
@@ -106,6 +106,8 @@ void Resources::init()
     const auto & allocationCallbacks = engine.library->allocationCallbacks;
     const auto & dispatcher = engine.library->dispatcher;
 
+    // TODO: merge?
+
     size_t vertexShaderDescriptorCount = std::size(vertexShaderReflection.descriptorSetLayoutCreateInfos);
     descriptorSetLayoutHolders.reserve(std::size(descriptorSetLayoutHolders) + vertexShaderDescriptorCount);
     descriptorSetLayouts.reserve(std::size(descriptorSetLayouts) + vertexShaderDescriptorCount);
@@ -126,6 +128,43 @@ void Resources::init()
 
     pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(vertexShaderReflection.pushConstantRanges), std::cend(vertexShaderReflection.pushConstantRanges));
     pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(fragmentShaderReflection.pushConstantRanges), std::cend(fragmentShaderReflection.pushConstantRanges));
+
+    std::vector<vk::DescriptorPoolSize> descriptorPoolSize = {
+        {vk::DescriptorType::eUniformBufferDynamic, 1},
+    };
+    vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
+    // descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+    descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSize);
+    descriptorPoolHolder = device.createDescriptorPoolUnique(descriptorPoolCreateInfo, allocationCallbacks, dispatcher);
+    vk::DescriptorPool descriptorPool = *descriptorPoolHolder;
+    // name
+
+    vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
+    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+    descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayouts);
+    descriptorSetHolders = device.allocateDescriptorSetsUnique(descriptorSetAllocateInfo, dispatcher);
+    descriptorSets.reserve(descriptorSetHolders.size());
+    for (const auto & descriptorSetHolder : descriptorSetHolders) {
+        descriptorSets.push_back(*descriptorSetHolder);
+        // name em
+    }
+
+    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos = {
+        {
+            .buffer = uniformBuffer.getBuffer(),
+            .offset = 0,  // dynamic offset is used so this is ignored
+            .range = uniformBufferPerFrameSize,
+        },
+    };
+
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;  // array?
+    auto & writeDescriptorSet = writeDescriptorSets.back();
+    writeDescriptorSet.dstSet = descriptorSets.at(0);
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
+    writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
+    device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 
     pipelineCache = std::make_unique<engine::PipelineCache>("rasterization", engine, fileIo);
 }

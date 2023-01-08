@@ -65,7 +65,7 @@ struct Renderer::Impl
     QVulkanFunctions * instanceFunctions = nullptr;
     QVulkanDeviceFunctions * deviceFunctions = nullptr;
 
-    float t = 0;
+    UniformBuffer uniformBuffer_NEW;
 
     QByteArray vertexShader;
     QByteArray fragmentShader;
@@ -77,7 +77,7 @@ struct Renderer::Impl
     VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
     VkBuffer uniformBuffer = VK_NULL_HANDLE;
     VkDeviceMemory uniformBufferMemory = VK_NULL_HANDLE;
-    VkDeviceSize uniformBufferPerFrameSize = 0;
+    vk::DeviceSize uniformBufferPerFrameSize = 0;
 
     VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
@@ -134,7 +134,7 @@ struct Renderer::Impl
 
     void setT(float t)
     {
-        this->t = t;
+        uniformBuffer_NEW.t = t;
     }
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
@@ -171,65 +171,106 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
-    if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
-        graphicsPipeline_NEW = nullptr;
-        resources = resourceManager.getOrCreateResources(framesInFlight);
-    }
-    if (!pipelineLayoutsAndDescriptorsInitialized) {
-        pipelineLayoutsAndDescriptorsInitialized = true;
-        initPipelineLayouts(graphicsStateInfo.framesInFlight);
-        initDescriptors();
-    }
+    if ((true)) {
+        uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
+        if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
+            graphicsPipeline_NEW = nullptr;
+            resources = resourceManager.getOrCreateResources(framesInFlight);
+        }
 
-    VkDeviceSize uniformBufferOffset = graphicsStateInfo.currentFrameSlot * uniformBufferPerFrameSize;
-    void * p = nullptr;
-    VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, uniformBufferOffset, uniformBufferPerFrameSize, 0, &p);
-    if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
-    INVARIANT(p, "Just successfully initialized");
-    memcpy(p, &t, sizeof t);
-    deviceFunctions->vkUnmapMemory(device, uniformBufferMemory);
+        vk::DeviceSize uniformBufferOffset = resources->getUniformBufferPerFrameSize() * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot));
+        void * p = nullptr;
+        // auto p = resources->getUniformBuffer().map();  // guard
+        device_NEW.device.mapMemory() // !
+    } else {
+        if (!pipelineLayoutsAndDescriptorsInitialized) {
+            pipelineLayoutsAndDescriptorsInitialized = true;
+            initPipelineLayouts(graphicsStateInfo.framesInFlight);
+            initDescriptors();
+        }
+        VkDeviceSize uniformBufferOffset = graphicsStateInfo.currentFrameSlot * uniformBufferPerFrameSize;
+        void * p = nullptr;
+        VkResult err = deviceFunctions->vkMapMemory(device, uniformBufferMemory, uniformBufferOffset, uniformBufferPerFrameSize, 0, &p);
+        if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map uniform buffer memory: %d", err);
+        INVARIANT(p, "Just successfully initialized");
+        memcpy(p, &uniformBuffer_NEW, sizeof uniformBuffer_NEW);
+        deviceFunctions->vkUnmapMemory(device, uniformBufferMemory);
+    }
 }
 
 static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
-    if (resources) {
-        vk::Extent2D extent = {
-            .width = utils::autoCast(size.width()),
-            .height = utils::autoCast(size.height()),
-        };
-        if (!graphicsPipeline_NEW) {
-            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
-        } else if (graphicsPipeline_NEW->pipelineLayout.renderPass != renderPass) {
-            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
-        } else if (graphicsPipeline_NEW->pipelineLayout.extent != extent) {
-            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass, extent);
+    if ((true)) {
+        if (!resources) {
+            return;
         }
+        if (!graphicsPipeline_NEW) {
+            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass);
+        } else if (graphicsPipeline_NEW->pipelineLayout.renderPass != renderPass) {
+            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass);
+        }
+
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline_NEW->pipelines.pipelines.at(0), library_NEW.dispatcher);
+
+        std::vector<vk::Buffer> vertexBuffers = {
+            resources->getVertexBuffer().getBuffer(),
+        };
+        std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
+        commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexBufferOffsets, library_NEW.dispatcher);  // read about bindVertexBuffers2
+
+        std::vector<uint32_t> dinamicOffsets = {
+            uint32_t(utils::autoCast(uniformBufferPerFrameSize)) * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot)),
+        };
+        uint32_t firstSet = 0;
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline_NEW->pipelineLayout.pipelineLayout, firstSet, resources->getDescriptorSets(), dinamicOffsets, library_NEW.dispatcher);
+
+        std::vector<vk::Viewport> viewports = {
+            {
+                .x = 0,
+                .y = 0,
+                .width = utils::autoCast(size.width()),
+                .height = utils::autoCast(size.height()),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            },
+        };
+        commandBuffer.setViewport(0, viewports, library_NEW.dispatcher);
+
+        std::vector<vk::Rect2D> scissors = {
+            {
+                vk::Offset2D{.x = 0, .y = 0},
+                vk::Extent2D{.width = utils::autoCast(size.width()), .height = utils::autoCast(size.height())},
+            },
+        };
+        commandBuffer.setScissor(0, scissors, library_NEW.dispatcher);
+
+        commandBuffer.draw(4, 1, 0, 0, library_NEW.dispatcher);
+    } else {
+        if (!pipelinesInitialized) {
+            pipelinesInitialized = true;
+            initGraphicsPipelines(renderPass);
+        }
+
+        VkCommandBuffer cb = commandBuffer;
+        Q_ASSERT(cb);
+
+        deviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        VkDeviceSize vbufOffset = 0;
+        deviceFunctions->vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer, &vbufOffset);
+
+        uint32_t dynamicOffset = uniformBufferPerFrameSize * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot));
+        deviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &uniformBufferDescriptorSet, 1, &dynamicOffset);
+
+        VkViewport vp = {0, 0, utils::autoCast(size.width()), utils::autoCast(size.height()), 0.0f, 1.0f};
+        deviceFunctions->vkCmdSetViewport(cb, 0, 1, &vp);
+        VkRect2D scissor = {{0, 0}, {utils::autoCast(size.width()), utils::autoCast(size.height())}};
+        deviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
+
+        deviceFunctions->vkCmdDraw(cb, 4, 1, 0, 0);
     }
-    if (!pipelinesInitialized) {
-        pipelinesInitialized = true;
-        initGraphicsPipelines(renderPass);
-    }
-
-    VkCommandBuffer cb = commandBuffer;
-    Q_ASSERT(cb);
-
-    deviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-    VkDeviceSize vbufOffset = 0;
-    deviceFunctions->vkCmdBindVertexBuffers(cb, 0, 1, &vertexBuffer, &vbufOffset);
-
-    uint32_t dynamicOffset = uniformBufferPerFrameSize * graphicsStateInfo.currentFrameSlot;
-    deviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &uniformBufferDescriptorSet, 1, &dynamicOffset);
-
-    VkViewport vp = {0, 0, utils::autoCast(size.width()), utils::autoCast(size.height()), 0.0f, 1.0f};
-    deviceFunctions->vkCmdSetViewport(cb, 0, 1, &vp);
-    VkRect2D scissor = {{0, 0}, {utils::autoCast(size.width()), utils::autoCast(size.height())}};
-    deviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
-
-    deviceFunctions->vkCmdDraw(cb, 4, 1, 0, 0);
 }
 
 void Renderer::Impl::init()
@@ -328,7 +369,7 @@ void Renderer::Impl::initPipelineLayouts(int framesInFlight)
     err = deviceFunctions->vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);
 
-    uniformBufferPerFrameSize = aligned(sizeof t, physDevProps.limits.minUniformBufferOffsetAlignment);
+    uniformBufferPerFrameSize = aligned(sizeof uniformBuffer_NEW, physDevProps.limits.minUniformBufferOffsetAlignment);
 
     bufferInfo.size = framesInFlight * uniformBufferPerFrameSize;
     bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
@@ -410,7 +451,7 @@ void Renderer::Impl::initDescriptors()
     VkDescriptorBufferInfo bufInfo = {};
     bufInfo.buffer = uniformBuffer;
     bufInfo.offset = 0;  // dynamic offset is used so this is ignored
-    bufInfo.range = sizeof t;
+    bufInfo.range = sizeof uniformBuffer_NEW;
     writeInfo.pBufferInfo = &bufInfo;
     deviceFunctions->vkUpdateDescriptorSets(device, 1, &writeInfo, 0, nullptr);
 }

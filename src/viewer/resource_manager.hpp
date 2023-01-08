@@ -38,7 +38,7 @@ public:
         engine::GraphicsPipelines pipelines;
 
         GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass,
-                         const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges, vk::Extent2D extent);
+                         const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges);
     };
 
     uint32_t getFramesInFlight() const
@@ -46,22 +46,29 @@ public:
         return framesInFlight;
     }
 
-    std::shared_ptr<Resources> get()
-    {
-        return shared_from_this();
-    }
-
-    std::shared_ptr<const Resources> get() const
-    {
-        return shared_from_this();
-    }
-
     [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
     {
         return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
     }
 
-    std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, vk::Extent2D extent) const;
+    std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
+
+    vk::DeviceSize getUniformBufferPerFrameSize() const { return uniformBufferPerFrameSize; }
+
+    const engine::Buffer & getUniformBuffer() const
+    {
+        return uniformBuffer;
+    };
+
+    const engine::Buffer & getVertexBuffer() const
+    {
+        return vertexBuffer;
+    };
+
+    const std::vector<vk::DescriptorSet> & getDescriptorSets() const
+    {
+        return descriptorSets;
+    }
 
 private:
     const engine::Engine & engine;
@@ -76,12 +83,17 @@ private:
     engine::ShaderModule fragmentShader;
     engine::ShaderModuleReflection fragmentShaderReflection;
 
+    vk::DeviceSize uniformBufferPerFrameSize = 0;
     engine::Buffer uniformBuffer;
     engine::Buffer vertexBuffer;
 
     engine::PipelineVertexInputState pipelineVertexInputState;
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
+
+    vk::UniqueDescriptorPool descriptorPoolHolder;
+    std::vector<vk::UniqueDescriptorSet> descriptorSetHolders;
+    std::vector<vk::DescriptorSet> descriptorSets;
 
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
