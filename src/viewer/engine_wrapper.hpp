@@ -1,6 +1,5 @@
 #pragma once
 
-#include <engine/fwd.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
 
@@ -11,6 +10,13 @@
 #include <cstddef>
 
 #include <viewer/viewer_export.h>
+
+namespace engine
+{
+
+class Engine;
+
+}
 
 namespace viewer
 {

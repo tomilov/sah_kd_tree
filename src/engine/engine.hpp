@@ -28,10 +28,10 @@ public:
     class DebugUtilsMessageMuteGuard final
     {
     public:
-        void unmute();
+        void unmute() noexcept(false);
         [[nodiscard]] bool empty() const;
 
-        ~DebugUtilsMessageMuteGuard();
+        ~DebugUtilsMessageMuteGuard() noexcept(false);
 
     private:
         friend Engine;

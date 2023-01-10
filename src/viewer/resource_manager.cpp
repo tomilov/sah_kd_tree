@@ -25,8 +25,6 @@ namespace viewer
 namespace
 {
 
-const float kVertices[] = {-1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f};
-
 constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
     INVARIANT(std::bitset<std::numeric_limits<vk::DeviceSize>::digits>{alignment}.count() == 1, "Expected power of two alignment");
@@ -73,13 +71,13 @@ void Resources::init()
     uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
-    uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst;
-    uniformBuffer = engine.vma->createBuffer(uniformBufferCreateInfo, "Uniform buffer");
+    uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+    uniformBuffer = engine.vma->createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer");
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
     vertexBufferCreateInfo.size = sizeof kVertices;
-    vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
-    vertexBuffer = engine.vma->createBuffer(uniformBufferCreateInfo, "Uniform buffer");
+    vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+    vertexBuffer = engine.vma->createStagingBuffer(vertexBufferCreateInfo, "Vertex buffer");
 
     constexpr uint32_t vertexBufferBinding = 0;
     pipelineVertexInputState = vertexShaderReflection.getPipelineVertexInputState(vertexBufferBinding);
@@ -133,7 +131,8 @@ void Resources::init()
         {vk::DescriptorType::eUniformBufferDynamic, 1},
     };
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
-    // descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+    descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+    descriptorPoolCreateInfo.setMaxSets(1); // infer
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSize);
     descriptorPoolHolder = device.createDescriptorPoolUnique(descriptorPoolCreateInfo, allocationCallbacks, dispatcher);
     vk::DescriptorPool descriptorPool = *descriptorPoolHolder;
@@ -158,7 +157,7 @@ void Resources::init()
     };
 
     std::vector<vk::WriteDescriptorSet> writeDescriptorSets;  // array?
-    auto & writeDescriptorSet = writeDescriptorSets.back();
+    auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
     writeDescriptorSet.dstSet = descriptorSets.at(0);
     writeDescriptorSet.dstBinding = 0;
     writeDescriptorSet.dstArrayElement = 0;

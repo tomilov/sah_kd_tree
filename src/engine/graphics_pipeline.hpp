@@ -32,8 +32,9 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     const std::vector<vk::PushConstantRange> & pushConstantRanges;
 
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
+    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
     vk::PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo;
-    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;
+    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;  // single attachment
     vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
     std::vector<vk::DynamicState> dynamicStates;
     vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo;

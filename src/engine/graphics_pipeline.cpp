@@ -36,6 +36,7 @@ void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreate
     graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputState.pipelineVertexInputStateCreateInfo.value();
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;
+    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
     graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
     graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
     graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
@@ -53,6 +54,10 @@ void GraphicsPipelineLayout::init()
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
     pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
+
+    pipelineViewportStateCreateInfo.flags = {};
+    pipelineViewportStateCreateInfo.setViewportCount(1);
+    pipelineViewportStateCreateInfo.setScissorCount(1);
 
     pipelineRasterizationStateCreateInfo = {
         .flags = {},
@@ -83,7 +88,7 @@ void GraphicsPipelineLayout::init()
         .flags = {},
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
         .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 1.0f,
+        .minSampleShading = 0.0f,
         .pSampleMask = nullptr,
         .alphaToCoverageEnable = VK_FALSE,
         .alphaToOneEnable = VK_FALSE,
@@ -102,11 +107,13 @@ void GraphicsPipelineLayout::init()
         .maxDepthBounds = 0.0f,
     };
 
-    pipelineColorBlendStateCreateInfo.flags = {};
-    pipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
-    pipelineColorBlendStateCreateInfo.logicOp = vk::LogicOp::eCopy;
+    pipelineColorBlendStateCreateInfo = {
+        .flags = {},
+        .logicOpEnable = VK_FALSE,
+        .logicOp = vk::LogicOp::eCopy,
+        .blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}},
+    };
     pipelineColorBlendStateCreateInfo.setAttachments(pipelineColorBlendAttachmentState);
-    pipelineColorBlendStateCreateInfo.blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
     dynamicStates = {
         vk::DynamicState::eViewport,

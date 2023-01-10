@@ -58,6 +58,8 @@ public:
 private:
     friend Resource;
 
+    // TODO: move all to Impl
+
     Library & library;
     Instance & instance;
     PhysicalDevice & physicalDevice;
@@ -89,6 +91,52 @@ struct ENGINE_EXPORT AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
+
+template<typename T>
+class MappedMemory;
+
+template<>
+class ENGINE_EXPORT MappedMemory<void> final : utils::OnlyMoveable
+{
+public:
+    ~MappedMemory() noexcept(false);
+
+    void * get() const;
+
+private:
+    template<typename>
+    friend class MappedMemory;
+
+    const Resource & resource;
+    const vk::DeviceSize offset;
+    const vk::DeviceSize size;
+
+    void * mappedData = nullptr;
+
+    explicit MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size);
+
+    void init();
+};
+
+template<typename T>
+class ENGINE_EXPORT MappedMemory final : utils::OnlyMoveable
+{
+public:
+    T * get() const
+    {
+        return static_cast<T *>(mappedMemory.get());
+    }
+
+private:
+    friend Buffer;
+
+    MappedMemory<void> mappedMemory;
+
+    MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size)
+        : mappedMemory{resource, offset, size}
+    {}
+};
+
 class ENGINE_EXPORT Buffer final : utils::OnlyMoveable  // TODO(tomilov): make buffer suballocator
 {
 public:
@@ -103,10 +151,16 @@ public:
     vk::Buffer getBuffer() const;
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
-    // MappedBufferPointer map()
+    template<typename T>
+    MappedMemory<T> map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const
+    {
+        return {*impl_, offset, size};
+    }
 
 private:
-    static constexpr size_t kSize = 200;
+    friend class MappedMemory<void>;
+
+    static constexpr size_t kSize = 304;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
@@ -136,7 +190,7 @@ public:
     static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
 
 private:
-    static constexpr size_t kSize = 200;
+    static constexpr size_t kSize = 304;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };

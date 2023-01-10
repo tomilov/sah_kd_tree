@@ -13,7 +13,7 @@ namespace utils
 {
 
 template<typename L, typename R>
-constexpr bool isLess(const L & lhs, const R & rhs)
+constexpr bool isLess(const L & lhs, const R & rhs) noexcept
 {
     static_assert(std::is_arithmetic_v<L>);
     static_assert(!std::is_same_v<L, bool>);
@@ -33,7 +33,7 @@ constexpr bool isLess(const L & lhs, const R & rhs)
 }
 
 template<typename To, typename From>
-constexpr bool isIncludes(const From & value)
+constexpr bool isIncludes(const From & value) noexcept
 {
     if constexpr (std::is_same_v<To, bool> && (std::is_arithmetic_v<From> || std::is_pointer_v<From>)) {
         return true;
@@ -58,9 +58,6 @@ constexpr To convertIfIncludes(From && value)
     return static_cast<To>(std::forward<From>(value));
 }
 
-template<typename>
-inline constexpr bool kIsAlwaysFalse = false;
-
 template<typename Source>
 class autoCast
 {
@@ -73,13 +70,17 @@ public:
     {
         using S = std::remove_reference_t<Source>;
         if constexpr (std::is_same_v<S, Destination>) {
-            return static_cast<Destination>(std::forward<Source>(source));
+            return std::forward<Source>(source);
         } else if constexpr (std::is_enum_v<S>) {
+            using SourceUnderlyingType = std::underlying_type_t<S>;
             if constexpr (std::is_enum_v<Destination>) {
-                using SourceUnderlyingType = std::underlying_type_t<S>;
                 using DestinationUnderlyingType = std::underlying_type_t<Destination>;
                 return static_cast<Destination>(convertIfIncludes<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
+            } else if constexpr (std::is_arithmetic_v<Destination>) {
+                static_assert(!std::is_same_v<Destination, bool>);
+                return convertIfIncludes<Destination>(source);
             } else {
+                static_assert(!std::is_pointer_v<Destination>);
                 return static_cast<Destination>(source);
             }
         } else if constexpr (std::is_arithmetic_v<S>) {
@@ -91,16 +92,25 @@ public:
                 return convertIfIncludes<Destination>(source);
             } else if constexpr (std::is_pointer_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
+                static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
                 return reinterpret_cast<Destination>(convertIfIncludes<uintptr_t>(source));
             } else {
                 return static_cast<Destination>(source);
             }
         } else if constexpr (std::is_pointer_v<S>) {
             if constexpr (std::is_arithmetic_v<Destination>) {
+                static_assert(!std::is_same_v<Destination, bool>);
                 return convertIfIncludes<Destination>(reinterpret_cast<uintptr_t>(source));
             } else if constexpr (std::is_pointer_v<Destination>) {
-                return reinterpret_cast<Destination>(source);
+                if constexpr (std::is_function_v<std::remove_pointer_t<S>>) {
+                    static_assert(std::is_function_v<std::remove_pointer_t<Destination>>);
+                    return reinterpret_cast<Destination>(source);
+                } else {
+                    static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
+                    return static_cast<Destination>(static_cast<std::add_pointer_t<std::conditional_t<std::is_const_v<std::remove_pointer_t<S>>, std::add_const_t<void>, void>>>(source));
+                }
             } else {
+                static_assert(!std::is_enum_v<Destination>);
                 return static_cast<Destination>(source);
             }
         } else {

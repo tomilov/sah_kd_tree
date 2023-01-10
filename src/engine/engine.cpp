@@ -22,7 +22,7 @@
 namespace engine
 {
 
-void Engine::DebugUtilsMessageMuteGuard::unmute()
+void Engine::DebugUtilsMessageMuteGuard::unmute() noexcept(false)
 {
     if (std::empty(messageIdNumbers)) {
         return;
@@ -44,7 +44,7 @@ bool Engine::DebugUtilsMessageMuteGuard::empty() const
     return std::empty(messageIdNumbers);
 }
 
-Engine::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard()
+Engine::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() noexcept(false)
 {
     unmute();
 }

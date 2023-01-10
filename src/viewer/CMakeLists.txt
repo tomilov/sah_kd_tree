@@ -21,9 +21,10 @@ target_link_libraries(
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
+        "libscene"
+        "libengine"
     PUBLIC
-        "libutils"
-        "libengine")
+        "libutils")
 
 qt6_add_qml_module(
     "lib${PROJECT_NAME}"
@@ -89,6 +90,7 @@ target_link_libraries(
         "lib${PROJECT_NAME}"
         "libutils"
         "libcommon"
+        "libengine"
         Qt6::Gui
         Qt6::Qml
         Qt6::Widgets

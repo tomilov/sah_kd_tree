@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <functional>
 
 #include <cstdint>
 
@@ -54,22 +55,23 @@ struct Resource final : utils::OnlyMoveable
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::BufferCreateInfo bufferCreateInfo;
+        VmaAllocationCreateInfo allocationCreateInfo = {};
 
         vk::UniqueBuffer buffer = {};
         VmaAllocation allocation = VK_NULL_HANDLE;
+        VmaAllocationInfo allocationInfo = {};
 
         vk::UniqueBuffer newBuffer = {};
 
         BufferResource()
         {}
 
-        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, bufferCreateInfo{bufferCreateInfo}
+        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
         {
-            const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
-            const auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &allocationCreateInfoNative, &newBuffer, &allocation, VMA_NULL));
-            buffer = vk::UniqueBuffer{newBuffer, ResourceDestroy{resource.getAllocationInfoNative().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
-            vk::resultCheck(result, "Cannot create buffer");
+            auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, &newBuffer, &allocation, &allocationInfo));
+            buffer = vk::UniqueBuffer{newBuffer, ResourceDestroy{resource.getAllocatorInfo().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
+            INVARIANT(result == vk::Result::eSuccess, "Cannot create buffer: {}", result);
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
@@ -110,47 +112,48 @@ struct Resource final : utils::OnlyMoveable
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::ImageCreateInfo imageCreateInfo;
+        VmaAllocationCreateInfo allocationCreateInfo = {};
+
+        vk::UniqueImage image = {};
+        VmaAllocation allocation = VK_NULL_HANDLE;
+        VmaAllocationInfo allocationInfo = {};
+
+        vk::UniqueImage newImage = {};
 
         vk::ImageLayout layout = vk::ImageLayout::eUndefined;
         vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eColor;
 
-        vk::UniqueImage image = {};
-        VmaAllocation allocation = VK_NULL_HANDLE;
-
-        vk::UniqueImage newImage = {};
-
         ImageResource()
         {}
 
-        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.memoryAllocator->allocator}, imageCreateInfo{imageCreateInfo}
+        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.getAllocator()}, imageCreateInfo{imageCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
         {
-            const auto allocationCreateInfoNative = resource.makeAllocationCreateInfo(allocationCreateInfo);
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
-            const auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &allocationCreateInfoNative, &newImage, &allocation, nullptr));
-            image = vk::UniqueImage{newImage, ResourceDestroy{resource.getAllocationInfoNative().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
-            vk::resultCheck(result, "Cannot create image");
+            auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &this->allocationCreateInfo, &newImage, &allocation, &allocationInfo));
+            image = vk::UniqueImage{newImage, ResourceDestroy{resource.getAllocatorInfo().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
+            INVARIANT(result == vk::Result::eSuccess, "Cannot create image: {}", result);
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
         ImageResource(ImageResource && imageResource)
             : allocator{std::exchange(imageResource.allocator, VK_NULL_HANDLE)}
             , imageCreateInfo{imageResource.imageCreateInfo}
-            , layout{imageResource.layout}
-            , aspect{imageResource.aspect}
             , image{std::move(imageResource.image)}
             , allocation{std::exchange(imageResource.allocation, VK_NULL_HANDLE)}
             , newImage{std::move(imageResource.newImage)}
+            , layout{imageResource.layout}
+            , aspect{imageResource.aspect}
         {}
 
         ImageResource & operator=(ImageResource && imageResource)
         {
             std::swap(allocator, imageResource.allocator);
             std::swap(imageCreateInfo, imageResource.imageCreateInfo);
-            std::swap(layout, imageResource.layout);
-            std::swap(aspect, imageResource.aspect);
             std::swap(image, imageResource.image);
             std::swap(allocation, imageResource.allocation);
             std::swap(newImage, imageResource.newImage);
+            std::swap(layout, imageResource.layout);
+            std::swap(aspect, imageResource.aspect);
             return *this;
         }
 
@@ -194,8 +197,13 @@ struct Resource final : utils::OnlyMoveable
 
     ~Resource();
 
-    VmaAllocatorInfo getAllocationInfoNative() const;
-
+    VmaAllocator getAllocator() const;
+    VmaAllocatorInfo getAllocatorInfo() const;
+    const vk::BufferCreateInfo & getBufferCreateInfo() const;
+    const vk::ImageCreateInfo & getImageCreateInfo() const;
+    const VmaAllocationCreateInfo & getAllocationCreateInfo() const;
+    VmaAllocation getAllocation() const;
+    const VmaAllocationInfo & getAllocationInfo() const;
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     BufferResource & getBufferResource()
@@ -238,18 +246,49 @@ Resource::Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo 
 
 Resource::~Resource() = default;
 
-VmaAllocatorInfo Resource::getAllocationInfoNative() const
+VmaAllocator Resource::getAllocator() const
+{
+    return memoryAllocator->allocator;
+}
+
+VmaAllocatorInfo Resource::getAllocatorInfo() const
 {
     VmaAllocatorInfo allocatorInfo = {};
-    vmaGetAllocatorInfo(memoryAllocator->allocator, &allocatorInfo);
+    vmaGetAllocatorInfo(getAllocator(), &allocatorInfo);
     return allocatorInfo;
+}
+
+const vk::BufferCreateInfo & Resource::getBufferCreateInfo() const
+{
+    return std::get<BufferResource>(resource).bufferCreateInfo;
+}
+
+const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
+{
+    return std::get<ImageResource>(resource).imageCreateInfo;
+}
+
+const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
+{
+    return std::visit([](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
+}
+
+VmaAllocation Resource::getAllocation() const
+{
+    return std::visit([](const auto & resource) { return resource.allocation; }, resource);
+}
+
+const VmaAllocationInfo & Resource::getAllocationInfo() const
+{
+    return std::visit([](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
 }
 
 vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const
 {
-    const auto allocation = std::visit([](const auto & resource) { return resource.allocation; }, resource);
+    auto allocation = getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
     vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetAllocationMemoryProperties(memoryAllocator->allocator, allocation, &memoryPropertyFlags);
+    vmaGetAllocationMemoryProperties(getAllocator(), allocation, &memoryPropertyFlags);
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
@@ -272,6 +311,63 @@ VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreat
     }
     }
     return allocationCreateInfoNative;
+}
+
+MappedMemory<void>::MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size)
+    : resource{resource}
+    , offset{offset}
+    , size{size}
+{
+    init();
+}
+
+void MappedMemory<void>::init()
+{
+    auto allocator = resource.getAllocator();
+    auto allocation = resource.getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
+    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
+    INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
+    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
+        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
+        INVARIANT(offset < bufferCreateInfo.size, "Offset {} is not less than size of buffer {}", offset, bufferCreateInfo.size);
+        if (size != VK_WHOLE_SIZE) {
+            INVARIANT(offset + size <= bufferCreateInfo.size, "Sum {} of offset {} and size {} is greater then size of buffer {}", offset + size, offset, size, bufferCreateInfo.size);
+        }
+        auto result = vk::Result(vmaInvalidateAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
+    }
+    const auto & allocationInfo = resource.getAllocationInfo();
+    if (!allocationInfo.pMappedData) {
+        auto result = vk::Result(vmaMapMemory(allocator, allocation, &mappedData));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot map memory: {}", result);
+    }
+}
+
+void * MappedMemory<void>::get() const
+{
+    if (mappedData) {
+        return mappedData;
+    }
+    const auto & allocationInfo = resource.getAllocationInfo();
+    INVARIANT(allocationInfo.pMappedData, "");
+    return allocationInfo.pMappedData;
+}
+
+MappedMemory<void>::~MappedMemory() noexcept(false)
+{
+    auto allocator = resource.getAllocator();
+    auto allocation = resource.getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
+    if (mappedData) {
+        vmaUnmapMemory(allocator, allocation);
+    }
+    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
+    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
+        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
+        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
+    }
 }
 
 Buffer::Buffer() = default;
@@ -422,11 +518,11 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
 
     VmaDefragmentationContext defragmentationContext = {};
     {
-        const auto result = vk::Result(vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext));
-        vk::resultCheck(result, "Cannot start defragmentation");
+        auto result = vk::Result(vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot start defragmentation: {}", result);
     }
 
-    std::vector<VmaAllocationInfo> srcAllocationInfos;
+    std::vector<std::reference_wrapper<Resource>> sources;
 
     std::vector<vk::ImageMemoryBarrier2> beginImageBarriers;
     std::vector<vk::ImageMemoryBarrier2> endImageBarriers;
@@ -439,17 +535,17 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
     VmaDefragmentationPassMoveInfo defragmentationPassMoveInfo = {};
     for (;;) {
         {
-            const auto result = vk::Result(vmaBeginDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
+            auto result = vk::Result(vmaBeginDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
             if (result == vk::Result::eSuccess) {
                 break;
             }
-            vk::resultCheck(result, "Cannot begin defragmentation pass", {vk::Result::eIncomplete});
+            INVARIANT(result == vk::Result::eIncomplete, "Cannot begin defragmentation pass: {}", result);
         }
 
         auto commandBuffer = allocateCommandBuffer();
 
-        srcAllocationInfos.clear();
-        srcAllocationInfos.reserve(defragmentationPassMoveInfo.moveCount);
+        sources.clear();
+        sources.reserve(defragmentationPassMoveInfo.moveCount);
 
         for (uint32_t i = 0; i < defragmentationPassMoveInfo.moveCount; ++i) {
             INVARIANT(defragmentationPassMoveInfo.pMoves, "Expected non-nullptr");
@@ -457,22 +553,22 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             auto & move = defragmentationPassMoveInfo.pMoves[i];
             ASSERT_MSG(move.operation == VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY, "Expected 'copy' move operation");
 
-            auto & srcAllocationInfo = srcAllocationInfos.emplace_back();
+            VmaAllocationInfo srcAllocationInfo = {};
             vmaGetAllocationInfo(allocator, move.srcAllocation, &srcAllocationInfo);
-
             INVARIANT(srcAllocationInfo.pUserData, "Expected non-nullptr");
             auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
+            sources.push_back(resource);
 
             switch (resource.defragmentationMoveOperation) {
             case AllocationCreateInfo::DefragmentationMoveOperation::kCopy: {
                 const auto createBuffer = [this, &device, &move, &beginMemoryBarrier, &endMemoryBarrier, &wantsMemoryBarrier](Resource::BufferResource & bufferResource)
                 {
-                    auto buffer = device.createBufferUnique(bufferResource.bufferCreateInfo, library.allocationCallbacks, library.dispatcher);
+                    auto newBuffer = device.createBufferUnique(bufferResource.bufferCreateInfo, library.allocationCallbacks, library.dispatcher);
 
-                    const auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *buffer));
-                    vk::resultCheck(result, "Cannot bind buffer memory");
+                    auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *newBuffer));
+                    INVARIANT(result == vk::Result::eSuccess, "Cannot bind buffer memory: {}", result);
 
-                    bufferResource.newBuffer = std::move(buffer);
+                    bufferResource.newBuffer = std::move(newBuffer);
 
                     beginMemoryBarrier.srcAccessMask |= vk::AccessFlagBits2::eMemoryWrite;
                     beginMemoryBarrier.dstAccessMask |= vk::AccessFlagBits2::eTransferRead;
@@ -487,8 +583,8 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 {
                     auto image = device.createImageUnique(imageResource.imageCreateInfo, library.allocationCallbacks, library.dispatcher);
 
-                    const auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
-                    vk::resultCheck(result, "Cannot bind image memory");
+                    auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
+                    INVARIANT(result == vk::Result::eSuccess, "Cannot bind image memory: {}", result);
 
                     imageResource.newImage = std::move(image);
 
@@ -574,19 +670,16 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 continue;
             }
 
-            const auto & srcAllocationInfo = srcAllocationInfos[i];
+            const auto & source = sources[i];
+            INVARIANT(source.get().getAllocation() == move.srcAllocation, "");
 
-            const auto moveBuffer = [&commandBuffer, this, &srcAllocationInfo, &move](Resource::BufferResource & bufferResource)
+            const auto moveBuffer = [&commandBuffer, this, &source](Resource::BufferResource & bufferResource)
             {
-                VmaAllocationInfo dstAllocationInfo = {};
-                vmaGetAllocationInfo(allocator, move.dstTmpAllocation, &dstAllocationInfo);
-
-                vk::BufferCopy2 region = {};
-                region.setSrcOffset(srcAllocationInfo.offset);
-                region.setDstOffset(dstAllocationInfo.offset);
-                assert(srcAllocationInfo.size == dstAllocationInfo.size);
-                region.setSize(srcAllocationInfo.size);
-
+                vk::BufferCopy2 region = {
+                    .srcOffset = 0,
+                    .dstOffset = 0,
+                    .size = source.get().getBufferCreateInfo().size,
+                };
                 vk::CopyBufferInfo2 copyBufferInfo = {};
                 copyBufferInfo.setSrcBuffer(*bufferResource.buffer);
                 copyBufferInfo.setDstBuffer(*bufferResource.newBuffer);
@@ -619,19 +712,19 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                     region.setDstOffset(offset);
                     region.setExtent(extent);
 
-                    if (extent.width > 1) {
-                        extent.width >>= 1;
-                    }
-                    if (imageCreateInfo.imageType != vk::ImageType::e1D) {
+                    switch (imageCreateInfo.imageType) {
+                    case vk::ImageType::e3D :
+                        if (extent.depth > 1) {
+                            extent.depth >>= 1;
+                        }
+                        [[fallthrough]];
+                    case vk::ImageType::e2D :
                         if (extent.height > 1) {
                             extent.height >>= 1;
                         }
-                        if (imageCreateInfo.imageType != vk::ImageType::e2D) {
-                            assert(imageCreateInfo.imageType == vk::ImageType::e3D);
-                            if (extent.depth > 1) {
-                                extent.depth >>= 1;
-                            }
-                        }
+                        [[fallthrough]];
+                    case vk::ImageType::e1D :
+                        extent.width >>= 1;
                     }
                 }
 
@@ -645,8 +738,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                 commandBuffer->copyImage2(copyImageInfo, library.dispatcher);
             };
 
-            auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
-            std::visit(utils::Overloaded{moveBuffer, moveImage}, resource.resource);
+            std::visit(utils::Overloaded{moveBuffer, moveImage}, source.get().resource);
         }
 
         if (!std::empty(endImageBarriers) || wantsMemoryBarrier) {
@@ -660,7 +752,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
             commandBuffer->pipelineBarrier2(dependencyInfo, library.dispatcher);
         }
 
-        // submit commands
+        // submit commands and wait for finish
         submit(std::move(commandBuffer));
 
         // destroy temp descriptors
@@ -675,17 +767,16 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
 
             const auto updateImage = [](Resource::ImageResource & imageResource) { imageResource.image = std::move(imageResource.newImage); };
 
-            const auto & srcAllocationInfo = srcAllocationInfos[i];
-            auto & resource = *static_cast<Resource *>(srcAllocationInfo.pUserData);
-            std::visit(utils::Overloaded{updateBuffer, updateImage}, resource.resource);
+            const auto & resource = sources[i];
+            std::visit(utils::Overloaded{updateBuffer, updateImage}, resource.get().resource);
         }
 
         {
-            const auto result = vk::Result(vmaEndDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
+            auto result = vk::Result(vmaEndDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
             if (result == vk::Result::eSuccess) {
                 break;
             }
-            vk::resultCheck(result, "Cannot finish defragmentation pass", {vk::Result::eIncomplete});
+            INVARIANT(result == vk::Result::eIncomplete, "Cannot finish defragmentation pass: {}", result);
         }
     }
     VmaDefragmentationStats defragmentationStats = {};
@@ -753,8 +844,8 @@ void MemoryAllocator::init()
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 
-    const auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
-    vk::resultCheck(result, "Cannot create allocator");
+    auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
+    INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
 }
 
 }  // namespace engine

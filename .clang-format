@@ -61,6 +61,8 @@ IncludeCategories:
     Priority: 5
   - Regex: ^<assimp/
     Priority: 5
+  - Regex: ^<gl[mi]/
+    Priority: 5
   - Regex: ^<fmt/
     Priority: 5
   - Regex: ^<spdlog/

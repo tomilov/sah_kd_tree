@@ -176,12 +176,13 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
             graphicsPipeline_NEW = nullptr;
             resources = resourceManager.getOrCreateResources(framesInFlight);
+
+            std::copy_n(std::data(kVertices), std::size(kVertices), resources->getUniformBuffer().map<VertexType>().get());
         }
 
-        vk::DeviceSize uniformBufferOffset = resources->getUniformBufferPerFrameSize() * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot));
-        void * p = nullptr;
-        // auto p = resources->getUniformBuffer().map();  // guard
-        device_NEW.device.mapMemory() // !
+        auto uniformBufferPerFrameSize = resources->getUniformBufferPerFrameSize();
+        uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
+        *resources->getUniformBuffer().map<UniformBuffer>(uniformBufferPerFrameSize * uniformBufferIndex, uniformBufferPerFrameSize).get() = uniformBuffer_NEW;
     } else {
         if (!pipelineLayoutsAndDescriptorsInitialized) {
             pipelineLayoutsAndDescriptorsInitialized = true;
@@ -198,17 +199,13 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     }
 }
 
-static const float vertices[] = {-1, -1, 1, -1, -1, 1, 1, 1};
-
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
 {
     if ((true)) {
         if (!resources) {
             return;
         }
-        if (!graphicsPipeline_NEW) {
-            graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass);
-        } else if (graphicsPipeline_NEW->pipelineLayout.renderPass != renderPass) {
+        if (!graphicsPipeline_NEW || (graphicsPipeline_NEW->pipelineLayout.renderPass != renderPass)) {
             graphicsPipeline_NEW = resources->createGraphicsPipeline(renderPass);
         }
 
@@ -333,7 +330,7 @@ void Renderer::Impl::initPipelineLayouts(int framesInFlight)
 
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(vertices);
+    bufferInfo.size = sizeof kVertices;
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     VkResult err = deviceFunctions->vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to create vertex buffer: %d", err);
@@ -364,7 +361,7 @@ void Renderer::Impl::initPipelineLayouts(int framesInFlight)
     err = deviceFunctions->vkMapMemory(device, vertexBufferMemory, 0, allocInfo.allocationSize, 0, &p);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to map vertex buffer memory: %d", err);
     INVARIANT(p, "Just successfully initialized");
-    memcpy(p, vertices, sizeof(vertices));
+    memcpy(p, kVertices, sizeof kVertices);
     deviceFunctions->vkUnmapMemory(device, vertexBufferMemory);
     err = deviceFunctions->vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
     if (err != VK_SUCCESS) QT_MESSAGE_LOGGER_COMMON(viewerRendererCategory, QtFatalMsg).fatal("Failed to bind vertex buffer memory: %d", err);

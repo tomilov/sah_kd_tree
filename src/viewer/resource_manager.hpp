@@ -6,8 +6,10 @@
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
 #include <viewer/file_io.hpp>
+#include <scene/scene.hpp>
 
 #include <vulkan/vulkan.hpp>
+#include <glm/glm.hpp>
 
 #include <QtCore/QStringLiteral>
 
@@ -21,6 +23,15 @@ using namespace Qt::StringLiterals;
 
 namespace viewer
 {
+
+using VertexType = glm::vec2;
+
+inline const VertexType kVertices[] = {
+    {-1.0f, -1.0f},
+    {1.0f, -1.0f},
+    {-1.0f, 1.0f},
+    {1.0f, 1.0f},
+};
 
 #pragma pack(push, 1)
 struct UniformBuffer
