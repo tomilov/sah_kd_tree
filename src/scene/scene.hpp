@@ -2,7 +2,9 @@
 
 #include <glm/glm.hpp>
 
-#include <vector>
+#include <memory>
+
+#include <cstddef>
 
 #include <scene/scene_export.h>
 
@@ -18,7 +20,10 @@ struct Triangle
 
 struct Scene
 {
-    std::vector<Triangle> triangles;
+    size_t triangleCount = 0;
+    std::unique_ptr<Triangle[]> triangles;
+
+    void resize(size_t newTraingleCount) SCENE_EXPORT;
 };
 
 }  // namespace scene

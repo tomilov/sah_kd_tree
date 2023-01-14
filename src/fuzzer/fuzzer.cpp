@@ -30,6 +30,7 @@ namespace fuzzer
 {
 namespace
 {
+
 constexpr size_t kBoxTriangleCount = 12;
 
 constexpr int kIntBboxSize = 10;
@@ -591,6 +592,7 @@ void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
     }
     assert(*p == '\0');
 }
+
 }  // namespace
 }  // namespace fuzzer
 
@@ -697,5 +699,4 @@ int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
 
     return 0;
 }
-
 }  // extern "C"

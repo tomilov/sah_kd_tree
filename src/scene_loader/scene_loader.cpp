@@ -118,9 +118,9 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(numVertices);
     qCInfo(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(numFaces);
 
-    scene.triangles.resize(numFaces);
+    scene.resize(numFaces);
     {
-        auto t = scene.triangles.data();
+        auto t = scene.triangles.get();
         const auto toVertex = [](const aiVector3D & v) -> scene::Vertex { return {v.x, v.y, v.z}; };
         for (unsigned int m = 0; m < assimpScene->mNumMeshes; ++m) {
             const aiMesh & mesh = *assimpScene->mMeshes[m];
@@ -141,7 +141,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
                 *t++ = {A, B, C};
             }
         }
-        Q_ASSERT(scene.triangles.data() + numFaces == t);
+        Q_ASSERT(scene.triangles.get() + numFaces == t);
     }
     return true;
 }
@@ -180,9 +180,9 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     if (triangleCount < 0) {
         return false;
     }
-    scene.triangles.resize(utils::autoCast(triangleCount));
-    const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
-    const int readLen = dataStream.readRawData(reinterpret_cast<char *>(scene.triangles.data()), len);
+    scene.resize(utils::autoCast(triangleCount));
+    const int len = int(scene.triangleCount * sizeof *scene.triangles.get());
+    const int readLen = dataStream.readRawData(reinterpret_cast<char *>(scene.triangles.get()), len);
     if (readLen != len) {
         qCInfo(sceneLoaderLog).noquote() << u"unable to read triangles from file %1: need %2 bytes, read %3 bytes"_s.arg(cacheEntryFile.fileName()).arg(len).arg(readLen);
         return false;
@@ -190,7 +190,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheEntryFileInfo)
     if (!checkDataStreamStatus(dataStream, sceneLoaderLog, u"unable to read triangles from file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << u"%3 ms to load %1 triangles from file %2"_s.arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"%3 ms to load %1 triangles from file %2"_s.arg(scene.triangleCount).arg(cacheEntryFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 
@@ -205,12 +205,12 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     }
     qCInfo(sceneLoaderLog).noquote() << u"start to save triangles to file %1"_s.arg(cacheEntryFile.fileName());
     QDataStream dataStream{&cacheEntryFile};
-    auto triangleCount = qint32(std::size(scene.triangles));
+    auto triangleCount = qint32(scene.triangleCount);
     if (!checkDataStreamStatus(dataStream << triangleCount, sceneLoaderLog, u"unable to write count of triangles to file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    const int len = int(std::size(scene.triangles) * sizeof *scene.triangles.data());
-    const int writeLen = dataStream.writeRawData(reinterpret_cast<const char *>(scene.triangles.data()), len);
+    const int len = int(scene.triangleCount * sizeof *scene.triangles.get());
+    const int writeLen = dataStream.writeRawData(reinterpret_cast<const char *>(scene.triangles.get()), len);
     if (len != writeLen) {
         qCInfo(sceneLoaderLog).noquote() << u"unable to write triangles to file %1: want %2 bytes, but written %3 bytes"_s.arg(cacheEntryFile.fileName()).arg(len).arg(writeLen);
         return false;
@@ -218,7 +218,7 @@ bool SceneLoader::storeToCache(QFileInfo cacheEntryFileInfo)
     if (!checkDataStreamStatus(dataStream, sceneLoaderLog, u"unable to write triangles to file %1"_s.arg(cacheEntryFile.fileName()))) {
         return false;
     }
-    qCInfo(sceneLoaderLog).noquote() << u"%1 triangles successfuly saved to file %2 in %3 ms"_s.arg(std::size(scene.triangles)).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"%1 triangles successfuly saved to file %2 in %3 ms"_s.arg(scene.triangleCount).arg(cacheEntryFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
     return true;
 }
 

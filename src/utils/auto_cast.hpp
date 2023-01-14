@@ -43,15 +43,6 @@ constexpr bool isIncludes(const From & value) noexcept
 }
 
 template<typename To, typename From>
-constexpr std::optional<To> convertToOptionalIfIncludes(From && value)
-{
-    if (!isIncludes<To>(value)) {
-        return std::nullopt;
-    }
-    return static_cast<To>(std::forward<From>(value));
-}
-
-template<typename To, typename From>
 constexpr To convertIfIncludes(From && value)
 {
     INVARIANT(isIncludes<To>(value), "Unable to convert");
@@ -72,8 +63,8 @@ public:
         if constexpr (std::is_same_v<S, Destination>) {
             return std::forward<Source>(source);
         } else if constexpr (std::is_enum_v<S>) {
-            using SourceUnderlyingType = std::underlying_type_t<S>;
             if constexpr (std::is_enum_v<Destination>) {
+                using SourceUnderlyingType = std::underlying_type_t<S>;
                 using DestinationUnderlyingType = std::underlying_type_t<Destination>;
                 return static_cast<Destination>(convertIfIncludes<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
@@ -107,7 +98,8 @@ public:
                     return reinterpret_cast<Destination>(source);
                 } else {
                     static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
-                    return static_cast<Destination>(static_cast<std::add_pointer_t<std::conditional_t<std::is_const_v<std::remove_pointer_t<S>>, std::add_const_t<void>, void>>>(source));
+                    using Void = std::conditional_t<std::is_const_v<std::remove_pointer_t<S>>, std::add_const_t<void>, void>;
+                    return static_cast<Destination>(static_cast<std::add_pointer_t<Void>>(source));
                 }
             } else {
                 static_assert(!std::is_enum_v<Destination>);
