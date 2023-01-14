@@ -13,11 +13,11 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <functional>
 
 #include <cstdint>
 
@@ -66,7 +66,8 @@ struct Resource final : utils::OnlyMoveable
         BufferResource()
         {}
 
-        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
+        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+            : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
         {
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
             auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, &newBuffer, &allocation, &allocationInfo));
@@ -126,7 +127,8 @@ struct Resource final : utils::OnlyMoveable
         ImageResource()
         {}
 
-        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : allocator{resource.getAllocator()}, imageCreateInfo{imageCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
+        ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+            : allocator{resource.getAllocator()}, imageCreateInfo{imageCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
         {
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
             auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &this->allocationCreateInfo, &newImage, &allocation, &allocationInfo));
@@ -270,7 +272,8 @@ const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
 
 const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
 {
-    return std::visit([](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
+    return std::visit(
+        [](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
 }
 
 VmaAllocation Resource::getAllocation() const
@@ -280,7 +283,8 @@ VmaAllocation Resource::getAllocation() const
 
 const VmaAllocationInfo & Resource::getAllocationInfo() const
 {
-    return std::visit([](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
+    return std::visit(
+        [](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
 }
 
 vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const
@@ -313,10 +317,7 @@ VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreat
     return allocationCreateInfoNative;
 }
 
-MappedMemory<void>::MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size)
-    : resource{resource}
-    , offset{offset}
-    , size{size}
+MappedMemory<void>::MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : resource{resource}, offset{offset}, size{size}
 {
     init();
 }
@@ -713,17 +714,17 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
                     region.setExtent(extent);
 
                     switch (imageCreateInfo.imageType) {
-                    case vk::ImageType::e3D :
+                    case vk::ImageType::e3D:
                         if (extent.depth > 1) {
                             extent.depth >>= 1;
                         }
                         [[fallthrough]];
-                    case vk::ImageType::e2D :
+                    case vk::ImageType::e2D:
                         if (extent.height > 1) {
                             extent.height >>= 1;
                         }
                         [[fallthrough]];
-                    case vk::ImageType::e1D :
+                    case vk::ImageType::e1D:
                         extent.width >>= 1;
                     }
                 }

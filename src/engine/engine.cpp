@@ -6,6 +6,7 @@
 #include <engine/vma.hpp>
 #include <utils/assert.hpp>
 
+#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <initializer_list>

@@ -33,7 +33,7 @@ public:
     size_t size() const
     {
         size_t s = std::size(heads);
-        INVARIANT(s == std::size(tails), "!");
+        ASSERT_MSG(s == std::size(tails), "!");
         return s;
     }
 
@@ -43,12 +43,15 @@ public:
         heads.resize(s);
         tails.resize(s);
         for (size_t i = oldSize; i < s; ++i) {
-            auto & head = heads[i];
-            auto & tail = tails[i];
-            auto p = &head.pNext;
-            ((*std::exchange(p, &std::get<Tail>(tail).pNext) = &std::get<Tail>(tail)), ...);
-            INVARIANT(!*p, "Expected null");
+            relink(i);
         }
+    }
+
+    void emplace_back()
+    {
+        heads.emplace_back();
+        tails.emplace_back();
+        relink(size() - 1);
     }
 
     const std::vector<Head> & ref() const noexcept
@@ -101,37 +104,86 @@ public:
         }
     }
 
-    template<typename T>
+    template<typename U>
     void unlink(size_t i)
     {
         auto & head = heads.at(i);
         auto & tail = tails.at(i);
-        auto * p = &std::get<T>(tail);
-        const auto u = [p](auto & elem)
+        auto p = &std::get<U>(tail);
+        const auto next = [p]<typename H, typename... T>(const auto & next, H & h, T &... t) -> void
         {
-            if (elem.pNext == p) {
-                elem.pNext = std::exchange(p->pNext, nullptr);
+            static_assert(sizeof...(T) != 0);
+            if constexpr (std::is_same_v<H, U>) {
+                INVARIANT(false, "Chain is broken or requested element is already unlinked");
+            } else {
+                if (h.pNext == p) {
+                    h.pNext = std::exchange(p->pNext, nullptr);
+                } else {
+                    return next(next, t...);
+                }
             }
         };
-        u(head);
-        (u(std::get<Tail>(tail)), ...);
+        next(next, head, std::get<Tail>(tail)...);
     }
 
-    template<typename T>
+    void unlink(size_t i)
+    {
+        const auto next = []<typename H, typename... T>(const auto & next, H & h, T &... t) -> void
+        {
+            h.pNext = nullptr;
+            if (sizeof...(T) > 1) {
+                return next(next, t...);
+            }
+        };
+        return next(next, heads.at(i), std::get<Tail>(tails.at(i))...);
+    }
+
+    template<typename R>
     void relink(size_t i)
     {
         auto & head = heads.at(i);
         auto & tail = tails.at(i);
         auto p = &head.pNext;
-        const auto r = [&p](auto & elem)
+        auto r = &std::get<R>(tail);
+        if (!*p) {
+            *p = r;
+            return;
+        }
+        const auto next = [&p, r]<typename H, typename... T>(const auto & next, H & h, T &... t) -> void
         {
-            if constexpr (std::is_same_v<std::remove_reference_t<decltype(elem)>, T>) {
-                elem.pNext = std::exchange(*p, &elem);
-            } else if (elem.pNext) {
-                p = &elem.pNext;
+            if constexpr (std::is_same_v<H, R>) {
+                h.pNext = std::exchange(*p, &h);
+            } else {
+                if (&h == *p) {
+                    if (h.pNext) {
+                        p = &h.pNext;
+                    } else {
+                        h.pNext = r;
+                        return;
+                    }
+                } else {
+                    INVARIANT(!h.pNext, "Unlinked element has non-null pNext");
+                }
+                return next(next, t...);
             }
         };
-        (r(std::get<Tail>(tail)), ...);
+        return next(next, std::get<Tail>(tail)...);
+    }
+
+    void relink(size_t i)
+    {
+        auto & head = heads.at(i);
+        auto & tail = tails.at(i);
+        auto p = &head.pNext;
+        const auto next = [&p]<typename H, typename... T>(const auto & next, H & h, T &... t) -> void
+        {
+            *p = &h;
+            if constexpr (sizeof...(T) > 0) {
+                p = &h.pNext;
+                return next(next, t...);
+            }
+        };
+        return next(next, head, std::get<Tail>(tail)...);
     }
 
 private:
@@ -151,6 +203,11 @@ public:
     void resize(size_t size)
     {
         heads.resize(size);
+    }
+
+    void emplace()
+    {
+        heads.emplace_back();
     }
 
     const std::vector<Head> & ref() const noexcept
@@ -194,8 +251,12 @@ public:
     template<typename T>
     void unlink(size_t i) = delete;
 
+    void unlinke() = delete;
+
     template<typename T>
     void relink(size_t i) = delete;
+
+    void relink() = delete;
 
 private:
     std::vector<Head> heads;

@@ -5,6 +5,9 @@
 namespace meta
 {
 
+template<typename>
+inline constexpr bool kAlwaysFalse = false;
+
 struct NotDetected
 {
 };

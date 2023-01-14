@@ -5,11 +5,11 @@
 #include <engine/pipeline_cache.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
-#include <viewer/file_io.hpp>
 #include <scene/scene.hpp>
+#include <viewer/file_io.hpp>
 
-#include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
+#include <vulkan/vulkan.hpp>
 
 #include <QtCore/QStringLiteral>
 
@@ -52,7 +52,7 @@ public:
                          const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges);
     };
 
-    uint32_t getFramesInFlight() const
+    [[nodiscard]] uint32_t getFramesInFlight() const
     {
         return framesInFlight;
     }
@@ -62,21 +62,24 @@ public:
         return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
     }
 
-    std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
+    [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
-    vk::DeviceSize getUniformBufferPerFrameSize() const { return uniformBufferPerFrameSize; }
+    [[nodiscard]] vk::DeviceSize getUniformBufferPerFrameSize() const
+    {
+        return uniformBufferPerFrameSize;
+    }
 
-    const engine::Buffer & getUniformBuffer() const
+    [[nodiscard]] const engine::Buffer & getUniformBuffer() const
     {
         return uniformBuffer;
     };
 
-    const engine::Buffer & getVertexBuffer() const
+    [[nodiscard]] const engine::Buffer & getVertexBuffer() const
     {
         return vertexBuffer;
     };
 
-    const std::vector<vk::DescriptorSet> & getDescriptorSets() const
+    [[nodiscard]] const std::vector<vk::DescriptorSet> & getDescriptorSets() const
     {
         return descriptorSets;
     }
@@ -120,7 +123,7 @@ class ResourceManager
 public:
     ResourceManager(engine::Engine & engine);
 
-    std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight);
+    [[nodiscard]] std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight);
 
 private:
     engine::Engine & engine;

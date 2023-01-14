@@ -1,7 +1,5 @@
 project("engine")
 
-set(CMAKE_CXX_STANDARD 20)
-
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
     "lib${PROJECT_NAME}"

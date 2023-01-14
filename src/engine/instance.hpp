@@ -36,6 +36,8 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     StringUnorderedSet enabledLayerSet;
     std::vector<const char *> enabledLayers;
 
+    static constexpr std::initializer_list<const char *> kRequiredExtensions = {};
+
     std::vector<vk::ExtensionProperties> extensionPropertyList;
     StringUnorderedSet extensions;
     StringUnorderedMultiMap extensionLayers;
@@ -54,6 +56,8 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
     Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine);
+
+    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
 
     [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const;
 

@@ -9,8 +9,8 @@ def gen_spirv_format(args):
 
     fn = "spirv_format"
 
-    hpp_path = os.path.join(args.output_dir, f"{fn}_raw.hpp")
-    cpp_path = os.path.join(args.output_dir, f"{fn}_raw.cpp")
+    hpp_path = os.path.join(args.output_dir, f"{fn}_unformatted.hpp")
+    cpp_path = os.path.join(args.output_dir, f"{fn}_unformatted.cpp")
     with open(hpp_path, "wt") as hpp_file, open(cpp_path, "wt") as cpp_file:
         def hpp(text=''):
             print(text, file=hpp_file)
@@ -72,8 +72,8 @@ def gen_spirv_format(args):
 def gen_vk_format_utils(args):
     fn = "vk_format_utils"
 
-    hpp_path = os.path.join(args.output_dir, f"{fn}_raw.hpp")
-    cpp_path = os.path.join(args.output_dir, f"{fn}_raw.cpp")
+    cpp_path = os.path.join(args.output_dir, f"{fn}_unformatted.cpp")
+    hpp_path = os.path.join(args.output_dir, f"{fn}_unformatted.hpp")
     with open(hpp_path, "wt") as hpp_file, open(cpp_path, "wt") as cpp_file:
         def hpp(text=''):
             print(text, file=hpp_file)

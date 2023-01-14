@@ -1,7 +1,5 @@
 project("codegen")
 
-set(CMAKE_CXX_STANDARD 20)
-
 get_target_property(vulkan_registry_path Vulkan::Registry INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(spirv_headers_path "SPIRV-Headers" INTERFACE_INCLUDE_DIRECTORIES)
 
@@ -31,16 +29,14 @@ add_custom_command(
         "${clang_format_executable}"
             -i
             -style="file:${CMAKE_SOURCE_DIR}/.clang-format"
-            "spirv_format_raw.hpp"
-            "spirv_format_raw.cpp"
+            "spirv_format_unformatted.hpp"
+            "spirv_format_unformatted.cpp"
     COMMAND
-        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_raw.hpp" "spirv_format.hpp"
+        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_unformatted.hpp" "spirv_format.hpp"
     COMMAND
-        "${CMAKE_COMMAND}" -E rm "spirv_format_raw.hpp"
+        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_unformatted.cpp" "spirv_format.cpp"
     COMMAND
-        "${CMAKE_COMMAND}" -E copy_if_different "spirv_format_raw.cpp" "spirv_format.cpp"
-    COMMAND
-        "${CMAKE_COMMAND}" -E rm "spirv_format_raw.cpp"
+        "${CMAKE_COMMAND}" -E rm "spirv_format_unformatted.hpp" "spirv_format_unformatted.cpp"
     OUTPUT
         "spirv_format.hpp"
         "spirv_format.cpp")

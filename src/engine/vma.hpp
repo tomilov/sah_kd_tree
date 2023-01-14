@@ -91,7 +91,6 @@ struct ENGINE_EXPORT AllocationCreateInfo
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 
-
 template<typename T>
 class MappedMemory;
 
@@ -132,8 +131,7 @@ private:
 
     MappedMemory<void> mappedMemory;
 
-    MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size)
-        : mappedMemory{resource, offset, size}
+    MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : mappedMemory{resource, offset, size}
     {}
 };
 

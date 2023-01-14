@@ -132,7 +132,7 @@ void Resources::init()
     };
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
     descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    descriptorPoolCreateInfo.setMaxSets(1); // infer
+    descriptorPoolCreateInfo.setMaxSets(1);  // infer
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSize);
     descriptorPoolHolder = device.createDescriptorPoolUnique(descriptorPoolCreateInfo, allocationCallbacks, dispatcher);
     vk::DescriptorPool descriptorPool = *descriptorPoolHolder;
@@ -152,7 +152,7 @@ void Resources::init()
         {
             .buffer = uniformBuffer.getBuffer(),
             .offset = 0,  // dynamic offset is used so this is ignored
-            .range = uniformBufferPerFrameSize,
+            .range = sizeof(UniformBuffer),
         },
     };
 

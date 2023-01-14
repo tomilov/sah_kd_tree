@@ -75,11 +75,11 @@ void GraphicsPipelineLayout::init()
 
     pipelineColorBlendAttachmentState = {
         .blendEnable = VK_TRUE,
-        .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
-        .dstColorBlendFactor = vk::BlendFactor::eOne,
+        .srcColorBlendFactor = vk::BlendFactor::eOne,
+        .dstColorBlendFactor = vk::BlendFactor::eZero,
         .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha,
-        .dstAlphaBlendFactor = vk::BlendFactor::eOne,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
         .alphaBlendOp = vk::BlendOp::eAdd,
         .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
     };

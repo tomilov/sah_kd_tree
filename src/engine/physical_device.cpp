@@ -91,8 +91,16 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
 
 bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
 {
-    auto physicalDeviceType = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceType;
+    const auto & properties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    auto physicalDeviceType = properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
+        SPDLOG_WARN("Expected {} physical device type got {}", requiredPhysicalDeviceType, physicalDeviceType);
+        return false;
+    }
+
+    uint32_t apiVersion = properties.apiVersion;
+    if ((VK_VERSION_MAJOR(apiVersion) != 1) || (VK_VERSION_MINOR(apiVersion) != 3)) {
+        SPDLOG_WARN("Expected Vulkan device version 1.3, got version {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
         return false;
     }
 
@@ -100,7 +108,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     {
         for (const auto & p : pointers) {
             if (features.*p == VK_FALSE) {
-                SPDLOG_ERROR("Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
+                SPDLOG_WARN("Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
                 return false;
             }
         }
@@ -108,35 +116,44 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     };
     if (sah_kd_tree::kIsDebugBuild) {
         if (!checkFeaturesCanBeEnabled(DebugFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
+            SPDLOG_WARN("");
             return false;
         }
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan11Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan11Features>())) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan12Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>())) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceMeshShaderFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>())) {
+        SPDLOG_WARN("");
         return false;
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
     if (!std::empty(extensionsCannotBeEnabled)) {
+        SPDLOG_WARN("Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
         return false;
     }
 
     auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(engine.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
+        SPDLOG_WARN("External extensions cannot be enabled: {}", fmt::join(externalExtensionsCannotBeEnabled, ", "));
         return false;
     }
 
@@ -145,9 +162,9 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     // TODO: check physical device surface capabilities
     if (surface) {
         physicalDeviceSurfaceInfo.surface = surface;
-        surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
-        surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
-        presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
+        // surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
+        // surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
+        // presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
     }
 
     externalGraphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
@@ -159,29 +176,36 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool
     {
         if (queueCreateInfo.familyIndex == VK_QUEUE_FAMILY_IGNORED) {
+            SPDLOG_WARN("");
             return false;
         }
         auto queueIndex = usedQueueFamilySizes[queueCreateInfo.familyIndex]++;
         auto queueCount = queueFamilyProperties2Chains[queueCreateInfo.familyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueCount;
         if (queueIndex == queueCount) {
+            SPDLOG_WARN("");
             return false;
         }
         queueCreateInfo.index = queueIndex;
         return true;
     };
     if (!calculateQueueIndex(externalGraphicsQueueCreateInfo)) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!calculateQueueIndex(graphicsQueueCreateInfo)) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!calculateQueueIndex(computeQueueCreateInfo)) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!calculateQueueIndex(transferHostToDeviceQueueCreateInfo)) {
+        SPDLOG_WARN("");
         return false;
     }
     if (!calculateQueueIndex(transferDeviceToHostQueueCreateInfo)) {
+        SPDLOG_WARN("");
         return false;
     }
 
@@ -234,7 +258,7 @@ void PhysicalDevice::init()
     extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
+            SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
@@ -249,7 +273,6 @@ void PhysicalDevice::init()
     auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
     physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan device version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
 
     auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
     SPDLOG_INFO("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));

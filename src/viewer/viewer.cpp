@@ -120,21 +120,23 @@ void Viewer::frameStart()
 #error "!"
 #endif
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
-        GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
+        // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
         GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
 #undef GET_INSTANCE_PROC_ADDR
         PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
         if (engine) {
-            INVARIANT(vulkanInstance->vkInstance() == engine->getEngine().getInstance(), "Should match");
+            INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getInstance(), "Should match");
             INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getPhysicalDevice(), "Should match");
             INVARIANT(*vulkanDevice == engine->getEngine().getDevice(), "Should match");
             INVARIANT(queueFamilyIndex == engine->getEngine().getGraphicsQueueFamilyIndex(), "Should match");
-            VkQueue queue = VK_NULL_HANDLE;
-            vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getGraphicsQueueIndex(), &queue);
-            INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
+            {
+                VkQueue queue = VK_NULL_HANDLE;
+                vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getGraphicsQueueIndex(), &queue);
+                INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
+            }
 
-            renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager(), vkGetInstanceProcAddr, vulkanInstance, *vulkanPhysicalDevice, vkGetDeviceProcAddr, *vulkanDevice, queueFamilyIndex, *vulkanQueue);
+            renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager());
         }
     }
     if (renderer) {

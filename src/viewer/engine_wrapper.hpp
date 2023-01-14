@@ -16,7 +16,7 @@ namespace engine
 
 class Engine;
 
-}
+}  // namespace engine
 
 namespace viewer
 {

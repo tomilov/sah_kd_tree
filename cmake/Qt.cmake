@@ -9,8 +9,7 @@ find_package(
         Quick
         QuickControls2)
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
+qt6_standard_project_setup()
 set(CMAKE_AUTORCC ON)
 
 add_compile_definitions(

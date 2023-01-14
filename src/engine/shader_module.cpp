@@ -392,7 +392,7 @@ PipelineVertexInputState ShaderModuleReflection::getPipelineVertexInputState(uin
         vertexInputAttributeDescription.binding = vertexBufferBinding;
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
-        auto formatSize = FormatElementSize(utils::autoCast(vertexInputAttributeDescription.format), VkImageAspectFlagBits::VK_IMAGE_ASPECT_NONE);
+        auto formatSize = FormatElementSize(utils::autoCast(vertexInputAttributeDescription.format), VK_IMAGE_ASPECT_NONE);
         INVARIANT(formatSize > 0, "Expected known to VkLayer_utils format {}", vertexInputAttributeDescription.format);
         vertexInputBindingDescription.stride += formatSize;
     }

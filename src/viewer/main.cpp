@@ -160,8 +160,10 @@ int main(int argc, char * argv[])
         qInstallMessageHandler(messageHandler);
     }
 
-    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setDefaultFormat(QSettings::Format::IniFormat);
     qCInfo(viewerMainCategory).noquote() << u"Settings path: %1"_s.arg(QSettings{}.fileName());
+
+    qCInfo(viewerMainCategory).noquote() << u"Current path: %1"_s.arg(QDir::currentPath());
 
     if ((false)) {
         QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
@@ -175,6 +177,7 @@ int main(int argc, char * argv[])
     if (!application) {
         qFatal("unreachable");
     }
+    qCInfo(viewerMainCategory).noquote() << u"Application path: %1"_s.arg(QCoreApplication::applicationDirPath());
 
     const auto beforeQuit = [] { qCInfo(viewerMainCategory) << "Application is about to quit"; };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {

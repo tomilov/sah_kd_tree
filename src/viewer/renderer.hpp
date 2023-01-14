@@ -7,9 +7,6 @@
 
 #include <QtCore/QByteArray>
 #include <QtCore/QSizeF>
-#include <QtGui/QVulkanDeviceFunctions>
-#include <QtGui/QVulkanFunctions>
-#include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickWindow>
 
 #include <cstdint>
@@ -21,8 +18,7 @@ class ResourceManager;
 class Renderer
 {
 public:
-    Renderer(engine::Engine & engine, ResourceManager & resourceManager, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr, QVulkanInstance * instance, vk::PhysicalDevice physicalDevice, PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr, vk::Device device,
-             uint32_t queueFamilyIndex, vk::Queue queue);
+    Renderer(engine::Engine & engine, ResourceManager & resourceManager);
     ~Renderer();
 
     void setT(float t);
@@ -33,7 +29,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 296;
+    static constexpr size_t kSize = 88;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

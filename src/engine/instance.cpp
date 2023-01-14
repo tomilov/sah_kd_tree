@@ -47,6 +47,21 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     init();
 }
 
+StringUnorderedSet Instance::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const
+{
+    StringUnorderedSet missingExtensions;
+    for (const char * extensionToCheck : extensionsToCheck) {
+        if (extensions.contains(extensionToCheck)) {
+            continue;
+        }
+        if (extensionLayers.contains(extensionToCheck)) {
+            continue;
+        }
+        missingExtensions.emplace(extensionToCheck);
+    }
+    return missingExtensions;
+}
+
 std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const
 {
     return instance.enumeratePhysicalDevices(library.dispatcher);
@@ -85,12 +100,12 @@ void Instance::init()
 #else
     apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
 #endif
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
 
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.dispatcher);
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
-            INVARIANT(false, "Duplicated extension '{}'", extensionProperties.extensionName);
+            SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
@@ -103,6 +118,9 @@ void Instance::init()
             extensionLayers.emplace(layerExtensionProperties.extensionName, layer.layerName);
         }
     }
+
+    auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
+    INVARIANT(std::empty(extensionsCannotBeEnabled), "Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
 
     if ((false)) {
         const auto enableLayerIfAvailable = [this](const char * layerName) -> bool
