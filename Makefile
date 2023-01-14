@@ -133,6 +133,7 @@ cmake-graphviz:
 		$(ROOT_DIR) && \
 	dot -Tpng -o sah_kd_tree.png sah_kd_tree.dot && \
 	xdg-open sah_kd_tree.png
+
 .PHONY: format
 format:
 	@git add $(ROOT_DIR)

@@ -45,8 +45,8 @@ private:
     Object object;
 };
 
-extern template class ScopedDebugUtilsLabel<vk::Queue>;
-extern template class ScopedDebugUtilsLabel<vk::CommandBuffer>;
+extern template class ENGINE_EXPORT ScopedDebugUtilsLabel<vk::Queue>;
+extern template class ENGINE_EXPORT ScopedDebugUtilsLabel<vk::CommandBuffer>;
 
 using ScopedQueueLabel = ScopedDebugUtilsLabel<vk::Queue>;
 using ScopedCommandBufferLabel = ScopedDebugUtilsLabel<vk::CommandBuffer>;

@@ -1,4 +1,5 @@
 #include <common/version.hpp>
+#include <engine/debug_utils.hpp>
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
 #include <engine/graphics_pipeline.hpp>
@@ -112,6 +113,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline = resources->createGraphicsPipeline(renderPass);
     }
+
+    auto rasterizationLabele = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", {1.0f, 0.0f, 0.0f, 1.0f});
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelines.pipelines.at(0), library.dispatcher);
 

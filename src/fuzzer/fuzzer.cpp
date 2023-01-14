@@ -503,6 +503,7 @@ struct TestInput
                 [[maybe_unused]] auto boxEnd = putBox(dstBox, dstSaveVertex, srcVertex);
                 assert(std::is_sorted(dstBox, boxEnd));
             } else {
+                // TODO: no-op?
             }
             break;
         }
@@ -595,105 +596,106 @@ void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
 
 extern "C"
 {
-    int LLVMFuzzerInitialize(int * argc, char *** argv)
-    {
-        static std::string maxLenOption = "-max_len=";
-        static const size_t maxLenSize = std::size(maxLenOption);
-        char ** maxLenArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxLenOption.c_str());
+int LLVMFuzzerInitialize(int * argc, char *** argv)
+{
+    static std::string maxLenOption = "-max_len=";
+    static const size_t maxLenSize = std::size(maxLenOption);
+    char ** maxLenArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxLenOption.c_str());
 
-        static std::string maxPrimitiveCountOption = "-max_primitive_count=";
-        static const size_t maxPrimitiveCountSize = std::size(maxPrimitiveCountOption);
-        char ** maxPrimitiveCountArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxPrimitiveCountOption.c_str());
+    static std::string maxPrimitiveCountOption = "-max_primitive_count=";
+    static const size_t maxPrimitiveCountSize = std::size(maxPrimitiveCountOption);
+    char ** maxPrimitiveCountArg = fuzzer::findArg(*argv + 1, *argv + *argc, maxPrimitiveCountOption.c_str());
 
-        static std::string boxWorldOption = "-box_world=";
-        static const size_t boxWorldSize = std::size(boxWorldOption);
-        char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
+    static std::string boxWorldOption = "-box_world=";
+    static const size_t boxWorldSize = std::size(boxWorldOption);
+    char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
 
-        if (boxWorldArg) {
-            fuzzer::boxWorld = fuzzer::readIntArg(*boxWorldArg, boxWorldSize) != 0;
-            fmt::print(stderr, "INFO(sah_kd_tree): generating of {} enabled\n", fuzzer::primitiveName());
-        }
+    if (boxWorldArg) {
+        fuzzer::boxWorld = fuzzer::readIntArg(*boxWorldArg, boxWorldSize) != 0;
+        fmt::print(stderr, "INFO(sah_kd_tree): generating of {} enabled\n", fuzzer::primitiveName());
+    }
 
-        if (!maxLenArg && !maxPrimitiveCountArg) {
-            fmt::print(stderr, "INFO(sah_kd_tree): no primitive count limiting command line options are provided; number of {} is not limited\n", fuzzer::primitiveName());
-            return 0;
-        }
+    if (!maxLenArg && !maxPrimitiveCountArg) {
+        fmt::print(stderr, "INFO(sah_kd_tree): no primitive count limiting command line options are provided; number of {} is not limited\n", fuzzer::primitiveName());
+        return 0;
+    }
 
-        if (maxLenArg && maxPrimitiveCountArg) {
-            fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): max_len and max_primitive_count should not be set both at once\n");
+    if (maxLenArg && maxPrimitiveCountArg) {
+        fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): max_len and max_primitive_count should not be set both at once\n");
+        std::exit(EXIT_FAILURE);
+    }
+
+    if (maxLenArg) {
+        size_t maxLen = fuzzer::readIntArg(*maxLenArg, maxLenSize);
+        size_t itemCount = (std::max(maxLen, sizeof(fuzzer::Params)) - sizeof(fuzzer::Params)) / fuzzer::itemSize();
+        fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), itemCount);
+        if (itemCount == 0) {
+            fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
             std::exit(EXIT_FAILURE);
         }
-
-        if (maxLenArg) {
-            size_t maxLen = fuzzer::readIntArg(*maxLenArg, maxLenSize);
-            size_t itemCount = (std::max(maxLen, sizeof(fuzzer::Params)) - sizeof(fuzzer::Params)) / fuzzer::itemSize();
-            fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), itemCount);
-            if (itemCount == 0) {
-                fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
-                std::exit(EXIT_FAILURE);
-            }
-            return 0;
-        }
-
-        if (maxPrimitiveCountArg) {
-            size_t maxPrimitiveCount = fuzzer::readIntArg(*maxPrimitiveCountArg, maxPrimitiveCountSize);
-            fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), maxPrimitiveCount);
-            if (maxPrimitiveCount == 0) {
-                fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
-                std::exit(EXIT_FAILURE);
-            }
-            size_t maxLen = sizeof(fuzzer::Params) + maxPrimitiveCount * fuzzer::itemSize();
-            fuzzer::writeIntArg(maxLenOption, maxLenSize, maxLen);
-            *maxPrimitiveCountArg = maxLenOption.data();
-        } else {
-            INVARIANT(false);
-        }
-
-        if (boxWorldArg) {
-            *argv = std::rotate(*argv, boxWorldArg, std::next(boxWorldArg));
-            --*argc;
-        }
         return 0;
     }
 
-    size_t LLVMFuzzerCustomMutator(uint8_t * data, size_t size, size_t maxSize, unsigned int seed)
-    {
-        fuzzer::setSeed(seed);
-
-        fuzzer::TestInput testInput;
-        if (testInput.read(data, size)) {
-            testInput.mutate();
-        } else {
-            testInput.generate();
+    if (maxPrimitiveCountArg) {
+        size_t maxPrimitiveCount = fuzzer::readIntArg(*maxPrimitiveCountArg, maxPrimitiveCountSize);
+        fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), maxPrimitiveCount);
+        if (maxPrimitiveCount == 0) {
+            fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
+            std::exit(EXIT_FAILURE);
         }
-        return testInput.write(data, maxSize);
+        size_t maxLen = sizeof(fuzzer::Params) + maxPrimitiveCount * fuzzer::itemSize();
+        fuzzer::writeIntArg(maxLenOption, maxLenSize, maxLen);
+        *maxPrimitiveCountArg = maxLenOption.data();
+    } else {
+        INVARIANT(false);
     }
 
-    size_t LLVMFuzzerCustomCrossOver(const uint8_t * data1, size_t size1, const uint8_t * data2, size_t size2, uint8_t * out, size_t maxOutSize, unsigned int seed)
-    {
-        fuzzer::setSeed(seed);
-
-        fuzzer::TestInput testInput1;
-        if (!testInput1.read(data1, size1)) {
-            testInput1.generate();
-        }
-        fuzzer::TestInput testInput2;
-        if (!testInput2.read(data2, size2)) {
-            testInput2.generate();
-        }
-        testInput1.cross(testInput2);
-        return testInput1.write(out, maxOutSize);
+    if (boxWorldArg) {
+        *argv = std::rotate(*argv, boxWorldArg, std::next(boxWorldArg));
+        --*argc;
     }
+    return 0;
+}
 
-    int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
-    {
-        fuzzer::TestInput testInput;
-        if (!testInput.read(data, size)) {
-            return 0;
-        }
+size_t LLVMFuzzerCustomMutator(uint8_t * data, size_t size, size_t maxSize, unsigned int seed)
+{
+    fuzzer::setSeed(seed);
 
-        fuzzer::testOneInput(testInput.params, testInput.triangles);
+    fuzzer::TestInput testInput;
+    if (testInput.read(data, size)) {
+        testInput.mutate();
+    } else {
+        testInput.generate();
+    }
+    return testInput.write(data, maxSize);
+}
 
+size_t LLVMFuzzerCustomCrossOver(const uint8_t * data1, size_t size1, const uint8_t * data2, size_t size2, uint8_t * out, size_t maxOutSize, unsigned int seed)
+{
+    fuzzer::setSeed(seed);
+
+    fuzzer::TestInput testInput1;
+    if (!testInput1.read(data1, size1)) {
+        testInput1.generate();
+    }
+    fuzzer::TestInput testInput2;
+    if (!testInput2.read(data2, size2)) {
+        testInput2.generate();
+    }
+    testInput1.cross(testInput2);
+    return testInput1.write(out, maxOutSize);
+}
+
+int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
+{
+    fuzzer::TestInput testInput;
+    if (!testInput.read(data, size)) {
         return 0;
     }
+
+    fuzzer::testOneInput(testInput.params, testInput.triangles);
+
+    return 0;
+}
+
 }  // extern "C"

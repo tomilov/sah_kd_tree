@@ -15,6 +15,7 @@ AllowAllArgumentsOnNextLine: true
 BreakBeforeBraces: Custom
 BreakBeforeBinaryOperators: All
 IndentCaseLabels: false
+IndentExternBlock: NoIndent
 BraceWrapping:
     AfterFunction: true
     AfterCaseLabel: false

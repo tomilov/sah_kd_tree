@@ -72,12 +72,12 @@ void Resources::init()
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    uniformBuffer = engine.vma->createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer");
+    uniformBuffer = engine.vma->createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
     vertexBufferCreateInfo.size = sizeof kVertices;
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-    vertexBuffer = engine.vma->createStagingBuffer(vertexBufferCreateInfo, "Vertex buffer");
+    vertexBuffer = engine.vma->createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
 
     constexpr uint32_t vertexBufferBinding = 0;
     pipelineVertexInputState = vertexShaderReflection.getPipelineVertexInputState(vertexBufferBinding);
