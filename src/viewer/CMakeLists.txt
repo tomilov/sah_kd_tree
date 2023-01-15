@@ -49,7 +49,6 @@ qt6_add_qml_module(
         "renderer.hpp"
         "renderer.cpp")
 
-
 process_directory_shaders()
 
 target_sources(

@@ -68,7 +68,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
     utils::FastPimpl<spv_reflect::ShaderModule, kSize, kAlignment> reflectionModule;
 
     vk::ShaderStageFlagBits shaderStage = {};
-    std::unordered_map<uint32_t /* set */, std::vector<vk::DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
+    std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, vk::DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
     ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint);
@@ -84,6 +84,12 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 {
     using PipelineShaderStageCreateInfoChains = StructureChains<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
 
+    struct SetBindings
+    {
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        std::unordered_map<std::string, size_t> bindingIndices;
+    };
+
     const Engine & engine;
     const Library & library;
     const Device & device;
@@ -96,12 +102,12 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::vector<std::reference_wrapper<const ShaderModuleReflection>> shaderModuleReflections;
 
     engine::PipelineVertexInputState pipelineVertexInputState;
-    std::map<uint32_t /*set*/, std::vector<vk::DescriptorSetLayoutBinding>> setBindings;
+    std::map<uint32_t /*set*/, SetBindings> setBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
     std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */> descriptorCounts;
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
-    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
+    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered the same way as setBindings
 
     ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
 

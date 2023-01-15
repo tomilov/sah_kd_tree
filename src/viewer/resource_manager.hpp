@@ -7,6 +7,7 @@
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
 #include <scene/scene.hpp>
+#include <utils/noncopyable.hpp>
 #include <viewer/file_io.hpp>
 
 #include <glm/glm.hpp>
@@ -41,7 +42,9 @@ struct UniformBuffer
 };
 #pragma pack(pop)
 
-class Resources : public std::enable_shared_from_this<Resources>
+class Resources
+    : utils::NonCopyable
+    , public std::enable_shared_from_this<Resources>
 {
 public:
     struct GraphicsPipeline

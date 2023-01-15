@@ -8,18 +8,14 @@
 
 #include <functional>
 #include <initializer_list>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <vector>
 
 #include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>
-
-VK_DEFINE_HANDLE(VmaAllocator)
 
 namespace engine
 {

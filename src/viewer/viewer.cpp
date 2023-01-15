@@ -9,6 +9,7 @@
 
 #include <QtCore/QDebug>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QRectF>
 #include <QtCore/QRunnable>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickItem>
@@ -19,6 +20,8 @@
 #include <memory>
 
 #include <cstdint>
+
+using namespace Qt::StringLiterals;
 
 namespace viewer
 {
@@ -46,6 +49,7 @@ private:
 Viewer::Viewer()
 {
     setFlag(QQuickItem::Flag::ItemHasContents);
+    setFlag(QQuickItem::Flag::ItemObservesViewport);
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 
@@ -102,30 +106,30 @@ void Viewer::frameStart()
     auto ri = w->rendererInterface();
 
     if (!renderer) {
-        auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
-        Q_CHECK_PTR(vulkanInstance);
+        if (engine) {
+            auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
+            Q_CHECK_PTR(vulkanInstance);
 
-        auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
-        Q_CHECK_PTR(vulkanPhysicalDevice);
+            auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
+            Q_CHECK_PTR(vulkanPhysicalDevice);
 
-        auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
-        Q_CHECK_PTR(vulkanInstance);
+            auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
+            Q_CHECK_PTR(vulkanInstance);
 
-        uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
+            uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
 
-        auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
-        Q_CHECK_PTR(vulkanInstance);
+            auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
+            Q_CHECK_PTR(vulkanInstance);
 
 #ifdef GET_INSTANCE_PROC_ADDR
 #error "!"
 #endif
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
-        // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
-        GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
+            // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
+            GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
 #undef GET_INSTANCE_PROC_ADDR
-        PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
+            PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
-        if (engine) {
             INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getVulkanInstance(), "Should match");
             INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getVulkanPhysicalDevice(), "Should match");
             INVARIANT(*vulkanDevice == engine->getEngine().getVulkanDevice(), "Should match");
@@ -162,11 +166,9 @@ void Viewer::renderPassRecordingStart()
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
-        const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = w->graphicsStateInfo();
-
-        auto viewportSize = size();
-        viewportSize *= w->devicePixelRatio();
-        renderer->render(*commandBuffer, *renderPass, graphicsStateInfo, viewportSize);
+        auto devicePixelRatio = w->devicePixelRatio();
+        QRectF rect{position() * devicePixelRatio, size() * devicePixelRatio};
+        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), rect);
     }
     w->endExternalCommands();
 }

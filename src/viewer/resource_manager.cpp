@@ -25,6 +25,8 @@ namespace viewer
 namespace
 {
 
+const auto kSquircle = "squircle"sv;
+
 constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
     INVARIANT(std::bitset<std::numeric_limits<vk::DeviceSize>::digits>{alignment}.count() == 1, "Expected power of two alignment");
@@ -45,9 +47,9 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint3
     : engine{engine}
     , fileIo{fileIo}
     , framesInFlight{framesInFlight}
-    , vertexShader{"fullscreen_triangle.vert"sv, engine, fileIo}
+    , vertexShader{"squircle.vert"sv, engine, fileIo}
     , vertexShaderReflection{vertexShader, "main"}
-    , fragmentShader{"fullscreen_triangle.frag"sv, engine, fileIo}
+    , fragmentShader{"squircle.frag"sv, engine, fileIo}
     , fragmentShaderReflection{fragmentShader, "main"}
     , shaderStages{engine, vertexBufferBinding}
 {
@@ -56,7 +58,7 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint3
 
 auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, shaderStages, renderPass, pushConstantRanges);
+    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass, pushConstantRanges);
 }
 
 void Resources::init()
@@ -76,22 +78,21 @@ void Resources::init()
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
     vertexBuffer = engine.getMemoryAllocator().createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
 
-    constexpr uint32_t vertexBufferBinding = 0;
-
     {
         INVARIANT(std::empty(vertexShaderReflection.descriptorSetLayoutSetBindings), "");
         INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
     }
 
     constexpr uint32_t set = 0;
+    const std::string kUniformBufferName = "uniformBuffer";
 
     {
         INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
         INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(set), "");
         auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(set);
         INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
-        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.back();
-        INVARIANT(descriptorSetLayoutBindingReflection.binding == vertexBufferBinding, "");
+        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+        INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
         INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
@@ -103,13 +104,13 @@ void Resources::init()
     shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
     shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
 
-    shaderStages.createDescriptorSetLayouts("rasterization");
+    shaderStages.createDescriptorSetLayouts(kSquircle);
 
     descriptorPoolSizes = shaderStages.getDescriptorPoolSizes();
 
     uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
-    descriptorPool.emplace("rasterization", engine, setCount, descriptorPoolSizes);
-    descriptorSets.emplace("rasterization", engine, shaderStages, *descriptorPool);
+    descriptorPool.emplace(kSquircle, engine, setCount, descriptorPoolSizes);
+    descriptorSets.emplace(kSquircle, engine, shaderStages, *descriptorPool);
 
     auto device = engine.getDevice().device;
     const auto & dispatcher = engine.getLibrary().dispatcher;
@@ -122,31 +123,21 @@ void Resources::init()
         },
     };
 
-    uint32_t uniformBufferSetIndex = 0;
-    uint32_t uniformBufferBinding = 0;
-    for (const auto & [uniformBufferSet, bindings] : shaderStages.setBindings) {
-        if (uniformBufferSet == set) {
-            for (const auto & binding : bindings) {
-                if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
-                    uniformBufferBinding = binding.binding;
-                    break;
-                }
-            }
-            break;
-        }
-        ++uniformBufferSetIndex;
-    }
+    auto setBindings = shaderStages.setBindings.find(set);
+    INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", set);
+    uint32_t uniformBufferSetIndex = utils::autoCast(std::distance(std::begin(shaderStages.setBindings), setBindings));
+    const auto & uniformBufferBinding = setBindings->second.bindings.at(setBindings->second.bindingIndices.at(kUniformBufferName));
 
     std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
     auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
     writeDescriptorSet.dstSet = descriptorSets.value().descriptorSets.at(uniformBufferSetIndex);
-    writeDescriptorSet.dstBinding = uniformBufferBinding;
+    writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
     writeDescriptorSet.dstArrayElement = 0;  // not an array
     writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
     writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
     device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 
-    pipelineCache = std::make_unique<engine::PipelineCache>("rasterization", engine, fileIo);
+    pipelineCache = std::make_unique<engine::PipelineCache>(kSquircle, engine, fileIo);
 }
 
 ResourceManager::ResourceManager(engine::Engine & engine) : engine{engine}

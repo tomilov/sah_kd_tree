@@ -438,11 +438,11 @@ void ShaderModuleReflection::reflect()
         INVARIANT(descriptorSetLayoutSetBindings.find(reflectDecriptorSet->set) == std::end(descriptorSetLayoutSetBindings), "Duplicated set {}", reflectDecriptorSet->set);
         auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
         auto bindingCount = reflectDecriptorSet->binding_count;
-        descriptorSetLayoutBindings.resize(bindingCount);
+        descriptorSetLayoutBindings.reserve(bindingCount);
         for (uint32_t b = 0; b < bindingCount; ++b) {
             const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
-            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings.at(b);
+            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[reflectDescriptorBinding->name];
             descriptorSetLayoutBinding.binding = reflectDescriptorBinding->binding;
             descriptorSetLayoutBinding.descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
             descriptorSetLayoutBinding.descriptorCount = reflectDescriptorBinding->count;
@@ -501,9 +501,10 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
 
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
         auto & mergedBindings = setBindings[set];
-        for (const auto & binding : bindings) {
+        for (const auto & [bindingName, binding] : bindings) {
             bool merged = false;
-            for (auto & mergedBinding : mergedBindings) {
+            size_t b = 0;
+            for (auto & mergedBinding : mergedBindings.bindings) {
                 if (binding.binding == mergedBinding.binding) {
                     INVARIANT(binding.descriptorType == mergedBinding.descriptorType, "{} != {}", binding.descriptorType, mergedBinding.descriptorType);
                     INVARIANT(binding.descriptorCount == mergedBinding.descriptorCount, "{} != {}", binding.descriptorCount, mergedBinding.descriptorCount);
@@ -512,9 +513,12 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
                     merged = true;
                     break;
                 }
+                ++b;
             }
             if (!merged) {
-                mergedBindings.push_back(binding);
+                size_t index = std::size(mergedBindings.bindings);
+                mergedBindings.bindings.push_back(binding);
+                mergedBindings.bindingIndices.emplace(bindingName, index);
             }
         }
     }
@@ -528,13 +532,13 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name)
     descriptorSetLayoutHolders.reserve(setCount);
     descriptorSetLayouts.reserve(setCount);
     for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
-        for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings) {
+        for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
             descriptorCounts[descriptorSetLayoutBinding.descriptorType] += descriptorSetLayoutBinding.descriptorCount;
         }
 
         vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
         descriptorSetLayoutCreateInfo.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
-        descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings);
+        descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
         descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 

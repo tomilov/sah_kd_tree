@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
+import QtQuick.Layouts
 
 import SahKdTree
 
@@ -12,24 +13,49 @@ ApplicationWindow {
     visible: true
     visibility: Window.AutomaticVisibility
 
-    SahKdTreeViewer {
+    GridLayout {
+        id: gridLayout
+
         anchors.fill: parent
 
-        engine: SahKdTreeEngine
+        readonly property int rows: 4
+        readonly property int cols: 3
 
-        SequentialAnimation on t {
-            NumberAnimation {
-                to: 1
-                duration: 1500
-                easing.type: Easing.InQuad
+        Repeater {
+            model: gridLayout.rows * gridLayout.cols
+
+            delegate: SahKdTreeViewer {
+                id: sahKdTreeViewer
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Layout.column: index % gridLayout.cols
+                Layout.row: Math.trunc(index / gridLayout.cols)
+
+                engine: SahKdTreeEngine
+
+                t: index / (gridLayout.rows * gridLayout.cols - 1)
+
+                SequentialAnimation {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        target: sahKdTreeViewer
+                        property: "t"
+                        to: 1
+                        duration: 1000
+                        easing.type: Easing.InQuad
+                    }
+                    NumberAnimation {
+                        target: sahKdTreeViewer
+                        property: "t"
+                        to: 0
+                        duration: 1000
+                        easing.type: Easing.OutQuad
+                    }
+                }
             }
-            NumberAnimation {
-                to: 0
-                duration: 1500
-                easing.type: Easing.OutQuad
-            }
-            loops: Animation.Infinite
-            running: true
         }
     }
 
@@ -46,6 +72,7 @@ ApplicationWindow {
         id: label
         color: "black"
         wrapMode: Text.WordWrap
+        horizontalAlignment: Text.AlignHCenter
         text: "The background here is a squircle rendered with raw Vulkan using the beforeRendering() and beforeRenderPassRecording() signals in QQuickWindow. This text label and its border is rendered using QML"
         anchors.right: parent.right
         anchors.left: parent.left

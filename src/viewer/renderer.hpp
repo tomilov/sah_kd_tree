@@ -2,11 +2,12 @@
 
 #include <engine/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QByteArray>
-#include <QtCore/QSizeF>
+#include <QtCore/QRectF>
 #include <QtQuick/QQuickWindow>
 
 #include <cstdint>
@@ -15,7 +16,7 @@ namespace viewer
 {
 class ResourceManager;
 
-class Renderer
+class Renderer : utils::NonCopyable
 {
 public:
     Renderer(const engine::Engine & engine, const ResourceManager & resourceManager);
@@ -24,7 +25,7 @@ public:
     void setT(float t);
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
 
 private:
     struct Impl;

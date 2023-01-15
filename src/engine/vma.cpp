@@ -636,19 +636,26 @@ const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
 
 const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
 {
-    return std::visit(
-        [](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
+    const auto allocationCreateInfo = [](const auto & resource) -> const auto &
+    {
+        return resource.allocationCreateInfo;
+    };
+    return std::visit(allocationCreateInfo, resource);
 }
 
 VmaAllocation Resource::getAllocation() const
 {
-    return std::visit([](const auto & resource) { return resource.allocation; }, resource);
+    const auto allocation = [](const auto & resource) { return resource.allocation; };
+    return std::visit(allocation, resource);
 }
 
 const VmaAllocationInfo & Resource::getAllocationInfo() const
 {
-    return std::visit(
-        [](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
+    const auto allocationInfo = [](const auto & resource) -> const auto &
+    {
+        return resource.allocationInfo;
+    };
+    return std::visit(allocationInfo, resource);
 }
 
 vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const

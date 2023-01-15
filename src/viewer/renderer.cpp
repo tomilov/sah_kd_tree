@@ -74,7 +74,7 @@ struct Renderer::Impl
     }
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
 };
 
 Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
@@ -92,9 +92,9 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
     return impl_->frameStart(graphicsStateInfo);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
 {
-    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, size);
+    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, rect);
 }
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -105,14 +105,14 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         resources = resourceManager.getOrCreateResources(framesInFlight);
 
         std::copy_n(std::data(kVertices), std::size(kVertices), resources->getVertexBuffer().map<VertexType>().get());
+        uniformBufferPerFrameSize = resources->getUniformBufferPerFrameSize();
     }
 
-    auto uniformBufferPerFrameSize = resources->getUniformBufferPerFrameSize();
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     *resources->getUniformBuffer().map<UniformBuffer>(uniformBufferPerFrameSize * uniformBufferIndex, uniformBufferPerFrameSize).get() = uniformBuffer;
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
 {
     if (!resources) {
         return;
@@ -142,10 +142,10 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t firstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
         {
-            .x = 0,
-            .y = 0,
-            .width = utils::autoCast(size.width()),
-            .height = utils::autoCast(size.height()),
+            .x = utils::autoCast(rect.x()),
+            .y = utils::autoCast(rect.y()),
+            .width = utils::autoCast(rect.width()),
+            .height = utils::autoCast(rect.height()),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
         },
@@ -155,8 +155,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t firstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
         {
-            .offset = {.x = 0, .y = 0},
-            .extent = {.width = utils::autoCast(size.width()), .height = utils::autoCast(size.height())},
+            .offset = {.x = utils::autoCast(rect.x()), .y = utils::autoCast(rect.y())},
+            .extent = {.width = utils::autoCast(rect.width()), .height = utils::autoCast(rect.height())},
         },
     };
     commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);
