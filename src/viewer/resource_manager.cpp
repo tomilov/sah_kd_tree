@@ -7,6 +7,8 @@
 #include <utils/assert.hpp>
 #include <viewer/resource_manager.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <bitset>
 #include <iterator>
 #include <limits>
@@ -26,6 +28,8 @@ namespace
 {
 
 const auto kSquircle = "squircle"sv;
+constexpr uint32_t set = 0;
+const std::string kUniformBufferName = "uniformBuffer";
 
 constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
@@ -35,38 +39,11 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 
 }  // namespace
 
-Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass,
-                                              const std::vector<vk::PushConstantRange> & pushConstantRanges)
-    : pipelineLayout{name, engine, shaderStages, renderPass, pushConstantRanges}, pipelines{engine, pipelineCache}
+Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes)
 {
-    pipelines.add(pipelineLayout);
-    pipelines.create();
-}
+    const auto & physicalDeviceProperties = engine.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
 
-Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
-    : engine{engine}
-    , fileIo{fileIo}
-    , framesInFlight{framesInFlight}
-    , vertexShader{"squircle.vert"sv, engine, fileIo}
-    , vertexShaderReflection{vertexShader, "main"}
-    , fragmentShader{"squircle.frag"sv, engine, fileIo}
-    , fragmentShaderReflection{fragmentShader, "main"}
-    , shaderStages{engine, vertexBufferBinding}
-{
-    init();
-}
-
-auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
-{
-    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass, pushConstantRanges);
-}
-
-void Resources::init()
-{
-    INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
-    INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
-
-    vk::DeviceSize minUniformBufferOffsetAlignment = engine.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minUniformBufferOffsetAlignment;
+    vk::DeviceSize minUniformBufferOffsetAlignment = physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
     uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
@@ -78,39 +55,11 @@ void Resources::init()
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
     vertexBuffer = engine.getMemoryAllocator().createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
 
-    {
-        INVARIANT(std::empty(vertexShaderReflection.descriptorSetLayoutSetBindings), "");
-        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
-    }
-
-    constexpr uint32_t set = 0;
-    const std::string kUniformBufferName = "uniformBuffer";
-
-    {
-        INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(set), "");
-        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(set);
-        INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
-        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-        INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-        descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
-
-        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
-    }
-
-    shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
-    shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
-
-    shaderStages.createDescriptorSetLayouts(kSquircle);
-
-    descriptorPoolSizes = shaderStages.getDescriptorPoolSizes();
-
     uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
     descriptorPool.emplace(kSquircle, engine, setCount, descriptorPoolSizes);
     descriptorSets.emplace(kSquircle, engine, shaderStages, *descriptorPool);
+
+    pushConstantRanges = shaderStages.pushConstantRanges;
 
     auto device = engine.getDevice().device;
     const auto & dispatcher = engine.getLibrary().dispatcher;
@@ -136,6 +85,69 @@ void Resources::init()
     writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
     writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
     device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+}
+
+Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
+    : pipelineLayout{name, engine, shaderStages, renderPass}, pipelines{engine, pipelineCache}
+{
+    pipelines.add(pipelineLayout);
+    pipelines.create();
+}
+
+std::unique_ptr<const Resources::Descriptors> Resources::getDescriptors() const
+{
+    return std::make_unique<Descriptors>(engine, framesInFlight, shaderStages, descriptorPoolSizes);
+}
+
+auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
+{
+    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
+}
+
+Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
+    : engine{engine}
+    , fileIo{fileIo}
+    , framesInFlight{framesInFlight}
+    , vertexShader{"squircle.vert"sv, engine, fileIo}
+    , vertexShaderReflection{vertexShader, "main"}
+    , fragmentShader{"squircle.frag"sv, engine, fileIo}
+    , fragmentShaderReflection{fragmentShader, "main"}
+    , shaderStages{engine, vertexBufferBinding}
+{
+    init();
+}
+
+void Resources::init()
+{
+    INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
+    INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
+
+    {
+        INVARIANT(std::empty(vertexShaderReflection.descriptorSetLayoutSetBindings), "");
+        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
+    }
+    shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
+
+    {
+        INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(set), "");
+        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(set);
+        INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+        INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+        INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+        INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+        INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+
+        // patching VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER to VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
+        descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
+
+        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
+    }
+    shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
+
+    shaderStages.createDescriptorSetLayouts(kSquircle);
+    descriptorPoolSizes = shaderStages.getDescriptorPoolSizes();
 
     pipelineCache = std::make_unique<engine::PipelineCache>(kSquircle, engine, fileIo);
 }
@@ -148,9 +160,12 @@ std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t 
     std::lock_guard<std::mutex> lock{mutex};
     auto & w = resources[framesInFlight];
     auto p = w.lock();
-    if (!p) {
+    if (p) {
+        SPDLOG_DEBUG("Old resources reused");
+    } else {
         p = Resources::make(engine, fileIo, framesInFlight);
         w = p;
+        SPDLOG_DEBUG("New resources created");
     }
     return p;
 }

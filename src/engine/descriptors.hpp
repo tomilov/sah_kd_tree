@@ -49,7 +49,7 @@ struct ENGINE_EXPORT DescriptorSets final : utils::NonCopyable
 
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
 
-    std::vector<vk::UniqueDescriptorSet> descriptorSetHolders;
+    std::vector<vk::UniqueDescriptorSet> descriptorSetHolders;  // indexed in the same way as shaderStages.setBindings and shaderStages.descriptorSetLayouts
     std::vector<vk::DescriptorSet> descriptorSets;
 
     DescriptorSets(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool);

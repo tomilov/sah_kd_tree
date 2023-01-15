@@ -12,8 +12,8 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, const std::vector<vk::PushConstantRange> & pushConstantRanges)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}, pushConstantRanges{pushConstantRanges}
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}
 {
     init();
 }
@@ -114,7 +114,7 @@ void GraphicsPipelineLayout::init()
 
     pipelineLayoutCreateInfo.flags = {};
     pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
-    pipelineLayoutCreateInfo.setPushConstantRanges(pushConstantRanges);
+    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
 
     pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
     pipelineLayout = *pipelineLayoutHolder;

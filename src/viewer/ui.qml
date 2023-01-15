@@ -13,49 +13,46 @@ ApplicationWindow {
     visible: true
     visibility: Window.AutomaticVisibility
 
+    Component {
+        id: sahKdTreeViewer
+
+        SahKdTreeViewer {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            Layout.column: index % gridLayout.columns
+            Layout.row: Math.trunc(index / gridLayout.columns)
+
+            engine: SahKdTreeEngine
+
+            SequentialAnimation on t {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    to: 1
+                    duration: 500
+                    easing.type: Easing.InQuad
+                }
+                NumberAnimation {
+                    to: 0
+                    duration: 500
+                    easing.type: Easing.OutQuad
+                }
+            }
+        }
+    }
+
     GridLayout {
         id: gridLayout
 
         anchors.fill: parent
 
-        readonly property int rows: 4
-        readonly property int cols: 3
+        rows: 2
+        columns: 3
 
         Repeater {
-            model: gridLayout.rows * gridLayout.cols
-
-            delegate: SahKdTreeViewer {
-                id: sahKdTreeViewer
-
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                Layout.column: index % gridLayout.cols
-                Layout.row: Math.trunc(index / gridLayout.cols)
-
-                engine: SahKdTreeEngine
-
-                t: index / (gridLayout.rows * gridLayout.cols - 1)
-
-                SequentialAnimation {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        target: sahKdTreeViewer
-                        property: "t"
-                        to: 1
-                        duration: 1000
-                        easing.type: Easing.InQuad
-                    }
-                    NumberAnimation {
-                        target: sahKdTreeViewer
-                        property: "t"
-                        to: 0
-                        duration: 1000
-                        easing.type: Easing.OutQuad
-                    }
-                }
-            }
+            model: gridLayout.rows * gridLayout.columns
+            delegate: sahKdTreeViewer
         }
     }
 

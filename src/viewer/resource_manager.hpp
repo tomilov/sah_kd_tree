@@ -47,12 +47,26 @@ class Resources
     , public std::enable_shared_from_this<Resources>
 {
 public:
-    struct GraphicsPipeline
+    struct Descriptors : utils::NonCopyable
+    {
+        vk::DeviceSize uniformBufferPerFrameSize = 0;
+        engine::Buffer uniformBuffer;
+        engine::Buffer vertexBuffer;
+
+        std::optional<engine::DescriptorPool> descriptorPool;
+        std::optional<engine::DescriptorSets> descriptorSets;
+
+        std::vector<vk::PushConstantRange> pushConstantRanges;
+
+        Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes);
+    };
+
+    struct GraphicsPipeline : utils::NonCopyable
     {
         engine::GraphicsPipelineLayout pipelineLayout;
         engine::GraphicsPipelines pipelines;
 
-        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, const std::vector<vk::PushConstantRange> & pushConstantRanges);
+        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass);
     };
 
     [[nodiscard]] uint32_t getFramesInFlight() const
@@ -65,27 +79,8 @@ public:
         return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
     }
 
+    [[nodiscard]] std::unique_ptr<const Descriptors> getDescriptors() const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
-
-    [[nodiscard]] vk::DeviceSize getUniformBufferPerFrameSize() const
-    {
-        return uniformBufferPerFrameSize;
-    }
-
-    [[nodiscard]] const engine::Buffer & getUniformBuffer() const
-    {
-        return uniformBuffer;
-    };
-
-    [[nodiscard]] const engine::Buffer & getVertexBuffer() const
-    {
-        return vertexBuffer;
-    };
-
-    [[nodiscard]] const std::vector<vk::DescriptorSet> & getDescriptorSets() const
-    {
-        return descriptorSets.value().descriptorSets;
-    }
 
 private:
     const engine::Engine & engine;
@@ -100,16 +95,7 @@ private:
 
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
-
-    vk::DeviceSize uniformBufferPerFrameSize = 0;
-    engine::Buffer uniformBuffer;
-    engine::Buffer vertexBuffer;
-
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
-    std::optional<engine::DescriptorPool> descriptorPool;
-    std::optional<engine::DescriptorSets> descriptorSets;
-
-    std::vector<vk::PushConstantRange> pushConstantRanges;
 
     std::unique_ptr<const engine::PipelineCache> pipelineCache;
 

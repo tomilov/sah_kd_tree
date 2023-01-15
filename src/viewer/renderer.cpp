@@ -59,6 +59,7 @@ struct Renderer::Impl
 
     std::shared_ptr<const Resources> resources;
     std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline;
+    std::unique_ptr<const Resources::Descriptors> descriptors;
 
     // TODO: descriptor allocator + descriptor layout cache
 
@@ -101,15 +102,18 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 {
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
+        descriptors = nullptr;
         graphicsPipeline = nullptr;
         resources = resourceManager.getOrCreateResources(framesInFlight);
 
-        std::copy_n(std::data(kVertices), std::size(kVertices), resources->getVertexBuffer().map<VertexType>().get());
-        uniformBufferPerFrameSize = resources->getUniformBufferPerFrameSize();
+        descriptors = resources->getDescriptors();
+        uniformBufferPerFrameSize = descriptors->uniformBufferPerFrameSize;
+
+        std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    *resources->getUniformBuffer().map<UniformBuffer>(uniformBufferPerFrameSize * uniformBufferIndex, uniformBufferPerFrameSize).get() = uniformBuffer;
+    *descriptors->uniformBuffer.map<UniformBuffer>(uniformBufferPerFrameSize * uniformBufferIndex, uniformBufferPerFrameSize).get() = uniformBuffer;
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
@@ -121,23 +125,24 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         graphicsPipeline = resources->createGraphicsPipeline(renderPass);
     }
 
-    constexpr engine::LabelColor redColor = {1.0f, 0.0f, 0.0f, 1.0f};
-    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", redColor);
+    constexpr engine::LabelColor kRedColor = {1.0f, 0.0f, 0.0f, 1.0f};
+    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kRedColor);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelines.pipelines.at(0), library.dispatcher);
 
     constexpr uint32_t firstBinding = 0;
     std::initializer_list<vk::Buffer> vertexBuffers = {
-        resources->getVertexBuffer().getBuffer(),
+        descriptors->vertexBuffer.getBuffer(),
     };
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
+    uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     std::initializer_list<uint32_t> dinamicOffsets = {
-        uint32_t(utils::autoCast(uniformBufferPerFrameSize * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot)))),
+        uint32_t(utils::autoCast(uniformBufferPerFrameSize * uniformBufferIndex)),
     };
     constexpr uint32_t firstSet = 0;
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, resources->getDescriptorSets(), dinamicOffsets, library.dispatcher);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
     constexpr uint32_t firstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {

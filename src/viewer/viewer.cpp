@@ -49,7 +49,6 @@ private:
 Viewer::Viewer()
 {
     setFlag(QQuickItem::Flag::ItemHasContents);
-    setFlag(QQuickItem::Flag::ItemObservesViewport);
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 
