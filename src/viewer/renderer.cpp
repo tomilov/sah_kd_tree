@@ -58,12 +58,11 @@ struct Renderer::Impl
     const engine::Device & device = engine.getDevice();
 
     std::shared_ptr<const Resources> resources;
-    std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline;
     std::unique_ptr<const Resources::Descriptors> descriptors;
+    std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline;
 
     // TODO: descriptor allocator + descriptor layout cache
 
-    vk::DeviceSize uniformBufferPerFrameSize = 0;
     UniformBuffer uniformBuffer;
 
     Impl(const engine::Engine & engine, const ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
@@ -102,18 +101,17 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 {
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
-        descriptors = nullptr;
         graphicsPipeline = nullptr;
+        descriptors = nullptr;
         resources = resourceManager.getOrCreateResources(framesInFlight);
 
         descriptors = resources->getDescriptors();
-        uniformBufferPerFrameSize = descriptors->uniformBufferPerFrameSize;
 
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    *descriptors->uniformBuffer.map<UniformBuffer>(uniformBufferPerFrameSize * uniformBufferIndex, uniformBufferPerFrameSize).get() = uniformBuffer;
+    *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
@@ -139,7 +137,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     std::initializer_list<uint32_t> dinamicOffsets = {
-        uint32_t(utils::autoCast(uniformBufferPerFrameSize * uniformBufferIndex)),
+        uint32_t(utils::autoCast(descriptors->uniformBufferPerFrameSize * uniformBufferIndex)),
     };
     constexpr uint32_t firstSet = 0;
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);

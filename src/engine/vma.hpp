@@ -86,7 +86,7 @@ template<typename T>
 class MappedMemory;
 
 template<>
-class ENGINE_EXPORT MappedMemory<void> final : utils::OnlyMoveable
+class ENGINE_EXPORT MappedMemory<void> final : utils::NonCopyable
 {
 public:
     ~MappedMemory() noexcept(false);
@@ -94,6 +94,8 @@ public:
     void * get() const;
 
 private:
+    friend Buffer;
+
     template<typename>
     friend class MappedMemory;
 
@@ -103,13 +105,13 @@ private:
 
     void * mappedData = nullptr;
 
-    explicit MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size);
+    MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size);
 
     void init();
 };
 
 template<typename T>
-class ENGINE_EXPORT MappedMemory final : utils::OnlyMoveable
+class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
 {
 public:
     T * get() const
@@ -120,7 +122,7 @@ public:
 private:
     friend Buffer;
 
-    MappedMemory<void> mappedMemory;
+    const MappedMemory<void> mappedMemory;
 
     MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : mappedMemory{resource, offset, size}
     {}

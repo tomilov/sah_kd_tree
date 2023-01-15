@@ -542,8 +542,13 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name)
         descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
-        auto descriptorSetLayoutName = fmt::format("{} #{}/{}", name, set, setCount);
-        device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+        if (std::size(setBindings) > 1) {
+            auto descriptorSetLayoutName = fmt::format("{} set {} (of total {} sets)", name, set, setCount);
+            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+        } else {
+            auto descriptorSetLayoutName = fmt::format("{} set {}", name, set);
+            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+        }
     }
 }
 

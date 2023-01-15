@@ -28,7 +28,7 @@ namespace
 {
 
 const auto kSquircle = "squircle"sv;
-constexpr uint32_t set = 0;
+constexpr uint32_t kUniformBufferSet = 0;
 const std::string kUniformBufferName = "uniformBuffer";
 
 constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
@@ -72,8 +72,8 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
         },
     };
 
-    auto setBindings = shaderStages.setBindings.find(set);
-    INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", set);
+    auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
+    INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", kUniformBufferSet);
     uint32_t uniformBufferSetIndex = utils::autoCast(std::distance(std::begin(shaderStages.setBindings), setBindings));
     const auto & uniformBufferBinding = setBindings->second.bindings.at(setBindings->second.bindingIndices.at(kUniformBufferName));
 
@@ -130,8 +130,8 @@ void Resources::init()
 
     {
         INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(set), "");
-        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(set);
+        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
         INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
         auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
         INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");

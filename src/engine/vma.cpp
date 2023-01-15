@@ -19,6 +19,7 @@
 #include <utility>
 #include <variant>
 
+#include <cstddef>
 #include <cstdint>
 
 // clang-format off
@@ -719,11 +720,11 @@ void MappedMemory<void>::init()
 void * MappedMemory<void>::get() const
 {
     if (mappedData) {
-        return mappedData;
+        return std::next(static_cast<std::byte *>(mappedData), offset);
     }
     const auto & allocationInfo = resource.getAllocationInfo();
     INVARIANT(allocationInfo.pMappedData, "");
-    return allocationInfo.pMappedData;
+    return std::next(static_cast<std::byte *>(allocationInfo.pMappedData), offset);
 }
 
 MappedMemory<void>::~MappedMemory() noexcept(false)
