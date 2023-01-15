@@ -8,6 +8,6 @@ out gl_PerVertex { vec4 gl_Position; };
 void main()
 {
     gl_Position = vec4(vertices, 0.0f, 1.0f);
-    coords = vertices.xy;
+    coords = vertices;
 }
 

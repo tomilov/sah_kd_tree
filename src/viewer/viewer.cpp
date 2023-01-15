@@ -140,8 +140,7 @@ void Viewer::frameStart()
         }
     }
     if (renderer) {
-        const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = w->graphicsStateInfo();
-        renderer->frameStart(graphicsStateInfo);
+        renderer->frameStart(w->graphicsStateInfo());
     }
 }
 
@@ -152,10 +151,11 @@ void Viewer::renderPassRecordingStart()
     }
 
     auto w = window();
-    auto ri = w->rendererInterface();
 
     w->beginExternalCommands();
     {
+        auto ri = w->rendererInterface();
+
         auto commandBuffer = static_cast<vk::CommandBuffer *>(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
         Q_CHECK_PTR(commandBuffer);
 

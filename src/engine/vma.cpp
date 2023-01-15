@@ -37,12 +37,35 @@
 namespace engine
 {
 
-MemoryAllocator::MemoryAllocator(Engine & engine) : library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
+struct MemoryAllocator::Impl final : utils::NonCopyable
+{
+    const Library & library;
+    const Instance & instance;
+    const PhysicalDevice & physicalDevice;
+    const Device & device;
+
+    VmaAllocator allocator = VK_NULL_HANDLE;
+
+    Impl(const Engine & engine);
+    ~Impl();
+
+    void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex);
+
+private:
+    void init();
+};
+
+MemoryAllocator::MemoryAllocator(const Engine & engine) : impl_{engine}
+{}
+
+MemoryAllocator::~MemoryAllocator() = default;
+
+MemoryAllocator::Impl::Impl(const Engine & engine) : library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
 {
     init();
 }
 
-MemoryAllocator::~MemoryAllocator()
+MemoryAllocator::Impl::~Impl()
 {
     vmaDestroyAllocator(allocator);
 }
@@ -185,7 +208,7 @@ struct Resource final : utils::OnlyMoveable
     static_assert(std::is_move_constructible_v<ImageResource>);
     static_assert(std::is_move_assignable_v<ImageResource>);
 
-    const MemoryAllocator * memoryAllocator = nullptr;
+    const MemoryAllocator::Impl * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
     std::variant<BufferResource, ImageResource> resource;
 
@@ -238,276 +261,7 @@ static_assert(!std::is_copy_assignable_v<Resource>);
 static_assert(std::is_move_constructible_v<Resource>);
 static_assert(std::is_move_assignable_v<Resource>);
 
-Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
-{}
-
-Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
-{}
-
-Resource::~Resource() = default;
-
-VmaAllocator Resource::getAllocator() const
-{
-    return memoryAllocator->allocator;
-}
-
-VmaAllocatorInfo Resource::getAllocatorInfo() const
-{
-    VmaAllocatorInfo allocatorInfo = {};
-    vmaGetAllocatorInfo(getAllocator(), &allocatorInfo);
-    return allocatorInfo;
-}
-
-const vk::BufferCreateInfo & Resource::getBufferCreateInfo() const
-{
-    return std::get<BufferResource>(resource).bufferCreateInfo;
-}
-
-const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
-{
-    return std::get<ImageResource>(resource).imageCreateInfo;
-}
-
-const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
-{
-    return std::visit(
-        [](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
-}
-
-VmaAllocation Resource::getAllocation() const
-{
-    return std::visit([](const auto & resource) { return resource.allocation; }, resource);
-}
-
-const VmaAllocationInfo & Resource::getAllocationInfo() const
-{
-    return std::visit(
-        [](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
-}
-
-vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const
-{
-    auto allocation = getAllocation();
-    INVARIANT(allocation, "Buffer is not initialized");
-    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetAllocationMemoryProperties(getAllocator(), allocation, &memoryPropertyFlags);
-    return vk::MemoryPropertyFlags{memoryPropertyFlags};
-}
-
-VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo)
-{
-    VmaAllocationCreateInfo allocationCreateInfoNative = {};
-    allocationCreateInfoNative.pUserData = this;
-    allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
-    switch (allocationCreateInfo.type) {
-    case AllocationCreateInfo::AllocationType::kAuto: {
-        break;
-    }
-    case AllocationCreateInfo::AllocationType::kStaging: {
-        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        break;
-    }
-    case AllocationCreateInfo::AllocationType::kReadback: {
-        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        break;
-    }
-    }
-    return allocationCreateInfoNative;
-}
-
-MappedMemory<void>::MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : resource{resource}, offset{offset}, size{size}
-{
-    init();
-}
-
-void MappedMemory<void>::init()
-{
-    auto allocator = resource.getAllocator();
-    auto allocation = resource.getAllocation();
-    INVARIANT(allocation, "Buffer is not initialized");
-    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
-    INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
-    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
-        INVARIANT(offset < bufferCreateInfo.size, "Offset {} is not less than size of buffer {}", offset, bufferCreateInfo.size);
-        if (size != VK_WHOLE_SIZE) {
-            INVARIANT(offset + size <= bufferCreateInfo.size, "Sum {} of offset {} and size {} is greater then size of buffer {}", offset + size, offset, size, bufferCreateInfo.size);
-        }
-        auto result = vk::Result(vmaInvalidateAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
-        INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
-    }
-    const auto & allocationInfo = resource.getAllocationInfo();
-    if (!allocationInfo.pMappedData) {
-        auto result = vk::Result(vmaMapMemory(allocator, allocation, &mappedData));
-        INVARIANT(result == vk::Result::eSuccess, "Cannot map memory: {}", result);
-    }
-}
-
-void * MappedMemory<void>::get() const
-{
-    if (mappedData) {
-        return mappedData;
-    }
-    const auto & allocationInfo = resource.getAllocationInfo();
-    INVARIANT(allocationInfo.pMappedData, "");
-    return allocationInfo.pMappedData;
-}
-
-MappedMemory<void>::~MappedMemory() noexcept(false)
-{
-    auto allocator = resource.getAllocator();
-    auto allocation = resource.getAllocation();
-    INVARIANT(allocation, "Buffer is not initialized");
-    if (mappedData) {
-        vmaUnmapMemory(allocator, allocation);
-    }
-    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
-    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
-        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
-        INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
-    }
-}
-
-Buffer::Buffer() = default;
-
-Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
-{}
-
-Buffer::Buffer(Buffer &&) = default;
-
-auto Buffer::operator=(Buffer &&) -> Buffer & = default;
-
-Buffer::~Buffer() = default;
-
-vk::Buffer Buffer::getBuffer() const
-{
-    return *impl_->getBufferResource().buffer;
-}
-
-vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
-{
-    return impl_->getMemoryPropertyFlags();
-}
-
-Image::Image() = default;
-
-Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
-{}
-
-Image::Image(Image &&) = default;
-
-auto Image::operator=(Image &&) -> Image & = default;
-
-Image::~Image() = default;
-
-vk::Image Image::getImage() const
-{
-    return *impl_->getImageResource().image;
-}
-
-vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const
-{
-    return impl_->getMemoryPropertyFlags();
-}
-
-vk::ImageLayout Image::exchangeLayout(vk::ImageLayout layout)
-{
-    return std::exchange(impl_->getImageResource().layout, layout);
-}
-
-vk::AccessFlags2 Image::accessFlagsForImageLayout(vk::ImageLayout imageLayout)
-{
-    switch (imageLayout) {
-    case vk::ImageLayout::ePreinitialized:
-        return vk::AccessFlagBits2::eHostWrite;
-    case vk::ImageLayout::eTransferDstOptimal:
-        return vk::AccessFlagBits2::eTransferWrite;
-    case vk::ImageLayout::eTransferSrcOptimal:
-        return vk::AccessFlagBits2::eTransferRead;
-    case vk::ImageLayout::eColorAttachmentOptimal:
-        return vk::AccessFlagBits2::eColorAttachmentWrite;
-    case vk::ImageLayout::eDepthStencilAttachmentOptimal:
-        return vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    case vk::ImageLayout::eShaderReadOnlyOptimal:
-        return vk::AccessFlagBits2::eShaderRead;
-    default:
-        INVARIANT(false, "Unhandled ImageLayout: {}", imageLayout);
-    }
-}
-
-vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryProperties() const
-{
-    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;
-    vmaGetMemoryProperties(allocator, &physicalDeviceMemoryPropertiesPtr);
-    vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
-    physicalDeviceMemoryProperties = *physicalDeviceMemoryPropertiesPtr;
-    return physicalDeviceMemoryProperties;
-}
-
-vk::MemoryPropertyFlags MemoryAllocator::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
-{
-    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetMemoryTypeProperties(allocator, memoryTypeIndex, &memoryPropertyFlags);
-    return vk::MemoryPropertyFlags{memoryPropertyFlags};
-}
-
-void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
-{
-    vmaSetCurrentFrameIndex(allocator, frameIndex);
-}
-
-auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
-    allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
-}
-
-auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
-    allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
-}
-
-auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
-    allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
-}
-
-auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
-    allocationCreateInfo.name = name;
-    return {*this, imageCreateInfo, allocationCreateInfo};
-}
-
-auto MemoryAllocator::createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
-    allocationCreateInfo.name = name;
-    return {*this, imageCreateInfo, allocationCreateInfo};
-}
-
-auto MemoryAllocator::createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
-{
-    AllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
-    allocationCreateInfo.name = name;
-    return {*this, imageCreateInfo, allocationCreateInfo};
-}
-
-void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex)
+void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer)> submit, uint32_t queueFamilyIndex)
 {
     VmaAllocatorInfo allocatorInfo = {};
     vmaGetAllocatorInfo(allocator, &allocatorInfo);
@@ -785,7 +539,7 @@ void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> alloca
     // bytesMoved, bytesFreed, allocationsMoved, deviceMemoryBlocksFreed
 }
 
-void MemoryAllocator::init()
+void MemoryAllocator::Impl::init()
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = vk::Instance::NativeType(instance.instance);
@@ -847,6 +601,279 @@ void MemoryAllocator::init()
 
     auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
     INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
+}
+Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+    : memoryAllocator{memoryAllocator.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
+{}
+
+Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+    : memoryAllocator{memoryAllocator.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
+{}
+
+Resource::~Resource() = default;
+
+VmaAllocator Resource::getAllocator() const
+{
+    return memoryAllocator->allocator;
+}
+
+VmaAllocatorInfo Resource::getAllocatorInfo() const
+{
+    VmaAllocatorInfo allocatorInfo = {};
+    vmaGetAllocatorInfo(getAllocator(), &allocatorInfo);
+    return allocatorInfo;
+}
+
+const vk::BufferCreateInfo & Resource::getBufferCreateInfo() const
+{
+    return std::get<BufferResource>(resource).bufferCreateInfo;
+}
+
+const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
+{
+    return std::get<ImageResource>(resource).imageCreateInfo;
+}
+
+const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
+{
+    return std::visit(
+        [](const auto & resource) -> const auto & { return resource.allocationCreateInfo; }, resource);
+}
+
+VmaAllocation Resource::getAllocation() const
+{
+    return std::visit([](const auto & resource) { return resource.allocation; }, resource);
+}
+
+const VmaAllocationInfo & Resource::getAllocationInfo() const
+{
+    return std::visit(
+        [](const auto & resource) -> const auto & { return resource.allocationInfo; }, resource);
+}
+
+vk::MemoryPropertyFlags Resource::getMemoryPropertyFlags() const
+{
+    auto allocation = getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
+    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
+    vmaGetAllocationMemoryProperties(getAllocator(), allocation, &memoryPropertyFlags);
+    return vk::MemoryPropertyFlags{memoryPropertyFlags};
+}
+
+VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreateInfo & allocationCreateInfo)
+{
+    VmaAllocationCreateInfo allocationCreateInfoNative = {};
+    allocationCreateInfoNative.pUserData = this;
+    allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
+    switch (allocationCreateInfo.type) {
+    case AllocationCreateInfo::AllocationType::kAuto: {
+        break;
+    }
+    case AllocationCreateInfo::AllocationType::kStaging: {
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        break;
+    }
+    case AllocationCreateInfo::AllocationType::kReadback: {
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        break;
+    }
+    }
+    return allocationCreateInfoNative;
+}
+
+MappedMemory<void>::MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : resource{resource}, offset{offset}, size{size}
+{
+    init();
+}
+
+void MappedMemory<void>::init()
+{
+    auto allocator = resource.getAllocator();
+    auto allocation = resource.getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
+    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
+    INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
+    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
+        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
+        INVARIANT(offset < bufferCreateInfo.size, "Offset {} is not less than size of buffer {}", offset, bufferCreateInfo.size);
+        if (size != VK_WHOLE_SIZE) {
+            INVARIANT(offset + size <= bufferCreateInfo.size, "Sum {} of offset {} and size {} is greater then size of buffer {}", offset + size, offset, size, bufferCreateInfo.size);
+        }
+        auto result = vk::Result(vmaInvalidateAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
+    }
+    const auto & allocationInfo = resource.getAllocationInfo();
+    if (!allocationInfo.pMappedData) {
+        auto result = vk::Result(vmaMapMemory(allocator, allocation, &mappedData));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot map memory: {}", result);
+    }
+}
+
+void * MappedMemory<void>::get() const
+{
+    if (mappedData) {
+        return mappedData;
+    }
+    const auto & allocationInfo = resource.getAllocationInfo();
+    INVARIANT(allocationInfo.pMappedData, "");
+    return allocationInfo.pMappedData;
+}
+
+MappedMemory<void>::~MappedMemory() noexcept(false)
+{
+    auto allocator = resource.getAllocator();
+    auto allocation = resource.getAllocation();
+    INVARIANT(allocation, "Buffer is not initialized");
+    if (mappedData) {
+        vmaUnmapMemory(allocator, allocation);
+    }
+    vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
+    if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
+        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
+        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
+    }
+}
+
+Buffer::Buffer() = default;
+
+Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
+{}
+
+Buffer::Buffer(Buffer &&) = default;
+
+auto Buffer::operator=(Buffer &&) -> Buffer & = default;
+
+Buffer::~Buffer() = default;
+
+vk::Buffer Buffer::getBuffer() const
+{
+    return *impl_->getBufferResource().buffer;
+}
+
+vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
+{
+    return impl_->getMemoryPropertyFlags();
+}
+
+Image::Image() = default;
+
+Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
+{}
+
+Image::Image(Image &&) = default;
+
+auto Image::operator=(Image &&) -> Image & = default;
+
+Image::~Image() = default;
+
+vk::Image Image::getImage() const
+{
+    return *impl_->getImageResource().image;
+}
+
+vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const
+{
+    return impl_->getMemoryPropertyFlags();
+}
+
+vk::ImageLayout Image::exchangeLayout(vk::ImageLayout layout)
+{
+    return std::exchange(impl_->getImageResource().layout, layout);
+}
+
+vk::AccessFlags2 Image::accessFlagsForImageLayout(vk::ImageLayout imageLayout)
+{
+    switch (imageLayout) {
+    case vk::ImageLayout::ePreinitialized:
+        return vk::AccessFlagBits2::eHostWrite;
+    case vk::ImageLayout::eTransferDstOptimal:
+        return vk::AccessFlagBits2::eTransferWrite;
+    case vk::ImageLayout::eTransferSrcOptimal:
+        return vk::AccessFlagBits2::eTransferRead;
+    case vk::ImageLayout::eColorAttachmentOptimal:
+        return vk::AccessFlagBits2::eColorAttachmentWrite;
+    case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+        return vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    case vk::ImageLayout::eShaderReadOnlyOptimal:
+        return vk::AccessFlagBits2::eShaderRead;
+    default:
+        INVARIANT(false, "Unhandled ImageLayout: {}", imageLayout);
+    }
+}
+
+vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryProperties() const
+{
+    const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;
+    vmaGetMemoryProperties(impl_->allocator, &physicalDeviceMemoryPropertiesPtr);
+    vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+    physicalDeviceMemoryProperties = *physicalDeviceMemoryPropertiesPtr;
+    return physicalDeviceMemoryProperties;
+}
+
+vk::MemoryPropertyFlags MemoryAllocator::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
+{
+    vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
+    vmaGetMemoryTypeProperties(impl_->allocator, memoryTypeIndex, &memoryPropertyFlags);
+    return vk::MemoryPropertyFlags{memoryPropertyFlags};
+}
+
+void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
+{
+    vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
+}
+
+auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
+    allocationCreateInfo.name = name;
+    return {*this, bufferCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
+    allocationCreateInfo.name = name;
+    return {*this, bufferCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
+    allocationCreateInfo.name = name;
+    return {*this, bufferCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
+    allocationCreateInfo.name = name;
+    return {*this, imageCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
+    allocationCreateInfo.name = name;
+    return {*this, imageCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
+    allocationCreateInfo.name = name;
+    return {*this, imageCreateInfo, allocationCreateInfo};
+}
+
+void MemoryAllocator::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex)
+{
+    return impl_->defragment(allocateCommandBuffer, submit, queueFamilyIndex);
 }
 
 }  // namespace engine

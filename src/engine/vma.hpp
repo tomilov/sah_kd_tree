@@ -37,7 +37,7 @@ public:
         VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
     };
 
-    MemoryAllocator(Engine & engine);
+    MemoryAllocator(const Engine & engine);
     ~MemoryAllocator();
 
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
@@ -58,16 +58,11 @@ public:
 private:
     friend Resource;
 
-    // TODO: move all to Impl
+    struct Impl;
 
-    const Library & library;
-    const Instance & instance;
-    const PhysicalDevice & physicalDevice;
-    const Device & device;
-
-    VmaAllocator allocator = VK_NULL_HANDLE;
-
-    void init();
+    static constexpr size_t kSize = 40;
+    static constexpr size_t kAlignment = 8;
+    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
 struct ENGINE_EXPORT AllocationCreateInfo
