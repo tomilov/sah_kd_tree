@@ -126,13 +126,13 @@ void Viewer::frameStart()
         PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
         if (engine) {
-            INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getInstance(), "Should match");
-            INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getPhysicalDevice(), "Should match");
-            INVARIANT(*vulkanDevice == engine->getEngine().getDevice(), "Should match");
-            INVARIANT(queueFamilyIndex == engine->getEngine().getGraphicsQueueFamilyIndex(), "Should match");
+            INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getVulkanInstance(), "Should match");
+            INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getVulkanPhysicalDevice(), "Should match");
+            INVARIANT(*vulkanDevice == engine->getEngine().getVulkanDevice(), "Should match");
+            INVARIANT(queueFamilyIndex == engine->getEngine().getVulkanGraphicsQueueFamilyIndex(), "Should match");
             {
                 VkQueue queue = VK_NULL_HANDLE;
-                vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getGraphicsQueueIndex(), &queue);
+                vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getVulkanGraphicsQueueIndex(), &queue);
                 INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
             }
 

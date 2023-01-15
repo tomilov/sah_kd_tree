@@ -43,15 +43,15 @@ public:
     vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
     vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
 
-    void setCurrentFrameIndex(uint32_t frameIndex);
+    void setCurrentFrameIndex(uint32_t frameIndex) const;
 
-    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
-    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
-    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name);
+    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
+    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
+    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
 
-    Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
-    Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
-    Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name);
+    Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
+    Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
+    Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
 
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 
@@ -60,10 +60,10 @@ private:
 
     // TODO: move all to Impl
 
-    Library & library;
-    Instance & instance;
-    PhysicalDevice & physicalDevice;
-    Device & device;
+    const Library & library;
+    const Instance & instance;
+    const PhysicalDevice & physicalDevice;
+    const Device & device;
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 
@@ -139,7 +139,7 @@ class ENGINE_EXPORT Buffer final : utils::OnlyMoveable  // TODO(tomilov): make b
 {
 public:
     Buffer();
-    Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Buffer(Buffer &&);
     Buffer & operator=(Buffer &&);
@@ -173,7 +173,7 @@ class ENGINE_EXPORT Image final : utils::OnlyMoveable
 {
 public:
     Image();
-    Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Image(Image &&);
     Image & operator=(Image &&);

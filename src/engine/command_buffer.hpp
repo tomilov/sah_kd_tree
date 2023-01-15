@@ -18,15 +18,15 @@ struct ENGINE_EXPORT CommandBuffers final : utils::NonCopyable
 {
     const std::string name;
 
-    Engine & engine;
-    Library & library;
-    Device & device;
+    const Engine & engine;
+    const Library & library;
+    const Device & device;
 
     const vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
     std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
     std::vector<vk::CommandBuffer> commandBuffers;
 
-    CommandBuffers(std::string_view name, Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
+    CommandBuffers(std::string_view name, const Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
 
 private:
     void create();

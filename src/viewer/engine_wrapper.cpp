@@ -39,7 +39,7 @@ engine::Engine & Engine::getEngine()
     return impl_->engine;
 }
 
-ResourceManager & Engine::getResourceManager()
+const ResourceManager & Engine::getResourceManager()
 {
     return impl_->resourceManager;
 }

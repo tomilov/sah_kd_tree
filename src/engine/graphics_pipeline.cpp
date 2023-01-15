@@ -12,17 +12,8 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const PipelineVertexInputState & pipelineVertexInputState, const ShaderStages & shaderStages, vk::RenderPass renderPass,
-                                               const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges)
-    : name{name}
-    , engine{engine}
-    , library{*engine.library}
-    , device{*engine.device}
-    , pipelineVertexInputState{pipelineVertexInputState}
-    , shaderStages{shaderStages}
-    , renderPass{renderPass}
-    , descriptorSetLayouts{descriptorSetLayouts}
-    , pushConstantRanges{pushConstantRanges}
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, const std::vector<vk::PushConstantRange> & pushConstantRanges)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}, pushConstantRanges{pushConstantRanges}
 {
     init();
 }
@@ -33,7 +24,7 @@ void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreate
 
     graphicsPipelineCreateInfo.flags = {};
     graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
-    graphicsPipelineCreateInfo.pVertexInputState = &pipelineVertexInputState.pipelineVertexInputStateCreateInfo.value();
+    graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.pipelineVertexInputState.pipelineVertexInputStateCreateInfo.value();
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;
     graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
@@ -122,7 +113,7 @@ void GraphicsPipelineLayout::init()
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
     pipelineLayoutCreateInfo.flags = {};
-    pipelineLayoutCreateInfo.setSetLayouts(descriptorSetLayouts);
+    pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
     pipelineLayoutCreateInfo.setPushConstantRanges(pushConstantRanges);
 
     pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
@@ -130,7 +121,7 @@ void GraphicsPipelineLayout::init()
     device.setDebugUtilsObjectName(pipelineLayout, name);
 }
 
-GraphicsPipelines::GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache) : engine{engine}, library{*engine.library}, device{*engine.device}, pipelineCache{pipelineCache}
+GraphicsPipelines::GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, pipelineCache{pipelineCache}
 {}
 
 void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout)

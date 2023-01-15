@@ -16,15 +16,15 @@ namespace engine
 
 struct ENGINE_EXPORT Queue final : utils::NonCopyable
 {
-    Engine & engine;
-    Library & library;
-    QueueCreateInfo & queueCreateInfo;
-    Device & device;
-    CommandPools & commandPools;
+    const Engine & engine;
+    const Library & library;
+    const QueueCreateInfo & queueCreateInfo;
+    const Device & device;
+    const CommandPools & commandPools;
 
     vk::Queue queue;
 
-    Queue(Engine & engine, QueueCreateInfo & queueCreateInfo, CommandPools & commandPools);
+    Queue(const Engine & engine, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools);
 
     ~Queue();
 
@@ -49,7 +49,7 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
-    Queues(Engine & engine, CommandPools & commandPools);
+    Queues(const Engine & engine, const CommandPools & commandPools);
 
     void waitIdle() const;
 };

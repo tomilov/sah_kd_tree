@@ -11,7 +11,7 @@
 namespace engine
 {
 
-Queue::Queue(Engine & engine, QueueCreateInfo & queueCreateInfo, CommandPools & commandPools) : engine{engine}, library{*engine.library}, queueCreateInfo{queueCreateInfo}, device{*engine.device}, commandPools{commandPools}
+Queue::Queue(const Engine & engine, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools) : engine{engine}, library{engine.getLibrary()}, queueCreateInfo{queueCreateInfo}, device{engine.getDevice()}, commandPools{commandPools}
 {
     init();
 }
@@ -72,12 +72,12 @@ CommandBuffers Queue::allocateCommandBuffer(std::string_view name, vk::CommandBu
     return allocateCommandBuffers(name, 1, level);
 }
 
-Queues::Queues(Engine & engine, CommandPools & commandPools)
-    : externalGraphics{engine, engine.device->physicalDevice.externalGraphicsQueueCreateInfo, commandPools}
-    , graphics{engine, engine.device->physicalDevice.graphicsQueueCreateInfo, commandPools}
-    , compute{engine, engine.device->physicalDevice.computeQueueCreateInfo, commandPools}
-    , transferHostToDevice{engine, engine.device->physicalDevice.transferHostToDeviceQueueCreateInfo, commandPools}
-    , transferDeviceToHost{engine, engine.device->physicalDevice.transferDeviceToHostQueueCreateInfo, commandPools}
+Queues::Queues(const Engine & engine, const CommandPools & commandPools)
+    : externalGraphics{engine, engine.getDevice().physicalDevice.externalGraphicsQueueCreateInfo, commandPools}
+    , graphics{engine, engine.getDevice().physicalDevice.graphicsQueueCreateInfo, commandPools}
+    , compute{engine, engine.getDevice().physicalDevice.computeQueueCreateInfo, commandPools}
+    , transferHostToDevice{engine, engine.getDevice().physicalDevice.transferHostToDeviceQueueCreateInfo, commandPools}
+    , transferDeviceToHost{engine, engine.getDevice().physicalDevice.transferDeviceToHostQueueCreateInfo, commandPools}
 {}
 
 void Queues::waitIdle() const

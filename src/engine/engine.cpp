@@ -86,11 +86,11 @@ bool Engine::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
 void Engine::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks, *this);
-    instance = std::make_unique<Instance>(applicationName, applicationVersion, *this);
+    instance = std::make_unique<Instance>(applicationName, applicationVersion, *this, *library);
     physicalDevices = std::make_unique<PhysicalDevices>(*this);
 }
 
-vk::Instance Engine::getInstance() const
+vk::Instance Engine::getVulkanInstance() const
 {
     return instance->instance;
 }
@@ -98,28 +98,53 @@ vk::Instance Engine::getInstance() const
 void Engine::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
-    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, physicalDevice);
+    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, *library, physicalDevice);
     vma = std::make_unique<MemoryAllocator>(*this);
 }
 
-vk::PhysicalDevice Engine::getPhysicalDevice() const
+vk::PhysicalDevice Engine::getVulkanPhysicalDevice() const
 {
     return device->physicalDevice.physicalDevice;
 }
 
-vk::Device Engine::getDevice() const
+vk::Device Engine::getVulkanDevice() const
 {
     return device->device;
 }
 
-uint32_t Engine::getGraphicsQueueFamilyIndex() const
+uint32_t Engine::getVulkanGraphicsQueueFamilyIndex() const
 {
     return device->physicalDevice.externalGraphicsQueueCreateInfo.familyIndex;
 }
 
-uint32_t Engine::getGraphicsQueueIndex() const
+uint32_t Engine::getVulkanGraphicsQueueIndex() const
 {
     return device->physicalDevice.externalGraphicsQueueCreateInfo.index;
+}
+
+const Library & Engine::getLibrary() const
+{
+    return *library;
+}
+
+const Instance & Engine::getInstance() const
+{
+    return *instance;
+}
+
+const PhysicalDevices & Engine::getPhysicalDevices() const
+{
+    return *physicalDevices;
+}
+
+const Device & Engine::getDevice() const
+{
+    return *device;
+}
+
+const MemoryAllocator & Engine::getMemoryAllocator() const
+{
+    return *vma;
 }
 
 }  // namespace engine

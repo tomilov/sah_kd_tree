@@ -24,24 +24,24 @@ struct ENGINE_EXPORT CommandPool final
 {
     const std::string name;
 
-    Engine & engine;
-    Library & library;
-    Device & device;
+    const Engine & engine;
+    const Library & library;
+    const Device & device;
 
     vk::CommandPoolCreateInfo commandPoolCreateInfo;
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(std::string_view name, Engine & engine);
+    CommandPool(std::string_view name, const Engine & engine);
 
     void create();
 };
 
 struct CommandPools : utils::NonCopyable
 {
-    Engine & engine;
-    Library & library;
-    Device & device;
+    const Engine & engine;
+    const Library & library;
+    const Device & device;
 
     using CommandPoolInfo = std::pair<uint32_t /*queueFamilyIndex*/, vk::CommandBufferLevel>;
 
@@ -54,11 +54,11 @@ struct CommandPools : utils::NonCopyable
     using CommandPoolsType = std::unordered_map<std::thread::id, PerThreadCommandPool>;
 
     mutable std::mutex commandPoolsMutex;
-    CommandPoolsType commandPools;
+    mutable CommandPoolsType commandPools;
 
-    CommandPools(Engine & engine);
+    CommandPools(const Engine & engine);
 
-    [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary);
+    [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 };
 
 }  // namespace engine

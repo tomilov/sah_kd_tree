@@ -25,7 +25,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     const std::string applicationName;
     const uint32_t applicationVersion;
 
-    Engine & engine;
+    const Engine & engine;
     Library & library;
 
     uint32_t apiVersion = VK_API_VERSION_1_0;
@@ -55,7 +55,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine);
+    Instance(std::string_view applicationName, uint32_t applicationVersion, const Engine & engine, Library & library);
 
     [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
 

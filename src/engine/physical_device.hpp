@@ -30,9 +30,9 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
-    Engine & engine;
-    Library & library;
-    Instance & instance;
+    const Engine & engine;
+    const Library & library;
+    const Instance & instance;
 
     vk::PhysicalDevice physicalDevice;
 
@@ -66,9 +66,17 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {};
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> physicalDeviceVulkan11Features = {};
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> physicalDeviceVulkan12Features = {
-            &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray, &vk::PhysicalDeviceVulkan12Features::shaderSampledImageArrayNonUniformIndexing,
-            &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,      &vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
+            &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray,
+            &vk::PhysicalDeviceVulkan12Features::shaderSampledImageArrayNonUniformIndexing,
+            &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
+            &vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
             &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformBufferUpdateAfterBind,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingSampledImageUpdateAfterBind,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageImageUpdateAfterBind,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageBufferUpdateAfterBind,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformTexelBufferUpdateAfterBind,
+            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageTexelBufferUpdateAfterBind,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*> rayTracingPipelineFeatures = {
             &vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
@@ -105,7 +113,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{.name = "Host -> Device transfer queue"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{.name = "Device -> Host transfer queue"};
 
-    PhysicalDevice(Engine & engine, vk::PhysicalDevice physicalDevice);
+    PhysicalDevice(const Engine & engine, vk::PhysicalDevice physicalDevice);
 
     [[nodiscard]] std::string getDeviceName() const;
     [[nodiscard]] std::string getPipelineCacheUUID() const;
@@ -122,13 +130,13 @@ private:
 
 struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 {
-    Engine & engine;
-    Library & library;
-    Instance & instance;
+    const Engine & engine;
+    const Library & library;
+    const Instance & instance;
 
     std::list<PhysicalDevice> physicalDevices;
 
-    PhysicalDevices(Engine & engine);
+    PhysicalDevices(const Engine & engine);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 

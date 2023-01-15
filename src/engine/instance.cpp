@@ -42,7 +42,7 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
 
 }  // namespace
 
-Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, Engine & engine) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{*engine.library}
+Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, const Engine & engine, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{library}
 {
     init();
 }

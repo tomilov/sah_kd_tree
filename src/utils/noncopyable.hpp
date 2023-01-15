@@ -16,7 +16,7 @@ struct OnlyMoveable
 {
     OnlyMoveable() = default;
     OnlyMoveable(const OnlyMoveable &) = delete;
-    NonCopyable & operator=(const OnlyMoveable &) = delete;
+    OnlyMoveable & operator=(const OnlyMoveable &) = delete;
     OnlyMoveable(OnlyMoveable &&) = default;
     OnlyMoveable & operator=(OnlyMoveable &&) = default;
 };

@@ -12,7 +12,7 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view name, Engine & engine) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}
+RenderPass::RenderPass(std::string_view name, const Engine & engine) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
 {
     init();
 }

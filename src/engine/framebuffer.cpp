@@ -13,8 +13,8 @@
 namespace engine
 {
 
-Framebuffer::Framebuffer(std::string_view name, Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
-    : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
+Framebuffer::Framebuffer(std::string_view name, const Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
 {
     init();
 }

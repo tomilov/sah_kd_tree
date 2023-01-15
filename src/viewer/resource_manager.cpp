@@ -33,9 +33,9 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 
 }  // namespace
 
-Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages,
-                                              vk::RenderPass renderPass, const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges)
-    : pipelineLayout{name, engine, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges}, pipelines{engine, pipelineCache}
+Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass,
+                                              const std::vector<vk::PushConstantRange> & pushConstantRanges)
+    : pipelineLayout{name, engine, shaderStages, renderPass, pushConstantRanges}, pipelines{engine, pipelineCache}
 {
     pipelines.add(pipelineLayout);
     pipelines.create();
@@ -45,18 +45,18 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint3
     : engine{engine}
     , fileIo{fileIo}
     , framesInFlight{framesInFlight}
-    , shaderStages{engine}
     , vertexShader{"fullscreen_triangle.vert"sv, engine, fileIo}
     , vertexShaderReflection{vertexShader, "main"}
     , fragmentShader{"fullscreen_triangle.frag"sv, engine, fileIo}
     , fragmentShaderReflection{fragmentShader, "main"}
+    , shaderStages{engine, vertexBufferBinding}
 {
     init();
 }
 
 auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, pipelineVertexInputState, shaderStages, renderPass, descriptorSetLayouts, pushConstantRanges);
+    return std::make_unique<GraphicsPipeline>("rasterization", engine, pipelineCache->pipelineCache, shaderStages, renderPass, pushConstantRanges);
 }
 
 void Resources::init()
@@ -64,89 +64,55 @@ void Resources::init()
     INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
     INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
 
-    shaderStages.append(vertexShader, vertexShaderReflection.entryPoint);
-    shaderStages.append(fragmentShader, fragmentShaderReflection.entryPoint);
-
-    vk::DeviceSize minUniformBufferOffsetAlignment = engine.device->physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minUniformBufferOffsetAlignment;
+    vk::DeviceSize minUniformBufferOffsetAlignment = engine.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minUniformBufferOffsetAlignment;
     uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    uniformBuffer = engine.vma->createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
+    uniformBuffer = engine.getMemoryAllocator().createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
     vertexBufferCreateInfo.size = sizeof kVertices;
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-    vertexBuffer = engine.vma->createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
+    vertexBuffer = engine.getMemoryAllocator().createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
 
     constexpr uint32_t vertexBufferBinding = 0;
-    pipelineVertexInputState = vertexShaderReflection.getPipelineVertexInputState(vertexBufferBinding);
 
     {
-        INVARIANT(std::size(vertexShaderReflection.descriptorSetLayouts) == 0, "");
+        INVARIANT(std::empty(vertexShaderReflection.descriptorSetLayoutSetBindings), "");
+        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
     }
 
+    constexpr uint32_t set = 0;
+
     {
-        INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayouts) == 1, "");
-        auto & descriptorSetLayoutReflection = fragmentShaderReflection.descriptorSetLayouts.back();
-        INVARIANT(descriptorSetLayoutReflection.set == 0, "");
-        INVARIANT(std::size(descriptorSetLayoutReflection.bindings) == 1, "");
-        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutReflection.bindings.back();
+        INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(set), "");
+        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(set);
+        INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.back();
         INVARIANT(descriptorSetLayoutBindingReflection.binding == vertexBufferBinding, "");
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
         INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-
         descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
+
+        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
     }
 
-    auto device = engine.device->device;
-    const auto & allocationCallbacks = engine.library->allocationCallbacks;
-    const auto & dispatcher = engine.library->dispatcher;
+    shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
+    shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
 
-    // TODO: merge?
+    shaderStages.createDescriptorSetLayouts("rasterization");
 
-    size_t vertexShaderDescriptorCount = std::size(vertexShaderReflection.descriptorSetLayoutCreateInfos);
-    descriptorSetLayoutHolders.reserve(std::size(descriptorSetLayoutHolders) + vertexShaderDescriptorCount);
-    descriptorSetLayouts.reserve(std::size(descriptorSetLayouts) + vertexShaderDescriptorCount);
-    for (size_t d = 0; d < vertexShaderDescriptorCount; ++d) {
-        descriptorSetLayoutHolders.push_back(device.createDescriptorSetLayoutUnique(vertexShaderReflection.descriptorSetLayoutCreateInfos.at(d), allocationCallbacks, dispatcher));
-        descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
-        engine.device->setDebugUtilsObjectName(descriptorSetLayouts.back(), vertexShaderReflection.descriptorNames.at(d));
-    }
+    descriptorPoolSizes = shaderStages.getDescriptorPoolSizes();
 
-    size_t fragmentShaderDescriptorCount = std::size(fragmentShaderReflection.descriptorSetLayoutCreateInfos);
-    descriptorSetLayoutHolders.reserve(std::size(descriptorSetLayoutHolders) + fragmentShaderDescriptorCount);
-    descriptorSetLayouts.reserve(std::size(descriptorSetLayouts) + fragmentShaderDescriptorCount);
-    for (size_t d = 0; d < fragmentShaderDescriptorCount; ++d) {
-        descriptorSetLayoutHolders.push_back(device.createDescriptorSetLayoutUnique(fragmentShaderReflection.descriptorSetLayoutCreateInfos.at(d), allocationCallbacks, dispatcher));
-        descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
-        engine.device->setDebugUtilsObjectName(descriptorSetLayouts.back(), fragmentShaderReflection.descriptorNames.at(d));
-    }
+    uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
+    descriptorPool.emplace("rasterization", engine, setCount, descriptorPoolSizes);
+    descriptorSets.emplace("rasterization", engine, shaderStages, *descriptorPool);
 
-    pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(vertexShaderReflection.pushConstantRanges), std::cend(vertexShaderReflection.pushConstantRanges));
-    pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(fragmentShaderReflection.pushConstantRanges), std::cend(fragmentShaderReflection.pushConstantRanges));
-
-    std::vector<vk::DescriptorPoolSize> descriptorPoolSize = {
-        {vk::DescriptorType::eUniformBufferDynamic, 1},
-    };
-    vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
-    descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    descriptorPoolCreateInfo.setMaxSets(1);  // infer
-    descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSize);
-    descriptorPoolHolder = device.createDescriptorPoolUnique(descriptorPoolCreateInfo, allocationCallbacks, dispatcher);
-    vk::DescriptorPool descriptorPool = *descriptorPoolHolder;
-    // name
-
-    vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
-    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-    descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayouts);
-    descriptorSetHolders = device.allocateDescriptorSetsUnique(descriptorSetAllocateInfo, dispatcher);
-    descriptorSets.reserve(descriptorSetHolders.size());
-    for (const auto & descriptorSetHolder : descriptorSetHolders) {
-        descriptorSets.push_back(*descriptorSetHolder);
-        // name em
-    }
+    auto device = engine.getDevice().device;
+    const auto & dispatcher = engine.getLibrary().dispatcher;
 
     std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos = {
         {
@@ -156,11 +122,26 @@ void Resources::init()
         },
     };
 
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;  // array?
+    uint32_t uniformBufferSetIndex = 0;
+    uint32_t uniformBufferBinding = 0;
+    for (const auto & [uniformBufferSet, bindings] : shaderStages.setBindings) {
+        if (uniformBufferSet == set) {
+            for (const auto & binding : bindings) {
+                if (binding.descriptorType == vk::DescriptorType::eUniformBufferDynamic) {
+                    uniformBufferBinding = binding.binding;
+                    break;
+                }
+            }
+            break;
+        }
+        ++uniformBufferSetIndex;
+    }
+
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
     auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-    writeDescriptorSet.dstSet = descriptorSets.at(0);
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.dstSet = descriptorSets.value().descriptorSets.at(uniformBufferSetIndex);
+    writeDescriptorSet.dstBinding = uniformBufferBinding;
+    writeDescriptorSet.dstArrayElement = 0;  // not an array
     writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
     writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
     device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
@@ -171,7 +152,7 @@ void Resources::init()
 ResourceManager::ResourceManager(engine::Engine & engine) : engine{engine}
 {}
 
-std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t framesInFlight)
+std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t framesInFlight) const
 {
     std::lock_guard<std::mutex> lock{mutex};
     auto & w = resources[framesInFlight];

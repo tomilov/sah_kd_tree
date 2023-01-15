@@ -18,7 +18,7 @@ class ResourceManager;
 class Renderer
 {
 public:
-    Renderer(engine::Engine & engine, ResourceManager & resourceManager);
+    Renderer(const engine::Engine & engine, const ResourceManager & resourceManager);
     ~Renderer();
 
     void setT(float t);
@@ -29,7 +29,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 88;
+    static constexpr size_t kSize = 80;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

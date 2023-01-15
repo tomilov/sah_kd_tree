@@ -37,7 +37,7 @@
 namespace engine
 {
 
-MemoryAllocator::MemoryAllocator(Engine & engine) : library{*engine.library}, instance{*engine.instance}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
+MemoryAllocator::MemoryAllocator(Engine & engine) : library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
 {
     init();
 }
@@ -185,14 +185,14 @@ struct Resource final : utils::OnlyMoveable
     static_assert(std::is_move_constructible_v<ImageResource>);
     static_assert(std::is_move_assignable_v<ImageResource>);
 
-    MemoryAllocator * memoryAllocator = nullptr;
+    const MemoryAllocator * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
     std::variant<BufferResource, ImageResource> resource;
 
     Resource() = default;
 
-    Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
-    Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Resource(Resource &&) = default;
     Resource & operator=(Resource &&) = default;
@@ -238,11 +238,11 @@ static_assert(!std::is_copy_assignable_v<Resource>);
 static_assert(std::is_move_constructible_v<Resource>);
 static_assert(std::is_move_assignable_v<Resource>);
 
-Resource::Resource(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
     : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
 {}
 
-Resource::Resource(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
+Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
     : memoryAllocator{&memoryAllocator}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<ImageResource>, *this, imageCreateInfo, allocationCreateInfo}
 {}
 
@@ -373,7 +373,7 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
 
 Buffer::Buffer() = default;
 
-Buffer::Buffer(MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
+Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
 {}
 
 Buffer::Buffer(Buffer &&) = default;
@@ -394,7 +394,7 @@ vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
 
 Image::Image() = default;
 
-Image::Image(MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
+Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
 {}
 
 Image::Image(Image &&) = default;
@@ -454,12 +454,12 @@ vk::MemoryPropertyFlags MemoryAllocator::getMemoryTypeProperties(uint32_t memory
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
-void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex)
+void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
 {
     vmaSetCurrentFrameIndex(allocator, frameIndex);
 }
 
-auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) -> Buffer
+auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
@@ -467,7 +467,7 @@ auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo
     return {*this, bufferCreateInfo, allocationCreateInfo};
 }
 
-auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) -> Buffer
+auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
@@ -475,7 +475,7 @@ auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCre
     return {*this, bufferCreateInfo, allocationCreateInfo};
 }
 
-auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) -> Buffer
+auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
@@ -483,7 +483,7 @@ auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCr
     return {*this, bufferCreateInfo, allocationCreateInfo};
 }
 
-auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) -> Image
+auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
@@ -491,7 +491,7 @@ auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, s
     return {*this, imageCreateInfo, allocationCreateInfo};
 }
 
-auto MemoryAllocator::createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) -> Image
+auto MemoryAllocator::createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
@@ -499,7 +499,7 @@ auto MemoryAllocator::createStagingImage(const vk::ImageCreateInfo & imageCreate
     return {*this, imageCreateInfo, allocationCreateInfo};
 }
 
-auto MemoryAllocator::createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) -> Image
+auto MemoryAllocator::createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;

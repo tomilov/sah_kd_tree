@@ -9,4 +9,4 @@ void Scene::resize(size_t newTraingleCount)
     triangles = std::make_unique<Triangle[]>(newTraingleCount);
 }
 
-}
+}  // namespace scene

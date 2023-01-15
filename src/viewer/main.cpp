@@ -199,7 +199,7 @@ int main(int argc, char * argv[])
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         engine.getEngine().createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(engine.getEngine().getInstance());
+        vulkanInstance.setVkInstance(engine.getEngine().getVulkanInstance());
     } else {
         {
             QVersionNumber apiVersion(1, 3);
@@ -265,10 +265,10 @@ int main(int argc, char * argv[])
             auto & requiredDeviceExtensions = engine.getEngine().requiredDeviceExtensions;
             requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
             engine.getEngine().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = engine.getEngine().getPhysicalDevice();
-            vk::Device device = engine.getEngine().getDevice();
-            uint32_t queueFamilyIndex = engine.getEngine().getGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = engine.getEngine().getGraphicsQueueIndex();
+            vk::PhysicalDevice physicalDevice = engine.getEngine().getVulkanPhysicalDevice();
+            vk::Device device = engine.getEngine().getVulkanDevice();
+            uint32_t queueFamilyIndex = engine.getEngine().getVulkanGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = engine.getEngine().getVulkanGraphicsQueueIndex();
             INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);

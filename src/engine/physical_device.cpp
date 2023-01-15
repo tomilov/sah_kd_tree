@@ -21,7 +21,7 @@
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(Engine & engine, vk::PhysicalDevice physicalDevice) : engine{engine}, library{*engine.library}, instance{*engine.instance}, physicalDevice{physicalDevice}
+PhysicalDevice::PhysicalDevice(const Engine & engine, vk::PhysicalDevice physicalDevice) : engine{engine}, library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{physicalDevice}
 {
     init();
 }
@@ -302,7 +302,7 @@ void PhysicalDevice::init()
     queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
-PhysicalDevices::PhysicalDevices(Engine & engine) : engine{engine}, library{*engine.library}, instance{*engine.instance}
+PhysicalDevices::PhysicalDevices(const Engine & engine) : engine{engine}, library{engine.getLibrary()}, instance{engine.getInstance()}
 {
     init();
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/descriptors.hpp>
 #include <engine/fwd.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_cache.hpp>
@@ -48,8 +49,7 @@ public:
         engine::GraphicsPipelineLayout pipelineLayout;
         engine::GraphicsPipelines pipelines;
 
-        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::PipelineVertexInputState & pipelineVertexInputState, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass,
-                         const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges);
+        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, const std::vector<vk::PushConstantRange> & pushConstantRanges);
     };
 
     [[nodiscard]] uint32_t getFramesInFlight() const
@@ -81,7 +81,7 @@ public:
 
     [[nodiscard]] const std::vector<vk::DescriptorSet> & getDescriptorSets() const
     {
-        return descriptorSets;
+        return descriptorSets.value().descriptorSets;
     }
 
 private:
@@ -89,25 +89,22 @@ private:
     const FileIo & fileIo;
     const uint32_t framesInFlight;
 
-    engine::ShaderStages shaderStages;
-
     engine::ShaderModule vertexShader;
     engine::ShaderModuleReflection vertexShaderReflection;
 
     engine::ShaderModule fragmentShader;
     engine::ShaderModuleReflection fragmentShaderReflection;
 
+    static constexpr uint32_t vertexBufferBinding = 0;
+    engine::ShaderStages shaderStages;
+
     vk::DeviceSize uniformBufferPerFrameSize = 0;
     engine::Buffer uniformBuffer;
     engine::Buffer vertexBuffer;
 
-    engine::PipelineVertexInputState pipelineVertexInputState;
-    std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
-    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
-
-    vk::UniqueDescriptorPool descriptorPoolHolder;
-    std::vector<vk::UniqueDescriptorSet> descriptorSetHolders;
-    std::vector<vk::DescriptorSet> descriptorSets;
+    std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
+    std::optional<engine::DescriptorPool> descriptorPool;
+    std::optional<engine::DescriptorSets> descriptorSets;
 
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
@@ -123,14 +120,14 @@ class ResourceManager
 public:
     ResourceManager(engine::Engine & engine);
 
-    [[nodiscard]] std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight);
+    [[nodiscard]] std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight) const;
 
 private:
     engine::Engine & engine;
     const FileIo fileIo{QStringLiteral("shaders:")};
 
     mutable std::mutex mutex;
-    std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;
+    mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;
 };
 
 }  // namespace viewer

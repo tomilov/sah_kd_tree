@@ -11,8 +11,8 @@
 namespace engine
 {
 
-CommandBuffers::CommandBuffers(std::string_view name, Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
-    : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}, commandBufferAllocateInfo{commandBufferAllocateInfo}
+CommandBuffers::CommandBuffers(std::string_view name, const Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, commandBufferAllocateInfo{commandBufferAllocateInfo}
 {
     create();
 }

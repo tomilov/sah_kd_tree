@@ -32,7 +32,7 @@ void Fences::create(size_t count)
     }
 }
 
-Fences::Fences(std::string_view name, Engine & engine, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}, fenceCreateFlags{fenceCreateFlags}
+Fences::Fences(std::string_view name, const Engine & engine, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, fenceCreateFlags{fenceCreateFlags}
 {
     create(count);
 }

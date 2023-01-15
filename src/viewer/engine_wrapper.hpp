@@ -31,7 +31,7 @@ public:
     ~Engine();
 
     engine::Engine & getEngine();
-    ResourceManager & getResourceManager();
+    const ResourceManager & getResourceManager();
 
 private:
     struct Impl;

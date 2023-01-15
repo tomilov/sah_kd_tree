@@ -52,7 +52,8 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Engine & engine, const FileIo & fileIo) : name{name}, engine{engine}, fileIo{fileIo}, library{*engine.library}, physicalDevice{engine.device->physicalDevice}, device{*engine.device}
+PipelineCache::PipelineCache(std::string_view name, const Engine & engine, const FileIo & fileIo)
+    : name{name}, engine{engine}, fileIo{fileIo}, library{engine.getLibrary()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
 {
     load();
 }

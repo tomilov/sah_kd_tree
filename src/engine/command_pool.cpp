@@ -17,7 +17,7 @@
 namespace engine
 {
 
-CommandPool::CommandPool(std::string_view name, Engine & engine) : name{name}, engine{engine}, library{*engine.library}, device{*engine.device}
+CommandPool::CommandPool(std::string_view name, const Engine & engine) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
 {}
 
 void CommandPool::create()
@@ -36,10 +36,10 @@ size_t CommandPools::CommandPoolHash::operator()(const CommandPoolInfo & command
     return hash;
 }
 
-CommandPools::CommandPools(Engine & engine) : engine{engine}, library{*engine.library}, device{*engine.device}
+CommandPools::CommandPools(const Engine & engine) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
 {}
 
-vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level)
+vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level) const
 {
     std::lock_guard<std::mutex> lock{commandPoolsMutex};
     auto threadId = std::this_thread::get_id();

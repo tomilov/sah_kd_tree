@@ -22,9 +22,9 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
 {
     const std::string name;
 
-    Engine & engine;
+    const Engine & engine;
     Library & library;
-    Instance & instance;
+    const Instance & instance;
     PhysicalDevice & physicalDevice;
 
     vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
@@ -33,7 +33,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(std::string_view name, Engine & engine, PhysicalDevice & physicalDevice);
+    Device(std::string_view name, const Engine & engine, Library & library, PhysicalDevice & physicalDevice);
 
     void create();
 

@@ -9,6 +9,11 @@
 namespace engine
 {
 
+Library::Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const Engine & engine) : libraryName{libraryName}, allocationCallbacks{allocationCallbacks}, engine{engine}
+{
+    init();
+}
+
 void Library::init()
 {
     using namespace std::string_view_literals;

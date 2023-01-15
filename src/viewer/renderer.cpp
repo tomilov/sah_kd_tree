@@ -12,6 +12,8 @@
 #include <viewer/renderer.hpp>
 #include <viewer/resource_manager.hpp>
 
+#include <vulkan/vulkan.hpp>
+
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
 #include <QtCore/QFile>
@@ -21,6 +23,12 @@
 #include <QtCore/QString>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QSGRendererInterface>
+
+#include <algorithm>
+#include <initializer_list>
+#include <iterator>
+#include <memory>
+#include <vector>
 
 #include <cstdint>
 
@@ -42,13 +50,12 @@ struct Renderer::Impl
         Fragment,
     };
 
-    engine::Engine & engine;
-    ResourceManager & resourceManager;
+    const engine::Engine & engine;
+    const ResourceManager & resourceManager;
 
-    engine::Library & library = *utils::CheckedPtr(engine.library.get());
-    engine::Instance & instance = *utils::CheckedPtr(engine.instance.get());
-    engine::PhysicalDevices & physicalDevices = *utils::CheckedPtr(engine.physicalDevices.get());
-    engine::Device & device = *utils::CheckedPtr(engine.device.get());
+    const engine::Library & library = engine.getLibrary();
+    const engine::Instance & instance = engine.getInstance();
+    const engine::Device & device = engine.getDevice();
 
     std::shared_ptr<const Resources> resources;
     std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline;
@@ -58,7 +65,7 @@ struct Renderer::Impl
     vk::DeviceSize uniformBufferPerFrameSize = 0;
     UniformBuffer uniformBuffer;
 
-    Impl(engine::Engine & engine, ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
+    Impl(const engine::Engine & engine, const ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
     {}
 
     void setT(float t)
@@ -70,7 +77,7 @@ struct Renderer::Impl
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QSizeF & size);
 };
 
-Renderer::Renderer(engine::Engine & engine, ResourceManager & resourceManager) : impl_{engine, resourceManager}
+Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
 {}
 
 Renderer::~Renderer() = default;
@@ -114,25 +121,26 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         graphicsPipeline = resources->createGraphicsPipeline(renderPass);
     }
 
-    auto rasterizationLabele = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", {1.0f, 0.0f, 0.0f, 1.0f});
+    constexpr engine::LabelColor redColor = {1.0f, 0.0f, 0.0f, 1.0f};
+    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", redColor);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelines.pipelines.at(0), library.dispatcher);
 
-    uint32_t firstBinding = 0;
-    std::vector<vk::Buffer> vertexBuffers = {
+    constexpr uint32_t firstBinding = 0;
+    std::initializer_list<vk::Buffer> vertexBuffers = {
         resources->getVertexBuffer().getBuffer(),
     };
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
-    commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);  // read about bindVertexBuffers2
+    commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    std::vector<uint32_t> dinamicOffsets = {
+    std::initializer_list<uint32_t> dinamicOffsets = {
         uint32_t(utils::autoCast(uniformBufferPerFrameSize * uint32_t(utils::autoCast(graphicsStateInfo.currentFrameSlot)))),
     };
-    uint32_t firstSet = 0;
+    constexpr uint32_t firstSet = 0;
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, resources->getDescriptorSets(), dinamicOffsets, library.dispatcher);
 
-    uint32_t firstViewport = 0;
-    std::vector<vk::Viewport> viewports = {
+    constexpr uint32_t firstViewport = 0;
+    std::initializer_list<vk::Viewport> viewports = {
         {
             .x = 0,
             .y = 0,
@@ -144,8 +152,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     };
     commandBuffer.setViewport(firstViewport, viewports, library.dispatcher);
 
-    uint32_t firstScissor = 0;
-    std::vector<vk::Rect2D> scissors = {
+    constexpr uint32_t firstScissor = 0;
+    std::initializer_list<vk::Rect2D> scissors = {
         {
             .offset = {.x = 0, .y = 0},
             .extent = {.width = utils::autoCast(size.width()), .height = utils::autoCast(size.height())},
@@ -154,9 +162,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);
 
     uint32_t vertexCount = utils::autoCast(std::size(kVertices));
-    uint32_t instanceCount = 1;
-    uint32_t firstVertex = 0;
-    uint32_t firstInstance = 0;
+    constexpr uint32_t instanceCount = 1;
+    constexpr uint32_t firstVertex = 0;
+    constexpr uint32_t firstInstance = 0;
     commandBuffer.draw(vertexCount, instanceCount, firstVertex, firstInstance, library.dispatcher);
 }
 

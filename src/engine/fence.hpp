@@ -21,9 +21,9 @@ struct ENGINE_EXPORT Fences final : utils::NonCopyable
 {
     const std::string name;
 
-    Engine & engine;
-    Library & library;
-    Device & device;
+    const Engine & engine;
+    const Library & library;
+    const Device & device;
 
     const vk::FenceCreateFlags fenceCreateFlags;
     vk::StructureChain<vk::FenceCreateInfo> fenceCreateInfoChain;
@@ -31,7 +31,7 @@ struct ENGINE_EXPORT Fences final : utils::NonCopyable
     std::vector<vk::UniqueFence> fencesHolder;
     std::vector<vk::Fence> fences;
 
-    Fences(std::string_view name, Engine & engine, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
+    Fences(std::string_view name, const Engine & engine, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
 
     [[nodiscard]] vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
     [[nodiscard]] vk::Result wait(size_t fenceIndex, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());

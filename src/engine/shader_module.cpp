@@ -322,7 +322,7 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(std::string_view name, const Engine & engine, const FileIo & fileIo) : name{name}, engine{engine}, fileIo{fileIo}, library{*engine.library}, device{*engine.device}
+ShaderModule::ShaderModule(std::string_view name, const Engine & engine, const FileIo & fileIo) : name{name}, engine{engine}, fileIo{fileIo}, library{engine.getLibrary()}, device{engine.getDevice()}
 {
     load();
 }
@@ -432,32 +432,25 @@ void ShaderModuleReflection::reflect()
     reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPoint.c_str(), &descriptorSetCount, std::data(reflectDescriptorSets));
     INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
 
-    descriptorSetLayouts.resize(descriptorSetCount);
-    descriptorSetLayoutCreateInfos.resize(descriptorSetCount);
-    descriptorNames.reserve(descriptorSetCount);
     for (uint32_t index = 0; index < descriptorSetCount; ++index) {
         const auto reflectDecriptorSet = reflectDescriptorSets.at(index);
         INVARIANT(reflectDecriptorSet, "reflectDecriptorSet is null at #{}", index);
-        auto & descriptorSetLayout = descriptorSetLayouts.at(index);
-        descriptorSetLayout.set = reflectDecriptorSet->set;
+        INVARIANT(descriptorSetLayoutSetBindings.find(reflectDecriptorSet->set) == std::end(descriptorSetLayoutSetBindings), "Duplicated set {}", reflectDecriptorSet->set);
+        auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
         auto bindingCount = reflectDecriptorSet->binding_count;
-        descriptorSetLayout.bindings.resize(bindingCount);
+        descriptorSetLayoutBindings.resize(bindingCount);
         for (uint32_t b = 0; b < bindingCount; ++b) {
             const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
-            auto & descriptorSetLayoutBinding = descriptorSetLayout.bindings.at(b);
+            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings.at(b);
             descriptorSetLayoutBinding.binding = reflectDescriptorBinding->binding;
             descriptorSetLayoutBinding.descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
-            descriptorSetLayoutBinding.descriptorCount = 1;
+            descriptorSetLayoutBinding.descriptorCount = reflectDescriptorBinding->count;
             for (uint32_t d = 0; d < reflectDescriptorBinding->array.dims_count; ++d) {
                 descriptorSetLayoutBinding.descriptorCount *= reflectDescriptorBinding->array.dims[d];
             }
             descriptorSetLayoutBinding.stageFlags = shaderStage;
         }
-        auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfos.at(index);
-        descriptorSetLayoutCreateInfo.flags = {};
-        descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayout.bindings);
-        descriptorNames.push_back(serialize(*reflectDecriptorSet));
     }
 
     uint32_t pushConstantBlockCount = 0;
@@ -478,17 +471,16 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-// TODO: merge set layout bindings, merge push constants
-
-ShaderStages::ShaderStages(const Engine & engine) : engine{engine}, library{*engine.library}, device{*engine.device}
+ShaderStages::ShaderStages(const Engine & engine, uint32_t vertexBufferBinding) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, vertexBufferBinding{vertexBufferBinding}
 {}
 
-void ShaderStages::append(const ShaderModule & shaderModule, std::string_view entryPoint)
+void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint)
 {
+    shaderModuleReflections.emplace_back(shaderModuleReflection);
     entryPoints.emplace_back(entryPoint);
     const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, entryPoint));
 
-    shaderStages.resize(shaderStages.size() + 1);
+    shaderStages.emplace_back();
     auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
     pipelineShaderStageCreateInfo = {
         .flags = {},
@@ -501,6 +493,64 @@ void ShaderStages::append(const ShaderModule & shaderModule, std::string_view en
     debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
+
+    if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {
+        INVARIANT(!pipelineVertexInputState.pipelineVertexInputStateCreateInfo, "Second vertex shader in pipeline");
+        pipelineVertexInputState = shaderModuleReflection.getPipelineVertexInputState(vertexBufferBinding);
+    }
+
+    for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
+        auto & mergedBindings = setBindings[set];
+        for (const auto & binding : bindings) {
+            bool merged = false;
+            for (auto & mergedBinding : mergedBindings) {
+                if (binding.binding == mergedBinding.binding) {
+                    INVARIANT(binding.descriptorType == mergedBinding.descriptorType, "{} != {}", binding.descriptorType, mergedBinding.descriptorType);
+                    INVARIANT(binding.descriptorCount == mergedBinding.descriptorCount, "{} != {}", binding.descriptorCount, mergedBinding.descriptorCount);
+                    INVARIANT(binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {}", fmt::ptr(binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers));
+                    mergedBinding.stageFlags |= binding.stageFlags;
+                    merged = true;
+                    break;
+                }
+            }
+            if (!merged) {
+                mergedBindings.push_back(binding);
+            }
+        }
+    }
+
+    pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(shaderModuleReflection.pushConstantRanges), std::cend(shaderModuleReflection.pushConstantRanges));
+}
+
+void ShaderStages::createDescriptorSetLayouts(std::string_view name)
+{
+    size_t setCount = std::size(setBindings);
+    descriptorSetLayoutHolders.reserve(setCount);
+    descriptorSetLayouts.reserve(setCount);
+    for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
+        for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings) {
+            descriptorCounts[descriptorSetLayoutBinding.descriptorType] += descriptorSetLayoutBinding.descriptorCount;
+        }
+
+        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
+        descriptorSetLayoutCreateInfo.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+        descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings);
+        descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
+        descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
+
+        auto descriptorSetLayoutName = fmt::format("{} #{}/{}", name, set, setCount);
+        device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+    }
+}
+
+std::vector<vk::DescriptorPoolSize> ShaderStages::getDescriptorPoolSizes() const
+{
+    std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
+    descriptorPoolSizes.reserve(std::size(descriptorCounts));
+    for (const auto & [descriptorType, descriptorCount] : descriptorCounts) {
+        descriptorPoolSizes.push_back({descriptorType, descriptorCount});
+    }
+    return descriptorPoolSizes;
 }
 
 }  // namespace engine

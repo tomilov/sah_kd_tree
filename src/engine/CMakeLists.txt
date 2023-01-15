@@ -64,7 +64,9 @@ target_sources(
         "graphics_pipeline.hpp"
         "graphics_pipeline.cpp"
         "spirv_reflect_dump.hpp"
-        "spirv_reflect_dump.cpp")
+        "spirv_reflect_dump.cpp"
+        "descriptors.hpp"
+        "descriptors.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE

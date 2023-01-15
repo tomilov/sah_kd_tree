@@ -25,10 +25,8 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     const Engine & engine;
     const Library & library;
     const Device & device;
-    const PipelineVertexInputState & pipelineVertexInputState;
     const ShaderStages & shaderStages;
     const vk::RenderPass renderPass;
-    const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts;
     const std::vector<vk::PushConstantRange> & pushConstantRanges;
 
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
@@ -46,8 +44,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     vk::UniquePipelineLayout pipelineLayoutHolder;
     vk::PipelineLayout pipelineLayout;
 
-    GraphicsPipelineLayout(std::string_view name, const Engine & engine, const PipelineVertexInputState & pipelineVertexInputState, const ShaderStages & shaderStages, vk::RenderPass renderPass,
-                           const std::vector<vk::DescriptorSetLayout> & descriptorSetLayouts, const std::vector<vk::PushConstantRange> & pushConstantRanges);
+    GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass, const std::vector<vk::PushConstantRange> & pushConstantRanges);
 
 private:
     friend GraphicsPipelines;

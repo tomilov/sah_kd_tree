@@ -15,7 +15,7 @@
 namespace engine
 {
 
-Device::Device(std::string_view name, Engine & engine, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{*engine.library}, instance{*engine.instance}, physicalDevice{physicalDevice}
+Device::Device(std::string_view name, const Engine & engine, Library & library, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{library}, instance{engine.getInstance()}, physicalDevice{physicalDevice}
 {
     create();
 }

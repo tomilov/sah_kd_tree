@@ -9,10 +9,13 @@
 #include <vulkan/vulkan.hpp>
 
 #include <deque>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include <cstdint>
@@ -57,12 +60,6 @@ struct ENGINE_EXPORT PipelineVertexInputState final : utils::OnlyMoveable
 
 struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
 {
-    struct DescriptorSetLayout final : utils::OnlyMoveable
-    {
-        uint32_t set = 0;
-        std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    };
-
     const ShaderModule & shaderModule;
     const std::string entryPoint;
 
@@ -71,9 +68,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
     utils::FastPimpl<spv_reflect::ShaderModule, kSize, kAlignment> reflectionModule;
 
     vk::ShaderStageFlagBits shaderStage = {};
-    std::vector<DescriptorSetLayout> descriptorSetLayouts;
-    std::vector<vk::DescriptorSetLayoutCreateInfo> descriptorSetLayoutCreateInfos;
-    std::vector<std::string> descriptorNames;
+    std::unordered_map<uint32_t /* set */, std::vector<vk::DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
     ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint);
@@ -93,13 +88,26 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     const Library & library;
     const Device & device;
 
+    const uint32_t vertexBufferBinding;
+
     std::deque<std::string> entryPoints;
     std::deque<std::string> names;
     PipelineShaderStageCreateInfoChains shaderStages;
+    std::vector<std::reference_wrapper<const ShaderModuleReflection>> shaderModuleReflections;
 
-    ShaderStages(const Engine & engine);
+    engine::PipelineVertexInputState pipelineVertexInputState;
+    std::map<uint32_t /*set*/, std::vector<vk::DescriptorSetLayoutBinding>> setBindings;
+    std::vector<vk::PushConstantRange> pushConstantRanges;
 
-    void append(const ShaderModule & shaderModule, std::string_view entryPoint);
+    std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */> descriptorCounts;
+    std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
+    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
+
+    ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
+
+    void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint);
+    void createDescriptorSetLayouts(std::string_view name);
+    std::vector<vk::DescriptorPoolSize> getDescriptorPoolSizes() const;
 };
 
 }  // namespace engine
