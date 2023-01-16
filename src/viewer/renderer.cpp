@@ -38,8 +38,7 @@ namespace viewer
 {
 namespace
 {
-// Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
-// Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
+[[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory) Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 }  // namespace
 
 struct Renderer::Impl
@@ -73,7 +72,7 @@ struct Renderer::Impl
         uniformBuffer.t = t;
     }
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
 };
 
@@ -87,17 +86,18 @@ void Renderer::setT(float t)
     return impl_->setT(t);
 }
 
-void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha)
 {
-    return impl_->frameStart(graphicsStateInfo);
+    return impl_->frameStart(graphicsStateInfo, z, alpha);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
 {
+    // qCDebug(viewerRendererCategory) << rect;
     return impl_->render(commandBuffer, renderPass, graphicsStateInfo, rect);
 }
 
-void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha)
 {
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
@@ -110,6 +110,8 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
+    uniformBuffer.z = utils::autoCast(z);
+    uniformBuffer.alpha = utils::autoCast(alpha);
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
 }
@@ -142,13 +144,18 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t firstSet = 0;
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
+    auto x = std::ceil(rect.x());
+    auto y = std::ceil(rect.y());
+    auto width = std::floor(rect.width());
+    auto height = std::floor(rect.height());
+
     constexpr uint32_t firstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
         {
-            .x = utils::autoCast(rect.x()),
-            .y = utils::autoCast(rect.y()),
-            .width = utils::autoCast(rect.width()),
-            .height = utils::autoCast(rect.height()),
+            .x = utils::autoCast(x),
+            .y = utils::autoCast(y),
+            .width = utils::autoCast(width),
+            .height = utils::autoCast(height),
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
         },
@@ -158,8 +165,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t firstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
         {
-            .offset = {.x = utils::autoCast(rect.x()), .y = utils::autoCast(rect.y())},
-            .extent = {.width = utils::autoCast(rect.width()), .height = utils::autoCast(rect.height())},
+            .offset = {.x = utils::autoCast(x), .y = utils::autoCast(y)},
+            .extent = {.width = utils::autoCast(width), .height = utils::autoCast(height)},
         },
     };
     commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);

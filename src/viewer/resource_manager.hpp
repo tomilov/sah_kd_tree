@@ -38,6 +38,9 @@ inline const VertexType kVertices[] = {
 #pragma pack(push, 1)
 struct UniformBuffer
 {
+    float z = 0.0f;
+    float alpha = 0.0f;
+
     float t = 0.0f;
 };
 #pragma pack(pop)

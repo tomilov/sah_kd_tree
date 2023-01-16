@@ -87,15 +87,15 @@ void GraphicsPipelineLayout::init()
 
     pipelineDepthStencilStateCreateInfo = {
         .flags = {},
-        .depthTestEnable = VK_FALSE,
-        .depthWriteEnable = VK_FALSE,
-        .depthCompareOp = vk::CompareOp::eNever,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = vk::CompareOp::eLess,
         .depthBoundsTestEnable = VK_FALSE,
         .stencilTestEnable = VK_FALSE,
         .front = {},
         .back = {},
         .minDepthBounds = 0.0f,
-        .maxDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
     };
 
     pipelineColorBlendStateCreateInfo = {

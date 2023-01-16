@@ -145,12 +145,16 @@ void Viewer::frameStart()
         }
     }
     if (renderer) {
-        renderer->frameStart(w->graphicsStateInfo());
+        renderer->frameStart(w->graphicsStateInfo(), z(), opacity());
     }
 }
 
 void Viewer::renderPassRecordingStart()
 {
+    if (!isVisible()) {
+        return;
+    }
+
     if (!renderer) {
         return;
     }
@@ -167,9 +171,9 @@ void Viewer::renderPassRecordingStart()
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
-        auto devicePixelRatio = w->devicePixelRatio();
-        QRectF rect{position() * devicePixelRatio, size() * devicePixelRatio};
-        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), rect);
+        auto devicePixelRatio = w->effectiveDevicePixelRatio();
+        auto rect = mapRectToScene(boundingRect());
+        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), {rect.topLeft() * devicePixelRatio, rect.size() * devicePixelRatio});
     }
     w->endExternalCommands();
 }

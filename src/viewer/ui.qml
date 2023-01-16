@@ -13,15 +13,27 @@ ApplicationWindow {
     visible: true
     visibility: Window.AutomaticVisibility
 
+    Shortcut {
+        sequences: [StandardKey.Cancel] // "Escape"
+        autoRepeat: false
+        onActivated: root.close()
+    }
+
     Component {
         id: sahKdTreeViewer
 
         SahKdTreeViewer {
+            scale: 1.0
+            opacity: 1.0
+            z: 1.0
+
             Layout.fillWidth: true
             Layout.fillHeight: true
 
             Layout.column: index % gridLayout.columns
             Layout.row: Math.trunc(index / gridLayout.columns)
+
+            //visible: index !== 1
 
             engine: SahKdTreeEngine
 
@@ -29,31 +41,32 @@ ApplicationWindow {
                 loops: Animation.Infinite
                 running: true
                 NumberAnimation {
-                    to: 1
+                    to: 1.0
                     duration: 1500
                     easing.type: Easing.InQuad
                 }
                 NumberAnimation {
-                    to: 0
+                    to: 0.0
                     duration: 1500
                     easing.type: Easing.OutQuad
                 }
             }
+
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.color: "red"
+                border.width: 10
+                radius: 16
+                z: 1.0
+            }
         }
     }
 
-    GridLayout {
-        id: gridLayout
-
-        anchors.fill: parent
-
-        rows: 2
-        columns: 3
-
-        Repeater {
-            model: gridLayout.rows * gridLayout.columns
-            delegate: sahKdTreeViewer
-        }
+    header: Rectangle {
+        height: 128
+        color: "blue"
+        opacity: 0.4
     }
 
     Rectangle {
@@ -63,6 +76,8 @@ ApplicationWindow {
         border.color: "white"
         anchors.fill: label
         anchors.margins: -10
+
+        z: label.z
     }
 
     Text {
@@ -75,11 +90,28 @@ ApplicationWindow {
         anchors.left: parent.left
         anchors.bottom: parent.bottom
         anchors.margins: 20
+
+        z: 1.0
     }
 
-    Shortcut {
-        sequences: [StandardKey.Cancel] // "Escape"
-        autoRepeat: false
-        onActivated: root.close()
+    GridLayout {
+        id: gridLayout
+
+        anchors.fill: parent
+        anchors.margins: 16
+
+        rows: 4
+        columns: 4
+
+        Repeater {
+            model: gridLayout.rows * gridLayout.columns
+            delegate: sahKdTreeViewer
+        }
+    }
+
+    footer: Rectangle {
+        height: 128
+        color: "green"
+        opacity: 0.4
     }
 }

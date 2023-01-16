@@ -24,13 +24,13 @@ public:
 
     void setT(float t);
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 80;
+    static constexpr size_t kSize = 88;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
