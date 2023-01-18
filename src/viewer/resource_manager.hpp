@@ -13,7 +13,7 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 
-#include <QtCore/QStringLiteral>
+#include <QtCore/QChar>
 
 #include <memory>
 #include <mutex>
@@ -38,7 +38,6 @@ inline const VertexType kVertices[] = {
 #pragma pack(push, 1)
 struct UniformBuffer
 {
-    float z = 0.0f;
     float alpha = 0.0f;
 
     float t = 0.0f;
@@ -116,7 +115,7 @@ public:
 
 private:
     engine::Engine & engine;
-    const FileIo fileIo{QStringLiteral("shaders:")};
+    const FileIo fileIo{u"shaders:"_s};
 
     mutable std::mutex mutex;
     mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;

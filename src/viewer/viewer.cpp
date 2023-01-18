@@ -145,13 +145,13 @@ void Viewer::frameStart()
         }
     }
     if (renderer) {
-        renderer->frameStart(w->graphicsStateInfo(), z(), opacity());
+        renderer->frameStart(w->graphicsStateInfo(), opacity());
     }
 }
 
 void Viewer::renderPassRecordingStart()
 {
-    if (!isVisible()) {
+    if (!isVisible() || qFuzzyIsNull(opacity())) {
         return;
     }
 

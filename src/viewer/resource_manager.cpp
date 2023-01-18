@@ -125,18 +125,7 @@ void Resources::init()
     INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
 
     {
-        INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-        INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
-        auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-        INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
-        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-        INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-
-        // patching VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER to VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-        descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
+        INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
 
         INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
     }

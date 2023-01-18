@@ -114,6 +114,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint);
     void createDescriptorSetLayouts(std::string_view name);
     std::vector<vk::DescriptorPoolSize> getDescriptorPoolSizes() const;
+
+    // TODO: descriptor update template
 };
 
 }  // namespace engine

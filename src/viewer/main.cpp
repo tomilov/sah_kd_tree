@@ -4,6 +4,8 @@
 #include <utils/assert.hpp>
 #include <viewer/engine_wrapper.hpp>
 
+#include <spdlog/details/null_mutex.h>
+#include <spdlog/sinks/base_sink.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
@@ -33,6 +35,7 @@
 
 #include <iterator>
 #include <memory>
+#include <optional>
 
 #include <cstdint>
 #include <cstdlib>
@@ -115,6 +118,75 @@ spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
     INVARIANT(false, "Unknown QtMsgType {}", fmt::underlying(msgType));
 }
 
+std::optional<QtMsgType> spdLogLevelToQtMsgType(spdlog::level::level_enum level)
+{
+    switch (level) {
+    case spdlog::level::trace:
+    case spdlog::level::debug: {
+        return QtMsgType::QtDebugMsg;
+    }
+    case spdlog::level::warn: {
+        return QtMsgType::QtWarningMsg;
+    }
+    case spdlog::level::err: {
+        return QtMsgType::QtCriticalMsg;
+    }
+    case spdlog::level::critical: {
+        return QtMsgType::QtFatalMsg;
+    }
+    case spdlog::level::info: {
+        return QtMsgType::QtInfoMsg;
+    }
+    case spdlog::level::off: {
+        return std::nullopt;
+    }
+    case spdlog::level::n_levels: {
+        break;
+    }
+    }
+    INVARIANT(false, "Unknown spdlog::level::level_enum {}", fmt::underlying(level));
+}
+
+class QtSink final : public spdlog::sinks::base_sink<spdlog::details::null_mutex>
+{
+protected:
+    void sink_it_(const spdlog::details::log_msg & msg) override
+    {
+        auto msgType = spdLogLevelToQtMsgType(msg.level);
+        if (!msgType) {
+            return;
+        }
+        QMessageLogger messageLogger(msg.source.filename, msg.source.line, msg.source.funcname);
+        auto message = QString::fromStdString(fmt::to_string(msg.payload));
+        switch (msgType.value()) {
+        case QtMsgType::QtDebugMsg: {
+            messageLogger.debug("%s", qPrintable(message));
+            return;
+        }
+        case QtMsgType::QtWarningMsg: {
+            messageLogger.warning("%s", qPrintable(message));
+            return;
+        }
+        case QtMsgType::QtCriticalMsg: {
+            messageLogger.critical("%s", qPrintable(message));
+            return;
+        }
+        case QtMsgType::QtFatalMsg: {
+            messageLogger.fatal("%s", qPrintable(message));
+            return;
+        }
+        case QtMsgType::QtInfoMsg: {
+            messageLogger.info("%s", qPrintable(message));
+            return;
+        }
+        }
+        INVARIANT(false, "unreachable");
+    }
+
+    void flush_() override
+    {}
+};
+
 }  // namespace
 
 int main(int argc, char * argv[])
@@ -129,24 +201,35 @@ int main(int argc, char * argv[])
 
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
     }
-    if ((false)) {
-        // The pattern can also be changed at runtime by setting the QT_MESSAGE_PATTERN environment variable;
-        // if both qSetMessagePattern() is called and QT_MESSAGE_PATTERN is set, the environment variable takes precedence.
-        QString messagePattern
-            = "[%{time process} tid=%{threadid}] %{type}:%{category}: %{message} (%{file}:%{line}"
+    spdlog::set_level(spdlog::level::level_enum(SPDLOG_ACTIVE_LEVEL));
+    if ((true)) {
+        // set env QT_ASSUME_STDERR_HAS_CONSOLE=1 or QT_FORCE_STDERR_LOGGING=1 if nothing is visible
+        QString messagePattern;
+        if (sah_kd_tree::kIsDebugBuild) {
+            messagePattern = "[%{type}:%{category}] [file://%{file}:%{line}] %{message}";
+        } else {
+            // The pattern can also be changed at runtime by setting the QT_MESSAGE_PATTERN environment variable;
+            // if both qSetMessagePattern() is called and QT_MESSAGE_PATTERN is set, the environment variable takes precedence.
+            messagePattern
+                = "[%{time process} tid=%{threadid}] [%{type}:%{category}] %{message} (file://%{file}:%{line}"
 #ifndef QT_DEBUG
-              " %{function}"
+                  " %{function}"
 #endif
-              ")"
+                  ")"
 #if __GLIBC__
-              R"(%{if-fatal}\n%{backtrace depth=32 separator="\n"}%{endif})";
+                  R"(%{if-fatal}\n%{backtrace depth=32 separator="\n"}%{endif})";
 #endif
-        ;
-        // "%{time yyyy/MM/dd dddd HH:mm:ss.zzz t}"
+            ;
+            // "%{time yyyy/MM/dd dddd HH:mm:ss.zzz t}"
+        }
         qSetMessagePattern(messagePattern);
-    }
-    {
-        spdlog::set_level(spdlog::level::level_enum(SPDLOG_ACTIVE_LEVEL));
+        auto & sinks = spdlog::default_logger_raw()->sinks();
+        sinks.clear();
+        sinks.emplace_back(std::make_shared<QtSink>());
+    } else {
+        if (!sah_kd_tree::kIsDebugBuild) {
+            spdlog::default_logger_raw()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [file://%g:%# (%!)] %v");  // (-logger name +full file path +func name) if comapre vs default "%+" format (spdlog::details::full_formatter)
+        }
         static constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message)
         {
             auto lvl = qtMsgTypeToSpdlogLevel(msgType);
@@ -154,8 +237,8 @@ int main(int argc, char * argv[])
                 return;
             }
             spdlog::source_loc location{messageLogContext.file, messageLogContext.line, messageLogContext.function};
-            auto category = messageLogContext.category ? messageLogContext.category : "";
-            spdlog::log(location, lvl, "[{}]: {}", category, qPrintable(message));
+            auto category = messageLogContext.category ? messageLogContext.category : "default";
+            spdlog::log(location, lvl, "[{}] {}", category, qPrintable(message));
         };
         qInstallMessageHandler(messageHandler);
     }

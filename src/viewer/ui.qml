@@ -25,7 +25,6 @@ ApplicationWindow {
         SahKdTreeViewer {
             scale: 1.0
             opacity: 1.0
-            z: 1.0
 
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -58,7 +57,6 @@ ApplicationWindow {
                 border.color: "red"
                 border.width: 10
                 radius: 16
-                z: 1.0
             }
         }
     }

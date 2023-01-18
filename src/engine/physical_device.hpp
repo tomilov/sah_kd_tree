@@ -44,12 +44,12 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 
-    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
-                       vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
+    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceDescriptorIndexingProperties,
+                       vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceMeshShaderPropertiesNV>
         physicalDeviceProperties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-                       vk::PhysicalDeviceMeshShaderFeaturesEXT>
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceDescriptorIndexingFeatures, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
+                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT>
         physicalDeviceFeatures2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> physicalDeviceMemoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -78,6 +78,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageBufferUpdateAfterBind,
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformTexelBufferUpdateAfterBind,
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageTexelBufferUpdateAfterBind,
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceDescriptorIndexingFeatures::*> physicalDeviceDescriptorIndexingFeatures = {
+            &vk::PhysicalDeviceDescriptorIndexingFeatures::descriptorBindingUpdateUnusedWhilePending,
+            &vk::PhysicalDeviceDescriptorIndexingFeatures::descriptorBindingPartiallyBound,
+            &vk::PhysicalDeviceDescriptorIndexingFeatures::descriptorBindingVariableDescriptorCount,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*> rayTracingPipelineFeatures = {
             &vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,

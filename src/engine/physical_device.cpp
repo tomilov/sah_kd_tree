@@ -132,6 +132,10 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         SPDLOG_WARN("");
         return false;
     }
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceDescriptorIndexingFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceDescriptorIndexingFeatures>())) {
+        SPDLOG_WARN("");
+        return false;
+    }
     if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
         SPDLOG_WARN("");
         return false;

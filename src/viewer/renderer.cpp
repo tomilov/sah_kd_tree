@@ -72,7 +72,7 @@ struct Renderer::Impl
         uniformBuffer.t = t;
     }
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
 };
 
@@ -86,9 +86,9 @@ void Renderer::setT(float t)
     return impl_->setT(t);
 }
 
-void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha)
+void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha)
 {
-    return impl_->frameStart(graphicsStateInfo, z, alpha);
+    return impl_->frameStart(graphicsStateInfo, alpha);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
@@ -97,7 +97,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
     return impl_->render(commandBuffer, renderPass, graphicsStateInfo, rect);
 }
 
-void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal z, qreal alpha)
+void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha)
 {
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
@@ -110,7 +110,6 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
-    uniformBuffer.z = utils::autoCast(z);
     uniformBuffer.alpha = utils::autoCast(alpha);
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
