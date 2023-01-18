@@ -382,7 +382,7 @@ PipelineVertexInputState ShaderModuleReflection::getPipelineVertexInputState(uin
     auto & vertexInputAttributeDescriptions = pipelineVertexInputState.vertexInputAttributeDescriptions;
     for (const auto inputVariable : reflectInterfaceVariable) {
         INVARIANT(inputVariable, "");
-        auto variableName = inputVariable->name;
+        auto variableName = inputVariable->name ? inputVariable->name : fmt::to_string(inputVariable->spirv_id);
         SPDLOG_DEBUG("Variable name: '{}'", variableName);
         if (inputVariable->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
             continue;
@@ -442,7 +442,9 @@ void ShaderModuleReflection::reflect()
         for (uint32_t b = 0; b < bindingCount; ++b) {
             const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
-            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[reflectDescriptorBinding->name];
+            auto descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : fmt::to_string(reflectDescriptorBinding->spirv_id);
+            INVARIANT(descriptorSetLayoutBindings.find(descriptorBindingName) == std::end(descriptorSetLayoutBindings), "Duplicated descriptor binding name '{}'", descriptorBindingName);
+            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[descriptorBindingName];
             descriptorSetLayoutBinding.binding = reflectDescriptorBinding->binding;
             descriptorSetLayoutBinding.descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
             descriptorSetLayoutBinding.descriptorCount = reflectDescriptorBinding->count;

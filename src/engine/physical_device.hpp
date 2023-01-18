@@ -71,6 +71,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
             &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
             &vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
             &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
+            &vk::PhysicalDeviceVulkan12Features::descriptorIndexing,
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformBufferUpdateAfterBind,
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingSampledImageUpdateAfterBind,
             &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageImageUpdateAfterBind,

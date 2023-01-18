@@ -47,8 +47,6 @@ function(process_directory_shaders)
             FALSE
         ${stage_shader_globs})
 
-    find_program(SPIRV_OPT_EXECUTABLE "spirv-opt")
-    find_program(SPIRV_VAL_EXECUTABLE "spirv-val")
     foreach(stage_shader_file IN LISTS stage_shader_files)
         cmake_path(
             REPLACE_EXTENSION
@@ -64,16 +62,11 @@ function(process_directory_shaders)
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
-                    -g
+                    -gVS -g
                     --target-env vulkan1.3
+                    --spirv-val
                     "${stage_shader_file}"
                     -o "${debug_output_file}"
-            COMMAND
-                "${SPIRV_VAL_EXECUTABLE}"
-                ARGS
-                    --scalar-block-layout
-                    --target-env vulkan1.3
-                    "${debug_output_file}"
             OUTPUT
                 "${debug_output_file}")
         list(APPEND compiled_shader_files_debug "${debug_output_file}")
@@ -87,22 +80,16 @@ function(process_directory_shaders)
                 release_output_file)
         add_custom_command(
             MAIN_DEPENDENCY
-                "${debug_output_file}"
+                "${stage_shader_file}"
             VERBATIM
             COMMAND
-                "${SPIRV_OPT_EXECUTABLE}"
+                Vulkan::glslangValidator
                 ARGS
-                    --skip-validation
-                    -O
-                    --strip-debug
-                    "${debug_output_file}"
-                    -o "${release_output_file}"
-            COMMAND
-                "${SPIRV_VAL_EXECUTABLE}"
-                ARGS
-                    --scalar-block-layout
+                    -gVS -g0
                     --target-env vulkan1.3
-                    "${release_output_file}"
+                    --spirv-val
+                    "${stage_shader_file}"
+                    -o "${release_output_file}"
             OUTPUT
                 "${release_output_file}")
         list(APPEND compiled_shader_files_release "${release_output_file}")
