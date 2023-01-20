@@ -23,14 +23,14 @@ ApplicationWindow {
         id: sahKdTreeViewer
 
         SahKdTreeViewer {
-            scale: 1.0
+            scale: 0.8
             opacity: 1.0
 
-            //Layout.fillWidth: true
-            //Layout.fillHeight: true
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            //Layout.column: index % gridLayout.columns
-            //Layout.row: Math.trunc(index / gridLayout.columns)
+            Layout.column: index % gridLayout.columns
+            Layout.row: Math.trunc(index / gridLayout.columns)
 
             //visible: index !== 1
 
@@ -102,7 +102,7 @@ ApplicationWindow {
         z: 1.0
     }
 
-    /*GridLayout {
+    GridLayout {
         id: gridLayout
 
         anchors.fill: parent
@@ -115,23 +115,6 @@ ApplicationWindow {
             model: gridLayout.rows * gridLayout.columns
             delegate: sahKdTreeViewer
         }
-    }*/
-
-    Loader {
-        anchors.centerIn: parent
-        width: 600
-        height: 200
-
-        sourceComponent: sahKdTreeViewer
-    }
-
-    Rectangle {
-        anchors.centerIn: parent
-        width: 600
-        height: 200
-        color: "transparent"
-        border.color: "green"
-        border.width: 1
     }
 
     footer: Rectangle {

@@ -9,6 +9,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
+#include <glm/gtx/matrix_operation.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
@@ -205,7 +206,7 @@ void Viewer::renderPassRecordingStart()
             qDebug() << matrix;
         }
 
-        glm::dmat4x4 viewMatrix{1.0};
+        glm::dmat4x4 viewMatrix = glm::diagonal4x4(glm::dvec4{glm::dvec3{scale()}, 1.0});
         viewMatrix = glm::scale(viewMatrix, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
         viewMatrix = glm::rotate(viewMatrix, glm::radians(rotation()), glm::dvec3{0.0, 0.0, 1.0});
         viewMatrix = glm::scale(viewMatrix, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
