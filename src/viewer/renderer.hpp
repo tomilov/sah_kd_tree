@@ -5,6 +5,7 @@
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
+#include <glm/mat4x4.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QRectF>
@@ -25,7 +26,7 @@ public:
     void setT(float t);
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix);
 
 private:
     struct Impl;

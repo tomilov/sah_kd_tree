@@ -18,6 +18,7 @@
 #include <utility>
 
 #include <cstdint>
+#include <cstddef>
 
 using namespace std::string_view_literals;
 
@@ -127,7 +128,11 @@ void Resources::init()
     {
         INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
 
-        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
+        INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
+        const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
+        INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+        INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewMatrix), "");
+        INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewMatrix), "");
     }
     shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
 
@@ -145,7 +150,7 @@ void Resources::init()
         // patching VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER to VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
         descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
 
-        INVARIANT(std::empty(vertexShaderReflection.pushConstantRanges), "");
+        INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
     }
     shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
 

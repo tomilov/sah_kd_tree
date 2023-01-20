@@ -73,7 +73,7 @@ struct Renderer::Impl
     }
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix);
 };
 
 Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
@@ -91,10 +91,9 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
     return impl_->frameStart(graphicsStateInfo, alpha);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix)
 {
-    // qCDebug(viewerRendererCategory) << rect;
-    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, rect);
+    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, viewportRect, viewMatrix);
 }
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha)
@@ -115,19 +114,22 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & rect)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix)
 {
+    //qDebug() << viewportRect;
     if (!resources) {
         return;
     }
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline = resources->createGraphicsPipeline(renderPass);
     }
+    auto pipeline = graphicsPipeline->pipelines.pipelines.at(0);
+    auto pipelineLayout = graphicsPipeline->pipelineLayout.pipelineLayout;
 
     constexpr engine::LabelColor kRedColor = {1.0f, 0.0f, 0.0f, 1.0f};
     auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kRedColor);
 
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelines.pipelines.at(0), library.dispatcher);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
 
     constexpr uint32_t firstBinding = 0;
     std::initializer_list<vk::Buffer> vertexBuffers = {
@@ -141,12 +143,19 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         uint32_t(utils::autoCast(descriptors->uniformBufferPerFrameSize * uniformBufferIndex)),
     };
     constexpr uint32_t firstSet = 0;
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->pipelineLayout.pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
-    auto x = std::ceil(rect.x());
-    auto y = std::ceil(rect.y());
-    auto width = std::floor(rect.width());
-    auto height = std::floor(rect.height());
+    PushConstants pushConstants = {
+        .viewMatrix{viewMatrix},
+    };
+    for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
+        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);
+    }
+
+    auto x = std::ceil(viewportRect.x());
+    auto y = std::ceil(viewportRect.y());
+    auto width = std::floor(viewportRect.width());
+    auto height = std::floor(viewportRect.height());
 
     constexpr uint32_t firstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {

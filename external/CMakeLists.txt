@@ -37,7 +37,8 @@ target_compile_definitions(
     INTERFACE
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_EXPLICIT_CTOR
-        GLM_FORCE_PURE)
+        GLM_FORCE_PURE
+        GLM_FORCE_RADIANS)
 
 
 add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)

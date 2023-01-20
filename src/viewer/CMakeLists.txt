@@ -23,6 +23,7 @@ target_link_libraries(
         Qt6::Quick
         "libscene"
         "libengine"
+        "gli"
     PUBLIC
         "libutils")
 

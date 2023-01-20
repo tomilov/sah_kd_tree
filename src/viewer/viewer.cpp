@@ -5,11 +5,20 @@
 #include <viewer/renderer.hpp>
 #include <viewer/viewer.hpp>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vec3.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
+#include <QtGui/QMatrix4x4>
+#include <QtGui/QVector3D>
+#include <QtGui/QVector2D>
+#include <QtQml/QQmlListReference>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRectF>
+#include <QtCore/QObject>
 #include <QtCore/QRunnable>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickItem>
@@ -171,9 +180,38 @@ void Viewer::renderPassRecordingStart()
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
+        auto viewportRect = mapRectToScene(boundingRect());
+
+        if ((false)) {
+            QMatrix4x4 matrix;
+            QQmlListReference transforms{this, "transform"};
+            ASSERT(transforms.isValid());
+            ASSERT(transforms.canCount());
+            qsizetype transformCount = transforms.count();
+            ASSERT(transforms.canAt());
+            for (qsizetype i = 0; i < transformCount; ++i) {
+                auto t = qobject_cast<const QQuickTransform*>(transforms.at(i));
+                Q_CHECK_PTR(t);
+                t->applyTo(&matrix);
+            }
+            qDebug() << matrix;
+        }
+
+        if ((false)) {
+            QMatrix4x4 matrix;
+            matrix.scale(float(utils::autoCast(viewportRect.height() / viewportRect.width())), 1.0f);
+            matrix.rotate(utils::autoCast(rotation()), 0.0f, 0.0f, 1.0f);
+            matrix.scale(float(utils::autoCast(width() / viewportRect.height())), float(utils::autoCast(height() / viewportRect.height())));
+            qDebug() << matrix;
+        }
+
+        glm::dmat4x4 viewMatrix{1.0};
+        viewMatrix = glm::scale(viewMatrix, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
+        viewMatrix = glm::rotate(viewMatrix, glm::radians(rotation()), glm::dvec3{0.0, 0.0, 1.0});
+        viewMatrix = glm::scale(viewMatrix, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
+
         auto devicePixelRatio = w->effectiveDevicePixelRatio();
-        auto rect = mapRectToScene(boundingRect());
-        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), {rect.topLeft() * devicePixelRatio, rect.size() * devicePixelRatio});
+        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), {viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio}, viewMatrix);
     }
     w->endExternalCommands();
 }

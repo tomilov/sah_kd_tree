@@ -10,7 +10,7 @@
 #include <utils/noncopyable.hpp>
 #include <viewer/file_io.hpp>
 
-#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QChar>
@@ -41,6 +41,13 @@ struct UniformBuffer
     float alpha = 0.0f;
 
     float t = 0.0f;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct PushConstants
+{
+    glm::mat4x4 viewMatrix{1.0};
 };
 #pragma pack(pop)
 

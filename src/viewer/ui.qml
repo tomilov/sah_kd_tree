@@ -26,11 +26,11 @@ ApplicationWindow {
             scale: 1.0
             opacity: 1.0
 
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            //Layout.fillWidth: true
+            //Layout.fillHeight: true
 
-            Layout.column: index % gridLayout.columns
-            Layout.row: Math.trunc(index / gridLayout.columns)
+            //Layout.column: index % gridLayout.columns
+            //Layout.row: Math.trunc(index / gridLayout.columns)
 
             //visible: index !== 1
 
@@ -51,12 +51,22 @@ ApplicationWindow {
                 }
             }
 
+            SequentialAnimation on rotation {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.0
+                    to: 360.0
+                    duration: 10000
+                }
+            }
+
             Rectangle {
                 anchors.fill: parent
                 color: "transparent"
                 border.color: "red"
-                border.width: 10
-                radius: 16
+                border.width: 2.0
+                radius: 0.0
             }
         }
     }
@@ -92,7 +102,7 @@ ApplicationWindow {
         z: 1.0
     }
 
-    GridLayout {
+    /*GridLayout {
         id: gridLayout
 
         anchors.fill: parent
@@ -105,6 +115,23 @@ ApplicationWindow {
             model: gridLayout.rows * gridLayout.columns
             delegate: sahKdTreeViewer
         }
+    }*/
+
+    Loader {
+        anchors.centerIn: parent
+        width: 600
+        height: 200
+
+        sourceComponent: sahKdTreeViewer
+    }
+
+    Rectangle {
+        anchors.centerIn: parent
+        width: 600
+        height: 200
+        color: "transparent"
+        border.color: "green"
+        border.width: 1
     }
 
     footer: Rectangle {
