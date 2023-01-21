@@ -1,4 +1,4 @@
-#include <engine/engine.hpp>
+﻿#include <engine/engine.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
@@ -6,22 +6,22 @@
 #include <viewer/viewer.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_operation.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
-#include <glm/gtx/matrix_operation.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
-#include <QtGui/QMatrix4x4>
-#include <QtGui/QVector3D>
-#include <QtGui/QVector2D>
-#include <QtQml/QQmlListReference>
 #include <QtCore/QLoggingCategory>
-#include <QtCore/QRectF>
 #include <QtCore/QObject>
+#include <QtCore/QRectF>
 #include <QtCore/QRunnable>
+#include <QtGui/QMatrix4x4>
+#include <QtGui/QVector2D>
+#include <QtGui/QVector3D>
 #include <QtGui/QVulkanInstance>
+#include <QtQml/QQmlListReference>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRendererInterface>
@@ -61,21 +61,6 @@ Viewer::Viewer()
     setFlag(QQuickItem::Flag::ItemHasContents);
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
-
-    const auto restartTimer = [this]
-    {
-        bool ok = false;
-        int fps = property("fps").toInt(&ok);
-        Q_ASSERT(ok);
-        if (fps > 0) {
-            using namespace std::chrono_literals;
-            updateTimer->start(std::chrono::milliseconds(1s) / fps);
-        } else {
-            updateTimer->stop();
-        }
-    };
-    restartTimer();
-    connect(this, &Viewer::fpsChanged, updateTimer, restartTimer);
 }
 
 Viewer::~Viewer() = default;
@@ -93,8 +78,6 @@ void Viewer::onWindowChanged(QQuickWindow * w)
     connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::DirectConnection);
     connect(w, &QQuickWindow::beforeRendering, this, &Viewer::frameStart, Qt::DirectConnection);
     connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::renderPassRecordingStart, Qt::DirectConnection);
-
-    connect(updateTimer, &QTimer::timeout, this, &QQuickItem::update);
 }
 
 void Viewer::sync()
@@ -155,7 +138,13 @@ void Viewer::frameStart()
         }
     }
     if (renderer) {
-        renderer->frameStart(w->graphicsStateInfo(), opacity());
+        auto alpha = opacity();
+        auto p = parentItem();
+        while (qobject_cast<const QQuickItem *>(p)) {
+            alpha *= p->opacity();
+            p = p->parentItem();
+        }
+        renderer->frameStart(w->graphicsStateInfo(), alpha);
     }
 }
 
@@ -183,7 +172,7 @@ void Viewer::renderPassRecordingStart()
 
         auto viewportRect = mapRectToScene(boundingRect());
 
-        if ((false)) {
+        {
             QMatrix4x4 matrix;
             QQmlListReference transforms{this, "transform"};
             ASSERT(transforms.isValid());
@@ -191,7 +180,7 @@ void Viewer::renderPassRecordingStart()
             qsizetype transformCount = transforms.count();
             ASSERT(transforms.canAt());
             for (qsizetype i = 0; i < transformCount; ++i) {
-                auto t = qobject_cast<const QQuickTransform*>(transforms.at(i));
+                auto t = qobject_cast<const QQuickTransform *>(transforms.at(i));
                 Q_CHECK_PTR(t);
                 t->applyTo(&matrix);
             }
@@ -206,9 +195,18 @@ void Viewer::renderPassRecordingStart()
             qDebug() << matrix;
         }
 
-        glm::dmat4x4 viewMatrix = glm::diagonal4x4(glm::dvec4{glm::dvec3{scale()}, 1.0});
+        auto angle = rotation();
+        auto scaleFactor = scale();
+        auto p = parentItem();
+        while (qobject_cast<const QQuickItem *>(p)) {
+            angle += p->rotation();
+            scaleFactor *= p->scale();
+            p = p->parentItem();
+        }
+
+        glm::dmat4x4 viewMatrix = glm::diagonal4x4(glm::dvec4{glm::dvec3{scaleFactor}, 1.0});
         viewMatrix = glm::scale(viewMatrix, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
-        viewMatrix = glm::rotate(viewMatrix, glm::radians(rotation()), glm::dvec3{0.0, 0.0, 1.0});
+        viewMatrix = glm::rotate(viewMatrix, glm::radians(angle), glm::dvec3{0.0, 0.0, 1.0});
         viewMatrix = glm::scale(viewMatrix, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
 
         auto devicePixelRatio = w->effectiveDevicePixelRatio();

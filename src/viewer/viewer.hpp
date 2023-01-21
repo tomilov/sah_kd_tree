@@ -50,8 +50,6 @@ private:
 
     std::unique_ptr<Renderer> renderer;
 
-    QTimer * const updateTimer = new QTimer{this};
-
     void releaseResources() override;
 };
 

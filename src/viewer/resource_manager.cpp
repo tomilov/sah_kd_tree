@@ -17,8 +17,8 @@
 #include <string_view>
 #include <utility>
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 using namespace std::string_view_literals;
 

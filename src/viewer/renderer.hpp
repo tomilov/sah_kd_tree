@@ -4,8 +4,8 @@
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <vulkan/vulkan.hpp>
 #include <glm/mat4x4.hpp>
+#include <vulkan/vulkan.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QRectF>

@@ -26,11 +26,11 @@ ApplicationWindow {
             scale: 0.8
             opacity: 1.0
 
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            //Layout.fillWidth: true
+            //Layout.fillHeight: true
 
-            Layout.column: index % gridLayout.columns
-            Layout.row: Math.trunc(index / gridLayout.columns)
+            //Layout.column: index % gridLayout.columns
+            //Layout.row: Math.trunc(index / gridLayout.columns)
 
             //visible: index !== 1
 
@@ -48,16 +48,6 @@ ApplicationWindow {
                     to: 0.0
                     duration: 1500
                     easing.type: Easing.OutQuad
-                }
-            }
-
-            SequentialAnimation on rotation {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 0.0
-                    to: 360.0
-                    duration: 10000
                 }
             }
 
@@ -102,7 +92,7 @@ ApplicationWindow {
         z: 1.0
     }
 
-    GridLayout {
+    /*GridLayout {
         id: gridLayout
 
         anchors.fill: parent
@@ -114,6 +104,61 @@ ApplicationWindow {
         Repeater {
             model: gridLayout.rows * gridLayout.columns
             delegate: sahKdTreeViewer
+        }
+    }*/
+
+    Item {
+        anchors.centerIn: parent
+
+        width: 800
+        height: 800
+
+        SequentialAnimation on rotation {
+            loops: Animation.Infinite
+            running: true
+            NumberAnimation {
+                from: 0.0
+                to: 360.0
+                duration: 10000
+            }
+        }
+
+        SequentialAnimation on scale {
+            loops: Animation.Infinite
+            running: true
+            NumberAnimation {
+                from: 1.0
+                to: 0.5
+                duration: 1000
+            }
+            NumberAnimation {
+                from: 0.5
+                to: 1.0
+                duration: 1000
+            }
+        }
+
+        SequentialAnimation on opacity {
+            loops: Animation.Infinite
+            running: true
+            NumberAnimation {
+                from: 1.0
+                to: 0.2
+                duration: 1000
+            }
+            NumberAnimation {
+                from: 0.2
+                to: 1.0
+                duration: 1000
+            }
+        }
+
+        Loader {
+            anchors.centerIn: parent
+            width: 600
+            height: 200
+
+            sourceComponent: sahKdTreeViewer
         }
     }
 
