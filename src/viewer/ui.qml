@@ -22,41 +22,99 @@ ApplicationWindow {
     Component {
         id: sahKdTreeViewer
 
-        SahKdTreeViewer {
-            scale: 0.8
-            opacity: 1.0
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            //Layout.fillWidth: true
-            //Layout.fillHeight: true
+            Layout.column: index % gridLayout.columns
+            Layout.row: Math.trunc(index / gridLayout.columns)
 
-            //Layout.column: index % gridLayout.columns
-            //Layout.row: Math.trunc(index / gridLayout.columns)
+            transformOrigin: Item.TopLeft
 
-            //visible: index !== 1
-
-            engine: SahKdTreeEngine
-
-            SequentialAnimation on t {
+            SequentialAnimation on rotation {
                 loops: Animation.Infinite
                 running: true
                 NumberAnimation {
-                    to: 1.0
-                    duration: 1500
-                    easing.type: Easing.InQuad
-                }
-                NumberAnimation {
-                    to: 0.0
-                    duration: 1500
-                    easing.type: Easing.OutQuad
+                    from: 0.0
+                    to: 360.0
+                    duration: 10000
                 }
             }
 
-            Rectangle {
+            SequentialAnimation on scale {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 1.0
+                    to: 0.5
+                    duration: 1000
+                }
+                NumberAnimation {
+                    from: 0.5
+                    to: 1.0
+                    duration: 1000
+                }
+            }
+
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 1.0
+                    to: 0.2
+                    duration: 1500
+                }
+                NumberAnimation {
+                    from: 0.2
+                    to: 1.0
+                    duration: 1500
+                }
+            }
+
+            SahKdTreeViewer {
+                engine: SahKdTreeEngine
+
                 anchors.fill: parent
-                color: "transparent"
-                border.color: "red"
-                border.width: 2.0
-                radius: 0.0
+                visible: index !== 1
+                scale: 0.8
+                opacity: 1.0
+
+                transformOrigin: Item.BottomRight
+
+                SequentialAnimation on rotation {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        from: 0.0
+                        to: 360.0
+                        duration: 3333
+                    }
+                }
+
+                SequentialAnimation on t {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        to: 1.0
+                        duration: 100
+                        easing.type: Easing.InQuad
+                    }
+                    NumberAnimation {
+                        to: 0.0
+                        duration: 100
+                        easing.type: Easing.OutQuad
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -2
+
+                    border.color: "red"
+                    border.width: 2
+
+                    color: "transparent"
+                }
             }
         }
     }
@@ -92,73 +150,18 @@ ApplicationWindow {
         z: 1.0
     }
 
-    /*GridLayout {
+    GridLayout {
         id: gridLayout
 
         anchors.fill: parent
         anchors.margins: 16
 
         rows: 4
-        columns: 4
+        columns: 3
 
         Repeater {
             model: gridLayout.rows * gridLayout.columns
             delegate: sahKdTreeViewer
-        }
-    }*/
-
-    Item {
-        anchors.centerIn: parent
-
-        width: 800
-        height: 800
-
-        SequentialAnimation on rotation {
-            loops: Animation.Infinite
-            running: true
-            NumberAnimation {
-                from: 0.0
-                to: 360.0
-                duration: 10000
-            }
-        }
-
-        SequentialAnimation on scale {
-            loops: Animation.Infinite
-            running: true
-            NumberAnimation {
-                from: 1.0
-                to: 0.5
-                duration: 1000
-            }
-            NumberAnimation {
-                from: 0.5
-                to: 1.0
-                duration: 1000
-            }
-        }
-
-        SequentialAnimation on opacity {
-            loops: Animation.Infinite
-            running: true
-            NumberAnimation {
-                from: 1.0
-                to: 0.2
-                duration: 1000
-            }
-            NumberAnimation {
-                from: 0.2
-                to: 1.0
-                duration: 1000
-            }
-        }
-
-        Loader {
-            anchors.centerIn: parent
-            width: 600
-            height: 200
-
-            sourceComponent: sahKdTreeViewer
         }
     }
 

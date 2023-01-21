@@ -47,7 +47,7 @@ struct UniformBuffer
 #pragma pack(push, 1)
 struct PushConstants
 {
-    glm::mat4x4 viewMatrix{1.0};
+    glm::mat4x4 viewTransform{1.0};
 };
 #pragma pack(pop)
 

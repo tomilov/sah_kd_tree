@@ -23,9 +23,10 @@ public:
     Renderer(const engine::Engine & engine, const ResourceManager & resourceManager);
     ~Renderer();
 
+    void setAlpha(qreal alpha);
     void setT(float t);
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix);
 
 private:

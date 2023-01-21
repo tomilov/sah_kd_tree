@@ -51,7 +51,7 @@ private:
     void load();
 };
 
-struct ENGINE_EXPORT PipelineVertexInputState final : utils::OnlyMoveable
+struct ENGINE_EXPORT VertexInputState final : utils::OnlyMoveable
 {
     std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions;
     std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
@@ -74,7 +74,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
     ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint);
     ~ShaderModuleReflection();
 
-    [[nodiscard]] PipelineVertexInputState getPipelineVertexInputState(uint32_t vertexBufferBinding) const;
+    [[nodiscard]] VertexInputState getVertexInputState(uint32_t vertexBufferBinding) const;
 
 private:
     void reflect();
@@ -101,7 +101,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     PipelineShaderStageCreateInfoChains shaderStages;
     std::vector<std::reference_wrapper<const ShaderModuleReflection>> shaderModuleReflections;
 
-    engine::PipelineVertexInputState pipelineVertexInputState;
+    engine::VertexInputState vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 

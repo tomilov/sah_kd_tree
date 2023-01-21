@@ -352,14 +352,14 @@ ShaderModuleReflection::ShaderModuleReflection(const ShaderModule & shaderModule
 
 ShaderModuleReflection::~ShaderModuleReflection() = default;
 
-PipelineVertexInputState ShaderModuleReflection::getPipelineVertexInputState(uint32_t vertexBufferBinding) const
+VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBufferBinding) const
 {
     INVARIANT(shaderStage == vk::ShaderStageFlagBits::eVertex, "Pipeline vertex input state can be only inferred for vertex shader, not {}", shaderStage);
 
     SpvReflectResult reflectResult = SPV_REFLECT_RESULT_SUCCESS;
-    PipelineVertexInputState pipelineVertexInputState;
+    VertexInputState vertexInputState;
 
-    auto & vertexInputBindingDescriptions = pipelineVertexInputState.vertexInputBindingDescriptions;
+    auto & vertexInputBindingDescriptions = vertexInputState.vertexInputBindingDescriptions;
     auto & vertexInputBindingDescription = vertexInputBindingDescriptions.emplace_back();
     vertexInputBindingDescription.binding = vertexBufferBinding;
     vertexInputBindingDescription.stride = 0;
@@ -379,7 +379,7 @@ PipelineVertexInputState ShaderModuleReflection::getPipelineVertexInputState(uin
     };
     std::sort(std::begin(reflectInterfaceVariable), std::end(reflectInterfaceVariable), locationLess);
 
-    auto & vertexInputAttributeDescriptions = pipelineVertexInputState.vertexInputAttributeDescriptions;
+    auto & vertexInputAttributeDescriptions = vertexInputState.vertexInputAttributeDescriptions;
     for (const auto inputVariable : reflectInterfaceVariable) {
         INVARIANT(inputVariable, "");
         auto variableName = inputVariable->name ? inputVariable->name : fmt::to_string(inputVariable->spirv_id);
@@ -397,11 +397,11 @@ PipelineVertexInputState ShaderModuleReflection::getPipelineVertexInputState(uin
         vertexInputBindingDescription.stride += formatSize;
     }
 
-    auto & pipelineVertexInputStateCreateInfo = pipelineVertexInputState.pipelineVertexInputStateCreateInfo.emplace();
+    auto & pipelineVertexInputStateCreateInfo = vertexInputState.pipelineVertexInputStateCreateInfo.emplace();
     pipelineVertexInputStateCreateInfo.flags = {};
     pipelineVertexInputStateCreateInfo.setVertexAttributeDescriptions(vertexInputAttributeDescriptions);
     pipelineVertexInputStateCreateInfo.setVertexBindingDescriptions(vertexInputBindingDescriptions);
-    return pipelineVertexInputState;
+    return vertexInputState;
 }
 
 void ShaderModuleReflection::reflect()
@@ -497,8 +497,8 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
 
     if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {
-        INVARIANT(!pipelineVertexInputState.pipelineVertexInputStateCreateInfo, "Second vertex shader in pipeline");
-        pipelineVertexInputState = shaderModuleReflection.getPipelineVertexInputState(vertexBufferBinding);
+        INVARIANT(!vertexInputState.pipelineVertexInputStateCreateInfo, "Second vertex shader in pipeline");
+        vertexInputState = shaderModuleReflection.getVertexInputState(vertexBufferBinding);
     }
 
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {

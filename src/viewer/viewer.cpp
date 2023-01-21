@@ -5,23 +5,19 @@
 #include <viewer/renderer.hpp>
 #include <viewer/viewer.hpp>
 
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
-#include <QtCore/QRectF>
 #include <QtCore/QRunnable>
-#include <QtGui/QMatrix4x4>
-#include <QtGui/QVector2D>
-#include <QtGui/QVector3D>
 #include <QtGui/QVulkanInstance>
-#include <QtQml/QQmlListReference>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRendererInterface>
@@ -83,6 +79,14 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 void Viewer::sync()
 {
     if (renderer) {
+        auto alpha = opacity();
+        auto p = parentItem();
+        while (qobject_cast<const QQuickItem *>(p)) {
+            alpha *= p->opacity();
+            p = p->parentItem();
+        }
+        renderer->setAlpha(alpha);
+
         renderer->setT(t);
     }
 }
@@ -138,19 +142,13 @@ void Viewer::frameStart()
         }
     }
     if (renderer) {
-        auto alpha = opacity();
-        auto p = parentItem();
-        while (qobject_cast<const QQuickItem *>(p)) {
-            alpha *= p->opacity();
-            p = p->parentItem();
-        }
-        renderer->frameStart(w->graphicsStateInfo(), alpha);
+        renderer->frameStart(w->graphicsStateInfo());
     }
 }
 
 void Viewer::renderPassRecordingStart()
 {
-    if (!isVisible() || qFuzzyIsNull(opacity())) {
+    if (!isVisible() || !boundingRect().isValid()) {
         return;
     }
 
@@ -170,31 +168,6 @@ void Viewer::renderPassRecordingStart()
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
-        auto viewportRect = mapRectToScene(boundingRect());
-
-        {
-            QMatrix4x4 matrix;
-            QQmlListReference transforms{this, "transform"};
-            ASSERT(transforms.isValid());
-            ASSERT(transforms.canCount());
-            qsizetype transformCount = transforms.count();
-            ASSERT(transforms.canAt());
-            for (qsizetype i = 0; i < transformCount; ++i) {
-                auto t = qobject_cast<const QQuickTransform *>(transforms.at(i));
-                Q_CHECK_PTR(t);
-                t->applyTo(&matrix);
-            }
-            qDebug() << matrix;
-        }
-
-        if ((false)) {
-            QMatrix4x4 matrix;
-            matrix.scale(float(utils::autoCast(viewportRect.height() / viewportRect.width())), 1.0f);
-            matrix.rotate(utils::autoCast(rotation()), 0.0f, 0.0f, 1.0f);
-            matrix.scale(float(utils::autoCast(width() / viewportRect.height())), float(utils::autoCast(height() / viewportRect.height())));
-            qDebug() << matrix;
-        }
-
         auto angle = rotation();
         auto scaleFactor = scale();
         auto p = parentItem();
@@ -204,13 +177,15 @@ void Viewer::renderPassRecordingStart()
             p = p->parentItem();
         }
 
-        glm::dmat4x4 viewMatrix = glm::diagonal4x4(glm::dvec4{glm::dvec3{scaleFactor}, 1.0});
-        viewMatrix = glm::scale(viewMatrix, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
-        viewMatrix = glm::rotate(viewMatrix, glm::radians(angle), glm::dvec3{0.0, 0.0, 1.0});
-        viewMatrix = glm::scale(viewMatrix, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
+        auto viewportRect = mapRectToScene(boundingRect());
+        glm::dmat4x4 viewTransform = glm::diagonal4x4(glm::dvec4{glm::dvec3{scaleFactor}, 1.0});
+        viewTransform = glm::scale(viewTransform, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
+        const glm::dvec3 zAxis = {0.0, 0.0, 1.0};
+        viewTransform = glm::rotate(viewTransform, glm::radians(angle), zAxis);
+        viewTransform = glm::scale(viewTransform, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
 
         auto devicePixelRatio = w->effectiveDevicePixelRatio();
-        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), {viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio}, viewMatrix);
+        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo(), {viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio}, viewTransform);
     }
     w->endExternalCommands();
 }

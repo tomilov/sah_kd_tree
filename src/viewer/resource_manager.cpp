@@ -131,8 +131,8 @@ void Resources::init()
         INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
         const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
         INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-        INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewMatrix), "");
-        INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewMatrix), "");
+        INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
+        INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
     }
     shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
 

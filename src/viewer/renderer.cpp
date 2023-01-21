@@ -67,13 +67,18 @@ struct Renderer::Impl
     Impl(const engine::Engine & engine, const ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
     {}
 
+    void setAlpha(qreal alpha)
+    {
+        uniformBuffer.alpha = utils::autoCast(alpha);
+    }
+
     void setT(float t)
     {
         uniformBuffer.t = t;
     }
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix);
+    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform);
 };
 
 Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
@@ -81,22 +86,27 @@ Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resour
 
 Renderer::~Renderer() = default;
 
+void Renderer::setAlpha(qreal t)
+{
+    return impl_->setAlpha(t);
+}
+
 void Renderer::setT(float t)
 {
     return impl_->setT(t);
 }
 
-void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha)
+void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    return impl_->frameStart(graphicsStateInfo, alpha);
+    return impl_->frameStart(graphicsStateInfo);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform)
 {
-    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, viewportRect, viewMatrix);
+    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, viewportRect, viewTransform);
 }
 
-void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, qreal alpha)
+void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
@@ -109,12 +119,11 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
-    uniformBuffer.alpha = utils::autoCast(alpha);
     uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform)
 {
     if (!resources) {
         return;
@@ -145,7 +154,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
     PushConstants pushConstants = {
-        .viewMatrix{viewMatrix},
+        .viewTransform{viewTransform},
     };
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);

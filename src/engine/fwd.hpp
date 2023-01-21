@@ -17,7 +17,7 @@ struct GraphicsPipelineLayout;
 struct GraphicsPipelines;
 struct PipelineCache;
 struct Fences;
-struct PipelineVertexInputState;
+struct VertexInputState;
 struct ShaderStages;
 struct RenderPass;
 }  // namespace engine
