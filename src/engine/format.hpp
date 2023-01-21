@@ -99,6 +99,16 @@ struct fmt::formatter<vk::DebugUtilsObjectNameInfoEXT> : fmt::formatter<fmt::str
 };
 
 template<>
+struct fmt::formatter<vk::PushConstantRange> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::PushConstantRange & pushConstantRange, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{stageFlags = {}, offset = {}, size = {}}}", pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size);
+    }
+};
+
+template<>
 struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_UUID_SIZE>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>

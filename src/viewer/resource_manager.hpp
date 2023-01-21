@@ -83,9 +83,9 @@ public:
         return framesInFlight;
     }
 
-    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
+    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight)
     {
-        return std::shared_ptr<Resources>{new Resources{engine, fileIo, framesInFlight}};
+        return std::shared_ptr<Resources>{new Resources{engine, fileIo, pipelineCache, framesInFlight}};
     }
 
     [[nodiscard]] std::unique_ptr<const Descriptors> getDescriptors() const;
@@ -94,6 +94,7 @@ public:
 private:
     const engine::Engine & engine;
     const FileIo & fileIo;
+    const vk::PipelineCache pipelineCache;
     const uint32_t framesInFlight;
 
     engine::ShaderModule vertexShader;
@@ -106,9 +107,7 @@ private:
     engine::ShaderStages shaderStages;
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
 
-    std::unique_ptr<const engine::PipelineCache> pipelineCache;
-
-    Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight);
+    Resources(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight);
 
     void init();
 };
@@ -116,16 +115,17 @@ private:
 class ResourceManager
 {
 public:
-    ResourceManager(engine::Engine & engine);
+    ResourceManager(const engine::Engine & engine);
 
     [[nodiscard]] std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight) const;
 
 private:
-    engine::Engine & engine;
+    const engine::Engine & engine;
     const FileIo fileIo{u"shaders:"_s};
 
     mutable std::mutex mutex;
     mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;
+    mutable std::unique_ptr<const engine::PipelineCache> pipelineCache;
 };
 
 }  // namespace viewer

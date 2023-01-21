@@ -63,7 +63,7 @@ void PipelineCache::load()
     auto cacheData = loadPipelineCacheData();
 
     vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
-    // pipelineCacheCreateInfo.flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized; // ?
+    pipelineCacheCreateInfo.flags = {};  // vk::PipelineCacheCreateFlagBits::eExternallySynchronized should not be used
 
     pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
     try {

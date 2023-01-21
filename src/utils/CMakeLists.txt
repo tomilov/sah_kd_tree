@@ -36,5 +36,7 @@ target_sources(
         "auto_cast.hpp"
         "auto_cast.cpp"
         "checked_ptr.hpp"
-        "checked_ptr.cpp")
+        "checked_ptr.cpp"
+        "random.hpp"
+        "random.cpp")
 

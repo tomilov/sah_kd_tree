@@ -66,7 +66,9 @@ target_sources(
         "spirv_reflect_dump.hpp"
         "spirv_reflect_dump.cpp"
         "descriptors.hpp"
-        "descriptors.cpp")
+        "descriptors.cpp"
+        "push_constant_ranges.hpp"
+        "push_constant_ranges.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE

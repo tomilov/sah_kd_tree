@@ -3,6 +3,7 @@
 #include <engine/file_io.hpp>
 #include <engine/format.hpp>
 #include <engine/library.hpp>
+#include <engine/push_constant_ranges.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
 #include <utils/assert.hpp>
@@ -389,7 +390,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         }
         auto & vertexInputAttributeDescription = vertexInputAttributeDescriptions.emplace_back();
         vertexInputAttributeDescription.location = inputVariable->location;
-        vertexInputAttributeDescription.binding = vertexBufferBinding;
+        vertexInputAttributeDescription.binding = vertexInputBindingDescription.binding;
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
         auto formatSize = FormatElementSize(utils::autoCast(vertexInputAttributeDescription.format), VK_IMAGE_ASPECT_NONE);
@@ -562,6 +563,11 @@ std::vector<vk::DescriptorPoolSize> ShaderStages::getDescriptorPoolSizes() const
         descriptorPoolSizes.push_back({descriptorType, descriptorCount});
     }
     return descriptorPoolSizes;
+}
+
+std::vector<vk::PushConstantRange> ShaderStages::getDisjointPushConstantRanges() const  // not tested
+{
+    return engine::getDisjointPushConstantRanges(pushConstantRanges);
 }
 
 }  // namespace engine

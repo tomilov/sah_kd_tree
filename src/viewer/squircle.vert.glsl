@@ -7,7 +7,8 @@ layout(location = 0) out vec2 coords;
 
 out gl_PerVertex { vec4 gl_Position; };
 
-layout(push_constant, scalar) uniform PushConstants {
+layout(push_constant, scalar) uniform PushConstants
+{
     mat4 viewTransform;
 } pushConstants;
 

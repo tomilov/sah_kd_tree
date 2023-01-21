@@ -62,7 +62,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     descriptorPool.emplace(kSquircle, engine, setCount, descriptorPoolSizes);
     descriptorSets.emplace(kSquircle, engine, shaderStages, *descriptorPool);
 
-    pushConstantRanges = shaderStages.pushConstantRanges;
+    pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
 
     auto device = engine.getDevice().device;
     const auto & dispatcher = engine.getLibrary().dispatcher;
@@ -70,7 +70,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos = {
         {
             .buffer = uniformBuffer.getBuffer(),
-            .offset = 0,  // dynamic offset is used so this is ignored
+            .offset = 0,  // base offset for dynamic offset
             .range = sizeof(UniformBuffer),
         },
     };
@@ -102,14 +102,15 @@ std::unique_ptr<const Resources::Descriptors> Resources::getDescriptors() const
     return std::make_unique<Descriptors>(engine, framesInFlight, shaderStages, descriptorPoolSizes);
 }
 
-auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const Resources::GraphicsPipeline>
+auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
+    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache, shaderStages, renderPass);
 }
 
-Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, uint32_t framesInFlight)
+Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight)
     : engine{engine}
     , fileIo{fileIo}
+    , pipelineCache{pipelineCache}
     , framesInFlight{framesInFlight}
     , vertexShader{"squircle.vert"sv, engine, fileIo}
     , vertexShaderReflection{vertexShader, "main"}
@@ -156,22 +157,25 @@ void Resources::init()
 
     shaderStages.createDescriptorSetLayouts(kSquircle);
     descriptorPoolSizes = shaderStages.getDescriptorPoolSizes();
-
-    pipelineCache = std::make_unique<engine::PipelineCache>(kSquircle, engine, fileIo);
 }
 
-ResourceManager::ResourceManager(engine::Engine & engine) : engine{engine}
+ResourceManager::ResourceManager(const engine::Engine & engine) : engine{engine}
 {}
 
 std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t framesInFlight) const
 {
     std::lock_guard<std::mutex> lock{mutex};
+
+    if (!pipelineCache) {
+        pipelineCache = std::make_unique<engine::PipelineCache>(kSquircle, engine, fileIo);
+    }
+
     auto & w = resources[framesInFlight];
     auto p = w.lock();
     if (p) {
         SPDLOG_DEBUG("Old resources reused");
     } else {
-        p = Resources::make(engine, fileIo, framesInFlight);
+        p = Resources::make(engine, fileIo, pipelineCache->pipelineCache, framesInFlight);
         w = p;
         SPDLOG_DEBUG("New resources created");
     }

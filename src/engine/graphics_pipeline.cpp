@@ -132,7 +132,7 @@ void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayou
 void GraphicsPipelines::create()
 {
     auto result = device.device.createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
-    INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipelines {}", fmt::join(names, ","));
+    INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipelines {}", fmt::join(names, ", "));
     pipelineHolders = std::move(result.value);
     pipelines.reserve(std::size(pipelineHolders));
     size_t i = 0;

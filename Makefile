@@ -15,6 +15,7 @@ THRUST_DEVICE_SYSTEM ?= CPP
 FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
+TEST_NAME_REGEX ?= .*
 
 # format: "800 600"
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
@@ -71,7 +72,8 @@ test: build
 	@ctest \
 		--parallel $(NPROC) \
 		--output-on-failure \
-		--test-dir $(BUILD_DIR)/src/
+		--test-dir $(BUILD_DIR)/src/ \
+		-R '$(TEST_NAME_REGEX)'
 
 .PHONY: fuzz
 fuzz: configure

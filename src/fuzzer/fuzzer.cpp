@@ -40,7 +40,7 @@ constexpr int kFloatDigits = std::numeric_limits<F>::digits;
 
 using RandomValueType = typename std::mt19937::result_type;
 using UniformIntDistribution = std::uniform_int_distribution<>;
-using UniformIntParam = typename UniformIntDistribution::param_type;
+using UniformIntDistributionParam = typename UniformIntDistribution::param_type;
 
 bool boxWorld = false;
 
@@ -60,9 +60,9 @@ F genFloat()
 void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
 {
     assert(!(max < min));
-    f = F(uniformInt(gen, UniformIntParam(min, max)));
+    f = F(uniformInt(gen, UniformIntDistributionParam{min, max}));
     if (kFuzzIntegerCoordinate) {
-        const int pow = uniformInt(gen, UniformIntParam(1, kFloatDigits));
+        const int pow = uniformInt(gen, UniformIntDistributionParam{1, kFloatDigits});
         auto fuzz = genFloat();
         fuzz += fuzz;
         fuzz -= F(1);  // lost 1 bit of mantissa's randomness
@@ -330,7 +330,7 @@ struct TestInput
         const auto getTriangle = [this]
         {
             assert(!std::empty(triangles));
-            return std::next(std::begin(triangles), uniformInt(gen, UniformIntParam(0, int(std::size(triangles) - 1))));
+            return std::next(std::begin(triangles), uniformInt(gen, UniformIntDistributionParam{0, int(std::size(triangles) - 1)}));
         };
         const auto mutateTriangle = [&](auto t) { genTriangle(*t); };
         switch (action) {
@@ -459,7 +459,7 @@ struct TestInput
         {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
-            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(gen, UniformIntParam(0, int(std::size(triangles) / kBoxTriangleCount - 1))));
+            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(gen, UniformIntDistributionParam{0, int(std::size(triangles) / kBoxTriangleCount - 1)}));
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
         {

@@ -116,6 +116,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::vector<vk::DescriptorPoolSize> getDescriptorPoolSizes() const;
 
     // TODO: descriptor update template
+
+    std::vector<vk::PushConstantRange> getDisjointPushConstantRanges() const;
 };
 
 }  // namespace engine

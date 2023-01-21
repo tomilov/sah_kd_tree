@@ -9,6 +9,7 @@
 #include <utils/noncopyable.hpp>
 #include <utils/overloaded.hpp>
 #include <utils/pp.hpp>
+#include <utils/random.hpp>
 
 namespace utils
 {
