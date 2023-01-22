@@ -88,6 +88,11 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     {
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
         std::unordered_map<std::string, size_t> bindingIndices;
+
+        const vk::DescriptorSetLayoutBinding & getBinding(const std::string & variableName) const
+        {
+            return bindings.at(bindingIndices.at(variableName));
+        }
     };
 
     const Engine & engine;

@@ -4,6 +4,8 @@
 #include <engine/graphics_pipeline.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/pipeline_cache.hpp>
+#include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <viewer/resource_manager.hpp>
 
@@ -30,11 +32,11 @@ namespace
 
 const auto kSquircle = "squircle"sv;
 constexpr uint32_t kUniformBufferSet = 0;
-const std::string kUniformBufferName = "uniformBuffer";
+const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
 
 constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
-    INVARIANT(std::bitset<std::numeric_limits<vk::DeviceSize>::digits>{alignment}.count() == 1, "Expected power of two alignment");
+    INVARIANT(std::bitset<std::numeric_limits<vk::DeviceSize>::digits>{alignment}.count() == 1, "Expected power of two alignment, got {}", alignment);
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
@@ -77,16 +79,18 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
 
     auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
     INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", kUniformBufferSet);
-    uint32_t uniformBufferSetIndex = utils::autoCast(std::distance(std::begin(shaderStages.setBindings), setBindings));
-    const auto & uniformBufferBinding = setBindings->second.bindings.at(setBindings->second.bindingIndices.at(kUniformBufferName));
+    uint32_t uniformBufferSetIndex = utils::autoCast(std::distance(std::begin(shaderStages.setBindings), setBindings));  // linear, but who cares?
+    const auto & uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName);
 
     std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-    auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-    writeDescriptorSet.dstSet = descriptorSets.value().descriptorSets.at(uniformBufferSetIndex);
-    writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
-    writeDescriptorSet.dstArrayElement = 0;  // not an array
-    writeDescriptorSet.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
-    writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
+    {
+        auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+        writeDescriptorSet.dstSet = descriptorSets.value().descriptorSets.at(uniformBufferSetIndex);
+        writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
+        writeDescriptorSet.dstArrayElement = 0;  // not an array
+        writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
+        writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
+    }
     device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
@@ -97,24 +101,34 @@ Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engin
     pipelines.create();
 }
 
-std::unique_ptr<const Resources::Descriptors> Resources::getDescriptors() const
+uint32_t Resources::getFramesInFlight() const
+{
+    return framesInFlight;
+}
+
+std::shared_ptr<Resources> Resources::make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
+{
+    return std::shared_ptr<Resources>{new Resources{engine, fileIo, std::move(pipelineCache), framesInFlight}};
+}
+
+std::unique_ptr<const Resources::Descriptors> Resources::makeDescriptors() const
 {
     return std::make_unique<Descriptors>(engine, framesInFlight, shaderStages, descriptorPoolSizes);
 }
 
 auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache, shaderStages, renderPass);
+    return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
 }
 
-Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight)
+Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
     : engine{engine}
     , fileIo{fileIo}
-    , pipelineCache{pipelineCache}
+    , pipelineCache{std::move(pipelineCache)}
     , framesInFlight{framesInFlight}
-    , vertexShader{"squircle.vert"sv, engine, fileIo}
+    , vertexShader{"squircle.vert", engine, fileIo}
     , vertexShaderReflection{vertexShader, "main"}
-    , fragmentShader{"squircle.frag"sv, engine, fileIo}
+    , fragmentShader{"squircle.frag", engine, fileIo}
     , fragmentShaderReflection{fragmentShader, "main"}
     , shaderStages{engine, vertexBufferBinding}
 {
@@ -166,8 +180,10 @@ std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t 
 {
     std::lock_guard<std::mutex> lock{mutex};
 
-    if (!pipelineCache) {
-        pipelineCache = std::make_unique<engine::PipelineCache>(kSquircle, engine, fileIo);
+    auto pipelineCacheHolder = pipelineCache.lock();
+    if (!pipelineCacheHolder) {
+        pipelineCacheHolder = std::make_shared<engine::PipelineCache>(kSquircle, engine, fileIo);
+        pipelineCache = pipelineCacheHolder;
     }
 
     auto & w = resources[framesInFlight];
@@ -175,7 +191,7 @@ std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t 
     if (p) {
         SPDLOG_DEBUG("Old resources reused");
     } else {
-        p = Resources::make(engine, fileIo, pipelineCache->pipelineCache, framesInFlight);
+        p = Resources::make(engine, fileIo, std::move(pipelineCacheHolder), framesInFlight);
         w = p;
         SPDLOG_DEBUG("New resources created");
     }

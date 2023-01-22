@@ -1,4 +1,5 @@
 #include <fuzzer/fuzzer.hpp>
+#include <utils/random.hpp>
 
 #include <fmt/color.h>
 #include <fmt/format.h>
@@ -44,25 +45,24 @@ using UniformIntDistributionParam = typename UniformIntDistribution::param_type;
 
 bool boxWorld = false;
 
-std::mt19937 gen;                   // clazy:exclude=non-pod-global-static
 UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
 
 void setSeed(unsigned int seed)
 {
-    gen.seed(RandomValueType(seed));
+    utils::defaultRandom().seed(RandomValueType(seed));
 }
 
 F genFloat()
 {
-    return std::generate_canonical<F, kFloatDigits>(gen);
+    return std::generate_canonical<F, kFloatDigits>(utils::defaultRandom());
 }
 
 void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
 {
     assert(!(max < min));
-    f = F(uniformInt(gen, UniformIntDistributionParam{min, max}));
+    f = F(uniformInt(utils::defaultRandom(), UniformIntDistributionParam{min, max}));
     if (kFuzzIntegerCoordinate) {
-        const int pow = uniformInt(gen, UniformIntDistributionParam{1, kFloatDigits});
+        const int pow = uniformInt(utils::defaultRandom(), UniformIntDistributionParam{1, kFloatDigits});
         auto fuzz = genFloat();
         fuzz += fuzz;
         fuzz -= F(1);  // lost 1 bit of mantissa's randomness
@@ -306,7 +306,7 @@ struct TestInput
             for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, trianglesPerItem())) {
                 servived.push_back(t);
             }
-            std::shuffle(std::begin(servived), std::end(servived), gen);
+            std::shuffle(std::begin(servived), std::end(servived), utils::defaultRandom());
             servived.resize(maxItemCount);
             for (auto t : servived) {
                 std::memcpy(data, &*t, itemSize());
@@ -330,7 +330,7 @@ struct TestInput
         const auto getTriangle = [this]
         {
             assert(!std::empty(triangles));
-            return std::next(std::begin(triangles), uniformInt(gen, UniformIntDistributionParam{0, int(std::size(triangles) - 1)}));
+            return std::next(std::begin(triangles), uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, int(std::size(triangles) - 1)}));
         };
         const auto mutateTriangle = [&](auto t) { genTriangle(*t); };
         switch (action) {
@@ -368,7 +368,7 @@ struct TestInput
         case 6: {  // Make one or 3 sides of triangle axis perpendicular to an ort.
             const auto t = getTriangle();
 
-            auto selector = gen();
+            auto selector = utils::defaultRandom()();
 
             const bool singleComponent = (selector & 1) == 0;
             selector >>= 1;
@@ -404,7 +404,7 @@ struct TestInput
             auto src = getTriangle();
             auto dst = getTriangle();
 
-            auto selector = gen();
+            auto selector = utils::defaultRandom()();
             if (src == dst) {
                 if ((selector & 1) == 0) {
                     if (++dst == std::end(triangles)) {
@@ -459,7 +459,7 @@ struct TestInput
         {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
-            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(gen, UniformIntDistributionParam{0, int(std::size(triangles) / kBoxTriangleCount - 1)}));
+            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, int(std::size(triangles) / kBoxTriangleCount - 1)}));
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
         {
@@ -467,7 +467,7 @@ struct TestInput
             [[maybe_unused]] const auto vertexLess = [](auto l, auto r) { return *l < *r; };
             assert(std::adjacent_find(std::cbegin(vertices), std::cend(vertices), std::not_fn(vertexLess)) == std::cend(vertices));
             if (anchor) {
-                std::shuffle(std::begin(vertices), std::end(vertices), gen);
+                std::shuffle(std::begin(vertices), std::end(vertices), utils::defaultRandom());
                 for (auto v : vertices) {
                     if (*anchor != *v) {
                         return *v;
@@ -476,7 +476,7 @@ struct TestInput
                 INVARIANT(false);
             } else {
                 const Vertex * v = nullptr;
-                std::sample(std::cbegin(vertices), std::cend(vertices), &v, 1, gen);
+                std::sample(std::cbegin(vertices), std::cend(vertices), &v, 1, utils::defaultRandom());
                 return *v;
             }
         };
@@ -526,18 +526,18 @@ struct TestInput
     {
         if (boxWorld) {
             static const auto action = cdf({1.0f});
-            const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
+            const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(utils::defaultRandom());
             mutateBoxes(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
         } else {
             static const auto action = cdf({0.1f, 0.1f, 0.1f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
-            const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(gen);
+            const float probability = std::generate_canonical<float, std::numeric_limits<float>::digits>(utils::defaultRandom());
             mutateTriangles(std::distance(std::cbegin(action), std::upper_bound(std::cbegin(action), std::cend(action), probability * action.back())));
         }
     }
 
     void cross(const TestInput & testInput)
     {
-        std::bitset<3> selector{gen()};
+        std::bitset<3> selector{utils::defaultRandom()()};
         if (selector[0]) {
             params.emptinessFactor = testInput.params.emptinessFactor;
         }

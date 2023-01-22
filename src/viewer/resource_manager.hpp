@@ -3,7 +3,6 @@
 #include <engine/descriptors.hpp>
 #include <engine/fwd.hpp>
 #include <engine/graphics_pipeline.hpp>
-#include <engine/pipeline_cache.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
 #include <scene/scene.hpp>
@@ -78,23 +77,17 @@ public:
         GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass);
     };
 
-    [[nodiscard]] uint32_t getFramesInFlight() const
-    {
-        return framesInFlight;
-    }
+    [[nodiscard]] uint32_t getFramesInFlight() const;
 
-    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight)
-    {
-        return std::shared_ptr<Resources>{new Resources{engine, fileIo, pipelineCache, framesInFlight}};
-    }
+    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
 
-    [[nodiscard]] std::unique_ptr<const Descriptors> getDescriptors() const;
+    [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors() const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
 private:
     const engine::Engine & engine;
     const FileIo & fileIo;
-    const vk::PipelineCache pipelineCache;
+    const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const uint32_t framesInFlight;
 
     engine::ShaderModule vertexShader;
@@ -107,7 +100,7 @@ private:
     engine::ShaderStages shaderStages;
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
 
-    Resources(const engine::Engine & engine, const FileIo & fileIo, vk::PipelineCache pipelineCache, uint32_t framesInFlight);
+    Resources(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
 
     void init();
 };
@@ -125,7 +118,7 @@ private:
 
     mutable std::mutex mutex;
     mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;
-    mutable std::unique_ptr<const engine::PipelineCache> pipelineCache;
+    mutable std::weak_ptr<const engine::PipelineCache> pipelineCache;
 };
 
 }  // namespace viewer

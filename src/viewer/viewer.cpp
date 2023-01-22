@@ -35,9 +35,8 @@ namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
-}  // namespace
 
-class Viewer::CleanupJob : public QRunnable
+class CleanupJob : public QRunnable
 {
 public:
     CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
@@ -51,6 +50,8 @@ public:
 private:
     std::unique_ptr<Renderer> renderer;
 };
+
+}  // namespace
 
 Viewer::Viewer()
 {
@@ -73,7 +74,7 @@ void Viewer::onWindowChanged(QQuickWindow * w)
     connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::DirectConnection);
     connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::DirectConnection);
     connect(w, &QQuickWindow::beforeRendering, this, &Viewer::frameStart, Qt::DirectConnection);
-    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::renderPassRecordingStart, Qt::DirectConnection);
+    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::DirectConnection);
 }
 
 void Viewer::sync()
@@ -101,58 +102,56 @@ void Viewer::frameStart()
     auto w = window();
     auto ri = w->rendererInterface();
 
-    if (!renderer) {
-        if (engine) {
-            {
-                auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
-                Q_CHECK_PTR(vulkanInstance);
+    if (!renderer && engine) {
+        {
+            auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
+            Q_CHECK_PTR(vulkanInstance);
 
-                auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
-                Q_CHECK_PTR(vulkanPhysicalDevice);
+            auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
+            Q_CHECK_PTR(vulkanPhysicalDevice);
 
-                auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
-                Q_CHECK_PTR(vulkanInstance);
+            auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
+            Q_CHECK_PTR(vulkanInstance);
 
-                uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
+            uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
 
-                auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
-                Q_CHECK_PTR(vulkanInstance);
+            auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
+            Q_CHECK_PTR(vulkanInstance);
 
 #ifdef GET_INSTANCE_PROC_ADDR
 #error "!"
 #endif
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
-                // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
-                GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
+            // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
+            GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
 #undef GET_INSTANCE_PROC_ADDR
-                PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
+            PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
-                INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getVulkanInstance(), "Should match");
-                INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getVulkanPhysicalDevice(), "Should match");
-                INVARIANT(*vulkanDevice == engine->getEngine().getVulkanDevice(), "Should match");
-                INVARIANT(queueFamilyIndex == engine->getEngine().getVulkanGraphicsQueueFamilyIndex(), "Should match");
-                {
-                    VkQueue queue = VK_NULL_HANDLE;
-                    vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getVulkanGraphicsQueueIndex(), &queue);
-                    INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
-                }
+            INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getVulkanInstance(), "Should match");
+            INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getVulkanPhysicalDevice(), "Should match");
+            INVARIANT(*vulkanDevice == engine->getEngine().getVulkanDevice(), "Should match");
+            INVARIANT(queueFamilyIndex == engine->getEngine().getVulkanGraphicsQueueFamilyIndex(), "Should match");
+            {
+                VkQueue queue = VK_NULL_HANDLE;
+                vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getVulkanGraphicsQueueIndex(), &queue);
+                INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
             }
-
-            renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager());
         }
+
+        renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager());
     }
     if (renderer) {
         renderer->frameStart(w->graphicsStateInfo());
     }
 }
 
-void Viewer::renderPassRecordingStart()
+void Viewer::beforeRenderPassRecording()
 {
-    if (!isVisible() || !boundingRect().isValid()) {
+    if (!renderer) {
         return;
     }
 
-    if (!renderer) {
+    if (!isVisible() || !boundingRect().isValid()) {
         return;
     }
 

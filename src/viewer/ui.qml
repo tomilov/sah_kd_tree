@@ -141,7 +141,7 @@ ApplicationWindow {
         color: "black"
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
-        text: "The background here is a squircle rendered with raw Vulkan using the beforeRendering() and beforeRenderPassRecording() signals in QQuickWindow. This text label and its border is rendered using QML"
+        text: "The quick brown fox jumped over the lazy dog's back 1234567890"
         anchors.right: parent.right
         anchors.left: parent.left
         anchors.bottom: parent.bottom

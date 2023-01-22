@@ -114,7 +114,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         descriptors = nullptr;
         resources = resourceManager.getOrCreateResources(framesInFlight);
 
-        descriptors = resources->getDescriptors();
+        descriptors = resources->makeDescriptors();
 
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
@@ -154,7 +154,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
     PushConstants pushConstants = {
-        .viewTransform{viewTransform},
+        .viewTransform{viewTransform},  // double to float conversion
     };
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);

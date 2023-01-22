@@ -38,11 +38,9 @@ private Q_SLOTS:
     void sync();
     void cleanup();
     void frameStart();
-    void renderPassRecordingStart();
+    void beforeRenderPassRecording();
 
 private:
-    class CleanupJob;
-
     Engine * engine = nullptr;
     int fps = 144;
 
