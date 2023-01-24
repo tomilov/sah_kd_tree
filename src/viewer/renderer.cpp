@@ -38,7 +38,10 @@ namespace viewer
 {
 namespace
 {
-[[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory) Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
+// clang-format off
+[[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
+Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
+// clang-format on
 }  // namespace
 
 struct Renderer::Impl
@@ -63,22 +66,53 @@ struct Renderer::Impl
     // TODO: descriptor allocator + descriptor layout cache
 
     UniformBuffer uniformBuffer;
+    vk::Viewport viewport;
+    vk::Rect2D scissor;
+    PushConstants pushConstants;
 
     Impl(const engine::Engine & engine, const ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
     {}
-
-    void setAlpha(qreal alpha)
-    {
-        uniformBuffer.alpha = utils::autoCast(alpha);
-    }
 
     void setT(float t)
     {
         uniformBuffer.t = t;
     }
 
+    void setAlpha(qreal alpha)
+    {
+        uniformBuffer.alpha = utils::autoCast(alpha);
+    }
+
+    void setViewportRect(const QRectF & viewportRect)
+    {
+        auto x = std::ceil(viewportRect.x());
+        auto y = std::ceil(viewportRect.y());
+        auto width = std::floor(viewportRect.width());
+        auto height = std::floor(viewportRect.height());
+
+        viewport = {
+            .x = utils::autoCast(x),
+            .y = utils::autoCast(y),
+            .width = utils::autoCast(width),
+            .height = utils::autoCast(height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        };
+        scissor = {
+            .offset = {.x = utils::autoCast(x), .y = utils::autoCast(y)},
+            .extent = {.width = utils::autoCast(width), .height = utils::autoCast(height)},
+        };
+    }
+
+    void setViewTransform(const glm::dmat4x4 & viewTransform)
+    {
+        pushConstants = {
+            .viewTransform{viewTransform},  // double to float conversion
+        };
+    }
+
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
 };
 
 Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
@@ -86,14 +120,24 @@ Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resour
 
 Renderer::~Renderer() = default;
 
+void Renderer::setT(float t)
+{
+    return impl_->setT(t);
+}
+
 void Renderer::setAlpha(qreal t)
 {
     return impl_->setAlpha(t);
 }
 
-void Renderer::setT(float t)
+void Renderer::setViewportRect(const QRectF & viewportRect)
 {
-    return impl_->setT(t);
+    return impl_->setViewportRect(viewportRect);
+}
+
+void Renderer::setViewTransform(const glm::dmat4x4 & viewTransform)
+{
+    return impl_->setViewTransform(viewTransform);
 }
 
 void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -101,9 +145,9 @@ void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateI
     return impl_->frameStart(graphicsStateInfo);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    return impl_->render(commandBuffer, renderPass, graphicsStateInfo, viewportRect, viewTransform);
+    return impl_->render(commandBuffer, renderPass, graphicsStateInfo);
 }
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -123,7 +167,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewTransform)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
     if (!resources) {
         return;
@@ -134,8 +178,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     auto pipeline = graphicsPipeline->pipelines.pipelines.at(0);
     auto pipelineLayout = graphicsPipeline->pipelineLayout.pipelineLayout;
 
-    constexpr engine::LabelColor kRedColor = {1.0f, 0.0f, 0.0f, 1.0f};
-    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kRedColor);
+    constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
+    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kMagentaColor);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
 
@@ -153,37 +197,19 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t firstSet = 0;
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
 
-    PushConstants pushConstants = {
-        .viewTransform{viewTransform},  // double to float conversion
-    };
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);
     }
 
-    auto x = std::ceil(viewportRect.x());
-    auto y = std::ceil(viewportRect.y());
-    auto width = std::floor(viewportRect.width());
-    auto height = std::floor(viewportRect.height());
-
     constexpr uint32_t firstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
-        {
-            .x = utils::autoCast(x),
-            .y = utils::autoCast(y),
-            .width = utils::autoCast(width),
-            .height = utils::autoCast(height),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-        },
+        viewport,
     };
     commandBuffer.setViewport(firstViewport, viewports, library.dispatcher);
 
     constexpr uint32_t firstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
-        {
-            .offset = {.x = utils::autoCast(x), .y = utils::autoCast(y)},
-            .extent = {.width = utils::autoCast(width), .height = utils::autoCast(height)},
-        },
+        scissor,
     };
     commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);
 

@@ -23,6 +23,8 @@ ApplicationWindow {
         id: sahKdTreeViewer
 
         Item {
+            required property int index
+
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -96,12 +98,12 @@ ApplicationWindow {
                     running: true
                     NumberAnimation {
                         to: 1.0
-                        duration: 100
+                        duration: 1000
                         easing.type: Easing.InQuad
                     }
                     NumberAnimation {
                         to: 0.0
-                        duration: 100
+                        duration: 1000
                         easing.type: Easing.OutQuad
                     }
                 }
@@ -156,8 +158,8 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 16
 
-        rows: 4
-        columns: 3
+        rows: 3
+        columns: 4
 
         Repeater {
             model: gridLayout.rows * gridLayout.columns

@@ -17,8 +17,7 @@ class Viewer : public QQuickItem
     Q_OBJECT
     QML_NAMED_ELEMENT(SahKdTreeViewer)
 
-    Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged)
-    Q_PROPERTY(int fps MEMBER fps NOTIFY fpsChanged)
+    Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
     Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
 
@@ -28,7 +27,6 @@ public:
 
 Q_SIGNALS:
     void engineChanged(viewer::Engine * engine);
-    void fpsChanged(int fps);
 
     void tChanged(qreal t);
 
@@ -42,11 +40,12 @@ private Q_SLOTS:
 
 private:
     Engine * engine = nullptr;
-    int fps = 144;
 
     float t = 0.0;
 
     std::unique_ptr<Renderer> renderer;
+
+    void checkEngine() const;
 
     void releaseResources() override;
 };

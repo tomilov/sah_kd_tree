@@ -23,16 +23,19 @@ public:
     Renderer(const engine::Engine & engine, const ResourceManager & resourceManager);
     ~Renderer();
 
-    void setAlpha(qreal alpha);
     void setT(float t);
+    void setAlpha(qreal alpha);
+
+    void setViewportRect(const QRectF & viewportRect);
+    void setViewTransform(const glm::dmat4x4 & viewTransform);
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo, const QRectF & viewportRect, const glm::dmat4x4 & viewMatrix);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 80;
+    static constexpr size_t kSize = 184;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

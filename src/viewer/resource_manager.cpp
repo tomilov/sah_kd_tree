@@ -44,20 +44,23 @@ constexpr vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignme
 
 Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes)
 {
-    const auto & physicalDeviceProperties = engine.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    const auto & dispatcher = engine.getLibrary().dispatcher;
+    const auto & device = engine.getDevice();
+    const auto & vma = engine.getMemoryAllocator();
 
-    vk::DeviceSize minUniformBufferOffsetAlignment = physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
-    uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), minUniformBufferOffsetAlignment);
+    const auto & physicalDeviceProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    uniformBuffer = engine.getMemoryAllocator().createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
+    uniformBuffer = vma.createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
     INVARIANT(uniformBuffer.getMemoryPropertyFlags() & vk::MemoryPropertyFlagBits::eDeviceLocal, "Failed to allocate uniform buffer in DEVICE_LOCAL memory");
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
     vertexBufferCreateInfo.size = sizeof kVertices;
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-    vertexBuffer = engine.getMemoryAllocator().createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
+    vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
     INVARIANT(vertexBuffer.getMemoryPropertyFlags() & vk::MemoryPropertyFlagBits::eDeviceLocal, "Failed to allocate uniform buffer in DEVICE_LOCAL memory");
 
     uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
@@ -65,9 +68,6 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     descriptorSets.emplace(kSquircle, engine, shaderStages, *descriptorPool);
 
     pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
-
-    auto device = engine.getDevice().device;
-    const auto & dispatcher = engine.getLibrary().dispatcher;
 
     std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos = {
         {
@@ -91,7 +91,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
         writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
         writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
     }
-    device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+    device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
 Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
