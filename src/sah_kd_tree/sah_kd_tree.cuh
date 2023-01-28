@@ -262,4 +262,4 @@ struct Triangle
 };
 
 void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
-}  // namespace SAH_KD_TREE_NO_EXPORT
+}  // namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT

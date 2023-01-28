@@ -11,7 +11,7 @@ namespace engine
 
 void * AllocationCallbacks::allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope)
 {
-    auto pMemory = ::operator new (size, std::align_val_t{alignment});
+    auto pMemory = ::operator new(size, std::align_val_t{alignment});
     if ((false)) {
         SPDLOG_DEBUG("Allocation mem size {}, alignment {}, system allocation scope: {}, address {}", size, alignment, allocationScope, fmt::ptr(pMemory));
     }

@@ -12,6 +12,7 @@ DerivePointerAlignment: false
 PointerAlignment: Middle
 AlignArrayOfStructures: None
 AllowAllArgumentsOnNextLine: true
+AllowShortEnumsOnASingleLine: false
 BreakBeforeBraces: Custom
 BreakBeforeBinaryOperators: All
 IndentCaseLabels: false
@@ -34,6 +35,7 @@ BraceWrapping:
     SplitEmptyFunction: false
     SplitEmptyRecord: true
     SplitEmptyNamespace: true
+LambdaBodyIndentation: Signature
 UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true

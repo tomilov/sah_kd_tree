@@ -91,13 +91,10 @@ void Viewer::sync()
     auto scaleFactor = scale();
     auto angle = rotation();
 
-    auto p = parentItem();
-    while (qobject_cast<const QQuickItem *>(p)) {
+    for (auto p = parentItem(); p; p = p->parentItem()) {
         alpha *= p->opacity();
         scaleFactor *= p->scale();
         angle += p->rotation();
-
-        p = p->parentItem();
     }
 
     renderer->setAlpha(alpha);
@@ -136,7 +133,9 @@ void Viewer::beforeRenderPassRecording()
     if (!renderer) {
         return;
     }
+
     auto w = window();
+
     w->beginExternalCommands();
     {
         auto ri = w->rendererInterface();
