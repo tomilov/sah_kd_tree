@@ -163,8 +163,8 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
-    uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    *descriptors->uniformBuffer.map<UniformBuffer>(descriptors->uniformBufferPerFrameSize * uniformBufferIndex, sizeof uniformBuffer).get() = uniformBuffer;
+    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
+    *descriptors->uniformBuffer.at(currentFrameSlot).map<UniformBuffer>().get() = uniformBuffer;
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -190,12 +190,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    uint32_t uniformBufferIndex = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    std::initializer_list<uint32_t> dinamicOffsets = {
-        uint32_t(utils::autoCast(descriptors->uniformBufferPerFrameSize * uniformBufferIndex)),
-    };
+    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     constexpr uint32_t firstSet = 0;
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.value().descriptorSets, dinamicOffsets, library.dispatcher);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, nullptr, library.dispatcher);
 
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);

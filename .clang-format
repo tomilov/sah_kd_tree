@@ -4,12 +4,15 @@ ContinuationIndentWidth: 4
 ColumnLimit: 250
 ---
 Language: Cpp
+Standard: Latest
 AccessModifierOffset: -4
 ConstructorInitializerIndentWidth: 4
 Standard: Latest
 AllowShortFunctionsOnASingleLine: false
 DerivePointerAlignment: false
 PointerAlignment: Middle
+ReferenceAlignment: Middle
+QualifierAlignment: Left
 AlignArrayOfStructures: None
 AllowAllArgumentsOnNextLine: true
 AllowShortEnumsOnASingleLine: false
@@ -46,9 +49,13 @@ DeriveLineEnding: false
 UseCRLF: false
 FixNamespaceComments: true
 ShortNamespaceLines: 0
+WhitespaceSensitiveMacros:
+  - STRINGIZE
+  - STRINGIZE2
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false
+SpaceBeforeCpp11BracedList: false
 IncludeBlocks: Regroup
 IncludeIsMainRegex: (_test)?$
 IncludeCategories:

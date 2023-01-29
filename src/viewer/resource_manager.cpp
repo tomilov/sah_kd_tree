@@ -9,6 +9,7 @@
 #include <utils/assert.hpp>
 #include <viewer/resource_manager.hpp>
 
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include <bitset>
@@ -49,13 +50,17 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     const auto & vma = engine.getMemoryAllocator();
 
     const auto & physicalDeviceProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
-    uniformBufferPerFrameSize = alignedSize(sizeof(UniformBuffer), physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+    uniformBufferSize = alignedSize(sizeof(UniformBuffer), physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
 
     vk::BufferCreateInfo uniformBufferCreateInfo;
-    uniformBufferCreateInfo.size = uniformBufferPerFrameSize * framesInFlight;
+    uniformBufferCreateInfo.size = uniformBufferSize;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    uniformBuffer = vma.createStagingBuffer(uniformBufferCreateInfo, "Uniform buffer consists of float t");
-    INVARIANT(uniformBuffer.getMemoryPropertyFlags() & vk::MemoryPropertyFlagBits::eDeviceLocal, "Failed to allocate uniform buffer in DEVICE_LOCAL memory");
+    uniformBuffer.reserve(framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i) {
+        auto uniformBufferName = fmt::format("Uniform buffer frmae #{}", i);
+        uniformBuffer.push_back(vma.createStagingBuffer(uniformBufferCreateInfo, uniformBufferName));
+        INVARIANT(uniformBuffer.back().getMemoryPropertyFlags() & vk::MemoryPropertyFlagBits::eDeviceLocal, "Failed to allocate uniform buffer (frame #{}) in DEVICE_LOCAL memory", i);
+    }
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
     vertexBufferCreateInfo.size = sizeof kVertices;
@@ -64,32 +69,37 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     INVARIANT(vertexBuffer.getMemoryPropertyFlags() & vk::MemoryPropertyFlagBits::eDeviceLocal, "Failed to allocate uniform buffer in DEVICE_LOCAL memory");
 
     uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
-    descriptorPool.emplace(kSquircle, engine, setCount, descriptorPoolSizes);
-    descriptorSets.emplace(kSquircle, engine, shaderStages, *descriptorPool);
+    descriptorPool.emplace(kSquircle, engine, framesInFlight, setCount, descriptorPoolSizes);
+    for (uint32_t i = 0; i < framesInFlight; ++i) {
+        descriptorSets.emplace_back(kSquircle, engine, shaderStages, *descriptorPool);
+    }
 
     pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
 
-    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos = {
-        {
-            .buffer = uniformBuffer.getBuffer(),
-            .offset = 0,  // base offset for dynamic offset
-            .range = sizeof(UniformBuffer),
-        },
-    };
+    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
+    descriptorBufferInfos.resize(framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i) {
+        descriptorBufferInfos.at(i) = {
+            .buffer = uniformBuffer.at(i).getBuffer(),
+            .offset = 0,
+            .range = uniformBuffer.at(i).getSize(),
+        };
+    }
 
     auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
     INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", kUniformBufferSet);
     uint32_t uniformBufferSetIndex = utils::autoCast(std::distance(std::begin(shaderStages.setBindings), setBindings));  // linear, but who cares?
     const auto & uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName);
 
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-    {
-        auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-        writeDescriptorSet.dstSet = descriptorSets.value().descriptorSets.at(uniformBufferSetIndex);
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets(framesInFlight);
+    for (uint32_t i = 0; i < framesInFlight; ++i) {
+        auto & writeDescriptorSet = writeDescriptorSets.at(i);
+
+        writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
         writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
         writeDescriptorSet.dstArrayElement = 0;  // not an array
         writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
-        writeDescriptorSet.setBufferInfo(descriptorBufferInfos);
+        writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
     }
     device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
@@ -161,9 +171,6 @@ void Resources::init()
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
         INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
         INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-
-        // patching VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER to VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-        descriptorSetLayoutBindingReflection.descriptorType = vk::DescriptorType::eUniformBufferDynamic;
 
         INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
     }

@@ -148,6 +148,9 @@ public:
         return {*impl_, offset, size};
     }
 
+    vk::DeviceSize getSize() const;
+    vk::DeviceAddress getDeviceAddress() const;
+
 private:
     friend class MappedMemory<void>;
 

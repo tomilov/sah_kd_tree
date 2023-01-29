@@ -36,10 +36,11 @@ void Device::create()
     setFeatures(RequiredFeatures::physicalDeviceFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
     setFeatures(RequiredFeatures::physicalDeviceVulkan11Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan11Features>());
     setFeatures(RequiredFeatures::physicalDeviceVulkan12Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>());
-    setFeatures(RequiredFeatures::physicalDeviceDescriptorIndexingFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceDescriptorIndexingFeatures>());
+    setFeatures(RequiredFeatures::physicalDeviceVulkan13Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan13Features>());
     setFeatures(RequiredFeatures::rayTracingPipelineFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>());
     setFeatures(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
     setFeatures(RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>());
+    setFeatures(RequiredFeatures::physicalDeviceDescriptorBufferFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>());
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {

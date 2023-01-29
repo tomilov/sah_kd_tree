@@ -5,15 +5,31 @@
 #include <engine/shader_module.hpp>
 
 #include <initializer_list>
+#include <iterator>
 #include <string_view>
+#include <vector>
 
 #include <cstddef>
+#include <cstdint>
 
 namespace engine
 {
 
-DescriptorPool::DescriptorPool(std::string_view name, const Engine & engine, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, maxSets{maxSets}, descriptorPoolSizes{descriptorPoolSizes}
+namespace
+{
+
+std::vector<vk::DescriptorPoolSize> multiply(std::vector<vk::DescriptorPoolSize> descriptorPoolSizes, uint32_t framesInFlight)
+{
+    for (auto & descriptorPoolSize : descriptorPoolSizes) {
+        descriptorPoolSize.descriptorCount *= framesInFlight;
+    }
+    return descriptorPoolSizes;
+}
+
+}  // namespace
+
+DescriptorPool::DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, maxSets{maxSets * framesInFlight}, descriptorPoolSizes{multiply(descriptorPoolSizes, framesInFlight)}, framesInFlight{framesInFlight}
 {
     init();
 }

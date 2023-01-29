@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <cstddef>
+#include <cstdint>
 
 #include <engine/engine_export.h>
 
@@ -25,13 +26,14 @@ struct ENGINE_EXPORT DescriptorPool final : utils::NonCopyable
     const Device & device;
 
     const size_t maxSets;
-    const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes;
+    const std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
+    const uint32_t framesInFlight;
 
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
     vk::UniqueDescriptorPool descriptorPoolHolder;
     vk::DescriptorPool descriptorPool;
 
-    DescriptorPool(std::string_view name, const Engine & engine, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes);
+    DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes);
 
 private:
     void init();

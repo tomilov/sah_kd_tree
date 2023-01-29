@@ -14,6 +14,7 @@
 
 #include <QtCore/QChar>
 
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string_view>
@@ -57,12 +58,12 @@ class Resources
 public:
     struct Descriptors : utils::NonCopyable
     {
-        vk::DeviceSize uniformBufferPerFrameSize = 0;
-        engine::Buffer uniformBuffer;
+        vk::DeviceSize uniformBufferSize = 0;
+        std::vector<engine::Buffer> uniformBuffer;
         engine::Buffer vertexBuffer;
 
         std::optional<engine::DescriptorPool> descriptorPool;
-        std::optional<engine::DescriptorSets> descriptorSets;
+        std::deque<engine::DescriptorSets> descriptorSets;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
 

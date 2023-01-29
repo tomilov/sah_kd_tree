@@ -132,7 +132,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceDescriptorIndexingFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceDescriptorIndexingFeatures>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan13Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan13Features>())) {
         SPDLOG_WARN("");
         return false;
     }

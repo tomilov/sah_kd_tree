@@ -764,6 +764,18 @@ vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
     return impl_->getMemoryPropertyFlags();
 }
 
+vk::DeviceSize Buffer::getSize() const
+{
+    return impl_->getBufferCreateInfo().size;
+}
+
+vk::DeviceAddress Buffer::getDeviceAddress() const
+{
+    vk::BufferDeviceAddressInfo bufferDeviceAddressInfo;
+    bufferDeviceAddressInfo.setBuffer(getBuffer());
+    return impl_->memoryAllocator->device.device.getBufferAddress(bufferDeviceAddressInfo, impl_->memoryAllocator->library.dispatcher);
+}
+
 Image::Image() = default;
 
 Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
