@@ -98,6 +98,80 @@ namespace engine
 namespace
 {
 
+[[nodiscard]] size_t descriptorSize [[maybe_unused]] (vk::Bool32 robustBufferAccess, const vk::PhysicalDeviceDescriptorBufferPropertiesEXT & physicalDeviceDescriptorBufferProperties, vk::DescriptorType descriptorType)
+{
+    switch (descriptorType) {
+    case vk::DescriptorType::eSampler : {
+        return physicalDeviceDescriptorBufferProperties.samplerDescriptorSize;
+    }
+    case vk::DescriptorType::eCombinedImageSampler : {
+        return physicalDeviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+    }
+    case vk::DescriptorType::eSampledImage : {
+        return physicalDeviceDescriptorBufferProperties.sampledImageDescriptorSize;
+    }
+    case vk::DescriptorType::eStorageImage : {
+        return physicalDeviceDescriptorBufferProperties.storageImageDescriptorSize;
+    }
+    case vk::DescriptorType::eUniformTexelBuffer : {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.uniformTexelBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustUniformTexelBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eStorageTexelBuffer : {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.storageTexelBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustStorageTexelBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eUniformBuffer : {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.uniformBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustUniformBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eStorageBuffer : {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.storageBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eUniformBufferDynamic : {
+        INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored to descriptor buffer");
+    }
+    case vk::DescriptorType::eStorageBufferDynamic : {
+        INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored to descriptor buffer");
+    }
+    case vk::DescriptorType::eInputAttachment : {
+        return physicalDeviceDescriptorBufferProperties.inputAttachmentDescriptorSize;
+    }
+    case vk::DescriptorType::eInlineUniformBlock : {
+        INVARIANT(false, "Inline uniform block descriptor cannot be stored to descriptor buffer");
+    }
+    case vk::DescriptorType::eAccelerationStructureKHR : {
+        return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
+    }
+    case vk::DescriptorType::eAccelerationStructureNV : {
+        return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
+    }
+    case vk::DescriptorType::eSampleWeightImageQCOM : {
+        INVARIANT(false, "Sample weight image descriptor cannot be stored to descriptor buffer");
+    }
+    case vk::DescriptorType::eBlockMatchImageQCOM : {
+        INVARIANT(false, "Block match image descriptor cannot be stored to descriptor buffer");
+    }
+    case vk::DescriptorType::eMutableVALVE : {
+        INVARIANT(false, "Mutable type descriptor cannot be stored to descriptor buffer");
+    }
+    }
+    INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
+}
+
 [[nodiscard]] vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
 {
     using namespace std::string_view_literals;
@@ -509,9 +583,9 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
             size_t b = 0;
             for (auto & mergedBinding : mergedBindings.bindings) {
                 if (binding.binding == mergedBinding.binding) {
-                    INVARIANT(binding.descriptorType == mergedBinding.descriptorType, "{} != {}", binding.descriptorType, mergedBinding.descriptorType);
-                    INVARIANT(binding.descriptorCount == mergedBinding.descriptorCount, "{} != {}", binding.descriptorCount, mergedBinding.descriptorCount);
-                    INVARIANT(binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {}", fmt::ptr(binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers));
+                    INVARIANT(binding.descriptorType == mergedBinding.descriptorType, "{} != {} (binding {})", binding.descriptorType, mergedBinding.descriptorType, b);
+                    INVARIANT(binding.descriptorCount == mergedBinding.descriptorCount, "{} != {} (binding {})", binding.descriptorCount, mergedBinding.descriptorCount, b);
+                    INVARIANT(binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {} (binding {})", fmt::ptr(binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers), b);
                     mergedBinding.stageFlags |= binding.stageFlags;
                     merged = true;
                     break;
@@ -540,7 +614,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name)
         }
 
         vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
-        descriptorSetLayoutCreateInfo.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+        descriptorSetLayoutCreateInfo.flags = vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
         descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
         descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
