@@ -13,7 +13,7 @@ void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher
 {
     INVARIANT(object, "Expected valid object");
 
-    vk::DebugUtilsLabelEXT debugUtilsLabel = {};
+    vk::DebugUtilsLabelEXT debugUtilsLabel;
     debugUtilsLabel.setPLabelName(labelName);
     debugUtilsLabel.setColor(color);
     object.insertDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
@@ -53,7 +53,7 @@ auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_T
 {
     INVARIANT(object, "Expected valid object");
 
-    vk::DebugUtilsLabelEXT debugUtilsLabel = {};
+    vk::DebugUtilsLabelEXT debugUtilsLabel;
     debugUtilsLabel.setPLabelName(labelName);
     debugUtilsLabel.setColor(color);
     object.beginDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);

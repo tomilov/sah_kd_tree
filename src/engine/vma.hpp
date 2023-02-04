@@ -42,6 +42,7 @@ public:
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
     Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
+    Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
     Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
     Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
 
@@ -66,6 +67,7 @@ struct ENGINE_EXPORT AllocationCreateInfo
     enum class AllocationType
     {
         kAuto,
+        kDescriptors,
         kStaging,
         kReadback,
     };
@@ -79,6 +81,7 @@ struct ENGINE_EXPORT AllocationCreateInfo
 
     std::string name;
     AllocationType type;
+    float priority = 1.0f;
     DefragmentationMoveOperation defragmentationMoveOperation = DefragmentationMoveOperation::kCopy;
 };
 

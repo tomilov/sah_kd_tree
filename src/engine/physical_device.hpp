@@ -64,36 +64,29 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     struct RequiredFeatures
     {
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {
-            &vk::PhysicalDeviceFeatures::samplerAnisotropy,
+            //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> physicalDeviceVulkan11Features = {};
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> physicalDeviceVulkan12Features = {
             &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray,
-            &vk::PhysicalDeviceVulkan12Features::shaderSampledImageArrayNonUniformIndexing,
             &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
-            &vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
+            //&vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
             &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
             &vk::PhysicalDeviceVulkan12Features::descriptorIndexing,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformBufferUpdateAfterBind,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingSampledImageUpdateAfterBind,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageImageUpdateAfterBind,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageBufferUpdateAfterBind,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingUniformTexelBufferUpdateAfterBind,
-            &vk::PhysicalDeviceVulkan12Features::descriptorBindingStorageTexelBufferUpdateAfterBind,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan13Features::*> physicalDeviceVulkan13Features = {
             &vk::PhysicalDeviceVulkan13Features::synchronization2,
             &vk::PhysicalDeviceVulkan13Features::maintenance4,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*> rayTracingPipelineFeatures = {
-            &vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
+            //&vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*> physicalDeviceAccelerationStructureFeatures = {
-            &vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
+            //&vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesEXT::*> physicalDeviceMeshShaderFeatures = {
-            &vk::PhysicalDeviceMeshShaderFeaturesEXT::meshShader,
-            &vk::PhysicalDeviceMeshShaderFeaturesEXT::taskShader,
+            //&vk::PhysicalDeviceMeshShaderFeaturesEXT::meshShader,
+            //&vk::PhysicalDeviceMeshShaderFeaturesEXT::taskShader,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceDescriptorBufferFeaturesEXT::*> physicalDeviceDescriptorBufferFeatures = {
             &vk::PhysicalDeviceDescriptorBufferFeaturesEXT::descriptorBuffer,
@@ -105,7 +98,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_KHR_SHADER_CLOCK_EXTENSION_NAME, VK_EXT_MESH_SHADER_EXTENSION_NAME,
+        // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        // VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
+        // VK_EXT_MESH_SHADER_EXTENSION_NAME,
     };
 
     vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo;

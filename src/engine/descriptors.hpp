@@ -25,15 +25,15 @@ struct ENGINE_EXPORT DescriptorPool final : utils::NonCopyable
     const Library & library;
     const Device & device;
 
-    const size_t maxSets;
-    const std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
     const uint32_t framesInFlight;
+    const ShaderStages & shaderStages;
 
+    std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
     vk::UniqueDescriptorPool descriptorPoolHolder;
     vk::DescriptorPool descriptorPool;
 
-    DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes);
+    DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, const ShaderStages & shaderStages);
 
 private:
     void init();

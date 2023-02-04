@@ -56,6 +56,8 @@ class Resources
     , public std::enable_shared_from_this<Resources>
 {
 public:
+    static inline constexpr vk::DescriptorSetLayoutCreateFlags kDescriptorSetLayoutCreateFlags = {};//vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
+
     struct Descriptors : utils::NonCopyable
     {
         vk::DeviceSize uniformBufferSize = 0;
@@ -64,10 +66,12 @@ public:
 
         std::optional<engine::DescriptorPool> descriptorPool;
         std::deque<engine::DescriptorSets> descriptorSets;
+        std::vector<engine::Buffer> descriptorSetBuffers;
+        std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
 
-        Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes);
+        Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages);
     };
 
     struct GraphicsPipeline : utils::NonCopyable

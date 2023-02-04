@@ -1,4 +1,5 @@
-﻿#include <engine/engine.hpp>
+﻿#include <engine/device.hpp>
+#include <engine/engine.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
@@ -184,6 +185,8 @@ void Viewer::checkEngine() const
         vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getVulkanGraphicsQueueIndex(), &queue);
         INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
     }
+
+    engine->getEngine().getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
 }
 
 void Viewer::releaseResources()

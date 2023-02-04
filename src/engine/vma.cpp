@@ -193,7 +193,7 @@ struct Resource final : utils::OnlyMoveable
 
         vk::ImageSubresourceRange getImageSubresourceRange() const
         {
-            vk::ImageSubresourceRange imageSubresourceRange = {};
+            vk::ImageSubresourceRange imageSubresourceRange;
             imageSubresourceRange.setAspectMask(aspect);
             imageSubresourceRange.setBaseMipLevel(0);
             imageSubresourceRange.setLevelCount(VK_REMAINING_MIP_LEVELS);
@@ -234,22 +234,22 @@ struct Resource final : utils::OnlyMoveable
 
     BufferResource & getBufferResource()
     {
-        return std::get<Resource::BufferResource>(resource);
+        return std::get<BufferResource>(resource);
     }
 
     const BufferResource & getBufferResource() const
     {
-        return std::get<Resource::BufferResource>(resource);
+        return std::get<BufferResource>(resource);
     }
 
     ImageResource & getImageResource()
     {
-        return std::get<Resource::ImageResource>(resource);
+        return std::get<ImageResource>(resource);
     }
 
     const ImageResource & getImageResource() const
     {
-        return std::get<Resource::ImageResource>(resource);
+        return std::get<ImageResource>(resource);
     }
 
 private:
@@ -283,8 +283,8 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
     std::vector<vk::ImageMemoryBarrier2> beginImageBarriers;
     std::vector<vk::ImageMemoryBarrier2> endImageBarriers;
 
-    vk::MemoryBarrier2 beginMemoryBarrier = {};
-    vk::MemoryBarrier2 endMemoryBarrier = {};
+    vk::MemoryBarrier2 beginMemoryBarrier;
+    vk::MemoryBarrier2 endMemoryBarrier;
 
     bool wantsMemoryBarrier = false;
 
@@ -409,7 +409,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
         }
 
         if (!std::empty(beginImageBarriers) || wantsMemoryBarrier) {
-            vk::DependencyInfo dependencyInfo = {};
+            vk::DependencyInfo dependencyInfo;
             dependencyInfo.setDependencyFlags({});
             if (wantsMemoryBarrier) {
                 dependencyInfo.setMemoryBarriers(beginMemoryBarrier);
@@ -436,7 +436,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                     .dstOffset = 0,
                     .size = source.get().getBufferCreateInfo().size,
                 };
-                vk::CopyBufferInfo2 copyBufferInfo = {};
+                vk::CopyBufferInfo2 copyBufferInfo;
                 copyBufferInfo.setSrcBuffer(*bufferResource.buffer);
                 copyBufferInfo.setDstBuffer(*bufferResource.newBuffer);
                 copyBufferInfo.setRegions(region);
@@ -498,7 +498,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
         }
 
         if (!std::empty(endImageBarriers) || wantsMemoryBarrier) {
-            vk::DependencyInfo dependencyInfo = {};
+            vk::DependencyInfo dependencyInfo;
             dependencyInfo.setDependencyFlags({});
             if (wantsMemoryBarrier) {
                 dependencyInfo.setMemoryBarriers(endMemoryBarrier);
@@ -627,12 +627,12 @@ VmaAllocatorInfo Resource::getAllocatorInfo() const
 
 const vk::BufferCreateInfo & Resource::getBufferCreateInfo() const
 {
-    return std::get<BufferResource>(resource).bufferCreateInfo;
+    return getBufferResource().bufferCreateInfo;
 }
 
 const vk::ImageCreateInfo & Resource::getImageCreateInfo() const
 {
-    return std::get<ImageResource>(resource).imageCreateInfo;
+    return getImageResource().imageCreateInfo;
 }
 
 const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
@@ -672,17 +672,25 @@ VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreat
 {
     VmaAllocationCreateInfo allocationCreateInfoNative = {};
     allocationCreateInfoNative.pUserData = this;
-    allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
+    allocationCreateInfoNative.priority = allocationCreateInfo.priority;
     switch (allocationCreateInfo.type) {
     case AllocationCreateInfo::AllocationType::kAuto: {
+        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO;
+        break;
+    }
+    case AllocationCreateInfo::AllocationType::kDescriptors: {
+        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;  // TODO: consider VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
         break;
     }
     case AllocationCreateInfo::AllocationType::kStaging: {
-        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;  // TODO: consider VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
         break;
     }
     case AllocationCreateInfo::AllocationType::kReadback: {
-        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;  // TODO: consider VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
         break;
     }
     }
@@ -847,6 +855,14 @@ auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
+    allocationCreateInfo.name = name;
+    return {*this, bufferCreateInfo, allocationCreateInfo};
+}
+
+auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kDescriptors;
     allocationCreateInfo.name = name;
     return {*this, bufferCreateInfo, allocationCreateInfo};
 }

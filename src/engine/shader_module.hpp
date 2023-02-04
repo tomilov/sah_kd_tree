@@ -10,6 +10,7 @@
 
 #include <deque>
 #include <functional>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -86,8 +87,10 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     struct SetBindings
     {
+        uint32_t setIndex = std::numeric_limits<uint32_t>::max();
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
         std::unordered_map<std::string, size_t> bindingIndices;
+        std::vector<std::string> bindingNames;
 
         const vk::DescriptorSetLayoutBinding & getBinding(const std::string & variableName) const
         {
@@ -117,8 +120,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
 
     void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint);
-    void createDescriptorSetLayouts(std::string_view name);
-    std::vector<vk::DescriptorPoolSize> getDescriptorPoolSizes() const;
+    void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     // TODO: descriptor update template
 

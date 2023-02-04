@@ -15,29 +15,22 @@
 namespace engine
 {
 
-namespace
-{
-
-std::vector<vk::DescriptorPoolSize> multiply(std::vector<vk::DescriptorPoolSize> descriptorPoolSizes, uint32_t framesInFlight)
-{
-    for (auto & descriptorPoolSize : descriptorPoolSizes) {
-        descriptorPoolSize.descriptorCount *= framesInFlight;
-    }
-    return descriptorPoolSizes;
-}
-
-}  // namespace
-
-DescriptorPool::DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, uint32_t maxSets, const std::vector<vk::DescriptorPoolSize> & descriptorPoolSizes)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, maxSets{maxSets * framesInFlight}, descriptorPoolSizes{multiply(descriptorPoolSizes, framesInFlight)}, framesInFlight{framesInFlight}
+DescriptorPool::DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, const ShaderStages & shaderStages)
+    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
 {
     init();
 }
 
 void DescriptorPool::init()
 {
+    descriptorPoolSizes.reserve(std::size(shaderStages.descriptorCounts));
+    for (const auto & [descriptorType, descriptorCount] : shaderStages.descriptorCounts) {
+        descriptorPoolSizes.push_back({descriptorType, descriptorCount * framesInFlight});
+    }
+
+    uint32_t setCount = utils::autoCast(std::size(shaderStages.descriptorSetLayouts));
     descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
-    descriptorPoolCreateInfo.setMaxSets(maxSets);
+    descriptorPoolCreateInfo.setMaxSets(setCount * framesInFlight);
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSizes);
     descriptorPoolHolder = device.device.createDescriptorPoolUnique(descriptorPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
     descriptorPool = *descriptorPoolHolder;

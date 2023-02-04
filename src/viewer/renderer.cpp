@@ -30,6 +30,7 @@
 #include <memory>
 #include <vector>
 
+#include <cstddef>
 #include <cstdint>
 
 using namespace Qt::StringLiterals;
@@ -172,6 +173,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     if (!resources) {
         return;
     }
+    ASSERT(descriptors);
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline = resources->createGraphicsPipeline(renderPass);
     }
@@ -190,9 +192,26 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     constexpr uint32_t firstSet = 0;
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, nullptr, library.dispatcher);
+    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
+    if (Resources::kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
+        const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
+        if (!std::empty(descriptorSetBuffers)) {
+            commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, library.dispatcher);
+            std::vector<uint32_t> bufferIndices(std::size(descriptorSetBuffers));
+            std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
+            std::vector<vk::DeviceSize> offsets;
+            offsets.reserve(std::size(descriptorSetBuffers));
+            uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
+            INVARIANT(framesInFlight > 0, "");
+            for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
+                offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
+            }
+            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, bufferIndices, offsets, library.dispatcher);
+        }
+    } else {
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, nullptr, library.dispatcher);
+    }
 
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);
