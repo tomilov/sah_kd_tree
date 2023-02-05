@@ -1,0 +1,132 @@
+#include <codegen/vulkan_utils.hpp>
+#include <utils/assert.hpp>
+
+#include <format/vulkan.hpp>
+
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <unordered_map>
+#include <vector>
+
+#include <spirv/unified1/spirv.h>
+
+namespace codegen::vulkan
+{
+
+namespace
+{
+
+struct FormatPlane
+{
+    uint32_t index = 0;
+    vk::Format compatibleFormat;
+    uint32_t heightDivisor = 1;
+    uint32_t widthDivisor = 1;
+};
+
+struct Format
+{
+    vk::DeviceSize blockSize = VK_WHOLE_SIZE;
+    std::vector<FormatPlane> planes;
+    SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
+};
+
+const std::unordered_map<vk::Format, Format> kFormats = {
+    {%- for format in formats %}
+    {
+        vk::Format::e{{ format.enum_value_name }},
+        Format{
+            {%- if format.block_size %}
+            .blockSize = {{ format.block_size }},
+            {%- endif %}
+            {%- if format.planes %}
+            .planes = {
+                {%- for plane in format.planes %}
+                FormatPlane{
+                    {%- if plane.index %}
+                    .index = {{ plane.index }},
+                    {%- endif %}
+                    {%- if plane.compatible_format %}
+                    .compatibleFormat = vk::Format::e{{ plane.compatible_format }},
+                    {%- endif %}
+                    {%- if plane.height_divisor %}
+                    .heightDivisor = {{ plane.height_divisor }},
+                    {%- endif %}
+                    {%- if plane.width_divisor %}
+                    .widthDivisor = {{ plane.width_divisor }},
+                    {%- endif %}
+                },
+                {%- endfor %}
+            },
+            {%- endif %}
+        },
+    },
+    {%- endfor %}
+};
+
+vk::DeviceSize formatStencilBitSize(vk::Format format)
+{
+    switch (format) {
+    case vk::Format::eD16UnormS8Uint:
+    case vk::Format::eD24UnormS8Uint:
+    case vk::Format::eD32SfloatS8Uint:
+    case vk::Format::eS8Uint:
+        return 8;
+    default:
+        INVARIANT(false, "Stencil size of format '{}' is not known", format);
+    }
+}
+
+vk::DeviceSize formatDepthBitSize(vk::Format format)
+{
+    switch (format) {
+    case vk::Format::eD16Unorm:
+    case vk::Format::eD16UnormS8Uint:
+        return 16;
+    case vk::Format::eD24UnormS8Uint:
+    case vk::Format::eX8D24UnormPack32:
+        return 24;
+    case vk::Format::eD32Sfloat:
+    case vk::Format::eD32SfloatS8Uint:
+        return 32;
+    default:
+        INVARIANT(false, "Depth size of format '{}' is not known", format);
+    }
+}
+
+uint32_t getPlaneIndex(vk::ImageAspectFlagBits imageAspect)
+{
+    switch (imageAspect) {
+    case vk::ImageAspectFlagBits::ePlane0:
+        return 0;
+    case vk::ImageAspectFlagBits::ePlane1:
+        return 1;
+    case vk::ImageAspectFlagBits::ePlane2:
+        return 2;
+    default:
+        INVARIANT(false, "Plane index for image apsect '{}' is not known", imageAspect);
+    }
+}
+
+}  // namespace
+
+vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect)
+{
+    if (imageAspect == vk::ImageAspectFlagBits::eStencil) {
+        return formatStencilBitSize(format) / 8;
+    } else if (imageAspect == vk::ImageAspectFlagBits::eDepth) {
+        return formatDepthBitSize(format) / 8;
+    }
+    auto f = kFormats.find(format);
+    INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
+    if (!std::empty(f->second.planes)) {
+        uint32_t planeIndex = getPlaneIndex(imageAspect);
+        format = f->second.planes.at(planeIndex).compatibleFormat;
+        f = kFormats.find(format);
+        INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
+    }
+    return f->second.blockSize;
+}
+
+}  // namespace codegen::vulkan

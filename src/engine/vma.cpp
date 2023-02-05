@@ -1,13 +1,14 @@
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
 #include <engine/exception.hpp>
-#include <engine/format.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
+
+#include <format/vulkan.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -519,9 +520,15 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                 continue;
             }
 
-            const auto updateBuffer = [](Resource::BufferResource & bufferResource) { bufferResource.buffer = std::move(bufferResource.newBuffer); };
+            const auto updateBuffer = [](Resource::BufferResource & bufferResource)
+            {
+                bufferResource.buffer = std::move(bufferResource.newBuffer);
+            };
 
-            const auto updateImage = [](Resource::ImageResource & imageResource) { imageResource.image = std::move(imageResource.newImage); };
+            const auto updateImage = [](Resource::ImageResource & imageResource)
+            {
+                imageResource.image = std::move(imageResource.newImage);
+            };
 
             const auto & resource = sources[i];
             std::visit(utils::Overloaded{updateBuffer, updateImage}, resource.get().resource);
@@ -646,7 +653,10 @@ const VmaAllocationCreateInfo & Resource::getAllocationCreateInfo() const
 
 VmaAllocation Resource::getAllocation() const
 {
-    const auto allocation = [](const auto & resource) { return resource.allocation; };
+    const auto allocation = [](const auto & resource)
+    {
+        return resource.allocation;
+    };
     return std::visit(allocation, resource);
 }
 

@@ -1,0 +1,12 @@
+#pragma once
+
+#include <vulkan/vulkan.hpp>
+
+#include <codegen/codegen_vulkan_export.h>
+
+namespace codegen::vulkan
+{
+
+[[nodiscard]] vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect) CODEGEN_VULKAN_EXPORT;
+
+}  // namespace codegen::vulkan

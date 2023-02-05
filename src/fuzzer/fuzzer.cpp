@@ -332,7 +332,10 @@ struct TestInput
             assert(!std::empty(triangles));
             return std::next(std::begin(triangles), uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, int(std::size(triangles) - 1)}));
         };
-        const auto mutateTriangle = [&](auto t) { genTriangle(*t); };
+        const auto mutateTriangle = [&](auto t)
+        {
+            genTriangle(*t);
+        };
         switch (action) {
         case 0: {
             params.emptinessFactor = genFloat();
@@ -464,7 +467,10 @@ struct TestInput
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
         {
             const Vertex * vertices[] = {&box[0].a, &box[0].b, &box[2].b, &box[2].c, &box[4].b, &box[4].c, &box[5].c, &box[6].c};
-            [[maybe_unused]] const auto vertexLess = [](auto l, auto r) { return *l < *r; };
+            [[maybe_unused]] const auto vertexLess = [](auto l, auto r)
+            {
+                return *l < *r;
+            };
             assert(std::adjacent_find(std::cbegin(vertices), std::cend(vertices), std::not_fn(vertexLess)) == std::cend(vertices));
             if (anchor) {
                 std::shuffle(std::begin(vertices), std::end(vertices), utils::defaultRandom());

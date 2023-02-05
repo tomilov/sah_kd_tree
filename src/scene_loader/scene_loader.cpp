@@ -121,7 +121,10 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     scene.resize(numFaces);
     {
         auto t = scene.triangles.get();
-        const auto toVertex = [](const aiVector3D & v) -> scene::Vertex { return {v.x, v.y, v.z}; };
+        const auto toVertex = [](const aiVector3D & v) -> scene::Vertex
+        {
+            return {v.x, v.y, v.z};
+        };
         for (unsigned int m = 0; m < assimpScene->mNumMeshes; ++m) {
             const aiMesh & mesh = *assimpScene->mMeshes[m];
             // qCDebug(sceneLoader) << mesh.mName.C_Str();

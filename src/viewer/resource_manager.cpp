@@ -1,6 +1,5 @@
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
-#include <engine/format.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -8,6 +7,8 @@
 #include <engine/vma.hpp>
 #include <utils/assert.hpp>
 #include <viewer/resource_manager.hpp>
+
+#include <format/vulkan.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -198,7 +199,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
 
     if (kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
-        auto robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
+        const auto robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
         const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
         const auto getDescriptorSize = [robustBufferAccess, &physicalDeviceDescriptorBufferProperties](vk::DescriptorType descriptorType) -> size_t
         {
@@ -212,7 +213,6 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
             auto setDescriptors = mappedDescriptorSetBuffer.get();
             const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.getSize() / framesInFlight;
             for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
-                setDescriptors += descriptorSetBufferPerFrameSize;
                 uint32_t b = 0;
                 for (const auto & binding : bindings.bindings) {
                     const auto & bindingName = bindings.bindingNames.at(b);
@@ -236,6 +236,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
                     device.device.getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
                     ++b;
                 }
+                setDescriptors += descriptorSetBufferPerFrameSize;
             }
         }
     } else {

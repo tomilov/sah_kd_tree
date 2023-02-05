@@ -1,0 +1,19 @@
+#include <codegen/spirv_format.hpp>
+
+#include <type_traits>
+
+namespace codegen::spv
+{
+{% for spv_enum in spv_enums %}
+const char * toString({{ spv_enum.enum_type }} {{ spv_enum.variable_name }})
+{
+    switch (static_cast<std::underlying_type_t<{{ spv_enum.enum_type }}>>({{ spv_enum.variable_name }})) {
+    {%- for enum_value in spv_enum.enum_values %}
+    case {{ enum_value.enum_underlying_value }}:
+        return "{{ enum_value.enum_value_name }}";
+    {%- endfor %}
+    }
+    return nullptr;
+}
+{% endfor %}
+}  // namespace codegen::spv

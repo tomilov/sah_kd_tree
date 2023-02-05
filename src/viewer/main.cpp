@@ -1,8 +1,9 @@
 #include <common/version.hpp>
 #include <engine/engine.hpp>
-#include <engine/format.hpp>
 #include <utils/assert.hpp>
 #include <viewer/engine_wrapper.hpp>
+
+#include <format/vulkan.hpp>
 
 #include <spdlog/details/null_mutex.h>
 #include <spdlog/sinks/base_sink.h>
@@ -262,7 +263,10 @@ int main(int argc, char * argv[])
     }
     qCInfo(viewerMainCategory).noquote() << u"Application path: %1"_s.arg(QCoreApplication::applicationDirPath());
 
-    const auto beforeQuit = [] { qCInfo(viewerMainCategory) << "Application is about to quit"; };
+    const auto beforeQuit = []
+    {
+        qCInfo(viewerMainCategory) << "Application is about to quit";
+    };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {
         qFatal("unreachable");
     }

@@ -1,0 +1,13 @@
+#pragma once
+
+#include <../SPIRV-Reflect/spirv_reflect.h>
+
+#include <codegen/codegen_spirv_export.h>
+
+namespace codegen::spv
+{
+{% for spv_enum in spv_enums %}
+[[nodiscard]] const char * toString({{ spv_enum.enum_type }} {{ spv_enum.variable_name }}) CODEGEN_SPIRV_EXPORT;
+{%- endfor %}
+
+}  // namespace codegen::spv

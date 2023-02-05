@@ -68,11 +68,17 @@ auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projec
 
         {  // generate index for child node
             auto nodeLeftChildBegin = thrust::next(node.leftChild.begin(), layer.base);
-            const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U { return (layerSplitDimension < 0) ? 0 : 2; };
+            const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U
+            {
+                return (layerSplitDimension < 0) ? 0 : 2;
+            };
             auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, thrust::plus<U>{});
 
             auto nodeRightChildBegin = thrust::next(node.rightChild.begin(), layer.base);
-            const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild) -> U { return nodeLeftChild + 1; };
+            const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild) -> U
+            {
+                return nodeLeftChild + 1;
+            };
             thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, nodeRightChildBegin, toNodeRightChild);
         }
 

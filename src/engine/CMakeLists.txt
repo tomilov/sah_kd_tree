@@ -35,8 +35,6 @@ target_sources(
         "file_io.cpp"
         "memory.hpp"
         "memory.cpp"
-        "format.hpp"
-        "format.cpp"
         "library.hpp"
         "library.cpp"
         "instance.hpp"
@@ -77,8 +75,9 @@ target_link_libraries(
         "gli"
         "VulkanMemoryAllocator"
         "SPIRV-Reflect"
-        "libcodegen"
-        "VkLayer_utils" # from system
+        "libformat"
+        "libcodegen_spirv_format"
+        "libcodegen_vulkan_utils"
         "nlohmann_json"
     PUBLIC
         Vulkan::Headers

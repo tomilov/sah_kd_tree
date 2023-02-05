@@ -1,7 +1,7 @@
+#include <codegen/vulkan_utils.hpp>
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
 #include <engine/file_io.hpp>
-#include <engine/format.hpp>
 #include <engine/library.hpp>
 #include <engine/push_constant_ranges.hpp>
 #include <engine/shader_module.hpp>
@@ -9,6 +9,8 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
+
+#include <format/vulkan.hpp>
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
 #include <fmt/format.h>
@@ -393,7 +395,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         vertexInputAttributeDescription.binding = vertexInputBindingDescription.binding;
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
-        auto formatSize = FormatElementSize(utils::autoCast(vertexInputAttributeDescription.format), VK_IMAGE_ASPECT_NONE);
+        auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eNone);
         INVARIANT(formatSize > 0, "Expected known to VkLayer_utils format {}", vertexInputAttributeDescription.format);
         vertexInputBindingDescription.stride += formatSize;
     }

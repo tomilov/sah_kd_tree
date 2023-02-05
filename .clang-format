@@ -39,6 +39,7 @@ BraceWrapping:
     SplitEmptyRecord: true
     SplitEmptyNamespace: true
 LambdaBodyIndentation: Signature
+AllowShortLambdasOnASingleLine: Inline
 UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true

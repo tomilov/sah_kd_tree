@@ -8,10 +8,11 @@
 #include <type_traits>
 #include <utility>
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
-#include <engine/engine_export.h>
+#include <format/format_export.h>
 
 template<typename FlagBitsType>
 size_t getFlagBitsMaxNameLength()
@@ -80,7 +81,10 @@ struct fmt::formatter<vk::DebugUtilsLabelEXT> : fmt::formatter<fmt::string_view>
     auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
     {
         auto color = debugUtilsLabel.color;
-        auto clamp = [](float color) -> uint8_t { return std::floor(std::numeric_limits<uint8_t>::max() * std::clamp(color, 0.0f, 1.0f)); };
+        auto clamp = [](float color) -> uint8_t
+        {
+            return std::floor(std::numeric_limits<uint8_t>::max() * std::clamp(color, 0.0f, 1.0f));
+        };
         auto rgb = fmt::rgb(clamp(color[0]), clamp(color[1]), clamp(color[2]));
         auto styledLabelName = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(rgb));
         return fmt::format_to(ctx.out(), "'{}'", styledLabelName);

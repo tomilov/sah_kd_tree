@@ -22,6 +22,7 @@ target_link_libraries(
         Qt6::Qml
         Qt6::Quick
         "libscene"
+        "libformat"
         "libengine"
         "gli"
     PUBLIC
@@ -90,6 +91,7 @@ target_link_libraries(
         "lib${PROJECT_NAME}"
         "libutils"
         "libcommon"
+        "libformat"
         "libengine"
         Qt6::Gui
         Qt6::Qml

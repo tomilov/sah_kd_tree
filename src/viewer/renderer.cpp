@@ -170,6 +170,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
+    return;
     if (!resources) {
         return;
     }
