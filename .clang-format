@@ -68,6 +68,8 @@ IncludeCategories:
     Priority: 5
   - Regex: ^<\.\./SPIRV\-Reflect/
     Priority: 5
+  - Regex: <spirv/unified1/spirv\.h>
+    Priority: 5
   - Regex: ^<gtest/gtest\.h>$
     Priority: 5
   - Regex: ^<assimp/

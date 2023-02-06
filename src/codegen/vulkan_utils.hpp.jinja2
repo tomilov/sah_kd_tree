@@ -1,11 +1,19 @@
 #pragma once
 
+#include <spirv/unified1/spirv.h>
 #include <vulkan/vulkan.hpp>
+
+#include <unordered_map>
+#include <unordered_set>
 
 #include <codegen/codegen_vulkan_export.h>
 
 namespace codegen::vulkan
 {
+
+extern const std::unordered_set<vk::Format> kMultiplaneFormats;
+extern const std::unordered_set<vk::Format> kFormatHasSpvImageFormat;
+extern const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat;
 
 [[nodiscard]] vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect) CODEGEN_VULKAN_EXPORT;
 

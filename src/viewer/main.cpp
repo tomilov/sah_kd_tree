@@ -161,24 +161,19 @@ protected:
         auto message = QString::fromStdString(fmt::to_string(msg.payload));
         switch (msgType.value()) {
         case QtMsgType::QtDebugMsg: {
-            messageLogger.debug("%s", qPrintable(message));
-            return;
+            return messageLogger.debug("%s", qPrintable(message));
         }
         case QtMsgType::QtWarningMsg: {
-            messageLogger.warning("%s", qPrintable(message));
-            return;
+            return messageLogger.warning("%s", qPrintable(message));
         }
         case QtMsgType::QtCriticalMsg: {
-            messageLogger.critical("%s", qPrintable(message));
-            return;
+            return messageLogger.critical("%s", qPrintable(message));
         }
         case QtMsgType::QtFatalMsg: {
-            messageLogger.fatal("%s", qPrintable(message));
-            return;
+            return messageLogger.fatal("%s", qPrintable(message));
         }
         case QtMsgType::QtInfoMsg: {
-            messageLogger.info("%s", qPrintable(message));
-            return;
+            return messageLogger.info("%s", qPrintable(message));
         }
         }
         INVARIANT(false, "unreachable");

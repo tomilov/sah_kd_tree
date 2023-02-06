@@ -9,8 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <spirv/unified1/spirv.h>
-
 namespace codegen::vulkan
 {
 
@@ -19,8 +17,7 @@ namespace
 
 struct FormatPlane
 {
-    uint32_t index = 0;
-    vk::Format compatibleFormat;
+    vk::Format compatibleFormat = vk::Format::eUndefined;
     uint32_t heightDivisor = 1;
     uint32_t widthDivisor = 1;
 };
@@ -33,36 +30,28 @@ struct Format
 };
 
 const std::unordered_map<vk::Format, Format> kFormats = {
-    {%- for format in formats %}
+    {% for format in formats %}
     {
-        vk::Format::e{{ format.enum_value_name }},
+        {{ format.format_cpp_name }},  // {{ format.format_name }}
         Format{
-            {%- if format.block_size %}
             .blockSize = {{ format.block_size }},
-            {%- endif %}
-            {%- if format.planes %}
+            {% if format.planes %}
             .planes = {
-                {%- for plane in format.planes %}
+                {% for plane in format.planes %}
                 FormatPlane{
-                    {%- if plane.index %}
-                    .index = {{ plane.index }},
-                    {%- endif %}
-                    {%- if plane.compatible_format %}
-                    .compatibleFormat = vk::Format::e{{ plane.compatible_format }},
-                    {%- endif %}
-                    {%- if plane.height_divisor %}
+                    .compatibleFormat = {{ plane.compatible_cpp_format_name }},  // {{ plane.compatible_format_name }}
                     .heightDivisor = {{ plane.height_divisor }},
-                    {%- endif %}
-                    {%- if plane.width_divisor %}
                     .widthDivisor = {{ plane.width_divisor }},
-                    {%- endif %}
                 },
-                {%- endfor %}
+                {% endfor %}
             },
-            {%- endif %}
+            {% endif %}
+            {% if format.spirv_image_format %}
+            .spvImageFormat = SpvImageFormat{{ format.spirv_image_format }},
+            {% endif %}
         },
     },
-    {%- endfor %}
+    {% endfor %}
 };
 
 vk::DeviceSize formatStencilBitSize(vk::Format format)
@@ -110,6 +99,31 @@ uint32_t getPlaneIndex(vk::ImageAspectFlagBits imageAspect)
 }
 
 }  // namespace
+
+const std::unordered_set<vk::Format> kMultiplaneFormats = {
+    {% set max_length = formats | selectattr('planes') | map(attribute='format_cpp_name') | map('length') | max %}
+    {% for format in formats | selectattr('planes') %}
+    {% set indent_comment = max_length - (format.format_cpp_name | length) %}
+    {{ format.format_cpp_name }}, {{ ' ' * indent_comment }} // {{ format.format_name }}
+    {% endfor %}
+};
+
+const std::unordered_set<vk::Format> kFormatHasSpvImageFormat = {
+    {% set max_length = formats | selectattr('spirv_image_format') | map(attribute='format_cpp_name') | map('length') | max %}
+    {% for format in formats | selectattr('spirv_image_format') %}
+    {% set indent_comment = max_length - (format.format_cpp_name | length) %}
+    {{ format.format_cpp_name }}, {{ ' ' * indent_comment }} // {{ format.format_name }} -> SpvImageFormat{{ format.spirv_image_format }}
+    {% endfor %}
+};
+
+const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat = {
+    {% for format in formats | selectattr('spirv_image_format') %}
+    {
+        SpvImageFormat{{ format.spirv_image_format }},
+        {{ format.format_cpp_name }},  // {{ format.format_name }}
+    },
+    {% endfor %}
+};
 
 vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect)
 {

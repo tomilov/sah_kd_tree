@@ -56,7 +56,7 @@ class Resources
     , public std::enable_shared_from_this<Resources>
 {
 public:
-    static inline constexpr vk::DescriptorSetLayoutCreateFlags kDescriptorSetLayoutCreateFlags = {};  // vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
+    static constexpr vk::DescriptorSetLayoutCreateFlags kDescriptorSetLayoutCreateFlags = {};  // vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
 
     struct Descriptors : utils::NonCopyable
     {
