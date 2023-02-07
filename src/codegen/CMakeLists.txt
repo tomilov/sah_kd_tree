@@ -27,7 +27,7 @@ macro(add_codegen_library name dependency command_arg)
                 "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
                 --source-dir="${CMAKE_CURRENT_SOURCE_DIR}"
                 --clang-format-executable="${clang_format_executable}"
-                --clang-format="${CMAKE_SOURCE_DIR}/.clang-format"
+                --clang-format-config="${CMAKE_SOURCE_DIR}/.clang-format"
                 "${name}"
                 "${command_arg}"
         COMMAND
@@ -97,6 +97,8 @@ add_codegen_library(
 
 target_link_libraries(
     "lib${PROJECT_NAME}_vulkan_utils"
+    PRIVATE
+        "SPIRV-Reflect"
     PUBLIC
         "Vulkan-Headers")
 

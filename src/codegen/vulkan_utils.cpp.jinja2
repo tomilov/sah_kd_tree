@@ -1,7 +1,8 @@
 #include <codegen/vulkan_utils.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 
-#include <format/vulkan.hpp>
+#include <../SPIRV-Reflect/spirv_reflect.h>
 
 #include <algorithm>
 #include <iterator>
@@ -9,11 +10,38 @@
 #include <unordered_map>
 #include <vector>
 
+#include <cstddef>
+#include <cstdint>
+
 namespace codegen::vulkan
 {
 
 namespace
 {
+
+enum class FormatCompatibilityClass
+{
+    Unknown,
+    {% set max_length = compatibility_classes | items | map(attribute=1) | map('length') | max %}
+    {% for cc, identifier in compatibility_classes | dictsort(by='value') %}
+    {% set indent_comment = max_length - (identifier | length) %}
+    {{ identifier }}, {{ ' ' * indent_comment }} // {{ cc }}
+    {% endfor %}
+};
+
+enum class ComponentType
+{
+    Unknown,
+    {% for component_type in component_types %}
+    {{ component_type }},
+    {% endfor %}
+};
+
+struct FormatComponent
+{
+    ComponentType componentType = ComponentType::Unknown;
+    size_t bitsize = 0;
+};
 
 struct FormatPlane
 {
@@ -25,8 +53,10 @@ struct FormatPlane
 struct Format
 {
     vk::DeviceSize blockSize = VK_WHOLE_SIZE;
+    FormatCompatibilityClass compatibilityClass = FormatCompatibilityClass::Unknown;
     std::vector<FormatPlane> planes;
     SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
+    FormatComponent formatComponents[{{ max_component_count }}] = {};
 };
 
 const std::unordered_map<vk::Format, Format> kFormats = {
@@ -35,6 +65,7 @@ const std::unordered_map<vk::Format, Format> kFormats = {
         {{ format.format_cpp_name }},  // {{ format.format_name }}
         Format{
             .blockSize = {{ format.block_size }},
+            .compatibilityClass = FormatCompatibilityClass::{{ compatibility_classes[format.compatibility_class] }},  // {{ format.compatibility_class }}
             {% if format.planes %}
             .planes = {
                 {% for plane in format.planes %}

@@ -22,7 +22,7 @@ VK_FORMAT
     |
         # ASTC
         _(?P<astc>ASTC)
-        _(?P<astc_width>[4568]|10|12)x(?P<astc_height>[4568]|10|12)
+        _(?P<astc_block_width>[4568]|10|12)x(?P<astc_block_height>[4568]|10|12)
         _(?P<astc_numeric_format>UNORM|SRGB|SFLOAT)
         _BLOCK
     |
@@ -33,14 +33,14 @@ VK_FORMAT
         _BLOCK
     |
         # ETC2
-        _(?P<etc>ETC2)
-        _(?P<etc_components>R8G8B8|R8G8B8A[18])
-        _(?P<etc_numeric_format>UNORM|SRGB)
+        _(?P<etc2>ETC2)
+        _(?P<etc2_components>R8G8B8|R8G8B8A[18])
+        _(?P<etc2_numeric_format>UNORM|SRGB)
         _BLOCK
     |
         # BC
         _(?P<bc>BC(?:[123457]|6H))
-        (?:_(?P<bc_components>RGB|RGBA))?
+        (?:_(?P<bc_components>RGBA?))?
         _(?P<bc_numeric_format>UNORM|SRGB|SNORM|UFLOAT|SFLOAT)
         _BLOCK
     |
@@ -66,6 +66,18 @@ VK_FORMAT
         _(?P<numeric_format>USCALED|UINT|UFLOAT|SINT|SFLOAT|SSCALED|SRGB|SNORM|UNORM)
         (?:_(?P<batch>[234])?PACK(?P<pack>8|16|32))?
 )$
+''', re.VERBOSE)
+
+REFORMAT_COMPATIBILITY_CLASS = re.compile(r'''
+    ^(\d)
+|
+    (\ )
+|
+    (ASTC_\d+x\d+)
+|
+    \-
+|
+    ([a-z]+)
 ''', re.VERBOSE)
 
 
@@ -103,7 +115,7 @@ def gen_spirv_format_context(args):
         unique_enum_underlying_values = set()
         unique_enum_values = list()
         for enum_value_name, enum_underlying_value in enum_values:
-            assert isinstance(enum_underlying_value, int)
+            assert isinstance(enum_underlying_value, int), type(enum_underlying_value).__name__
             if not enum_underlying_value in unique_enum_underlying_values:
                 unique_enum_underlying_values.add(enum_underlying_value)
                 enum_value = {
@@ -124,10 +136,6 @@ def gen_spirv_format_context(args):
 def gen_vulkan_utils_context(args):
     registry = etree.parse(args.vulkan_registry).getroot()
 
-    tags = registry.findall('tags')
-    assert len(tags) == 1
-    vendors = '|'.join(tag.get('name') for tag in tags[0].findall('tag'))
-
     def cpp_case(m):
         g1 = m.group(1)
         if g1:
@@ -137,138 +145,137 @@ def gen_vulkan_utils_context(args):
         s = m.group()
         return s[0] + s[1:].lower()
 
+    tags = registry.findall('tags')
+    assert len(tags) == 1, len(tags)
+    vendors = '|'.join(tag.get('name') for tag in tags[0].findall('tag'))
     split_c_regex = re.compile(f'(?:_({vendors})$)|(_)|([A-Z]+)')
 
     def to_cpp_case(identifier):
         return split_c_regex.sub(cpp_case, identifier)
 
+
     def c_identifier_to_cpp(identifier, prefix):
         vk_len = len('VK_')
         assert prefix[:vk_len] == 'VK_', prefix
         assert identifier[:len(prefix)] == prefix, identifier[:len(prefix)]
-        camel_case = re.sub(f'(?:_({vendors})$)|(_)|([A-Z]+)', cpp_case, identifier[vk_len:])
+        camel_case = to_cpp_case(identifier[vk_len:])
         type_len = sum(1 for c in prefix[vk_len:] if c != '_')
         return f'vk::{camel_case[:type_len]}::e{camel_case[type_len:]}'
 
 
-    name = set()
-    blockExtent = set()
-    blockSize = set()
-    class_ = set()
-    packed = set()
-    compressed = set()
-    chroma = set()
-    texelsPerBlock = set()
-    depth_formats = list()
-    stencil_formats = list()
-    numeric_format = set()
-    mp_numeric_format = set()
-    plane_attribs = set()
-    tags = set()
+    def reformat_cc(compatibility_class):
+        def reformat_to_identifier(m):
+            g1 = m.group(1)
+            if g1:
+                return f'_{g1}'
+            if m.group(2):
+                return '_'
+            g3 = m.group(3)
+            if g3:
+                return g3
+            g4 = m.group(4)
+            if g4:
+                return g4.upper()
+        return REFORMAT_COMPATIBILITY_CLASS.sub(reformat_to_identifier, compatibility_class)
+
+
+    compatibility_classes = dict()
+    component_types = set()
+    max_component_count = 0
 
     formats = registry.findall('formats')
-    assert len(formats) == 1
+    assert len(formats) == 1, len(formats)
     output_formats = list()
     for format in formats[0]:
-        assert format.tag == 'format'
+        assert format.tag == 'format', format.tag
         output_format = dict()
-        format_name = format.get('name')
-        output_format['format_name'] = format_name
-        output_format['format_cpp_name'] = c_identifier_to_cpp(format_name, 'VK_FORMAT')
+
+        assert len(format) > 0, len(format)
+        for key, value in format.attrib.items():
+            if key == 'name':
+                format_name = value
+                output_format['format_name'] = format_name
+                output_format['format_cpp_name'] = c_identifier_to_cpp(format_name, 'VK_FORMAT')
+
+                #print(format.tag, format.attrib)
+                #props = {key: value for key, value in FORMAT_REGEX.match(format_name).groupdict().items() if value is not None}
+                #import json
+                #print(format_name, json.dumps(props, indent=2, sort_keys=True))
+            elif key == 'blockExtent':
+                pass
+            elif key == 'blockSize':
+                output_format['block_size'] = value
+            elif key == 'class':
+                compatibility_classes[value] = reformat_cc(value)
+                output_format['compatibility_class'] = value
+            elif key == 'packed':
+                pass
+            elif key == 'compressed':
+                pass
+            elif key == 'chroma':
+                pass
+            elif key == 'texelsPerBlock':
+                pass
+            else:
+                assert False, key
+
+        assert all(child.tag in {'component', 'spirvimageformat', 'plane'} for child in format)
+
+        components = format.findall('component')
+        max_component_count = max(max_component_count, len(components))
+        for component in components:
+            for key, value in component.attrib.items():
+                if key == 'numericFormat':
+                    pass
+                elif key == 'bits':
+                    pass
+                elif key == 'planeIndex':
+                    pass
+                elif key == 'name':
+                    component_types.add(value)
+                else:
+                    assert False, key
+
         planes = format.findall('plane')
         if len(planes) > 0:
-            assert len(planes) != 1
+            assert len(planes) != 1, len(planes)
             output_planes = list()
             for plane in planes:
-                compatible_format = plane.get('compatible')
-                output_plane = {
-                    'index': plane.get('index'),
-                    'compatible_format_name': compatible_format,
-                    'compatible_cpp_format_name': c_identifier_to_cpp(compatible_format, 'VK_FORMAT'),
-                    'height_divisor': plane.get('heightDivisor'),
-                    'width_divisor': plane.get('widthDivisor'),
-                }
+                output_plane = dict()
+                for key, value in plane.attrib.items():
+                    if key == 'index':
+                        output_plane['index'] = value
+                    elif key == 'compatible':
+                        output_plane['compatible_format_name'] = value
+                        output_plane['compatible_cpp_format_name'] = c_identifier_to_cpp(value, 'VK_FORMAT')
+                    elif key == 'heightDivisor':
+                        output_plane['height_divisor'] = value
+                    elif key == 'widthDivisor':
+                        output_plane['width_divisor'] = value
+                    else:
+                        assert False, key
                 output_planes.append(output_plane)
             output_planes.sort(key=lambda output_plane: output_plane['index'])
             for output_plane in output_planes:
                 del output_plane['index']
             output_format['planes'] = output_planes
 
-        print(format_name)
-        print(format.tag, format.attrib)
-        assert len(format) > 0
-        for key, value in format.attrib.items():
-            if key == 'name':
-                name.add(value)
-            elif key == 'blockExtent':
-                blockExtent.add(value)
-            elif key == 'blockSize':
-                blockSize.add(value)
-                output_format['block_size'] = value
-            elif key == 'class':
-                class_.add(value)
-            elif key == 'packed':
-                packed.add(value)
-            elif key == 'compressed':
-                compressed.add(value)
-            elif key == 'chroma':
-                chroma.add(value)
-            elif key == 'texelsPerBlock':
-                texelsPerBlock.add(value)
-            else:
-                assert False
-
-        for property in format:
-            assert len(property) == 0
-
-            print('\t', property.tag, property.attrib)
-            tags.add(property.tag) # 'component', 'spirvimageformat', 'plane'
-
-            if property.tag == 'component':
-                numeric_format.add(property.get('numericFormat'))
-                if len(planes) > 0:
-                    mp_numeric_format.add(property.get('numericFormat'))
-                #plane_attribs.update(property.attrib.keys())
-                # 'numericFormat', 'bits', 'planeIndex', 'name'
-                if property.get('name') == 'D':
-                    depth_formats.append(format_name)
-                if property.get('name') == 'S':
-                    stencil_formats.append(format_name)
-                pass
-            elif property.tag == 'spirvimageformat':
-                output_format['spirv_image_format'] = property.get('name')
-                #plane_attribs.update(property.attrib.keys())
-                # 'name'
-                pass
-            elif property.tag == 'plane':
-                #plane_attribs.update(property.attrib.keys())
-                # 'compatible', 'heightDivisor', 'index', 'widthDivisor'
-                pass
-            else:
-                assert False
+        spirvimageformats = format.findall('spirvimageformat')
+        assert len(spirvimageformats) < 2, len(spirvimageformats)
+        if len(spirvimageformats) == 1:
+            for key, value in spirvimageformats[0].attrib.items():
+                if key == 'name':
+                    output_format['spirv_image_format'] = value
+                else:
+                    assert False, key
 
         output_formats.append(output_format)
 
-        m = FORMAT_REGEX.match(format_name)
-        print('<Match: %r, groupdict=%r>' % (m.group(), m.groupdict()))
-
-    print('name', name)
-    print('numeric_format', numeric_format)
-    print('mp_numeric_format', mp_numeric_format)
-    print('blockExtent', blockExtent)
-    print('blockSize', blockSize)
-    print('class_', class_)
-    print('packed', packed)
-    print('compressed', compressed)
-    print('chroma', chroma)
-    print('texelsPerBlock', texelsPerBlock)
-    print('tags', tags)
-    print('plane_attribs', plane_attribs)
-    print('depth_formats', '|'.join(depth_formats))
-    print('stencil_formats', '|'.join(stencil_formats))
-
     context = {
         'formats': output_formats,
+        'compatibility_classes': {cc: reformat_cc(cc) for cc in compatibility_classes},
+        'component_types': sorted(list(component_types)),
+        'max_component_count': max_component_count,
     }
     filters = {
         'c_identifier_to_cpp': c_identifier_to_cpp,
@@ -276,11 +283,18 @@ def gen_vulkan_utils_context(args):
     return context, filters
 
 
+def clang_format(unformatted):
+    popenargs = [args.clang_format_executable, f'-style=file:{args.clang_format_config}']
+    completed_process = subprocess.run(popenargs, input=unformatted.encode(), stdout=subprocess.PIPE)
+    completed_process.check_returncode()
+    return completed_process.stdout.decode()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-dir', required=True, help='Source directory')
     parser.add_argument('--clang-format-executable', required=True, help='Filepath of clang-format executable')
-    parser.add_argument('--clang-format', required=True, help='Filepaht of .clang-format config file')
+    parser.add_argument('--clang-format-config', required=True, help='Filepath of .clang-format config file')
     parser.add_argument('--fail-on-format-mismatch', action='store_true', help='Abort if formatted differs from unformatted')
 
     subparsers = parser.add_subparsers(dest='subparser_name')
@@ -305,15 +319,12 @@ if __name__ == '__main__':
             default=False,
         )
     )
-    if filters:
-        env.filters.update(filters)
+    env.filters.update(filters)
+
     for ext in ['hpp', 'cpp']:
         file_name = f'{args.subparser_name}.{ext}'
         unformatted = env.get_template(f'{file_name}.jinja2').render(context)
-        popenargs = [args.clang_format_executable, f'-style=file:{args.clang_format}']
-        completed_process = subprocess.run(popenargs, input=unformatted.encode(), stdout=subprocess.PIPE)
-        completed_process.check_returncode()
-        formatted = completed_process.stdout.decode()
+        formatted = clang_format(unformatted)
         if unformatted != formatted:
             print_diff(unformatted, formatted, file_name=file_name)
             assert not args.fail_on_format_mismatch
