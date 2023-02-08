@@ -5,12 +5,93 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
+
+#include <cstdint>
 
 #include <codegen/codegen_vulkan_export.h>
 
 namespace codegen::vulkan
 {
 
+enum class FormatCompatibilityClass
+{
+    eUnknown,
+    {% set max_length = compatibility_classes | map(attribute=1) | map('length') | max %}
+    {% for c, cc in compatibility_classes %}
+    {% set indent_comment = max_length - (cc | length) %}
+    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
+    {% endfor %}
+};
+
+enum class ComponentType
+{
+    eAbsent,
+    {% for component_type in component_types %}
+    e{{ component_type }},
+    {% endfor %}
+};
+
+enum class NumericFormat
+{
+    eUnknown,
+    {% set max_length = numeric_formats | map(attribute=1) | map('length') | max %}
+    {% for c, cc in numeric_formats %}
+    {% set indent_comment = max_length - (cc | length) %}
+    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
+    {% endfor %}
+};
+
+enum class CompressionType
+{
+    eNotCompressed,
+    {% set max_length = compression_types | map(attribute=1) | map('length') | max %}
+    {% for c, cc in compression_types %}
+    {% set indent_comment = max_length - (cc | length) %}
+    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
+    {% endfor %}
+};
+
+enum class ChromaKind
+{
+    eNoChroma,
+    {% set max_length = chroma_kinds | map(attribute=1) | map('length') | max %}
+    {% for c, cc in chroma_kinds %}
+    {% set indent_comment = max_length - (cc | length) %}
+    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
+    {% endfor %}
+};
+
+struct FormatComponent
+{
+    ComponentType componentType = ComponentType::eAbsent;
+    NumericFormat numericFormat = NumericFormat::eUnknown;
+    uint32_t bitsize = 0;  // 0 if compressed
+    uint32_t planeIndex = 0;
+};
+
+struct FormatPlane
+{
+    vk::Format compatibleFormat = vk::Format::eUndefined;
+    uint32_t heightDivisor = 1;
+    uint32_t widthDivisor = 1;
+};
+
+struct Format
+{
+    FormatCompatibilityClass compatibilityClass = FormatCompatibilityClass::eUnknown;
+    FormatComponent components[{{ max_component_count }}] = {};
+    SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
+    uint32_t blockSize = 0;  // always non-zero
+    vk::Extent3D blockExtent = {1, 1, 1};
+    uint32_t texelsPerBlock = 1;
+    uint32_t packed = 0;  // 8, 16, 32 or 0 if not packed
+    CompressionType compressionType = CompressionType::eNotCompressed;
+    std::vector<FormatPlane> planes;
+    ChromaKind chromaKind = ChromaKind::eNoChroma;
+};
+
+extern const std::unordered_map<vk::Format, Format> kFormats;
 extern const std::unordered_set<vk::Format> kMultiplaneFormats;
 extern const std::unordered_set<vk::Format> kFormatHasSpvImageFormat;
 extern const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat;

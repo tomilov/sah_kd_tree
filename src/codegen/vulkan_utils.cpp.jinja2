@@ -3,14 +3,13 @@
 #include <utils/assert.hpp>
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
+#include <spirv/unified1/spirv.h>
+#include <vulkan/vulkan.hpp>
 
-#include <algorithm>
 #include <iterator>
-#include <limits>
 #include <unordered_map>
-#include <vector>
+#include <unordered_set>
 
-#include <cstddef>
 #include <cstdint>
 
 namespace codegen::vulkan
@@ -19,99 +18,35 @@ namespace codegen::vulkan
 namespace
 {
 
-enum class FormatCompatibilityClass
-{
-    Unknown,
-    {% set max_length = compatibility_classes | items | map(attribute=1) | map('length') | max %}
-    {% for cc, identifier in compatibility_classes | dictsort(by='value') %}
-    {% set indent_comment = max_length - (identifier | length) %}
-    {{ identifier }}, {{ ' ' * indent_comment }} // {{ cc }}
-    {% endfor %}
-};
-
-enum class ComponentType
-{
-    Unknown,
-    {% for component_type in component_types %}
-    {{ component_type }},
-    {% endfor %}
-};
-
-struct FormatComponent
-{
-    ComponentType componentType = ComponentType::Unknown;
-    size_t bitsize = 0;
-};
-
-struct FormatPlane
-{
-    vk::Format compatibleFormat = vk::Format::eUndefined;
-    uint32_t heightDivisor = 1;
-    uint32_t widthDivisor = 1;
-};
-
-struct Format
-{
-    vk::DeviceSize blockSize = VK_WHOLE_SIZE;
-    FormatCompatibilityClass compatibilityClass = FormatCompatibilityClass::Unknown;
-    std::vector<FormatPlane> planes;
-    SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
-    FormatComponent formatComponents[{{ max_component_count }}] = {};
-};
-
-const std::unordered_map<vk::Format, Format> kFormats = {
-    {% for format in formats %}
-    {
-        {{ format.format_cpp_name }},  // {{ format.format_name }}
-        Format{
-            .blockSize = {{ format.block_size }},
-            .compatibilityClass = FormatCompatibilityClass::{{ compatibility_classes[format.compatibility_class] }},  // {{ format.compatibility_class }}
-            {% if format.planes %}
-            .planes = {
-                {% for plane in format.planes %}
-                FormatPlane{
-                    .compatibleFormat = {{ plane.compatible_cpp_format_name }},  // {{ plane.compatible_format_name }}
-                    .heightDivisor = {{ plane.height_divisor }},
-                    .widthDivisor = {{ plane.width_divisor }},
-                },
-                {% endfor %}
-            },
-            {% endif %}
-            {% if format.spirv_image_format %}
-            .spvImageFormat = SpvImageFormat{{ format.spirv_image_format }},
-            {% endif %}
-        },
-    },
-    {% endfor %}
-};
-
 vk::DeviceSize formatStencilBitSize(vk::Format format)
 {
     switch (format) {
-    case vk::Format::eD16UnormS8Uint:
-    case vk::Format::eD24UnormS8Uint:
-    case vk::Format::eD32SfloatS8Uint:
-    case vk::Format::eS8Uint:
-        return 8;
+    {% for format in formats %}
+    {% for component in format.components %}
+    {% if component.component_type == 'S' %}
+    case {{ format.format_cpp_name }}:  // {{ format.format_name }}
+        return {{ component.bitsize }};
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
     default:
-        INVARIANT(false, "Stencil size of format '{}' is not known", format);
+        INVARIANT(false, "Stencil size is not known for format '{}'", format);
     }
 }
 
 vk::DeviceSize formatDepthBitSize(vk::Format format)
 {
     switch (format) {
-    case vk::Format::eD16Unorm:
-    case vk::Format::eD16UnormS8Uint:
-        return 16;
-    case vk::Format::eD24UnormS8Uint:
-    case vk::Format::eX8D24UnormPack32:
-        return 24;
-    case vk::Format::eD32Sfloat:
-    case vk::Format::eD32SfloatS8Uint:
-        return 32;
+    {% for format in formats %}
+    {% for component in format.components %}
+    {% if component.component_type == 'D' %}
+    case {{ format.format_cpp_name }}:  // {{ format.format_name }}
+        return {{ component.bitsize }};
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
     default:
-        INVARIANT(false, "Depth size of format '{}' is not known", format);
+        INVARIANT(false, "Depth size is not known for format '{}'", format);
     }
 }
 
@@ -130,6 +65,65 @@ uint32_t getPlaneIndex(vk::ImageAspectFlagBits imageAspect)
 }
 
 }  // namespace
+
+const std::unordered_map<vk::Format, Format> kFormats = {
+    {% for format in formats %}
+    {
+        {{ format.format_cpp_name }},  // {{ format.format_name }}
+        Format{
+            .compatibilityClass = FormatCompatibilityClass::e{{ format.compatibility_cpp_class }},
+            .components = {
+                {% for component in format.components %}
+                {
+                    .componentType = ComponentType::e{{ component.component_type }},
+                    .numericFormat = NumericFormat::e{{ component.numeric_cpp_format }},
+                    {% if component.bitsize != 'compressed' %}
+                    .bitsize = {{ component.bitsize }},
+                    {% else %}
+                    .bitsize = 0,  // compressed: e{{ format.compression_type }}
+                    {% endif %}
+                    {% if format.planes %}
+                    .planeIndex = {{ component.plane_index }},
+                    {% endif %}
+                },
+                {% endfor %}
+            },
+            {% if format.spirv_image_format %}
+            .spvImageFormat = SpvImageFormat{{ format.spirv_image_format }},
+            {% endif %}
+            {% if format.block_size %}
+            .blockSize = {{ format.block_size }},
+            {% endif %}
+            {% if format.block_extent %}
+            .blockExtent = { {{- format.block_extent[0] }}, {{ format.block_extent[1] }}, {{ format.block_extent[2] -}} },
+            {% endif %}
+            {% if format.texels_per_block %}
+            .texelsPerBlock = {{ format.texels_per_block }},
+            {% endif %}
+            {% if format.packed %}
+            .packed = {{ format.packed }},
+            {% endif %}
+            {% if format.compression_type %}
+            .compressionType = CompressionType::e{{ format.compression_cpp_type }},
+            {% endif %}
+            {% if format.planes %}
+            .planes = {
+                {% for plane in format.planes %}
+                FormatPlane{
+                    .compatibleFormat = {{ plane.compatible_cpp_format_name }},
+                    .heightDivisor = {{ plane.height_divisor }},
+                    .widthDivisor = {{ plane.width_divisor }},
+                },
+                {% endfor %}
+            },
+            {% endif %}
+            {% if format.chroma_kind_cpp %}
+            .chromaKind = ChromaKind::e{{ format.chroma_kind_cpp }},
+            {% endif %}
+        },
+    },
+    {% endfor %}
+};
 
 const std::unordered_set<vk::Format> kMultiplaneFormats = {
     {% set max_length = formats | selectattr('planes') | map(attribute='format_cpp_name') | map('length') | max %}

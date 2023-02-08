@@ -8,7 +8,7 @@ import argparse
 import xml.etree.ElementTree as etree
 
 FORMAT_REGEX = re.compile(r'''
-VK_FORMAT
+^VK_FORMAT
 (?:
         # NVIDIA optical flow
         _R16G16_S10_5_NV
@@ -68,18 +68,6 @@ VK_FORMAT
 )$
 ''', re.VERBOSE)
 
-REFORMAT_COMPATIBILITY_CLASS = re.compile(r'''
-    ^(\d)
-|
-    (\ )
-|
-    (ASTC_\d+x\d+)
-|
-    \-
-|
-    ([a-z]+)
-''', re.VERBOSE)
-
 
 def print_diff(unformatted, formatted, file_name=''):
     a = unformatted.splitlines(keepends=True)
@@ -111,7 +99,7 @@ def gen_spirv_format_context(args):
         spv_enum['enum_typename'] = f'Spv{key}'
         spv_enum['variable_name'] = to_variable_name(key)
 
-        enum_values = sorted(list(value.items()), key=lambda item: (item[1], item[0]))
+        enum_values = sorted(value.items(), key=lambda item: (item[1], item[0]))
         unique_enum_underlying_values = set()
         unique_enum_values = list()
         for enum_value_name, enum_underlying_value in enum_values:
@@ -154,7 +142,7 @@ def gen_vulkan_utils_context(args):
         return split_c_regex.sub(cpp_case, identifier)
 
 
-    def c_identifier_to_cpp(identifier, prefix):
+    def c_enum_to_cpp(identifier, prefix):
         vk_len = len('VK_')
         assert prefix[:vk_len] == 'VK_', prefix
         assert identifier[:len(prefix)] == prefix, identifier[:len(prefix)]
@@ -163,25 +151,26 @@ def gen_vulkan_utils_context(args):
         return f'vk::{camel_case[:type_len]}::e{camel_case[type_len:]}'
 
 
-    def reformat_cc(compatibility_class):
-        def reformat_to_identifier(m):
+    reformat_identifier_regex = re.compile(r'[_\ \-]|\bASTC_(\d+x\d+)\b|([A-Za-z]+)')
+
+
+    def reformat_identifier(identifier):
+        def reformat(m):
             g1 = m.group(1)
             if g1:
-                return f'_{g1}'
-            if m.group(2):
-                return '_'
-            g3 = m.group(3)
-            if g3:
-                return g3
-            g4 = m.group(4)
-            if g4:
-                return g4.upper()
-        return REFORMAT_COMPATIBILITY_CLASS.sub(reformat_to_identifier, compatibility_class)
+                return f'Astc{g1}'
+            g2 = m.group(2)
+            if g2:
+                return g2[0].upper() + g2[1:].lower()
+        return reformat_identifier_regex.sub(reformat, identifier)
 
 
-    compatibility_classes = dict()
+    compatibility_classes = set()
     component_types = set()
     max_component_count = 0
+    numeric_formats = set()
+    compression_types = set()
+    chroma_kinds = set()
 
     formats = registry.findall('formats')
     assert len(formats) == 1, len(formats)
@@ -194,50 +183,77 @@ def gen_vulkan_utils_context(args):
         for key, value in format.attrib.items():
             if key == 'name':
                 format_name = value
+                assert FORMAT_REGEX.match(format_name), format_name
                 output_format['format_name'] = format_name
-                output_format['format_cpp_name'] = c_identifier_to_cpp(format_name, 'VK_FORMAT')
-
-                #print(format.tag, format.attrib)
-                #props = {key: value for key, value in FORMAT_REGEX.match(format_name).groupdict().items() if value is not None}
-                #import json
-                #print(format_name, json.dumps(props, indent=2, sort_keys=True))
+                output_format['format_cpp_name'] = c_enum_to_cpp(format_name, 'VK_FORMAT')
             elif key == 'blockExtent':
-                pass
+                if value != '1,1,1':
+                    block_extent = tuple(map(int, value.split(',')))
+                    assert len(block_extent) == 3
+                    output_format['block_extent'] = block_extent
             elif key == 'blockSize':
                 output_format['block_size'] = value
             elif key == 'class':
-                compatibility_classes[value] = reformat_cc(value)
                 output_format['compatibility_class'] = value
+                compatibility_class = reformat_identifier(value)
+                output_format['compatibility_cpp_class'] = compatibility_class
+                compatibility_classes.add((value, compatibility_class))
             elif key == 'packed':
-                pass
+                output_format['packed'] = value
             elif key == 'compressed':
-                pass
+                output_format['compression_type'] = value
+                compression_type = reformat_identifier(value)
+                output_format['compression_cpp_type'] = compression_type
+                compression_types.add((value, compression_type))
             elif key == 'chroma':
-                pass
+                output_format['chroma_kind'] = value
+                chroma_kind = reformat_identifier(value)
+                output_format['chroma_kind_cpp'] = chroma_kind
+                chroma_kinds.add((value, chroma_kind))
             elif key == 'texelsPerBlock':
-                pass
+                if value != '1':
+                    output_format['texels_per_block'] = value
             else:
                 assert False, key
+
+        assert 'format_name' in output_format
+        assert 'block_size' in output_format
+        assert 'compatibility_class' in output_format
 
         assert all(child.tag in {'component', 'spirvimageformat', 'plane'} for child in format)
 
         components = format.findall('component')
+        planes = format.findall('plane')
+        spirvimageformats = format.findall('spirvimageformat')
+
+        assert components
         max_component_count = max(max_component_count, len(components))
+        output_components = list()
         for component in components:
+            output_component = dict()
             for key, value in component.attrib.items():
-                if key == 'numericFormat':
-                    pass
-                elif key == 'bits':
-                    pass
-                elif key == 'planeIndex':
-                    pass
-                elif key == 'name':
+                if key == 'name':
+                    output_component['component_type'] = value
                     component_types.add(value)
+                elif key == 'numericFormat':
+                    output_component['numeric_format'] = value
+                    numeric_format = reformat_identifier(value)
+                    output_component['numeric_cpp_format'] = numeric_format
+                    numeric_formats.add((value, numeric_format))
+                elif key == 'bits':
+                    output_component['bitsize'] = value
+                elif key == 'planeIndex':
+                    output_component['plane_index'] = value
                 else:
                     assert False, key
+            assert 'component_type' in output_component
+            assert 'numeric_format' in output_component
+            assert 'bitsize' in output_component
+            output_components.append(output_component)
 
-        planes = format.findall('plane')
-        if len(planes) > 0:
+        output_format['components'] = output_components
+
+        if planes:
             assert len(planes) != 1, len(planes)
             output_planes = list()
             for plane in planes:
@@ -247,20 +263,25 @@ def gen_vulkan_utils_context(args):
                         output_plane['index'] = value
                     elif key == 'compatible':
                         output_plane['compatible_format_name'] = value
-                        output_plane['compatible_cpp_format_name'] = c_identifier_to_cpp(value, 'VK_FORMAT')
+                        output_plane['compatible_cpp_format_name'] = c_enum_to_cpp(value, 'VK_FORMAT')
                     elif key == 'heightDivisor':
                         output_plane['height_divisor'] = value
                     elif key == 'widthDivisor':
                         output_plane['width_divisor'] = value
                     else:
                         assert False, key
+                assert 'index' in output_plane
+                assert 'compatible_format_name' in output_plane
+                assert 'compatible_cpp_format_name' in output_plane
+                assert 'height_divisor' in output_plane
+                assert 'width_divisor' in output_plane
                 output_planes.append(output_plane)
             output_planes.sort(key=lambda output_plane: output_plane['index'])
             for output_plane in output_planes:
                 del output_plane['index']
+
             output_format['planes'] = output_planes
 
-        spirvimageformats = format.findall('spirvimageformat')
         assert len(spirvimageformats) < 2, len(spirvimageformats)
         if len(spirvimageformats) == 1:
             for key, value in spirvimageformats[0].attrib.items():
@@ -268,17 +289,29 @@ def gen_vulkan_utils_context(args):
                     output_format['spirv_image_format'] = value
                 else:
                     assert False, key
+            assert 'spirv_image_format' in output_format
 
         output_formats.append(output_format)
 
+    assert compatibility_classes
+    assert component_types
+    assert max_component_count > 0
+    assert numeric_formats
+    assert compression_types
+    assert chroma_kinds
+    assert output_formats
+
     context = {
-        'formats': output_formats,
-        'compatibility_classes': {cc: reformat_cc(cc) for cc in compatibility_classes},
-        'component_types': sorted(list(component_types)),
+        'compatibility_classes': sorted(compatibility_classes),
+        'component_types': sorted(component_types),
         'max_component_count': max_component_count,
+        'numeric_formats': sorted(numeric_formats),
+        'compression_types': sorted(compression_types),
+        'chroma_kinds': sorted(chroma_kinds),
+        'formats': output_formats,
     }
     filters = {
-        'c_identifier_to_cpp': c_identifier_to_cpp,
+        'c_enum_to_cpp': c_enum_to_cpp,
     }
     return context, filters
 
@@ -327,6 +360,6 @@ if __name__ == '__main__':
         formatted = clang_format(unformatted)
         if unformatted != formatted:
             print_diff(unformatted, formatted, file_name=file_name)
-            assert not args.fail_on_format_mismatch
+            assert not args.fail_on_format_mismatch, 'Failed on formats mismatch'
         with open(f'{file_name}.tmp', 'wb') as tmp:
             tmp.write(unformatted.encode())
