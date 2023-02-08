@@ -4,7 +4,6 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
-
 #include <format/vulkan.hpp>
 
 #include <fmt/std.h>

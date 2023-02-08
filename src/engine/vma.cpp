@@ -5,10 +5,9 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/overloaded.hpp>
-
-#include <format/vulkan.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -81,21 +80,22 @@ struct Resource final : utils::OnlyMoveable
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::BufferCreateInfo bufferCreateInfo;
         VmaAllocationCreateInfo allocationCreateInfo = {};
+        vk::DeviceSize minAlignment = 0;
 
-        vk::UniqueBuffer buffer = {};
+        vk::UniqueBuffer buffer;
         VmaAllocation allocation = VK_NULL_HANDLE;
         VmaAllocationInfo allocationInfo = {};
 
-        vk::UniqueBuffer newBuffer = {};
+        vk::UniqueBuffer newBuffer;
 
         BufferResource()
         {}
 
-        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-            : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
+        BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
+            : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}, minAlignment{minAlignment}
         {
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
-            auto result = vk::Result(vmaCreateBuffer(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, &newBuffer, &allocation, &allocationInfo));
+            auto result = vk::Result(vmaCreateBufferWithAlignment(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, minAlignment, &newBuffer, &allocation, &allocationInfo));
             buffer = vk::UniqueBuffer{newBuffer, ResourceDestroy{resource.getAllocatorInfo().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
             INVARIANT(result == vk::Result::eSuccess, "Cannot create buffer: {}", result);
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
@@ -103,19 +103,25 @@ struct Resource final : utils::OnlyMoveable
 
         BufferResource(BufferResource && bufferResource)
             : allocator{std::exchange(bufferResource.allocator, VK_NULL_HANDLE)}
-            , bufferCreateInfo{bufferResource.bufferCreateInfo}
+            , bufferCreateInfo{std::exchange(bufferResource.bufferCreateInfo, vk::BufferCreateInfo{})}
+            , allocationCreateInfo{std::exchange(bufferResource.allocationCreateInfo, VmaAllocationCreateInfo{})}
+            , minAlignment{std::exchange(bufferResource.minAlignment, 0)}
             , buffer{std::move(bufferResource.buffer)}
             , allocation{std::exchange(bufferResource.allocation, VK_NULL_HANDLE)}
+            , allocationInfo{std::exchange(bufferResource.allocationInfo, VmaAllocationInfo{})}
             , newBuffer{std::move(bufferResource.newBuffer)}
         {}
 
         BufferResource & operator=(BufferResource && bufferResource)
         {
-            std::swap(allocator, bufferResource.allocator);
-            std::swap(bufferCreateInfo, bufferResource.bufferCreateInfo);
-            std::swap(buffer, bufferResource.buffer);
-            std::swap(allocation, bufferResource.allocation);
-            std::swap(newBuffer, bufferResource.newBuffer);
+            allocator = std::exchange(bufferResource.allocator, VK_NULL_HANDLE);
+            bufferCreateInfo = std::exchange(bufferResource.bufferCreateInfo, vk::BufferCreateInfo{});
+            allocationCreateInfo = std::exchange(bufferResource.allocationCreateInfo, VmaAllocationCreateInfo{});
+            minAlignment = std::exchange(bufferResource.minAlignment, 0);
+            buffer = std::move(bufferResource.buffer);
+            allocation = std::exchange(bufferResource.allocation, VK_NULL_HANDLE);
+            allocationInfo = std::exchange(bufferResource.allocationInfo, VmaAllocationInfo{});
+            newBuffer = std::move(bufferResource.newBuffer);
             return *this;
         }
 
@@ -140,11 +146,11 @@ struct Resource final : utils::OnlyMoveable
         vk::ImageCreateInfo imageCreateInfo;
         VmaAllocationCreateInfo allocationCreateInfo = {};
 
-        vk::UniqueImage image = {};
+        vk::UniqueImage image;
         VmaAllocation allocation = VK_NULL_HANDLE;
         VmaAllocationInfo allocationInfo = {};
 
-        vk::UniqueImage newImage = {};
+        vk::UniqueImage newImage;
 
         vk::ImageLayout layout = vk::ImageLayout::eUndefined;
         vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eColor;
@@ -164,23 +170,27 @@ struct Resource final : utils::OnlyMoveable
 
         ImageResource(ImageResource && imageResource)
             : allocator{std::exchange(imageResource.allocator, VK_NULL_HANDLE)}
-            , imageCreateInfo{imageResource.imageCreateInfo}
+            , imageCreateInfo{std::exchange(imageResource.imageCreateInfo, vk::ImageCreateInfo{})}
+            , allocationCreateInfo{std::exchange(imageResource.allocationCreateInfo, VmaAllocationCreateInfo{})}
             , image{std::move(imageResource.image)}
             , allocation{std::exchange(imageResource.allocation, VK_NULL_HANDLE)}
+            , allocationInfo{std::exchange(imageResource.allocationInfo, VmaAllocationInfo{})}
             , newImage{std::move(imageResource.newImage)}
-            , layout{imageResource.layout}
-            , aspect{imageResource.aspect}
+            , layout{std::exchange(imageResource.layout, vk::ImageLayout::eUndefined)}
+            , aspect{std::exchange(imageResource.aspect, vk::ImageAspectFlagBits::eColor)}
         {}
 
         ImageResource & operator=(ImageResource && imageResource)
         {
-            std::swap(allocator, imageResource.allocator);
-            std::swap(imageCreateInfo, imageResource.imageCreateInfo);
-            std::swap(image, imageResource.image);
-            std::swap(allocation, imageResource.allocation);
-            std::swap(newImage, imageResource.newImage);
-            std::swap(layout, imageResource.layout);
-            std::swap(aspect, imageResource.aspect);
+            allocator = std::exchange(imageResource.allocator, VK_NULL_HANDLE);
+            imageCreateInfo = std::exchange(imageResource.imageCreateInfo, vk::ImageCreateInfo{});
+            allocationCreateInfo = std::exchange(imageResource.allocationCreateInfo, VmaAllocationCreateInfo{});
+            image = std::move(imageResource.image);
+            allocation = std::exchange(imageResource.allocation, VK_NULL_HANDLE);
+            allocationInfo = std::exchange(imageResource.allocationInfo, VmaAllocationInfo{});
+            newImage = std::move(imageResource.newImage);
+            layout = std::exchange(imageResource.layout, vk::ImageLayout::eUndefined);
+            aspect = std::exchange(imageResource.aspect, vk::ImageAspectFlagBits::eColor);
             return *this;
         }
 
@@ -216,7 +226,7 @@ struct Resource final : utils::OnlyMoveable
 
     Resource() = default;
 
-    Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment);
     Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Resource(Resource &&) = default;
@@ -610,8 +620,9 @@ void MemoryAllocator::Impl::init()
     auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
     INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
 }
-Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-    : memoryAllocator{memoryAllocator.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo}
+
+Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
+    : memoryAllocator{memoryAllocator.impl_.get()}, defragmentationMoveOperation{allocationCreateInfo.defragmentationMoveOperation}, resource{std::in_place_type<BufferResource>, *this, bufferCreateInfo, allocationCreateInfo, minAlignment}
 {}
 
 Resource::Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
@@ -763,7 +774,7 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
 
 Buffer::Buffer() = default;
 
-Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo}
+Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo, minAlignment}
 {}
 
 Buffer::Buffer(Buffer &&) = default;
@@ -861,36 +872,36 @@ void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
     vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
 }
 
-auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
     allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
+    return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kDescriptors;
     allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
+    return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
     allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
+    return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const -> Buffer
+auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
     allocationCreateInfo.name = name;
-    return {*this, bufferCreateInfo, allocationCreateInfo};
+    return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
 auto MemoryAllocator::createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const -> Image

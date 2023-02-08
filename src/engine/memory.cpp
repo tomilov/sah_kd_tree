@@ -1,5 +1,4 @@
 #include <engine/memory.hpp>
-
 #include <format/vulkan.hpp>
 
 #include <fmt/format.h>

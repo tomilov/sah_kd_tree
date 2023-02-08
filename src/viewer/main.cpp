@@ -1,9 +1,8 @@
 #include <common/version.hpp>
 #include <engine/engine.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <viewer/engine_wrapper.hpp>
-
-#include <format/vulkan.hpp>
 
 #include <spdlog/details/null_mutex.h>
 #include <spdlog/sinks/base_sink.h>

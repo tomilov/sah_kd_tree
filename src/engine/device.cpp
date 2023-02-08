@@ -6,7 +6,6 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
-
 #include <format/vulkan.hpp>
 
 #include <spdlog/spdlog.h>

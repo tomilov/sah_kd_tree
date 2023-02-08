@@ -5,7 +5,8 @@
 namespace codegen::spv
 {
 
-{% for spv_enum in spv_enums %}
+{% for spv_enum in spv_enums -%}
+
 const char * toString({{ spv_enum.enum_typename }} {{ spv_enum.variable_name }})
 {
     switch (static_cast<std::underlying_type_t<{{ spv_enum.enum_typename }}>>({{ spv_enum.variable_name }})) {
@@ -17,5 +18,6 @@ const char * toString({{ spv_enum.enum_typename }} {{ spv_enum.variable_name }})
     return nullptr;
 }
 
-{% endfor %}
+{% endfor -%}
+
 }  // namespace codegen::spv

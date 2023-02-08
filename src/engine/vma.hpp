@@ -41,10 +41,10 @@ public:
 
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
-    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
-    Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
-    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
-    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, std::string_view name) const;
+    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
 
     Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
     Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
@@ -135,7 +135,7 @@ class ENGINE_EXPORT Buffer final : utils::OnlyMoveable  // TODO(tomilov): make b
 {
 public:
     Buffer();
-    Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment);
 
     Buffer(Buffer &&);
     Buffer & operator=(Buffer &&);

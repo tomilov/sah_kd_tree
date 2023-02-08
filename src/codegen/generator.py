@@ -118,7 +118,10 @@ def gen_spirv_format_context(args):
     filters = {
         'to_variable_name': to_variable_name,
     }
-    return {'spv_enums': spv_enums}, filters
+    context = {
+        'spv_enums': spv_enums,
+    }
+    return context, filters
 
 
 def gen_vulkan_utils_context(args):
@@ -233,6 +236,7 @@ def gen_vulkan_utils_context(args):
             output_component = dict()
             for key, value in component.attrib.items():
                 if key == 'name':
+                    assert len(value) == 1, 'Identifiers should be reformatted'
                     output_component['component_type'] = value
                     component_types.add(value)
                 elif key == 'numericFormat':
@@ -308,7 +312,7 @@ def gen_vulkan_utils_context(args):
         'numeric_formats': sorted(numeric_formats),
         'compression_types': sorted(compression_types),
         'chroma_kinds': sorted(chroma_kinds),
-        'formats': output_formats,
+        'formats': sorted(output_formats, key=lambda x: x['format_name']),
     }
     filters = {
         'c_enum_to_cpp': c_enum_to_cpp,

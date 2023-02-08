@@ -2,9 +2,8 @@
 #include <common/version.hpp>
 #include <engine/engine.hpp>
 #include <engine/instance.hpp>
-#include <utils/assert.hpp>
-
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

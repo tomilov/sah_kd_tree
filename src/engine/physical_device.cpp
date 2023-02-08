@@ -4,7 +4,6 @@
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
-
 #include <format/vulkan.hpp>
 
 #include <fmt/format.h>

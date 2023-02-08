@@ -60,7 +60,6 @@ public:
 
     struct Descriptors : utils::NonCopyable
     {
-        vk::DeviceSize uniformBufferSize = 0;
         std::vector<engine::Buffer> uniformBuffer;
         engine::Buffer vertexBuffer;
 

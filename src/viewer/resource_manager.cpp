@@ -5,10 +5,9 @@
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <engine/vma.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <viewer/resource_manager.hpp>
-
-#include <format/vulkan.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -126,12 +125,12 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     const auto & device = engine.getDevice();
     const auto & vma = engine.getMemoryAllocator();
 
-    const auto & physicalDeviceProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
-    uniformBufferSize = alignedSize(sizeof(UniformBuffer), physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+    const auto & physicalDeviceLimits = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    auto minAlignment = physicalDeviceLimits.nonCoherentAtomSize;
 
     {
         vk::BufferCreateInfo uniformBufferCreateInfo;
-        uniformBufferCreateInfo.size = uniformBufferSize;
+        uniformBufferCreateInfo.size = sizeof(UniformBuffer);
         uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
         if (kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
             uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
@@ -140,7 +139,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         for (uint32_t i = 0; i < framesInFlight; ++i) {
             auto uniformBufferName = fmt::format("Uniform buffer frmae #{}", i);
-            uniformBuffer.push_back(vma.createStagingBuffer(uniformBufferCreateInfo, uniformBufferName));
+            uniformBuffer.push_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
             auto memoryPropertyFlags = uniformBuffer.back().getMemoryPropertyFlags();
             INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
         }
@@ -150,7 +149,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
         vk::BufferCreateInfo vertexBufferCreateInfo;
         vertexBufferCreateInfo.size = sizeof kVertices;
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, "Vertices of square");
+        vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices of square");
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         auto memoryPropertyFlags = vertexBuffer.getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
@@ -177,7 +176,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
                 }
             }
             auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set->first);
-            descriptorSetBuffers.push_back(vma.createDescriptorBuffer(descriptorBufferCreateInfo, descriptorBufferName));
+            descriptorSetBuffers.push_back(vma.createDescriptorBuffer(descriptorBufferCreateInfo, minAlignment, descriptorBufferName));
             const auto & descriptorSetBuffer = descriptorSetBuffers.back();
             auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
             INVARIANT(memoryPropertyFlags & kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);

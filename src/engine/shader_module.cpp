@@ -6,11 +6,10 @@
 #include <engine/push_constant_ranges.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
-
-#include <format/vulkan.hpp>
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
 #include <fmt/format.h>

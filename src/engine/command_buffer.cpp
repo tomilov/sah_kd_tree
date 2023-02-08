@@ -2,7 +2,6 @@
 #include <engine/device.hpp>
 #include <engine/engine.hpp>
 #include <engine/library.hpp>
-
 #include <format/vulkan.hpp>
 
 #include <fmt/format.h>

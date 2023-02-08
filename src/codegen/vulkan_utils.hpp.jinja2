@@ -14,14 +14,18 @@
 namespace codegen::vulkan
 {
 
-enum class FormatCompatibilityClass
-{
-    eUnknown,
-    {% set max_length = compatibility_classes | map(attribute=1) | map('length') | max %}
-    {% for c, cc in compatibility_classes %}
+{%- macro cpp_enum_values(e) %}
+
+    {% set max_length = e | map(attribute=1) | map('length') | max %}
+    {% for c, cc in e %}
     {% set indent_comment = max_length - (cc | length) %}
     e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
     {% endfor %}
+{% endmacro %}
+
+enum class FormatCompatibilityClass
+{
+    eUnknown, {{- cpp_enum_values(compatibility_classes) -}}
 };
 
 enum class ComponentType
@@ -34,32 +38,17 @@ enum class ComponentType
 
 enum class NumericFormat
 {
-    eUnknown,
-    {% set max_length = numeric_formats | map(attribute=1) | map('length') | max %}
-    {% for c, cc in numeric_formats %}
-    {% set indent_comment = max_length - (cc | length) %}
-    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
-    {% endfor %}
+    eUnknown, {{- cpp_enum_values(numeric_formats) -}}
 };
 
 enum class CompressionType
 {
-    eNotCompressed,
-    {% set max_length = compression_types | map(attribute=1) | map('length') | max %}
-    {% for c, cc in compression_types %}
-    {% set indent_comment = max_length - (cc | length) %}
-    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
-    {% endfor %}
+    eNotCompressed, {{- cpp_enum_values(compression_types) -}}
 };
 
 enum class ChromaKind
 {
-    eNoChroma,
-    {% set max_length = chroma_kinds | map(attribute=1) | map('length') | max %}
-    {% for c, cc in chroma_kinds %}
-    {% set indent_comment = max_length - (cc | length) %}
-    e{{ cc }}, {{ ' ' * indent_comment }} // {{ c }}
-    {% endfor %}
+    eNoChroma, {{- cpp_enum_values(chroma_kinds) -}}
 };
 
 struct FormatComponent
