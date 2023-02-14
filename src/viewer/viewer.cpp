@@ -139,11 +139,15 @@ void Viewer::beforeRenderPassRecording()
 
     w->beginExternalCommands();
     {
+        INVARIANT(engine, "");
         auto ri = w->rendererInterface();
         auto commandBuffer = static_cast<vk::CommandBuffer *>(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
         Q_CHECK_PTR(commandBuffer);
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
+
+        engine->getEngine().getDevice().setDebugUtilsObjectName(*renderPass, "Qt render pass");
+
         renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo());
     }
     w->endExternalCommands();
@@ -176,17 +180,18 @@ void Viewer::checkEngine() const
 #undef GET_INSTANCE_PROC_ADDR
     PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
-    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == engine->getEngine().getVulkanInstance(), "Should match");
-    INVARIANT(*vulkanPhysicalDevice == engine->getEngine().getVulkanPhysicalDevice(), "Should match");
-    INVARIANT(*vulkanDevice == engine->getEngine().getVulkanDevice(), "Should match");
-    INVARIANT(queueFamilyIndex == engine->getEngine().getVulkanGraphicsQueueFamilyIndex(), "Should match");
+    const auto & e = engine->getEngine();
+    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == e.getVulkanInstance(), "Should match");
+    INVARIANT(*vulkanPhysicalDevice == e.getVulkanPhysicalDevice(), "Should match");
+    INVARIANT(*vulkanDevice == e.getVulkanDevice(), "Should match");
+    INVARIANT(queueFamilyIndex == e.getVulkanGraphicsQueueFamilyIndex(), "Should match");
     {
         VkQueue queue = VK_NULL_HANDLE;
-        vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, engine->getEngine().getVulkanGraphicsQueueIndex(), &queue);
+        vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, e.getVulkanGraphicsQueueIndex(), &queue);
         INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
     }
 
-    engine->getEngine().getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
+    e.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
 }
 
 void Viewer::releaseResources()

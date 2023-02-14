@@ -153,6 +153,8 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
+    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
+
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
         graphicsPipeline = nullptr;
@@ -170,7 +172,8 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    return;
+    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
+
     if (!resources) {
         return;
     }

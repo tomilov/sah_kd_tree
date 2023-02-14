@@ -581,9 +581,6 @@ void MemoryAllocator::Impl::init()
     }
 
     VmaVulkanFunctions vulkanFunctions = {};
-#ifdef DISPATCH
-#error "macro name collision"
-#endif
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #define DISPATCH(f) library.dispatcher.f
 #else
@@ -774,7 +771,8 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
 
 Buffer::Buffer() = default;
 
-Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment) : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo, minAlignment}
+Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
+    : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo, minAlignment}
 {}
 
 Buffer::Buffer(Buffer &&) = default;

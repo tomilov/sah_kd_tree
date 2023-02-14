@@ -16,13 +16,19 @@ namespace viewer
 namespace
 {
 
+constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
+    0x0,        0xB3D4346B, 0xDC18AD6B, 0xD7FA5F44,
+    0x5C0EC5D6,  // Qt vkCmdBeginRenderPass: Hazard WRITE_AFTER_WRITE vs. layout transition in subpass 0 for attachment 1 aspect depth during load with loadOp VK_ATTACHMENT_LOAD_OP_CLEAR
+    0xE4D96472,  // Qt vkCmdBeginRenderPass: Hazard WRITE_AFTER_WRITE vs. layout transition in subpass 0 for attachment 1 aspect depth during load with loadOp VK_ATTACHMENT_LOAD_OP_CLEAR
+};
+
 const auto kUri = u"SahKdTree"_s;
 
 }  // namespace
 
 struct Engine::Impl final : utils::NonCopyable
 {
-    engine::Engine engine{{0x0, 0xB3D4346B, 0xDC18AD6B, 0xD7FA5F44}};
+    engine::Engine engine{kMutedMessageIdNumbers};
     ResourceManager resourceManager{engine};
 };
 

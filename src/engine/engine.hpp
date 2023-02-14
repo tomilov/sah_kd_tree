@@ -2,6 +2,7 @@
 
 #include <engine/fwd.hpp>
 #include <utils/checked_ptr.hpp>
+#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -25,31 +26,30 @@ namespace engine
 class ENGINE_EXPORT Engine final : utils::NonCopyable
 {
 public:
-    class DebugUtilsMessageMuteGuard final
+    class DebugUtilsMessageMuteGuard final : utils::NonCopyable
     {
     public:
-        void unmute() noexcept(false);
-        [[nodiscard]] bool empty() const;
-
         ~DebugUtilsMessageMuteGuard() noexcept(false);
 
     private:
         friend Engine;
 
-        std::mutex & mutex;
-        std::unordered_multiset<uint32_t> & mutedMessageIdNumbers;
-        std::vector<uint32_t> messageIdNumbers;
+        struct Impl;
 
-        void mute();
+        static constexpr size_t kSize = 48;
+        static constexpr size_t kAlignment = 8;
+        utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-        DebugUtilsMessageMuteGuard(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, std::initializer_list<uint32_t> messageIdNumbers);
+        template<typename... Args>
+        DebugUtilsMessageMuteGuard(Args &&... args);
     };
 
     Engine(std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
     ~Engine();
 
     [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
-    bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
     void createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName = std::nullopt, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks = nullptr);
     [[nodiscard]] vk::Instance getVulkanInstance() const;
