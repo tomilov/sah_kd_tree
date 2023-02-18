@@ -49,7 +49,7 @@ private:
     friend GraphicsPipelines;
 
     void init();
-    void fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo) const;
+    void fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const;
 };
 
 struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
@@ -67,7 +67,7 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
 
     GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache);
 
-    void add(const GraphicsPipelineLayout & graphicsPipelineLayout);
+    void add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer);
     void create();
 };
 

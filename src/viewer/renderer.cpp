@@ -13,6 +13,7 @@
 #include <viewer/resource_manager.hpp>
 
 #include <vulkan/vulkan.hpp>
+#include <spdlog/spdlog.h>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
@@ -198,7 +199,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t firstSet = 0;
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    if (Resources::kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
+    if (Resources::kUseDescriptorBuffer) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
             commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, library.dispatcher);

@@ -437,7 +437,7 @@ void ShaderModuleReflection::reflect()
     for (uint32_t index = 0; index < descriptorSetCount; ++index) {
         const auto reflectDecriptorSet = reflectDescriptorSets.at(index);
         INVARIANT(reflectDecriptorSet, "reflectDecriptorSet is null at #{}", index);
-        INVARIANT(descriptorSetLayoutSetBindings.find(reflectDecriptorSet->set) == std::end(descriptorSetLayoutSetBindings), "Duplicated set {}", reflectDecriptorSet->set);
+        INVARIANT(!descriptorSetLayoutSetBindings.contains(reflectDecriptorSet->set), "Duplicated set {}", reflectDecriptorSet->set);
         auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
         auto bindingCount = reflectDecriptorSet->binding_count;
         descriptorSetLayoutBindings.reserve(bindingCount);
@@ -445,7 +445,7 @@ void ShaderModuleReflection::reflect()
             const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
             auto descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : fmt::to_string(reflectDescriptorBinding->spirv_id);
-            INVARIANT(descriptorSetLayoutBindings.find(descriptorBindingName) == std::end(descriptorSetLayoutBindings), "Duplicated descriptor binding name '{}'", descriptorBindingName);
+            INVARIANT(!descriptorSetLayoutBindings.contains(descriptorBindingName), "Duplicated descriptor binding name '{}'", descriptorBindingName);
             auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[descriptorBindingName];
             descriptorSetLayoutBinding.binding = reflectDescriptorBinding->binding;
             descriptorSetLayoutBinding.descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
@@ -542,14 +542,17 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
     descriptorSetLayouts.reserve(setCount);
 
     for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
-        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
+        vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> descriptorSetLayoutCreateInfoChain;
+        auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutCreateInfo>();
         descriptorSetLayoutCreateInfo.flags = descriptorSetLayoutCreateFlags;
         descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
+        auto & descriptorSetLayoutBindingFlagsCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
+        descriptorSetLayoutBindingFlagsCreateInfo.setBindingFlags(nullptr);  // TODO:
         descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
         for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
-            if (descriptorSetLayoutCreateInfo.flags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
+            if (descriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eUniformBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eStorageBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
             } else {

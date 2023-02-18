@@ -41,8 +41,21 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
-[[nodiscard]] size_t getDescriptorSize(vk::Bool32 robustBufferAccess, const vk::PhysicalDeviceDescriptorBufferPropertiesEXT & physicalDeviceDescriptorBufferProperties, vk::DescriptorType descriptorType)
+}  // namespace
+
+Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages)
+    : engine{engine}
+    , framesInFlight{framesInFlight}
+    , shaderStages{shaderStages}
 {
+    init();
+}
+
+size_t Resources::Descriptors::getDescriptorSize(vk::DescriptorType descriptorType) const
+{
+    const auto & device = engine.getDevice();
+    const auto robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
+    const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
     switch (descriptorType) {
     case vk::DescriptorType::eSampler: {
         return physicalDeviceDescriptorBufferProperties.samplerDescriptorSize;
@@ -85,16 +98,16 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
         }
     }
     case vk::DescriptorType::eUniformBufferDynamic: {
-        INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eStorageBufferDynamic: {
-        INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eInputAttachment: {
         return physicalDeviceDescriptorBufferProperties.inputAttachmentDescriptorSize;
     }
     case vk::DescriptorType::eInlineUniformBlock: {
-        INVARIANT(false, "Inline uniform block descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Inline uniform block descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eAccelerationStructureKHR: {
         return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
@@ -103,21 +116,19 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
         return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
     }
     case vk::DescriptorType::eSampleWeightImageQCOM: {
-        INVARIANT(false, "Sample weight image descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Sample weight image descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eBlockMatchImageQCOM: {
-        INVARIANT(false, "Block match image descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Block match image descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eMutableEXT: {
-        INVARIANT(false, "Mutable type descriptor cannot be stored to descriptor buffer");
+        INVARIANT(false, "Mutable type descriptor cannot be stored in descriptor buffer");
     }
     }
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
 }
 
-}  // namespace
-
-Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages)
+void Resources::Descriptors::init()
 {
     INVARIANT(framesInFlight > 0, "");
 
@@ -132,13 +143,13 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
         vk::BufferCreateInfo uniformBufferCreateInfo;
         uniformBufferCreateInfo.size = sizeof(UniformBuffer);
         uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-        if (kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
+        if (kUseDescriptorBuffer) {
             uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
         uniformBuffer.reserve(framesInFlight);
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         for (uint32_t i = 0; i < framesInFlight; ++i) {
-            auto uniformBufferName = fmt::format("Uniform buffer frmae #{}", i);
+            auto uniformBufferName = fmt::format("Uniform buffer (frame #{})", i);
             uniformBuffer.push_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
             auto memoryPropertyFlags = uniformBuffer.back().getMemoryPropertyFlags();
             INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
@@ -156,23 +167,34 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
     }
 
     for (const auto & [set, bindings] : shaderStages.setBindings) {
-        INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers");
+        INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
 
-    if (kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
-        constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible;
-        const auto descriptorSetAlignment = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
-        descriptorSetBuffers.reserve(framesInFlight);
+    if (kUseDescriptorBuffer) {
+        constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
+        const auto descriptorBufferOffsetAlignment = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
+        descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
         auto set = std::cbegin(shaderStages.setBindings);
         for (const auto & descriptorSetLayout : shaderStages.descriptorSetLayouts) {
             vk::BufferCreateInfo descriptorBufferCreateInfo;
-            descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-            descriptorBufferCreateInfo.size = alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), descriptorSetAlignment) * framesInFlight;
+            descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
+            descriptorBufferCreateInfo.size = alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), descriptorBufferOffsetAlignment) * framesInFlight;
             INVARIANT(set != std::cend(shaderStages.setBindings), "");
             for (const auto & binding : set->second.bindings) {
-                if ((binding.descriptorType == vk::DescriptorType::eSampler) || (binding.descriptorType == vk::DescriptorType::eCombinedImageSampler)) {
+                switch (binding.descriptorType) {
+                case vk::DescriptorType::eSampler : {
                     descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT;
                     break;
+                }
+                case vk::DescriptorType::eCombinedImageSampler : {
+                    descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT;
+                    descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT;
+                    break;
+                }
+                default : {
+                    descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT;
+                    break;
+                }
                 }
             }
             auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set->first);
@@ -197,13 +219,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
 
     pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
 
-    if (kDescriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
-        const auto robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
-        const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
-        const auto getDescriptorSize = [robustBufferAccess, &physicalDeviceDescriptorBufferProperties](vk::DescriptorType descriptorType) -> size_t
-        {
-            return viewer::getDescriptorSize(robustBufferAccess, physicalDeviceDescriptorBufferProperties, descriptorType);
-        };
+    if (kUseDescriptorBuffer) {
         for (const auto & [set, bindings] : shaderStages.setBindings) {
             const auto setIndex = bindings.setIndex;
             const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setIndex);
@@ -214,10 +230,10 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
             for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
                 uint32_t b = 0;
                 for (const auto & binding : bindings.bindings) {
-                    const auto & bindingName = bindings.bindingNames.at(b);
                     vk::DescriptorGetInfoEXT descriptorGetInfo;
                     descriptorGetInfo.type = binding.descriptorType;
                     vk::DescriptorAddressInfoEXT descriptorAddressInfo;
+                    const auto & bindingName = bindings.bindingNames.at(b);
                     if (bindingName == kUniformBufferName) {
                         ASSERT(binding.descriptorType == vk::DescriptorType::eUniformBuffer);
                         const auto & u = uniformBuffer.at(currentFrameSlot);
@@ -231,7 +247,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
                         INVARIANT(false, "Cannot find descriptor for binding '{}'", bindingName);
                     }
                     vk::DeviceSize descriptorSize = getDescriptorSize(binding.descriptorType);
-                    vk::DeviceSize bindingOffset = device.device.getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, b, dispatcher);
+                    vk::DeviceSize bindingOffset = device.device.getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
                     device.device.getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
                     ++b;
                 }
@@ -271,7 +287,7 @@ Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t fram
 Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
     : pipelineLayout{name, engine, shaderStages, renderPass}, pipelines{engine, pipelineCache}
 {
-    pipelines.add(pipelineLayout);
+    pipelines.add(pipelineLayout, kUseDescriptorBuffer);
     pipelines.create();
 }
 
@@ -340,7 +356,11 @@ void Resources::init()
     }
     shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
 
-    shaderStages.createDescriptorSetLayouts(kSquircle, kDescriptorSetLayoutCreateFlags);
+    vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
+    if (kUseDescriptorBuffer) {
+        descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
+    }
+    shaderStages.createDescriptorSetLayouts(kSquircle, descriptorSetLayoutCreateFlags);
 }
 
 ResourceManager::ResourceManager(const engine::Engine & engine) : engine{engine}

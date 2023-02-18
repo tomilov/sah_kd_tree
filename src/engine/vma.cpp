@@ -798,6 +798,8 @@ vk::DeviceSize Buffer::getSize() const
 
 vk::DeviceAddress Buffer::getDeviceAddress() const
 {
+    auto bufferUsage = impl_->getBufferCreateInfo().usage;
+    INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain eShaderDeviceAddress", bufferUsage);
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo;
     bufferDeviceAddressInfo.setBuffer(getBuffer());
     return impl_->memoryAllocator->device.device.getBufferAddress(bufferDeviceAddressInfo, impl_->memoryAllocator->library.dispatcher);

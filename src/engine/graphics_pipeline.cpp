@@ -18,11 +18,15 @@ GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engi
     init();
 }
 
-void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo) const
+void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const
 {
     name = this->name;
 
     graphicsPipelineCreateInfo.flags = {};
+    if (useDescriptorBuffer) {
+        graphicsPipelineCreateInfo.flags = vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
+    }
+
     graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
     graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.pipelineVertexInputStateCreateInfo.value();
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
@@ -124,9 +128,9 @@ void GraphicsPipelineLayout::init()
 GraphicsPipelines::GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, pipelineCache{pipelineCache}
 {}
 
-void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout)
+void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer)
 {
-    graphicsPipelineLayout.fill(names.emplace_back(), graphicsPipelineCreateInfos.emplace_back());
+    graphicsPipelineLayout.fill(names.emplace_back(), graphicsPipelineCreateInfos.emplace_back(), useDescriptorBuffer);
 }
 
 void GraphicsPipelines::create()

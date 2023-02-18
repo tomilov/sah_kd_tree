@@ -56,10 +56,14 @@ class Resources
     , public std::enable_shared_from_this<Resources>
 {
 public:
-    static constexpr vk::DescriptorSetLayoutCreateFlags kDescriptorSetLayoutCreateFlags = {};  // vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
+    static constexpr bool kUseDescriptorBuffer = true;
 
     struct Descriptors : utils::NonCopyable
     {
+        const engine::Engine & engine;
+        const uint32_t framesInFlight;
+        const engine::ShaderStages & shaderStages;
+
         std::vector<engine::Buffer> uniformBuffer;
         engine::Buffer vertexBuffer;
 
@@ -71,6 +75,11 @@ public:
         std::vector<vk::PushConstantRange> pushConstantRanges;
 
         Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages);
+
+    private:
+        [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
+
+        void init();
     };
 
     struct GraphicsPipeline : utils::NonCopyable

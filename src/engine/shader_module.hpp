@@ -115,7 +115,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */> descriptorCounts;
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
-    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered in the same way as setBindings
+    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered in the same way as setBindings: descriptorSetLayouts[descriptorSetLayouts[set].setIndex]
 
     ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
 

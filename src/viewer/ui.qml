@@ -158,8 +158,8 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 16
 
-        rows: 3
-        columns: 4
+        rows: 1
+        columns: 1
 
         Repeater {
             model: gridLayout.rows * gridLayout.columns
