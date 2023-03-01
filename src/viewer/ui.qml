@@ -39,7 +39,7 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 0.0
                     to: 360.0
-                    duration: 10000
+                    duration: 1000000
                 }
             }
 
@@ -49,12 +49,12 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 1.0
                     to: 0.5
-                    duration: 1000
+                    duration: 100000
                 }
                 NumberAnimation {
                     from: 0.5
                     to: 1.0
-                    duration: 1000
+                    duration: 100000
                 }
             }
 
@@ -64,12 +64,12 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 1.0
                     to: 0.2
-                    duration: 1500
+                    duration: 150000
                 }
                 NumberAnimation {
                     from: 0.2
                     to: 1.0
-                    duration: 1500
+                    duration: 150000
                 }
             }
 
@@ -89,7 +89,7 @@ ApplicationWindow {
                     NumberAnimation {
                         from: 0.0
                         to: 360.0
-                        duration: 3333
+                        duration: 333300
                     }
                 }
 
@@ -98,12 +98,12 @@ ApplicationWindow {
                     running: true
                     NumberAnimation {
                         to: 1.0
-                        duration: 1000
+                        duration: 100000
                         easing.type: Easing.InQuad
                     }
                     NumberAnimation {
                         to: 0.0
-                        duration: 1000
+                        duration: 100000
                         easing.type: Easing.OutQuad
                     }
                 }

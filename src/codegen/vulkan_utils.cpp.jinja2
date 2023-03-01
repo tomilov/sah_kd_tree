@@ -25,7 +25,7 @@ vk::DeviceSize formatStencilBitSize(vk::Format format)
     {% for component in format.components %}
     {% if component.component_type == 'S' %}
     case {{ format.format_cpp_name }}:  // {{ format.format_name }}
-        return {{ component.bitsize }};
+        return {{ component.bitsize // 8 }};
     {% endif %}
     {% endfor %}
     {% endfor %}
@@ -41,7 +41,7 @@ vk::DeviceSize formatDepthBitSize(vk::Format format)
     {% for component in format.components %}
     {% if component.component_type == 'D' %}
     case {{ format.format_cpp_name }}:  // {{ format.format_name }}
-        return {{ component.bitsize }};
+        return {{ component.bitsize // 8 }};
     {% endif %}
     {% endfor %}
     {% endfor %}
@@ -74,7 +74,7 @@ const std::unordered_map<vk::Format, Format> kFormats = {
             .compatibilityClass = FormatCompatibilityClass::e{{ format.compatibility_cpp_class }},
             .components = {
                 {% for component in format.components %}
-                {
+                FormatComponent{
                     .componentType = ComponentType::e{{ component.component_type }},
                     .numericFormat = NumericFormat::e{{ component.numeric_cpp_format }},
                     {% if component.bitsize != 'compressed' %}
@@ -154,17 +154,21 @@ const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat =
 vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect)
 {
     if (imageAspect == vk::ImageAspectFlagBits::eStencil) {
-        return formatStencilBitSize(format) / 8;
+        return formatStencilBitSize(format);
     } else if (imageAspect == vk::ImageAspectFlagBits::eDepth) {
-        return formatDepthBitSize(format) / 8;
+        return formatDepthBitSize(format);
     }
     auto f = kFormats.find(format);
     INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
-    if (!std::empty(f->second.planes)) {
+    auto planeCount = f->second.planeCount();
+    if (planeCount > 0) {
         uint32_t planeIndex = getPlaneIndex(imageAspect);
-        format = f->second.planes.at(planeIndex).compatibleFormat;
+        INVARIANT(planeIndex < planeCount, "There is no plane for {}", imageAspect);
+        format = f->second.planes[planeIndex].compatibleFormat;
         f = kFormats.find(format);
         INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
+    } else {
+        INVARIANT(imageAspect == vk::ImageAspectFlagBits::eColor, "Cannot handle image aspect {}", imageAspect);
     }
     return f->second.blockSize;
 }

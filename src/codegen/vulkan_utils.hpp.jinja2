@@ -5,7 +5,6 @@
 
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 
 #include <cstdint>
 
@@ -76,8 +75,32 @@ struct Format
     uint32_t texelsPerBlock = 1;
     uint32_t packed = 0;  // 8, 16, 32 or 0 if not packed
     CompressionType compressionType = CompressionType::eNotCompressed;
-    std::vector<FormatPlane> planes;
+    FormatPlane planes[{{ max_plane_count }}] = {};
     ChromaKind chromaKind = ChromaKind::eNoChroma;
+
+    size_t componentCount() const
+    {
+        size_t count = 0;
+        for (const auto & component : components) {
+            if (component.componentType == ComponentType::eAbsent) {
+                break;
+            }
+            ++count;
+        }
+        return count;
+    }
+
+    size_t planeCount() const
+    {
+        size_t count = 0;
+        for (const auto & plane : planes) {
+            if (plane.compatibleFormat == vk::Format::eUndefined) {
+                break;
+            }
+            ++count;
+        }
+        return count;
+    }
 };
 
 extern const std::unordered_map<vk::Format, Format> kFormats;

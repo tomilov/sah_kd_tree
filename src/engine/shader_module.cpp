@@ -394,7 +394,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         vertexInputAttributeDescription.binding = vertexInputBindingDescription.binding;
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
-        auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eNone);
+        auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor);
         INVARIANT(formatSize > 0, "Expected known to VkLayer_utils format {}", vertexInputAttributeDescription.format);
         vertexInputBindingDescription.stride += formatSize;
     }

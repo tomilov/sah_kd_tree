@@ -2,7 +2,7 @@ import re
 import sys
 import subprocess
 from jinja2 import Environment, select_autoescape, FileSystemLoader
-from difflib import context_diff
+import difflib
 from termcolor import colored
 import argparse
 import xml.etree.ElementTree as etree
@@ -69,10 +69,21 @@ FORMAT_REGEX = re.compile(r'''
 ''', re.VERBOSE)
 
 
-def print_diff(unformatted, formatted, file_name=''):
-    a = unformatted.splitlines(keepends=True)
-    b = formatted.splitlines(keepends=True)
-    sys.stderr.writelines(context_diff(a, b, n=0, fromfile=f'{file_name} <unformatted>', tofile=f'{file_name} <formatted>'))
+def print_diff(unformatted, formatted, /, *, file_name=''):
+    a = unformatted.splitlines(keepends=False)
+    b = formatted.splitlines(keepends=False)
+    for line in difflib.unified_diff(a, b, fromfile=f'{file_name} <unformatted>', tofile=f'{file_name} <formatted>', n=3, lineterm=''):
+        if len(line) == 0:
+            continue
+        if line[0] == '-':
+            color = 'red'
+        elif line[0] == '+':
+            color = 'green'
+        elif line[0] == '@':
+            color = 'cyan'
+        else:
+            color = None
+        print(colored(line, color), file=sys.stderr)
 
 
 def gen_spirv_format_context(args):
@@ -174,6 +185,7 @@ def gen_vulkan_utils_context(args):
     numeric_formats = set()
     compression_types = set()
     chroma_kinds = set()
+    max_plane_count = 0
 
     formats = registry.findall('formats')
     assert len(formats) == 1, len(formats)
@@ -245,33 +257,36 @@ def gen_vulkan_utils_context(args):
                     output_component['numeric_cpp_format'] = numeric_format
                     numeric_formats.add((value, numeric_format))
                 elif key == 'bits':
-                    output_component['bitsize'] = value
+                    output_component['bitsize'] = value if value == "compressed" else int(value)
                 elif key == 'planeIndex':
-                    output_component['plane_index'] = value
+                    output_component['plane_index'] = int(value)
                 else:
                     assert False, key
             assert 'component_type' in output_component
             assert 'numeric_format' in output_component
             assert 'bitsize' in output_component
+            if output_component['component_type'] in ('D', 'S'):
+                assert output_component['bitsize'] % 8 == 0
             output_components.append(output_component)
 
         output_format['components'] = output_components
 
         if planes:
             assert len(planes) != 1, len(planes)
+            max_plane_count = max(max_plane_count, len(planes))
             output_planes = list()
             for plane in planes:
                 output_plane = dict()
                 for key, value in plane.attrib.items():
                     if key == 'index':
-                        output_plane['index'] = value
+                        output_plane['index'] = int(value)
                     elif key == 'compatible':
                         output_plane['compatible_format_name'] = value
                         output_plane['compatible_cpp_format_name'] = c_enum_to_cpp(value, 'VK_FORMAT')
                     elif key == 'heightDivisor':
-                        output_plane['height_divisor'] = value
+                        output_plane['height_divisor'] = int(value)
                     elif key == 'widthDivisor':
-                        output_plane['width_divisor'] = value
+                        output_plane['width_divisor'] = int(value)
                     else:
                         assert False, key
                 assert 'index' in output_plane
@@ -303,6 +318,7 @@ def gen_vulkan_utils_context(args):
     assert numeric_formats
     assert compression_types
     assert chroma_kinds
+    assert max_plane_count > 0
     assert output_formats
 
     context = {
@@ -312,6 +328,7 @@ def gen_vulkan_utils_context(args):
         'numeric_formats': sorted(numeric_formats),
         'compression_types': sorted(compression_types),
         'chroma_kinds': sorted(chroma_kinds),
+        'max_plane_count': max_plane_count,
         'formats': sorted(output_formats, key=lambda x: x['format_name']),
     }
     filters = {

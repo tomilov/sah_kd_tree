@@ -43,10 +43,7 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
 
 }  // namespace
 
-Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages)
-    : engine{engine}
-    , framesInFlight{framesInFlight}
-    , shaderStages{shaderStages}
+Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages) : engine{engine}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
 {
     init();
 }
@@ -182,16 +179,16 @@ void Resources::Descriptors::init()
             INVARIANT(set != std::cend(shaderStages.setBindings), "");
             for (const auto & binding : set->second.bindings) {
                 switch (binding.descriptorType) {
-                case vk::DescriptorType::eSampler : {
+                case vk::DescriptorType::eSampler: {
                     descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT;
                     break;
                 }
-                case vk::DescriptorType::eCombinedImageSampler : {
+                case vk::DescriptorType::eCombinedImageSampler: {
                     descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT;
                     descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT;
                     break;
                 }
-                default : {
+                default: {
                     descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT;
                     break;
                 }

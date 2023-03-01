@@ -111,7 +111,6 @@ private:
 
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
-    std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
 
     Resources(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
 

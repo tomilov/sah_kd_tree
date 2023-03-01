@@ -12,8 +12,8 @@
 #include <viewer/renderer.hpp>
 #include <viewer/resource_manager.hpp>
 
-#include <vulkan/vulkan.hpp>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QDebug>
