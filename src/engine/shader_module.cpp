@@ -3,7 +3,6 @@
 #include <engine/engine.hpp>
 #include <engine/file_io.hpp>
 #include <engine/library.hpp>
-#include <engine/push_constant_ranges.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
 #include <format/vulkan.hpp>
@@ -568,11 +567,6 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
             device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
         }
     }
-}
-
-std::vector<vk::PushConstantRange> ShaderStages::getDisjointPushConstantRanges() const  // not tested
-{
-    return engine::getDisjointPushConstantRanges(pushConstantRanges);
 }
 
 }  // namespace engine

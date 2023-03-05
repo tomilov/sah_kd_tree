@@ -4,6 +4,7 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
+#include <engine/push_constant_ranges.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
@@ -215,7 +216,7 @@ void Resources::Descriptors::init()
         }
     }
 
-    pushConstantRanges = shaderStages.getDisjointPushConstantRanges();
+    pushConstantRanges = engine::getDisjointPushConstantRanges(shaderStages.pushConstantRanges);
 
     if (kUseDescriptorBuffer) {
         for (const auto & [set, bindings] : shaderStages.setBindings) {

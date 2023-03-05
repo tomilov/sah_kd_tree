@@ -123,8 +123,6 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     // TODO: descriptor update template
-
-    std::vector<vk::PushConstantRange> getDisjointPushConstantRanges() const;
 };
 
 }  // namespace engine
