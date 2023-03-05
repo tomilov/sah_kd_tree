@@ -134,6 +134,7 @@ void Resources::Descriptors::init()
     const auto & vma = engine.getMemoryAllocator();
 
     const auto & physicalDeviceLimits = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    INVARIANT(!kUseDescriptorBuffer || device.physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME), VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME " should be enabled if kUseDescriptorBuffer");
     auto minAlignment = physicalDeviceLimits.nonCoherentAtomSize;
 
     {

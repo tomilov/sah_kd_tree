@@ -137,7 +137,7 @@ TEST(Engine, PushConstantsRanges)
             }
         }
 
-        EXPECT_EQ(rhs, rhs);
+        EXPECT_EQ(lhs, rhs);
     }
 }
 

@@ -48,12 +48,6 @@ Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 
 struct Renderer::Impl
 {
-    enum class Stage
-    {
-        Vertex,
-        Fragment,
-    };
-
     const engine::Engine & engine;
     const ResourceManager & resourceManager;
 

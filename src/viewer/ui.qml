@@ -39,7 +39,7 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 0.0
                     to: 360.0
-                    duration: 1000000
+                    duration: 10000
                 }
             }
 
@@ -49,12 +49,12 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 1.0
                     to: 0.5
-                    duration: 100000
+                    duration: 1000
                 }
                 NumberAnimation {
                     from: 0.5
                     to: 1.0
-                    duration: 100000
+                    duration: 1000
                 }
             }
 
@@ -64,12 +64,12 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 1.0
                     to: 0.2
-                    duration: 150000
+                    duration: 1500
                 }
                 NumberAnimation {
                     from: 0.2
                     to: 1.0
-                    duration: 150000
+                    duration: 1500
                 }
             }
 
@@ -89,7 +89,7 @@ ApplicationWindow {
                     NumberAnimation {
                         from: 0.0
                         to: 360.0
-                        duration: 333300
+                        duration: 3333
                     }
                 }
 
@@ -98,12 +98,12 @@ ApplicationWindow {
                     running: true
                     NumberAnimation {
                         to: 1.0
-                        duration: 100000
+                        duration: 1000
                         easing.type: Easing.InQuad
                     }
                     NumberAnimation {
                         to: 0.0
-                        duration: 100000
+                        duration: 1000
                         easing.type: Easing.OutQuad
                     }
                 }
@@ -158,8 +158,8 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 16
 
-        rows: 1
-        columns: 1
+        rows: 3
+        columns: 4
 
         Repeater {
             model: gridLayout.rows * gridLayout.columns
