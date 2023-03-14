@@ -33,6 +33,7 @@ ApplicationWindow {
 
             transformOrigin: Item.TopLeft
 
+            /*
             SequentialAnimation on rotation {
                 loops: Animation.Infinite
                 running: true
@@ -72,6 +73,7 @@ ApplicationWindow {
                     duration: 1500
                 }
             }
+            */
 
             SahKdTreeViewer {
                 engine: SahKdTreeEngine
@@ -83,6 +85,7 @@ ApplicationWindow {
 
                 transformOrigin: Item.BottomRight
 
+                /*
                 SequentialAnimation on rotation {
                     loops: Animation.Infinite
                     running: true
@@ -107,6 +110,7 @@ ApplicationWindow {
                         easing.type: Easing.OutQuad
                     }
                 }
+                */
 
                 Rectangle {
                     anchors.fill: parent
@@ -158,8 +162,8 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 16
 
-        rows: 3
-        columns: 4
+        rows: 1
+        columns: 1
 
         Repeater {
             model: gridLayout.rows * gridLayout.columns

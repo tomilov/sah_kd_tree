@@ -89,7 +89,8 @@ target_link_libraries(
     PUBLIC
         "SPIRV-Reflect")
 
-get_target_property(vulkan_registry_path Vulkan::Registry INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(vulkan_registry_path Vulkan::Headers VULKAN_REGISTRY_PATH)
+message(STATUS "${vulkan_registry_path} !!!!!!!!!!!")
 add_codegen_library(
     "vulkan_utils"
     "${vulkan_registry_path}/vk.xml"

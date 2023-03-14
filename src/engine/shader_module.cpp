@@ -19,8 +19,6 @@
 #include <string_view>
 #include <vector>
 
-#include <vulkan/vk_format_utils.h>
-
 #include <cstdint>
 
 namespace engine
@@ -171,6 +169,8 @@ namespace
         return "mesh";
     case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI:
         return nullptr;
+    case vk::ShaderStageFlagBits::eClusterCullingHUAWEI:
+        return nullptr;
     }
     INVARIANT(false, "Unknown shader stage {}", fmt::underlying(shaderStage));
 }
@@ -208,7 +208,8 @@ namespace
         return SPV_REFLECT_SHADER_STAGE_CALLABLE_BIT_KHR;
     case vk::ShaderStageFlagBits::eAll:
     case vk::ShaderStageFlagBits::eAllGraphics:
-    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI: {
+    case vk::ShaderStageFlagBits::eSubpassShadingHUAWEI:
+    case vk::ShaderStageFlagBits::eClusterCullingHUAWEI: {
         INVARIANT(false, "Shader stage flag {} is not handled", shaderStageFlagBits);
         break;
     }

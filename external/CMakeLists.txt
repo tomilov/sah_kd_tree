@@ -1,4 +1,8 @@
 add_subdirectory("Vulkan-Headers" EXCLUDE_FROM_ALL SYSTEM)
+set_target_properties(
+    "Vulkan-Headers"
+    PROPERTIES
+        VULKAN_REGISTRY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/registry")
 target_compile_definitions(
     Vulkan-Headers
     INTERFACE
