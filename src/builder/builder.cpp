@@ -29,8 +29,9 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto trianglesBegin = sceneLoader.scene.triangles.get();
-    auto trianglesEnd = std::next(trianglesBegin, sceneLoader.scene.triangleCount);
+    auto triangles = sceneLoader.scene.makeTriangles();
+    auto trianglesBegin = triangles.triangles.get();
+    auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 
@@ -42,8 +43,9 @@ bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float e
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto trianglesBegin = sceneLoader.scene.triangles.get();
-    auto trianglesEnd = std::next(trianglesBegin, sceneLoader.scene.triangleCount);
+    auto triangles = sceneLoader.scene.makeTriangles();
+    auto trianglesBegin = triangles.triangles.get();
+    auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 }  // namespace builder

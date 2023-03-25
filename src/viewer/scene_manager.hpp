@@ -47,13 +47,13 @@ struct UniformBuffer
 #pragma pack(push, 1)
 struct PushConstants
 {
-    glm::mat4x4 viewTransform{1.0};
+    glm::mat3x4 viewTransform{1.0};
 };
 #pragma pack(pop)
 
-class Resources
+class Scene
     : utils::NonCopyable
-    , public std::enable_shared_from_this<Resources>
+    , public std::enable_shared_from_this<Scene>
 {
 public:
     static constexpr bool kUseDescriptorBuffer = true;
@@ -92,7 +92,7 @@ public:
 
     [[nodiscard]] uint32_t getFramesInFlight() const;
 
-    [[nodiscard]] static std::shared_ptr<Resources> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
+    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
 
     [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors() const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
@@ -112,24 +112,24 @@ private:
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
 
-    Resources(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
+    Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight);
 
     void init();
 };
 
-class ResourceManager
+class SceneManager
 {
 public:
-    ResourceManager(const engine::Engine & engine);
+    SceneManager(const engine::Engine & engine);
 
-    [[nodiscard]] std::shared_ptr<const Resources> getOrCreateResources(uint32_t framesInFlight) const;
+    [[nodiscard]] std::shared_ptr<const Scene> getOrCreateScene(uint32_t framesInFlight) const;
 
 private:
     const engine::Engine & engine;
     const FileIo fileIo{u"shaders:"_s};
 
     mutable std::mutex mutex;
-    mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Resources>> resources;
+    mutable std::unordered_map<uint32_t /*framesInFlight*/, std::weak_ptr<const Scene>> scenes;
     mutable std::weak_ptr<const engine::PipelineCache> pipelineCache;
 };
 

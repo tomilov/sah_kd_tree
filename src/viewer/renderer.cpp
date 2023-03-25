@@ -10,7 +10,7 @@
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
 #include <viewer/renderer.hpp>
-#include <viewer/resource_manager.hpp>
+#include <viewer/scene_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -49,15 +49,15 @@ Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 struct Renderer::Impl
 {
     const engine::Engine & engine;
-    const ResourceManager & resourceManager;
+    const SceneManager & sceneManager;
 
     const engine::Library & library = engine.getLibrary();
     const engine::Instance & instance = engine.getInstance();
     const engine::Device & device = engine.getDevice();
 
-    std::shared_ptr<const Resources> resources;
-    std::unique_ptr<const Resources::Descriptors> descriptors;
-    std::unique_ptr<const Resources::GraphicsPipeline> graphicsPipeline;
+    std::shared_ptr<const Scene> scene;
+    std::unique_ptr<const Scene::Descriptors> descriptors;
+    std::unique_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
 
     // TODO: descriptor allocator + descriptor layout cache
 
@@ -66,7 +66,7 @@ struct Renderer::Impl
     vk::Rect2D scissor;
     PushConstants pushConstants;
 
-    Impl(const engine::Engine & engine, const ResourceManager & resourceManager) : engine{engine}, resourceManager{resourceManager}
+    Impl(const engine::Engine & engine, const SceneManager & sceneManager) : engine{engine}, sceneManager{sceneManager}
     {}
 
     void setT(float t)
@@ -100,10 +100,10 @@ struct Renderer::Impl
         };
     }
 
-    void setViewTransform(const glm::dmat4x4 & viewTransform)
+    void setViewTransform(const glm::dmat3 & viewTransform)
     {
         pushConstants = {
-            .viewTransform{viewTransform},  // double to float conversion
+            .viewTransform{glm::mat3(viewTransform)},  // double to float conversion
         };
     }
 
@@ -111,7 +111,7 @@ struct Renderer::Impl
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
 };
 
-Renderer::Renderer(const engine::Engine & engine, const ResourceManager & resourceManager) : impl_{engine, resourceManager}
+Renderer::Renderer(const engine::Engine & engine, const SceneManager & sceneManager) : impl_{engine, sceneManager}
 {}
 
 Renderer::~Renderer() = default;
@@ -131,7 +131,7 @@ void Renderer::setViewportRect(const QRectF & viewportRect)
     return impl_->setViewportRect(viewportRect);
 }
 
-void Renderer::setViewTransform(const glm::dmat4x4 & viewTransform)
+void Renderer::setViewTransform(const glm::dmat3 & viewTransform)
 {
     return impl_->setViewTransform(viewTransform);
 }
@@ -151,12 +151,12 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
-    if (!resources || (resources->getFramesInFlight() != framesInFlight)) {
+    if (!scene || (scene->getFramesInFlight() != framesInFlight)) {
         graphicsPipeline = nullptr;
         descriptors = nullptr;
-        resources = resourceManager.getOrCreateResources(framesInFlight);
+        scene = sceneManager.getOrCreateScene(framesInFlight);
 
-        descriptors = resources->makeDescriptors();
+        descriptors = scene->makeDescriptors();
 
         std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
@@ -169,12 +169,12 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 {
     auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
-    if (!resources) {
+    if (!scene) {
         return;
     }
     ASSERT(descriptors);
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
-        graphicsPipeline = resources->createGraphicsPipeline(renderPass);
+        graphicsPipeline = scene->createGraphicsPipeline(renderPass);
     }
     auto pipeline = graphicsPipeline->pipelines.pipelines.at(0);
     auto pipelineLayout = graphicsPipeline->pipelineLayout.pipelineLayout;
@@ -193,7 +193,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t firstSet = 0;
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    if (Resources::kUseDescriptorBuffer) {
+    if (Scene::kUseDescriptorBuffer) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
             commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, library.dispatcher);

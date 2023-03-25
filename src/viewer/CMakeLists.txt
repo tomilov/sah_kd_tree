@@ -21,6 +21,7 @@ target_link_libraries(
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
+        Qt6::Widgets
         "libscene"
         "libformat"
         "libengine"
@@ -44,8 +45,8 @@ qt6_add_qml_module(
         "${PROJECT_NAME}.cpp"
         "file_io.hpp"
         "file_io.cpp"
-        "resource_manager.hpp"
-        "resource_manager.cpp"
+        "scene_manager.hpp"
+        "scene_manager.cpp"
         "engine_wrapper.hpp"
         "engine_wrapper.cpp"
         "renderer.hpp"

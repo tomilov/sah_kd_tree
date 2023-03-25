@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -45,12 +46,12 @@ public:
 
     T * get() noexcept
     {
-        return reinterpret_cast<T *>(&storage_);
+        return std::bit_cast<T *>(&storage_);
     }
 
     const T * get() const noexcept
     {
-        return reinterpret_cast<const T *>(&storage_);
+        return std::bit_cast<const T *>(&storage_);
     }
 
     T * operator->() noexcept

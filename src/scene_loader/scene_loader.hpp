@@ -15,10 +15,10 @@ struct SCENE_LOADER_EXPORT SceneLoader
 {
     bool load(QFileInfo sceneFileInfo);
 
-    QFileInfo getCacheEntryFileInfo(QFileInfo sceneFileInfo, QDir cacheDir);
+    QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir);
 
-    bool loadFromCache(QFileInfo cacheEntryFileInfo);
-    bool storeToCache(QFileInfo cacheEntryFileInfo);
+    bool loadFromCache(QFileInfo cacheFileInfo);
+    bool storeToCache(QFileInfo cacheFileInfo);
 
     bool cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir);
 

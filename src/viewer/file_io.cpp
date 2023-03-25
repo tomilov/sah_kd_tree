@@ -102,7 +102,7 @@ bool FileIo::savePipelineCache(const std::vector<uint8_t> & data, std::string_vi
         return false;
     }
     if (!cacheFile.commit()) {
-        qCWarning(viewerFileIoCategory).noquote() << u"Failed to commit writing of pipeline cache data '%1' to file '%2'"_s.arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
+        qCWarning(viewerFileIoCategory).noquote() << u"Failed to commit writing of pipeline cache data '%1' to file '%2': %3"_s.arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
         return false;
     }
     qCInfo(viewerFileIoCategory).noquote() << u"Pipeline cache data file '%1' successfully written to '%2'"_s.arg(cacheFileName, cacheDir.path());

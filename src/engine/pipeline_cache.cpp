@@ -9,6 +9,7 @@
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
 
+#include <bit>
 #include <exception>
 #include <vector>
 
@@ -24,10 +25,8 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
     }
-    auto & pipelineCacheHeader = *reinterpret_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(cacheData));
-#if __BYTE_ORDER != __LITTLE_ENDIAN
-#error "Not implemented!"
-#endif
+    auto & pipelineCacheHeader = *std::bit_cast<vk::PipelineCacheHeaderVersionOne *>(std::data(cacheData));
+    static_assert(std::endian::native == std::endian::little, "Following code based on little endianness");
     if (pipelineCacheHeader.headerSize > std::size(cacheData)) {
         SPDLOG_INFO("There is no room for pipeline cache data in data");
         return {};

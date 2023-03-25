@@ -11,8 +11,8 @@ using builder::buildSceneFromFileOrCache;
 TEST(Builder, SimpleGeometry)
 {
     EXPECT_TRUE(buildSceneFromFile("pointlike_triangle.obj"));
-    EXPECT_TRUE(buildSceneFromFile("narrow_triangle.obj"));
     EXPECT_TRUE(buildSceneFromFile("singularity.obj"));
+    EXPECT_TRUE(buildSceneFromFile("narrow_triangle.obj"));
     EXPECT_TRUE(buildSceneFromFile("triangle.obj"));
     EXPECT_TRUE(buildSceneFromFile("aa_triangle.obj"));
     EXPECT_TRUE(buildSceneFromFile("coincident_triangles.obj"));

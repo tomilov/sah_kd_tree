@@ -39,10 +39,9 @@ add_subdirectory("gli" EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(
     "gli"
     INTERFACE
+        GLM_FORCE_MESSAGES
         GLM_ENABLE_EXPERIMENTAL
-        GLM_FORCE_EXPLICIT_CTOR
-        GLM_FORCE_PURE
-        GLM_FORCE_RADIANS)
+        GLM_FORCE_EXPLICIT_CTOR)
 
 
 add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
@@ -76,3 +75,12 @@ target_include_directories(
 
 add_subdirectory("nlohmann")
 
+
+set(TINYEXR_BUILD_SAMPLE OFF)
+set(TINYEXR_USE_MINIZ ON)
+add_subdirectory("tinyexr")
+
+
+set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF)
+set(TINYGLTF_INSTALL OFF)
+add_subdirectory("tinygltf")

@@ -3,7 +3,7 @@
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/engine_wrapper.hpp>
-#include <viewer/resource_manager.hpp>
+#include <viewer/scene_manager.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QString>
@@ -29,7 +29,7 @@ const auto kUri = u"SahKdTree"_s;
 struct Engine::Impl final : utils::NonCopyable
 {
     engine::Engine engine{kMutedMessageIdNumbers};
-    ResourceManager resourceManager{engine};
+    SceneManager sceneManager{engine};
 };
 
 Engine::Engine(QObject * parent) : QObject{parent}
@@ -45,9 +45,9 @@ engine::Engine & Engine::getEngine()
     return impl_->engine;
 }
 
-const ResourceManager & Engine::getResourceManager()
+const SceneManager & Engine::getSceneManager()
 {
-    return impl_->resourceManager;
+    return impl_->sceneManager;
 }
 
 void EngineSingletonForeign::setEngine(Engine * engine)
@@ -57,7 +57,7 @@ void EngineSingletonForeign::setEngine(Engine * engine)
     INVARIANT(EngineSingletonForeign::engine, "Nullptr should not be passed");
 }
 
-Engine * EngineSingletonForeign::create(QQmlEngine *, QJSEngine * jsEngine)
+Engine * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngine)
 {
     INVARIANT(jsEngine->thread() == engine->thread(), "The engine has to have the same thread affinity as the singleton");
     if (EngineSingletonForeign::jsEngine) {

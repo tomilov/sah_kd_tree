@@ -22,16 +22,15 @@ ApplicationWindow {
     Component {
         id: sahKdTreeViewer
 
-        Item {
-            required property int index
+        SahKdTreeViewer {
+            engine: SahKdTreeEngine
 
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            activeFocusOnTab: true
 
-            Layout.column: index % gridLayout.columns
-            Layout.row: Math.trunc(index / gridLayout.columns)
+            scale: 0.8
+            opacity: 1.0
 
-            transformOrigin: Item.TopLeft
+            //transformOrigin: Item.BottomRight
 
             /*
             SequentialAnimation on rotation {
@@ -40,88 +39,48 @@ ApplicationWindow {
                 NumberAnimation {
                     from: 0.0
                     to: 360.0
-                    duration: 10000
-                }
-            }
-
-            SequentialAnimation on scale {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 1.0
-                    to: 0.5
-                    duration: 1000
-                }
-                NumberAnimation {
-                    from: 0.5
-                    to: 1.0
-                    duration: 1000
-                }
-            }
-
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 1.0
-                    to: 0.2
-                    duration: 1500
-                }
-                NumberAnimation {
-                    from: 0.2
-                    to: 1.0
-                    duration: 1500
+                    duration: 3333
                 }
             }
             */
 
-            SahKdTreeViewer {
-                engine: SahKdTreeEngine
-
-                anchors.fill: parent
-                visible: index !== 1
-                scale: 0.8
-                opacity: 1.0
-
-                transformOrigin: Item.BottomRight
-
-                /*
-                SequentialAnimation on rotation {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        from: 0.0
-                        to: 360.0
-                        duration: 3333
-                    }
+            SequentialAnimation on t {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    to: 1.0
+                    duration: 1000
+                    easing.type: Easing.InQuad
                 }
-
-                SequentialAnimation on t {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        to: 1.0
-                        duration: 1000
-                        easing.type: Easing.InQuad
-                    }
-                    NumberAnimation {
-                        to: 0.0
-                        duration: 1000
-                        easing.type: Easing.OutQuad
-                    }
-                }
-                */
-
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -2
-
-                    border.color: "red"
-                    border.width: 2
-
-                    color: "transparent"
+                NumberAnimation {
+                    to: 0.0
+                    duration: 1000
+                    easing.type: Easing.OutQuad
                 }
             }
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: -4
+
+                border.color: parent.activeFocus ? "red" : "green"
+                border.width: 3
+
+                color: "transparent"
+            }
+
+            Text {
+                id: objectNameText
+
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                text: parent.objectName
+                color: parent.activeFocus ? "red" : "green"
+            }
+
+            Component.onCompleted: console.log("created")
+            Component.onDestruction: console.log("destroyed")
         }
     }
 
@@ -156,18 +115,164 @@ ApplicationWindow {
         z: 1.0
     }
 
-    GridLayout {
-        id: gridLayout
-
+    ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
 
-        rows: 1
-        columns: 1
+        TabBar {
+            id: tabBar
 
-        Repeater {
-            model: gridLayout.rows * gridLayout.columns
-            delegate: sahKdTreeViewer
+            Layout.fillWidth: true
+
+            TabButton {
+                text: qsTr("Single")
+
+                //width: implicitWidth
+            }
+
+            TabButton {
+                text: qsTr("Swipe")
+
+                //width: implicitWidth
+            }
+
+            TabButton {
+                text: qsTr("Grid")
+
+                //width: implicitWidth
+            }
+        }
+
+        StackLayout {
+            currentIndex: tabBar.currentIndex
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            Loader {
+                onItemChanged: if (item) item.objectName = "Main"
+
+                active: StackLayout.isCurrentItem
+
+                sourceComponent: sahKdTreeViewer
+            }
+
+            ColumnLayout {
+                SwipeView {
+                    id: swipeView
+
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    Repeater {
+                        model: 50
+
+                        delegate: Loader {
+                            onItemChanged: if (item) item.objectName = "Swipe %1".arg(SwipeView.index)
+
+                            active: SwipeView.isCurrentItem || SwipeView.isNextItem || SwipeView.isPreviousItem
+
+                            rotation: -5.0
+                            scale: 0.9
+
+                            sourceComponent: sahKdTreeViewer
+                        }
+                    }
+                }
+
+                PageIndicator {
+                    id: indicator
+
+                    Layout.alignment: Qt.AlignHCenter
+
+                    count: swipeView.count
+                    currentIndex: swipeView.currentIndex
+                }
+            }
+
+            Loader {
+                active: StackLayout.isCurrentItem
+
+                sourceComponent: GridLayout {
+                    id: gridLayout
+
+                    columns: 4
+
+                    anchors.margins: 16
+
+                    Repeater {
+                        //id: repeater
+
+                        model: 11
+                        delegate: Item {
+                            required property int index
+
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            //Layout.column: index % gridLayout.columns
+                            //Layout.row: Math.trunc(index / gridLayout.columns)
+
+                            transformOrigin: Item.TopLeft
+
+                            /*
+                            SequentialAnimation on rotation {
+                                loops: Animation.Infinite
+                                running: true
+                                NumberAnimation {
+                                    from: 0.0
+                                    to: 360.0
+                                    duration: 10000
+                                }
+                            }
+
+                            SequentialAnimation on scale {
+                                loops: Animation.Infinite
+                                running: true
+                                NumberAnimation {
+                                    from: 1.0
+                                    to: 0.5
+                                    duration: 1000
+                                }
+                                NumberAnimation {
+                                    from: 0.5
+                                    to: 1.0
+                                    duration: 1000
+                                }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                running: true
+                                NumberAnimation {
+                                    from: 1.0
+                                    to: 0.2
+                                    duration: 1500
+                                }
+                                NumberAnimation {
+                                    from: 0.2
+                                    to: 1.0
+                                    duration: 1500
+                                }
+                            }
+                            */
+
+                            Loader {
+                                onItemChanged: if (item) item.objectName = "Grid %1".arg(index)
+
+                                anchors.fill: parent
+
+                                focus: index === 0
+                                active: index !== 1
+
+                                //KeyNavigation.priority: KeyNavigation.BeforeItem
+                                //KeyNavigation.up: print(index, gridLayout.columns)//repeater.itemAt((index + count - gridLayout.columns) % count)
+
+                                sourceComponent: sahKdTreeViewer
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

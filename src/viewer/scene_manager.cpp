@@ -8,14 +8,13 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
-#include <viewer/resource_manager.hpp>
+#include <viewer/scene_manager.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <bitset>
+#include <bit>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <string_view>
@@ -38,18 +37,18 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
 
 [[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
-    INVARIANT(std::bitset<std::numeric_limits<vk::DeviceSize>::digits>{alignment}.count() == 1, "Expected power of two alignment, got {}", alignment);
+    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {}", alignment);
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
 }  // namespace
 
-Resources::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages) : engine{engine}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
+Scene::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages) : engine{engine}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
 {
     init();
 }
 
-size_t Resources::Descriptors::getDescriptorSize(vk::DescriptorType descriptorType) const
+size_t Scene::Descriptors::getDescriptorSize(vk::DescriptorType descriptorType) const
 {
     const auto & device = engine.getDevice();
     const auto robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
@@ -126,7 +125,7 @@ size_t Resources::Descriptors::getDescriptorSize(vk::DescriptorType descriptorTy
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
 }
 
-void Resources::Descriptors::init()
+void Scene::Descriptors::init()
 {
     INVARIANT(framesInFlight > 0, "");
 
@@ -283,34 +282,34 @@ void Resources::Descriptors::init()
     }
 }
 
-Resources::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
+Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
     : pipelineLayout{name, engine, shaderStages, renderPass}, pipelines{engine, pipelineCache}
 {
     pipelines.add(pipelineLayout, kUseDescriptorBuffer);
     pipelines.create();
 }
 
-uint32_t Resources::getFramesInFlight() const
+uint32_t Scene::getFramesInFlight() const
 {
     return framesInFlight;
 }
 
-std::shared_ptr<Resources> Resources::make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
+std::shared_ptr<Scene> Scene::make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
 {
-    return std::shared_ptr<Resources>{new Resources{engine, fileIo, std::move(pipelineCache), framesInFlight}};
+    return std::shared_ptr<Scene>{new Scene{engine, fileIo, std::move(pipelineCache), framesInFlight}};
 }
 
-std::unique_ptr<const Resources::Descriptors> Resources::makeDescriptors() const
+std::unique_ptr<const Scene::Descriptors> Scene::makeDescriptors() const
 {
     return std::make_unique<Descriptors>(engine, framesInFlight, shaderStages);
 }
 
-auto Resources::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
+auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
     return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
 }
 
-Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
+Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
     : engine{engine}
     , fileIo{fileIo}
     , pipelineCache{std::move(pipelineCache)}
@@ -324,7 +323,7 @@ Resources::Resources(const engine::Engine & engine, const FileIo & fileIo, std::
     init();
 }
 
-void Resources::init()
+void Scene::init()
 {
     INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
     INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
@@ -362,10 +361,10 @@ void Resources::init()
     shaderStages.createDescriptorSetLayouts(kSquircle, descriptorSetLayoutCreateFlags);
 }
 
-ResourceManager::ResourceManager(const engine::Engine & engine) : engine{engine}
+SceneManager::SceneManager(const engine::Engine & engine) : engine{engine}
 {}
 
-std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t framesInFlight) const
+std::shared_ptr<const Scene> SceneManager::getOrCreateScene(uint32_t framesInFlight) const
 {
     std::lock_guard<std::mutex> lock{mutex};
 
@@ -375,12 +374,12 @@ std::shared_ptr<const Resources> ResourceManager::getOrCreateResources(uint32_t 
         pipelineCache = pipelineCacheHolder;
     }
 
-    auto & w = resources[framesInFlight];
+    auto & w = scenes[framesInFlight];
     auto p = w.lock();
     if (p) {
         SPDLOG_DEBUG("Old resources reused");
     } else {
-        p = Resources::make(engine, fileIo, std::move(pipelineCacheHolder), framesInFlight);
+        p = Scene::make(engine, fileIo, std::move(pipelineCacheHolder), framesInFlight);
         w = p;
         SPDLOG_DEBUG("New resources created");
     }

@@ -2,6 +2,7 @@
 
 #include <utils/assert.hpp>
 
+#include <bit>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -19,20 +20,20 @@ constexpr bool isLess(const L & lhs, const R & rhs) noexcept
     static_assert(std::is_arithmetic_v<R>);
     static_assert(!std::is_same_v<R, bool>);
 
-    if constexpr (std::is_signed_v<L> && !std::is_signed_v<R>) {
+    if constexpr (std::is_signed_v<L> == std::is_signed_v<R>) {
+        return lhs < rhs;
+    } else if constexpr (std::is_signed_v<L>) {
         using CommonType = std::common_type_t<L, R>;
         return (lhs < static_cast<L>(0)) || (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
-    } else if constexpr (!std::is_signed_v<L> && std::is_signed_v<R>) {
+    } else {
+        static_assert(std::is_signed_v<R>);
         using CommonType = std::common_type_t<L, R>;
         return !(rhs < static_cast<R>(0)) && (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
-    } else {
-        static_assert(std::is_signed_v<L> == std::is_signed_v<R>);
-        return lhs < rhs;
     }
 }
 
 template<typename To, typename From>
-constexpr bool isIncludes(const From & value) noexcept
+constexpr bool inRange(const From & value) noexcept
 {
     if constexpr (std::is_same_v<To, bool> && (std::is_arithmetic_v<From> || std::is_pointer_v<From>)) {
         return true;
@@ -42,9 +43,9 @@ constexpr bool isIncludes(const From & value) noexcept
 }
 
 template<typename To, typename From>
-constexpr To convertIfIncludes(From && value)
+constexpr To convertIfInRange(From && value)
 {
-    INVARIANT(isIncludes<To>(value), "Unable to convert");
+    INVARIANT(inRange<To>(value), "Unable to convert");
     return static_cast<To>(std::forward<From>(value));
 }
 
@@ -65,10 +66,10 @@ public:
             if constexpr (std::is_enum_v<Destination>) {
                 using SourceUnderlyingType = std::underlying_type_t<S>;
                 using DestinationUnderlyingType = std::underlying_type_t<Destination>;
-                return static_cast<Destination>(convertIfIncludes<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
+                return static_cast<Destination>(convertIfInRange<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<Destination, bool>);
-                return convertIfIncludes<Destination>(source);
+                return convertIfInRange<Destination>(source);
             } else {
                 static_assert(!std::is_pointer_v<Destination>);
                 return static_cast<Destination>(source);
@@ -76,25 +77,25 @@ public:
         } else if constexpr (std::is_arithmetic_v<S>) {
             if constexpr (std::is_enum_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
-                return static_cast<Destination>(convertIfIncludes<std::underlying_type_t<Destination>>(source));
+                return static_cast<Destination>(convertIfInRange<std::underlying_type_t<Destination>>(source));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
-                return convertIfIncludes<Destination>(source);
+                return convertIfInRange<Destination>(source);
             } else if constexpr (std::is_pointer_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
                 static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
-                return reinterpret_cast<Destination>(convertIfIncludes<uintptr_t>(source));
+                return std::bit_cast<Destination>(convertIfInRange<uintptr_t>(source));
             } else {
                 return static_cast<Destination>(source);
             }
         } else if constexpr (std::is_pointer_v<S>) {
             if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<Destination, bool>);
-                return convertIfIncludes<Destination>(reinterpret_cast<uintptr_t>(source));
+                return convertIfInRange<Destination>(std::bit_cast<uintptr_t>(source));
             } else if constexpr (std::is_pointer_v<Destination>) {
                 if constexpr (std::is_function_v<std::remove_pointer_t<S>>) {
                     static_assert(std::is_function_v<std::remove_pointer_t<Destination>>);
-                    return reinterpret_cast<Destination>(source);
+                    return std::bit_cast<Destination>(source);
                 } else {
                     static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
                     using Void = std::conditional_t<std::is_const_v<std::remove_pointer_t<S>>, std::add_const_t<void>, void>;

@@ -15,19 +15,19 @@
 
 namespace viewer
 {
-class ResourceManager;
+class SceneManager;
 
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(const engine::Engine & engine, const ResourceManager & resourceManager);
+    Renderer(const engine::Engine & engine, const SceneManager & sceneManager);
     ~Renderer();
 
     void setT(float t);
     void setAlpha(qreal alpha);
 
     void setViewportRect(const QRectF & viewportRect);
-    void setViewTransform(const glm::dmat4x4 & viewTransform);
+    void setViewTransform(const glm::dmat3 & viewTransform);
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
@@ -35,7 +35,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 184;
+    static constexpr size_t kSize = 168;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

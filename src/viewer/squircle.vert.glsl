@@ -9,12 +9,12 @@ out gl_PerVertex { vec4 gl_Position; };
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    mat4 viewTransform;
+    mat3x4 viewTransform;
 } pushConstants;
 
 void main()
 {
-    gl_Position = pushConstants.viewTransform * vec4(vertices, 0.0f, 1.0f);
+    gl_Position = vec4(mat3(pushConstants.viewTransform) * vec3(vertices, 0.0f), 1.0f);
     coords = vertices;
 }
 

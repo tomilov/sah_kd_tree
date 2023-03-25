@@ -20,7 +20,7 @@ class Engine;
 
 namespace viewer
 {
-class ResourceManager;
+class SceneManager;
 
 class VIEWER_EXPORT Engine : public QObject
 {
@@ -31,7 +31,7 @@ public:
     ~Engine();
 
     engine::Engine & getEngine();
-    const ResourceManager & getResourceManager();
+    const SceneManager & getSceneManager();
 
 private:
     struct Impl;

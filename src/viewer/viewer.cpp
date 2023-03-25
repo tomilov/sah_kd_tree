@@ -6,13 +6,12 @@
 #include <viewer/renderer.hpp>
 #include <viewer/viewer.hpp>
 
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_operation.hpp>
-#include <glm/mat4x4.hpp>
+#include <glm/gtx/matrix_transform_2d.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
@@ -24,6 +23,7 @@
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 #include <QtQuick/QSGRendererInterface>
+#include <QtWidgets/QApplication>
 
 #include <chrono>
 #include <memory>
@@ -61,6 +61,29 @@ Viewer::Viewer()
     setFlag(QQuickItem::Flag::ItemHasContents);
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
+
+    setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
+    // setFocus(true);
+
+    Q_CHECK_PTR(doubleClickTimer);
+    doubleClickTimer->setInterval(qApp->doubleClickInterval());
+    doubleClickTimer->setSingleShot(true);
+    connect(doubleClickTimer, &QTimer::timeout, this, [this] { setCursor(Qt::CursorShape::BlankCursor); });
+}
+
+void Viewer::rotate(QVector3D tiltPanRoll)
+{
+    setEulerAngles(eulerAngles + tiltPanRoll);
+}
+
+void Viewer::rotate(QVector2D tiltPan)
+{
+    setEulerAngles(QVector3D(eulerAngles.toVector2D() + tiltPan));
+}
+
+void Viewer::rotate(qreal tilt, qreal pan, qreal roll)
+{
+    setEulerAngles(QVector3D{utils::autoCast(tilt), utils::autoCast(pan), utils::autoCast(roll)});
 }
 
 Viewer::~Viewer() = default;
@@ -86,6 +109,10 @@ void Viewer::sync()
         return;
     }
 
+    if (boundingRect().isEmpty()) {
+        return;
+    }
+
     renderer->setT(t);
 
     auto alpha = opacity();
@@ -104,11 +131,11 @@ void Viewer::sync()
     auto devicePixelRatio = window()->effectiveDevicePixelRatio();
     renderer->setViewportRect({viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio});
 
-    glm::dmat4x4 viewTransform = glm::diagonal4x4(glm::dvec4{glm::dvec3{scaleFactor}, 1.0});
-    viewTransform = glm::scale(viewTransform, glm::dvec3{viewportRect.height() / viewportRect.width(), 1.0, 1.0});
-    const glm::dvec3 zAxis = {0.0, 0.0, 1.0};
-    viewTransform = glm::rotate(viewTransform, glm::radians(angle), zAxis);
-    viewTransform = glm::scale(viewTransform, glm::dvec3{width() / viewportRect.height(), height() / viewportRect.height(), 1.0});
+    glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{scaleFactor});
+    viewTransform = glm::scale(viewTransform, glm::dvec2{viewportRect.height() / viewportRect.width(), 1.0});
+    viewTransform = glm::rotate(viewTransform, glm::radians(angle));
+    viewTransform = glm::scale(viewTransform, glm::dvec2{width() / viewportRect.height(), height() / viewportRect.height()});
+    // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(viewTransform)));
     renderer->setViewTransform(viewTransform);
 }
 
@@ -124,14 +151,27 @@ void Viewer::frameStart()
             return;
         }
         checkEngine();
-        renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getResourceManager());
+        renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getSceneManager());
     }
+
+    if (boundingRect().isEmpty()) {
+        return;
+    }
+
     renderer->frameStart(window()->graphicsStateInfo());
 }
 
 void Viewer::beforeRenderPassRecording()
 {
     if (!renderer) {
+        return;
+    }
+
+    if (boundingRect().isEmpty()) {
+        return;
+    }
+
+    if (!isVisible()) {
         return;
     }
 
@@ -151,6 +191,38 @@ void Viewer::beforeRenderPassRecording()
         renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo());
     }
     w->endExternalCommands();
+}
+
+void Viewer::setEulerAngles(QVector3D newEulerAngles)
+{
+    float & roll = newEulerAngles[2];
+    if (roll > 180.0f) {
+        roll -= 360.0f;
+    } else if (roll < -180.0f) {
+        roll += 360.0f;
+    }
+
+    float & pitch = newEulerAngles[0];
+    constexpr float kPitchMax = 89.9f;
+    if (pitch > kPitchMax) {
+        pitch = kPitchMax;
+    } else if (pitch < -kPitchMax) {
+        pitch = -kPitchMax;
+    }
+
+    float & yaw = newEulerAngles[1];
+    if (yaw > 180.0f) {
+        yaw -= 360.0f;
+    } else if (yaw < -180.0f) {
+        yaw += 360.0f;
+    }
+
+    if (qFuzzyCompare(newEulerAngles, eulerAngles)) {
+        return;
+    }
+
+    eulerAngles = newEulerAngles;
+    Q_EMIT eulerAnglesChanged(newEulerAngles);
 }
 
 void Viewer::checkEngine() const
@@ -194,9 +266,183 @@ void Viewer::checkEngine() const
     e.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
 }
 
+void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
+{
+    auto key = Qt::Key(event->key());
+    switch (key) {
+    case Qt::Key_W:
+    case Qt::Key_A:
+    case Qt::Key_S:
+    case Qt::Key_D: {
+        if (event->isAutoRepeat()) {
+            break;
+        }
+        if (isPressed) {
+            if (pressedKeys.contains(key)) {
+                qCWarning(viewerCategory) << u"Key is already pressed:"_s << key;
+            } else {
+                pressedKeys.insert(key);
+            }
+        } else {
+            if (!pressedKeys.remove(key)) {
+                qCWarning(viewerCategory) << u"Key is not pressed:"_s << key;
+            }
+        }
+        event->accept();
+        return;
+    }
+    default: {
+        break;
+    }
+    }
+    event->ignore();
+}
+
 void Viewer::releaseResources()
 {
     window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::BeforeSynchronizingStage);
+}
+
+void Viewer::wheelEvent(QWheelEvent * event)
+{
+    constexpr qreal kUnitsPerDegree = 8.0;
+    auto numDegrees = QPointF(event->angleDelta()) / kUnitsPerDegree;
+    if ((keyboardModifiers & Qt::KeyboardModifier::ShiftModifier)) {
+        rotate(0.0f, numDegrees.x(), numDegrees.y());
+    } else {
+        auto newFieldOfView = qBound<qreal>(5.0, fieldOfView * numDegrees.y() / 3.0, 175.0);
+        if (!setProperty("fieldOfView", newFieldOfView)) {
+            qFatal("unreachable");
+        }
+    }
+    event->accept();
+    update();
+}
+
+void Viewer::mouseUngrabEvent()
+{
+    unsetCursor();
+    update();
+    return QQuickItem::mouseUngrabEvent();
+}
+
+void Viewer::mousePressEvent(QMouseEvent * event)
+{
+    switch (event->button()) {
+    case Qt::MouseButton::LeftButton: {
+        doubleClickTimer->start();
+        startPos = QCursor::pos();
+        event->accept();
+        setFocus(true, Qt::FocusReason::MouseFocusReason);
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::mousePressEvent(event);
+    }
+}
+
+void Viewer::mouseMoveEvent(QMouseEvent * event)
+{
+    if (event->buttons() & Qt::MouseButton::LeftButton) {
+        auto posDelta = QCursor::pos() - startPos;
+        if (!posDelta.isNull()) {
+            doubleClickTimer->stop();
+            setCursor(Qt::CursorShape::BlankCursor);
+            if (!size().isEmpty()) {
+                auto roll = eulerAngles.z();
+                qreal angularSpeed = mouseLookSpeed / qMax(1.0, qMin(width(), height()));
+                QPointF tiltPan = posDelta;
+                tiltPan = -QTransform{}.rotate(-roll).map(angularSpeed * tiltPan);
+                rotate(tiltPan.y(), tiltPan.x());
+            }
+        }
+        QCursor::setPos(startPos);
+        startPos = QCursor::pos();
+        event->accept();
+    }
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::mouseMoveEvent(event);
+    }
+}
+
+void Viewer::mouseReleaseEvent(QMouseEvent * event)
+{
+    switch (event->button()) {
+    case Qt::MouseButton::LeftButton: {
+        if (doubleClickTimer->isActive()) {
+            doubleClickTimer->stop();
+        } else {
+            unsetCursor();
+        }
+        event->accept();
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::mouseReleaseEvent(event);
+    }
+}
+
+void Viewer::mouseDoubleClickEvent(QMouseEvent * event)
+{
+    switch (event->button()) {
+    case Qt::MouseButton::LeftButton: {
+        doubleClickTimer->stop();
+        event->accept();
+        break;
+    }
+    default: {
+        break;
+    }
+    }
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::mouseReleaseEvent(event);
+    }
+}
+
+void Viewer::focusInEvent(QFocusEvent * event)
+{
+    qCDebug(viewerCategory) << event;
+}
+
+void Viewer::focusOutEvent(QFocusEvent * event)
+{
+    qCDebug(viewerCategory) << event;
+}
+
+void Viewer::keyPressEvent(QKeyEvent * event)
+{
+    handleKeyEvent(event, true);
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::keyPressEvent(event);
+    }
+}
+
+void Viewer::keyReleaseEvent(QKeyEvent * event)
+{
+    handleKeyEvent(event, false);
+    if (event->isAccepted()) {
+        update();
+    } else {
+        return QQuickItem::keyReleaseEvent(event);
+    }
 }
 
 }  // namespace viewer
