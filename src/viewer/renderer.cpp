@@ -12,6 +12,7 @@
 #include <viewer/renderer.hpp>
 #include <viewer/scene_manager.hpp>
 
+#include <fmt/std.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
@@ -26,9 +27,11 @@
 #include <QtQuick/QSGRendererInterface>
 
 #include <algorithm>
+#include <filesystem>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include <cstddef>
@@ -48,6 +51,8 @@ Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 
 struct Renderer::Impl
 {
+    const std::string token;
+    const std::filesystem::path scenePath;
     const engine::Engine & engine;
     const SceneManager & sceneManager;
 
@@ -66,8 +71,10 @@ struct Renderer::Impl
     vk::Rect2D scissor;
     PushConstants pushConstants;
 
-    Impl(const engine::Engine & engine, const SceneManager & sceneManager) : engine{engine}, sceneManager{sceneManager}
-    {}
+    Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, engine{engine}, sceneManager{sceneManager}
+    {
+        init();
+    }
 
     void setT(float t)
     {
@@ -103,15 +110,26 @@ struct Renderer::Impl
     void setViewTransform(const glm::dmat3 & viewTransform)
     {
         pushConstants = {
-            .viewTransform{glm::mat3(viewTransform)},  // double to float conversion
+            .viewTransform{glm::mat3(viewTransform)},  // double to float conversion and mat3x3 to mat3x4 conversion
         };
+    }
+
+    const std::filesystem::path & getScenePath() const
+    {
+        return scenePath;
     }
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+
+    void init()
+    {
+        INVARIANT(!std::empty(token), "token is empty");
+        INVARIANT(!std::empty(scenePath), "scenePath is empty");
+    }
 };
 
-Renderer::Renderer(const engine::Engine & engine, const SceneManager & sceneManager) : impl_{engine, sceneManager}
+Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager) : impl_{token, scenePath, engine, sceneManager}
 {}
 
 Renderer::~Renderer() = default;
@@ -136,6 +154,11 @@ void Renderer::setViewTransform(const glm::dmat3 & viewTransform)
     return impl_->setViewTransform(viewTransform);
 }
 
+const std::filesystem::path & Renderer::getScenePath() const
+{
+    return impl_->getScenePath();
+}
+
 void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
     return impl_->frameStart(graphicsStateInfo);
@@ -151,10 +174,29 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
-    if (!scene || (scene->getFramesInFlight() != framesInFlight)) {
+    bool dirty = false;
+    if (scene) {
+        const auto & old = *scene->getSceneDesignator();
+        if (old.framesInFlight != framesInFlight) {
+            dirty = true;
+            SPDLOG_INFO("framesInFlight changed: {} -> {}", old.framesInFlight, framesInFlight);
+        }
+    }
+    if (dirty) {
         graphicsPipeline = nullptr;
         descriptors = nullptr;
-        scene = sceneManager.getOrCreateScene(framesInFlight);
+        scene = nullptr;
+    }
+    if (!scene) {
+        SceneDesignator sceneDesignator = {
+            .token = token,
+            .path = scenePath,
+            .framesInFlight = framesInFlight,
+        };
+        scene = sceneManager.getOrCreateScene(std::move(sceneDesignator));
+        if (!scene) {
+            return;
+        }
 
         descriptors = scene->makeDescriptors();
 

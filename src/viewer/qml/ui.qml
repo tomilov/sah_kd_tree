@@ -2,6 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick.Dialogs as Dialogs
+
+import Qt.labs.settings
+import Qt.labs.folderlistmodel
 
 import SahKdTree
 
@@ -13,10 +17,109 @@ ApplicationWindow {
     visible: true
     visibility: Window.AutomaticVisibility
 
+    onActiveFocusItemChanged: {
+        if (activeFocusItem instanceof SahKdTreeViewer) {
+            print("activeFocusItem", activeFocusItem)
+        }
+    }
+
     Shortcut {
         sequences: [StandardKey.Cancel] // "Escape"
+        context: Qt.ApplicationShortcut
         autoRepeat: false
         onActivated: root.close()
+    }
+
+    Shortcut {
+        sequences: [StandardKey.Open]
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        onActivated: {
+            if (root.activeFocusItem instanceof SahKdTreeViewer) {
+                sceneOpenDialog.item = root.activeFocusItem
+                sceneOpenDialog.open()
+            }
+        }
+    }
+
+    Dialogs.FileDialog {
+        id: sceneOpenDialog2
+
+        title: qsTr("Open scene")
+
+        nameFilters: ["All files (*)"]
+
+        onAccepted: {
+            print(fileUrl)
+        }
+    }
+
+    CenteredDialog {
+        id: sceneOpenDialog
+
+        width: Math.min(384, root.width)
+        height: Math.min(384, root.height)
+
+        title: qsTr("Open scene file")
+
+        property url folder
+        property SahKdTreeViewer item
+
+        ColumnLayout {
+            anchors.fill: parent
+
+            Frame {
+                Label {
+                    anchors.fill: parent
+
+                    text: sceneOpenDialog.folder + "/"
+                }
+
+                Layout.fillWidth: true
+            }
+            ListView {
+                clip: true
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                flickableDirection: Flickable.AutoFlickIfNeeded
+
+                model: FolderListModel {
+                    folder: sceneOpenDialog.folder
+
+                    nameFilters: SahKdTreeEngine.supportedExtensions
+
+                    showDirsFirst: true
+                    showOnlyReadable: true
+                    showDotAndDotDot: true
+                }
+
+                delegate: Label {
+                    text: fileName + (fileIsDir ? "/" : "")
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onDoubleClicked: {
+                            if (fileIsDir) {
+                                sceneOpenDialog.folder = fileURL
+                            } else {
+                                sceneOpenDialog.item.scenePath = fileURL
+                                sceneOpenDialog.item = null
+                                sceneOpenDialog.accept()
+                            }
+                            mouse.accepted = true
+                        }
+                    }
+                }
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AlwaysOn
+                }
+            }
+        }
+
+        standardButtons: Dialog.Close
     }
 
     Component {
@@ -24,8 +127,6 @@ ApplicationWindow {
 
         SahKdTreeViewer {
             engine: SahKdTreeEngine
-
-            activeFocusOnTab: true
 
             scale: 0.8
             opacity: 1.0
@@ -148,12 +249,15 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            Loader {
-                onItemChanged: if (item) item.objectName = "Main"
+            SahKdTreeViewer {
+                id: mainSahKdTreeViewer
+                objectName: "Main"
 
-                active: StackLayout.isCurrentItem
+                engine: SahKdTreeEngine
 
-                sourceComponent: sahKdTreeViewer
+                scale: 0.8
+
+                focus: StackLayout.isCurrentItem
             }
 
             ColumnLayout {
@@ -175,6 +279,13 @@ ApplicationWindow {
                             scale: 0.9
 
                             sourceComponent: sahKdTreeViewer
+
+                            activeFocusOnTab: true
+                            onActiveFocusChanged: {
+                                if (item && activeFocus) {
+                                    item.forceActiveFocus()
+                                }
+                            }
                         }
                     }
                 }
@@ -203,71 +314,26 @@ ApplicationWindow {
                         //id: repeater
 
                         model: 11
-                        delegate: Item {
-                            required property int index
+                        delegate: Loader {
+                            onItemChanged: if (item) item.objectName = "Grid %1".arg(index)
 
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            //Layout.column: index % gridLayout.columns
-                            //Layout.row: Math.trunc(index / gridLayout.columns)
+                            required property int index
 
-                            transformOrigin: Item.TopLeft
+                            active: index !== 1
 
-                            /*
-                            SequentialAnimation on rotation {
-                                loops: Animation.Infinite
-                                running: true
-                                NumberAnimation {
-                                    from: 0.0
-                                    to: 360.0
-                                    duration: 10000
+                            //KeyNavigation.priority: KeyNavigation.BeforeItem
+                            //KeyNavigation.up: print(index, gridLayout.columns)//repeater.itemAt((index + count - gridLayout.columns) % count)
+
+                            sourceComponent: sahKdTreeViewer
+
+                            activeFocusOnTab: true
+                            onActiveFocusChanged: {
+                                if (item && activeFocus) {
+                                    item.forceActiveFocus()
                                 }
-                            }
-
-                            SequentialAnimation on scale {
-                                loops: Animation.Infinite
-                                running: true
-                                NumberAnimation {
-                                    from: 1.0
-                                    to: 0.5
-                                    duration: 1000
-                                }
-                                NumberAnimation {
-                                    from: 0.5
-                                    to: 1.0
-                                    duration: 1000
-                                }
-                            }
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                running: true
-                                NumberAnimation {
-                                    from: 1.0
-                                    to: 0.2
-                                    duration: 1500
-                                }
-                                NumberAnimation {
-                                    from: 0.2
-                                    to: 1.0
-                                    duration: 1500
-                                }
-                            }
-                            */
-
-                            Loader {
-                                onItemChanged: if (item) item.objectName = "Grid %1".arg(index)
-
-                                anchors.fill: parent
-
-                                focus: index === 0
-                                active: index !== 1
-
-                                //KeyNavigation.priority: KeyNavigation.BeforeItem
-                                //KeyNavigation.up: print(index, gridLayout.columns)//repeater.itemAt((index + count - gridLayout.columns) % count)
-
-                                sourceComponent: sahKdTreeViewer
                             }
                         }
                     }
@@ -280,5 +346,10 @@ ApplicationWindow {
         height: 128
         color: "green"
         opacity: 0.4
+    }
+
+    Settings {
+        property alias openDilaogFolderFolder: sceneOpenDialog.folder
+        property alias mainSahKdTreeViewerScenePath: mainSahKdTreeViewer.scenePath
     }
 }

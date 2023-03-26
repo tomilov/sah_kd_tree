@@ -22,9 +22,10 @@ target_link_libraries(
         Qt6::Qml
         Qt6::Quick
         Qt6::Widgets
-        "libscene"
         "libformat"
         "libengine"
+        "libscene"
+        "libscene_loader"
         "gli"
     PUBLIC
         "libutils")
@@ -110,7 +111,9 @@ qt6_add_resources(
     PREFIX
         "/${CMAKE_PROJECT_NAME}"
     FILES
-        "ui.qml")
+        "qml/qmldir"
+        "qml/ui.qml"
+        "qml/components/CenteredDialog.qml")
 
 source_group(
     "UI Files"

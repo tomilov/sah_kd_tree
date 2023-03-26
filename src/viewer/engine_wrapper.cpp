@@ -1,5 +1,6 @@
 #include <common/version.hpp>
 #include <engine/engine.hpp>
+#include <scene_loader/scene_loader.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/engine_wrapper.hpp>
@@ -48,6 +49,11 @@ engine::Engine & Engine::getEngine()
 const SceneManager & Engine::getSceneManager()
 {
     return impl_->sceneManager;
+}
+
+QStringList Engine::getSupportedExtensions() const
+{
+    return scene_loader::SceneLoader::getSupportedExtensions();
 }
 
 void EngineSingletonForeign::setEngine(Engine * engine)

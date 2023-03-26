@@ -1,9 +1,11 @@
 #pragma once
 
-#include <scene/scene.hpp>
+#include <scene/fwd.hpp>
+#include <scene_loader/fwd.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
+#include <QtCore/QStringList>
 
 #include <tuple>
 
@@ -13,15 +15,15 @@ namespace scene_loader
 {
 struct SCENE_LOADER_EXPORT SceneLoader
 {
-    bool load(QFileInfo sceneFileInfo);
+    bool load(scene::Scene & scene, QFileInfo sceneFileInfo) const;
 
-    QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir);
+    QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir) const;
 
-    bool loadFromCache(QFileInfo cacheFileInfo);
-    bool storeToCache(QFileInfo cacheFileInfo);
+    bool loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) const;
+    bool storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) const;
 
-    bool cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir);
+    bool cachingLoad(scene::Scene & scene, QFileInfo sceneFileInfo, QDir cacheDir) const;
 
-    scene::Scene scene;
+    static QStringList getSupportedExtensions();
 };
 }  // namespace scene_loader

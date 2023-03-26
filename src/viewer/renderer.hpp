@@ -11,6 +11,9 @@
 #include <QtCore/QRectF>
 #include <QtQuick/QQuickWindow>
 
+#include <string_view>
+#include <filesystem>
+
 #include <cstdint>
 
 namespace viewer
@@ -20,7 +23,7 @@ class SceneManager;
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(const engine::Engine & engine, const SceneManager & sceneManager);
+    Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager);
     ~Renderer();
 
     void setT(float t);
@@ -29,13 +32,15 @@ public:
     void setViewportRect(const QRectF & viewportRect);
     void setViewTransform(const glm::dmat3 & viewTransform);
 
+    const std::filesystem::path & getScenePath() const;
+
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 168;
+    static constexpr size_t kSize = 240;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

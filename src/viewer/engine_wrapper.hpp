@@ -26,6 +26,8 @@ class VIEWER_EXPORT Engine : public QObject
 {
     Q_OBJECT
 
+    Q_PROPERTY(QStringList supportedExtensions READ getSupportedExtensions CONSTANT)
+
 public:
     explicit Engine(QObject * parent = nullptr);
     ~Engine();
@@ -33,10 +35,12 @@ public:
     engine::Engine & getEngine();
     const SceneManager & getSceneManager();
 
+    QStringList getSupportedExtensions() const;
+
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 392;
+    static constexpr size_t kSize = 456;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

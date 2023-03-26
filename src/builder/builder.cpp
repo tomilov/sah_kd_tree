@@ -1,5 +1,6 @@
 #include <builder/build_from_triangles.hpp>
 #include <builder/builder.hpp>
+#include <scene/scene.hpp>
 #include <scene_loader/scene_loader.hpp>
 
 #include <thrust/device_vector.h>
@@ -24,12 +25,13 @@ Q_LOGGING_CATEGORY(builderLog, "builder")
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
     scene_loader::SceneLoader sceneLoader;
+    scene::Scene scene;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!sceneLoader.load(sceneFileInfo)) {
+    if (!sceneLoader.load(scene, sceneFileInfo)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto triangles = sceneLoader.scene.makeTriangles();
+    auto triangles = scene.makeTriangles();
     auto trianglesBegin = triangles.triangles.get();
     auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
@@ -38,12 +40,13 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
 bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
     scene_loader::SceneLoader sceneLoader;
+    scene::Scene scene;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!sceneLoader.cachingLoad(sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+    if (!sceneLoader.cachingLoad(scene, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto triangles = sceneLoader.scene.makeTriangles();
+    auto triangles = scene.makeTriangles();
     auto trianglesBegin = triangles.triangles.get();
     auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
     return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);

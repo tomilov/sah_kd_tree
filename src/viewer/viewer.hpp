@@ -33,6 +33,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
     Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
+    Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
 
 public:
     Viewer();
@@ -52,6 +53,7 @@ Q_SIGNALS:
 
     void engineChanged(viewer::Engine * engine);
 
+    void scenePathChanged(QUrl scenePath);
     void tChanged(qreal t);
 
 public Q_SLOTS:
@@ -82,6 +84,7 @@ private:
 
     Engine * engine = nullptr;
 
+    QUrl scenePath;
     float t = 0.0;
 
     std::unique_ptr<Renderer> renderer;

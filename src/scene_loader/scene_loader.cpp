@@ -1,3 +1,4 @@
+#include <scene/scene.hpp>
 #include <scene_loader/assimp_wrappers.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/auto_cast.hpp>
@@ -17,6 +18,8 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QSaveFile>
 #include <QtCore/QString>
+#include <QtCore/QStringList>
+#include <QtCore/QByteArray>
 
 using namespace Qt::StringLiterals;
 
@@ -48,16 +51,18 @@ bool checkDataStreamStatus(QDataStream & dataStream, QString description)
 }
 }  // namespace
 
-bool SceneLoader::load(QFileInfo sceneFileInfo)
+bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
 {
+    INVARIANT(sceneFileInfo.isFile(), "");
+
     AssimpLoggerGuard loggerGuard{Assimp::Logger::LogSeverity::VERBOSE};
     Assimp::Importer importer;
     importer.SetProgressHandler(new AssimpProgressHandler);
     importer.SetIOHandler(new AssimpIOSystem);
 
-    auto pFlags = //aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_GenUVCoords |
-            aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_SplitLargeMeshes | aiProcess_Triangulate | aiProcess_SortByPType
-                  | aiProcess_FindInstances | aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph | aiProcess_RemoveComponent;
+    auto pFlags =  // aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals | aiProcess_GenUVCoords |
+        aiProcess_JoinIdenticalVertices | aiProcess_ImproveCacheLocality | aiProcess_SplitLargeMeshes | aiProcess_Triangulate | aiProcess_SortByPType | aiProcess_FindInstances | aiProcess_ValidateDataStructure | aiProcess_OptimizeMeshes
+        | aiProcess_OptimizeGraph | aiProcess_RemoveComponent;
     // pFlags |= aiProcess_TransformUVCoords;
     if ((pFlags & aiProcess_FindDegenerates) != 0) {  // omit aiProcess_FindDegenerates for tests
         importer.SetPropertyBool(AI_CONFIG_PP_FD_REMOVE, true);
@@ -208,7 +213,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
                 m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4,
             };
         };
-        const auto traverseNodes = [this, &parents](const auto & traverseNodes, const aiNode & assimpNode) -> size_t
+        const auto traverseNodes = [&scene, &parents](const auto & traverseNodes, const aiNode & assimpNode) -> size_t
         {
             size_t nodeIndex = scene.nodes.size();
             scene::Node & node = scene.nodes.emplace_back();
@@ -244,7 +249,7 @@ bool SceneLoader::load(QFileInfo sceneFileInfo)
     return true;
 }
 
-QFileInfo SceneLoader::getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
+QFileInfo SceneLoader::getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir) const
 {
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
@@ -260,7 +265,7 @@ QFileInfo SceneLoader::getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
     return cacheFileInfo;
 }
 
-bool SceneLoader::loadFromCache(QFileInfo cacheFileInfo)
+bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) const
 {
     QFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::ReadOnly)) {
@@ -359,7 +364,7 @@ bool SceneLoader::loadFromCache(QFileInfo cacheFileInfo)
     return true;
 }
 
-bool SceneLoader::storeToCache(QFileInfo cacheFileInfo)
+bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) const
 {
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::OpenModeFlag::WriteOnly)) {
@@ -448,7 +453,7 @@ bool SceneLoader::storeToCache(QFileInfo cacheFileInfo)
     return true;
 }
 
-bool SceneLoader::cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir)
+bool SceneLoader::cachingLoad(scene::Scene & scene, QFileInfo sceneFileInfo, QDir cacheDir) const
 {
     if (!sceneFileInfo.exists()) {
         qCCritical(sceneLoaderLog).noquote() << u"file %1 does not exist"_s.arg(sceneFileInfo.fileName());
@@ -461,7 +466,7 @@ bool SceneLoader::cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir)
     QFileInfo cacheFileInfo = getCacheFileInfo(sceneFileInfo, cacheDir);
     if (cacheFileInfo.exists()) {
         qCInfo(sceneLoaderLog).noquote() << u"scene file for scene %1 exists"_s.arg(sceneFileInfo.filePath());
-        if (loadFromCache(cacheFileInfo)) {
+        if (loadFromCache(scene, cacheFileInfo)) {
             return true;
         }
         if (!QFile::remove(cacheFileInfo.filePath())) {
@@ -469,12 +474,20 @@ bool SceneLoader::cachingLoad(QFileInfo sceneFileInfo, QDir cacheDir)
         }
         qCWarning(sceneLoaderLog).noquote() << u"cache broken or cannot be read; scene will be loaded from file %1"_s.arg(sceneFileInfo.filePath());
     }
-    if (!load(sceneFileInfo)) {
+    if (!load(scene, sceneFileInfo)) {
         return {};
     }
-    if (!storeToCache(cacheFileInfo)) {
+    if (!storeToCache(scene, cacheFileInfo)) {
         return {};
     }
     return true;
+}
+
+QStringList SceneLoader::getSupportedExtensions()
+{
+    aiString extensionsString;
+    Assimp::Importer{}.GetExtensionList(extensionsString);
+    std::vector<std::string> extensions;
+    return QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
 }
 }  // namespace scene_loader

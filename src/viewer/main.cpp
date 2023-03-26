@@ -362,7 +362,7 @@ int main(int argc, char * argv[])
     }
 
     persistRootWindowSettings(qmlApplicationEngine);
-    qmlApplicationEngine.load(QUrl{"ui.qml"});
+    qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 
     return application->exec();
 }

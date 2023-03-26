@@ -139,4 +139,4 @@ cmake-graphviz:
 .PHONY: format
 format:
 	@git add $(ROOT_DIR)
-	-@git clang-format $(shell git rev-list --max-parents=0 @ )
+	@git clang-format $(shell git rev-list --max-parents=0 @) || true

@@ -11,6 +11,7 @@
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/format.h>
+#include <fmt/std.h>
 #include <spdlog/spdlog.h>
 
 #include <bit>
@@ -38,10 +39,33 @@ const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-po
 [[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
     INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {}", alignment);
-    return (size + alignment - 1) & ~(alignment - 1);
+    --alignment;
+    return (size + alignment) & ~alignment;
 }
 
 }  // namespace
+
+bool SceneDesignator::operator ==(const SceneDesignator & rhs) const noexcept
+{
+    return std::tie(token, path, framesInFlight) == std::tie(rhs.token, rhs.path, rhs.framesInFlight);
+}
+
+bool SceneDesignator::isValid() const noexcept
+{
+    if (std::empty(token)) {
+        SPDLOG_WARN("token is empty");
+        return false;
+    }
+    if (std::empty(path)) {
+        SPDLOG_WARN("path is empty");
+        return false;
+    }
+    if (framesInFlight < 1) {
+        SPDLOG_WARN("framesInFlight is 0");
+        return false;
+    }
+    return true;
+}
 
 Scene::Descriptors::Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages) : engine{engine}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
 {
@@ -289,19 +313,20 @@ Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::E
     pipelines.create();
 }
 
-uint32_t Scene::getFramesInFlight() const
+const std::shared_ptr<const SceneDesignator> & Scene::getSceneDesignator() const
 {
-    return framesInFlight;
+    ASSERT(sceneDesignator);
+    return sceneDesignator;
 }
 
-std::shared_ptr<Scene> Scene::make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
+std::shared_ptr<Scene> Scene::make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr sceneDesignator)
 {
-    return std::shared_ptr<Scene>{new Scene{engine, fileIo, std::move(pipelineCache), framesInFlight}};
+    return std::shared_ptr<Scene>{new Scene{engine, fileIo, std::move(pipelineCache), std::move(sceneDesignator)}};
 }
 
 std::unique_ptr<const Scene::Descriptors> Scene::makeDescriptors() const
 {
-    return std::make_unique<Descriptors>(engine, framesInFlight, shaderStages);
+    return std::make_unique<Descriptors>(engine, getSceneDesignator()->framesInFlight, shaderStages);
 }
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
@@ -309,11 +334,11 @@ auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::uniq
     return std::make_unique<GraphicsPipeline>(kSquircle, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
 }
 
-Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, uint32_t framesInFlight)
+Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::shared_ptr<const SceneDesignator> sceneDesignator)
     : engine{engine}
     , fileIo{fileIo}
     , pipelineCache{std::move(pipelineCache)}
-    , framesInFlight{framesInFlight}
+    , sceneDesignator{std::move(sceneDesignator)}
     , vertexShader{"squircle.vert", engine, fileIo}
     , vertexShaderReflection{vertexShader, "main"}
     , fragmentShader{"squircle.frag", engine, fileIo}
@@ -325,6 +350,7 @@ Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_p
 
 void Scene::init()
 {
+    ASSERT(sceneDesignator);
     INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
     INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
 
@@ -364,8 +390,9 @@ void Scene::init()
 SceneManager::SceneManager(const engine::Engine & engine) : engine{engine}
 {}
 
-std::shared_ptr<const Scene> SceneManager::getOrCreateScene(uint32_t framesInFlight) const
+std::shared_ptr<const Scene> SceneManager::getOrCreateScene(SceneDesignator && sceneDesignator) const
 {
+    ASSERT(sceneDesignator.isValid());
     std::lock_guard<std::mutex> lock{mutex};
 
     auto pipelineCacheHolder = pipelineCache.lock();
@@ -374,16 +401,41 @@ std::shared_ptr<const Scene> SceneManager::getOrCreateScene(uint32_t framesInFli
         pipelineCache = pipelineCacheHolder;
     }
 
-    auto & w = scenes[framesInFlight];
-    auto p = w.lock();
-    if (p) {
-        SPDLOG_DEBUG("Old resources reused");
+    auto & sceneDataWeakPtr = sceneData[sceneDesignator.path];
+    auto sceneDataPtr = sceneDataWeakPtr.lock();
+    if (sceneDataPtr) {
+        SPDLOG_DEBUG("Old scene data {} reused", sceneDesignator.path);
     } else {
-        p = Scene::make(engine, fileIo, std::move(pipelineCacheHolder), framesInFlight);
-        w = p;
-        SPDLOG_DEBUG("New resources created");
+        auto sceneDataPtrMutable = std::make_shared<scene::Scene>();
+        if (!sceneLoader.load(*sceneDataPtrMutable, QFileInfo{sceneDesignator.path})) {
+            return {};
+        }
+        sceneDataPtr = std::move(sceneDataPtrMutable);
+        sceneDataWeakPtr = sceneDataPtr;
+        SPDLOG_DEBUG("Old scene data {} created", sceneDesignator.path);
     }
-    return p;
+
+    auto sceneDesignatorPtr = std::make_shared<SceneDesignator>(std::move(sceneDesignator));
+    auto & sceneWeakPtr = scenes[sceneDesignatorPtr];
+    auto scenePtr = sceneWeakPtr.lock();
+    if (scenePtr) {
+        SPDLOG_DEBUG("Old scene {} reused", sceneDesignator);
+    } else {
+        scenePtr = Scene::make(engine, fileIo, std::move(pipelineCacheHolder), std::move(sceneDesignatorPtr));
+        sceneWeakPtr = scenePtr;
+        SPDLOG_DEBUG("New scene {} created", *scenePtr->getSceneDesignator());
+    }
+    return scenePtr;
 }
 
 }  // namespace viewer
+
+size_t std::hash<viewer::SceneDesignatorPtr>::operator ()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept
+{
+    ASSERT(sceneDesignator);
+    size_t hash = 0;
+    hash ^= std::hash<std::string>{}(sceneDesignator->token);
+    hash ^= std::hash<std::filesystem::path>{}(sceneDesignator->path);
+    hash ^= std::hash<uint32_t>{}(sceneDesignator->framesInFlight);
+    return hash;
+}

@@ -13,8 +13,10 @@
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
 #include <vulkan/vulkan.hpp>
+#include <spdlog/spdlog.h>
 
 #include <QtCore/QDebug>
+#include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QRunnable>
@@ -63,7 +65,7 @@ Viewer::Viewer()
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
-    // setFocus(true);
+    //setFocus(true);
 
     Q_CHECK_PTR(doubleClickTimer);
     doubleClickTimer->setInterval(qApp->doubleClickInterval());
@@ -146,12 +148,31 @@ void Viewer::cleanup()
 
 void Viewer::frameStart()
 {
+    if (!engine) {
+        return;
+    }
+
+    if (scenePath.isEmpty()) {
+        renderer.reset();
+        return;
+    }
+
+    if (!scenePath.isLocalFile()) {
+        renderer.reset();
+        SPDLOG_WARN("scenePath URL is not local file", scenePath.toString().toStdString());
+        return;
+    }
+
+    QFileInfo sceneFileInfo{scenePath.toLocalFile()};
+    if (renderer && (renderer->getScenePath() != sceneFileInfo.filesystemFilePath())) {
+        renderer.reset();
+    }
+
     if (!renderer) {
-        if (!engine) {
-            return;
-        }
         checkEngine();
-        renderer = std::make_unique<Renderer>(engine->getEngine(), engine->getSceneManager());
+        auto token = objectName();
+        INVARIANT(!token.isEmpty(), "Viewer objectName should not be empty");
+        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo.filesystemFilePath(), engine->getEngine(), engine->getSceneManager());
     }
 
     if (boundingRect().isEmpty()) {
@@ -333,7 +354,6 @@ void Viewer::mousePressEvent(QMouseEvent * event)
         doubleClickTimer->start();
         startPos = QCursor::pos();
         event->accept();
-        setFocus(true, Qt::FocusReason::MouseFocusReason);
         break;
     }
     default: {
@@ -427,6 +447,7 @@ void Viewer::focusOutEvent(QFocusEvent * event)
 
 void Viewer::keyPressEvent(QKeyEvent * event)
 {
+    qDebug() << Q_FUNC_INFO << event << objectName();
     handleKeyEvent(event, true);
     if (event->isAccepted()) {
         update();
