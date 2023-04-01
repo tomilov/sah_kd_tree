@@ -8,6 +8,7 @@
 #include <assimp/scene.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
 #include <QtCore/QDebug>
@@ -19,7 +20,6 @@
 #include <QtCore/QSaveFile>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
-#include <QtCore/QByteArray>
 
 using namespace Qt::StringLiterals;
 

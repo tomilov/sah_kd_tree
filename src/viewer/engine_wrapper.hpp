@@ -26,7 +26,7 @@ class VIEWER_EXPORT Engine : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QStringList supportedExtensions READ getSupportedExtensions CONSTANT)
+    Q_PROPERTY(QStringList supportedSceneFileExtensions READ getSupportedSceneFileExtensions CONSTANT)
 
 public:
     explicit Engine(QObject * parent = nullptr);
@@ -35,7 +35,7 @@ public:
     engine::Engine & getEngine();
     const SceneManager & getSceneManager();
 
-    QStringList getSupportedExtensions() const;
+    QStringList getSupportedSceneFileExtensions() const;
 
 private:
     struct Impl;

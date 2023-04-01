@@ -51,7 +51,7 @@ const SceneManager & Engine::getSceneManager()
     return impl_->sceneManager;
 }
 
-QStringList Engine::getSupportedExtensions() const
+QStringList Engine::getSupportedSceneFileExtensions() const
 {
     return scene_loader::SceneLoader::getSupportedExtensions();
 }

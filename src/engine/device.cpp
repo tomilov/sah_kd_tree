@@ -41,6 +41,7 @@ void Device::create()
     setFeatures(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
     setFeatures(RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>());
     setFeatures(RequiredFeatures::physicalDeviceDescriptorBufferFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>());
+    setFeatures(RequiredFeatures::physicalDeviceFragmentShaderBarycentricFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR>());
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {

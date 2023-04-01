@@ -12,8 +12,8 @@
 #include <glm/mat3x3.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
-#include <vulkan/vulkan.hpp>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
@@ -65,7 +65,7 @@ Viewer::Viewer()
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
-    //setFocus(true);
+    // setFocus(true);
 
     Q_CHECK_PTR(doubleClickTimer);
     doubleClickTimer->setInterval(qApp->doubleClickInterval());

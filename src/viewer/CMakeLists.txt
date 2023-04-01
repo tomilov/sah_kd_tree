@@ -75,7 +75,7 @@ foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS com
     set_source_files_properties(
         "${compiled_shader_file}"
         PROPERTIES
-            QT_RESOURCE_ALIAS "shaders/${resource_alias}")
+            QT_RESOURCE_ALIAS "${resource_alias}")
     qt6_target_qml_sources(
         "lib${PROJECT_NAME}"
         RESOURCES
@@ -112,8 +112,8 @@ qt6_add_resources(
         "/${CMAKE_PROJECT_NAME}"
     FILES
         "qml/qmldir"
-        "qml/ui.qml"
-        "qml/components/CenteredDialog.qml")
+        "qml/components/CenteredDialog.qml"
+        "qml/ui.qml")
 
 source_group(
     "UI Files"

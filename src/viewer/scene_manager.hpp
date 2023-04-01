@@ -6,10 +6,9 @@
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
 #include <scene/scene.hpp>
+#include <scene_loader/scene_loader.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/file_io.hpp>
-#include <scene/scene.hpp>
-#include <scene_loader/scene_loader.hpp>
 
 #include <fmt/format.h>
 #include <fmt/std.h>
@@ -40,18 +39,18 @@ struct SceneDesignator
     std::filesystem::path path;
     uint32_t framesInFlight;
 
-    bool operator == (const SceneDesignator & rhs) const noexcept;
+    bool operator==(const SceneDesignator & rhs) const noexcept;
 
     bool isValid() const noexcept;
 };
 
 using SceneDesignatorPtr = std::shared_ptr<const SceneDesignator>;
-}
+}  // namespace viewer
 
 template<>
 struct std::hash<viewer::SceneDesignatorPtr>
 {
-    size_t operator ()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept;
+    size_t operator()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept;
 };
 
 template<>
@@ -101,26 +100,16 @@ public:
 
     struct Descriptors : utils::NonCopyable
     {
-        const engine::Engine & engine;
-        const uint32_t framesInFlight;
-        const engine::ShaderStages & shaderStages;
-
-        std::vector<engine::Buffer> uniformBuffer;
+        std::vector<engine::Buffer> uniformBuffers;
         engine::Buffer vertexBuffer;
 
-        std::optional<engine::DescriptorPool> descriptorPool;
+        std::unique_ptr<engine::DescriptorPool> descriptorPool;
         std::deque<engine::DescriptorSets> descriptorSets;
+
         std::vector<engine::Buffer> descriptorSetBuffers;
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
-
-        Descriptors(const engine::Engine & engine, uint32_t framesInFlight, const engine::ShaderStages & shaderStages);
-
-    private:
-        [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
-
-        void init();
     };
 
     struct GraphicsPipeline : utils::NonCopyable
@@ -133,7 +122,8 @@ public:
 
     [[nodiscard]] const std::shared_ptr<const SceneDesignator> & getSceneDesignator() const;
 
-    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr sceneDesignator);
+    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator,
+                                                     std::shared_ptr<const scene::Scene> && sceneData);
 
     [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors() const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
@@ -143,6 +133,7 @@ private:
     const FileIo & fileIo;
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::shared_ptr<const SceneDesignator> sceneDesignator;
+    const std::shared_ptr<const scene::Scene> sceneData;
 
     engine::ShaderModule vertexShader;
     engine::ShaderModuleReflection vertexShaderReflection;
@@ -153,9 +144,22 @@ private:
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
 
-    Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::shared_ptr<const SceneDesignator> sceneDesignator);
+    Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData);
 
     void init();
+
+    [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
+    [[nodiscard]] uint32_t getFramesInFlight() const;
+    [[nodiscard]] vk::DeviceSize getMinAlignment() const;
+
+    [[nodiscard]] engine::Buffer createVertexBuffer() const;
+    [[nodiscard]] std::vector<engine::Buffer> createUniformBuffers() const;
+
+    void createDescriptorSets(std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::deque<engine::DescriptorSets> & descriptorSets) const;
+    void fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, std::deque<engine::DescriptorSets> & descriptorSets) const;
+
+    void createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
+    void fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, std::vector<engine::Buffer> & descriptorSetBuffers) const;
 };
 
 class SceneManager
@@ -172,9 +176,11 @@ private:
 
     mutable std::mutex mutex;
     mutable std::unordered_map<std::filesystem::path, std::weak_ptr<const scene::Scene>> sceneData;
-    mutable std::unordered_map<SceneDesignatorPtr, std::weak_ptr<const Scene>> scenes;
     mutable std::weak_ptr<const engine::PipelineCache> pipelineCache;
+    mutable std::unordered_map<SceneDesignatorPtr, std::weak_ptr<const Scene>> scenes;
+
+    [[nodiscard]] std::shared_ptr<const engine::PipelineCache> getOrCreatePipelineCache() const;
+    [[nodiscard]] std::shared_ptr<const scene::Scene> getOrCreateSceneData(const std::filesystem::path & path) const;
 };
 
 }  // namespace viewer
-

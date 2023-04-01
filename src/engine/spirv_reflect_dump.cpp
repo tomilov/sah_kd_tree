@@ -793,7 +793,7 @@ void dump(const spv_reflect::ShaderModule & shaderModule)
         nlohmann::json j = shaderModule.GetShaderModule();
         SPDLOG_INFO("ShaderModule: {}", JsonStreamedFmt{j});
     }
-    if ((true)) {
+    if ((false)) {
         SPDLOG_INFO("ShaderModule: {}", ReflectionStreamedFmt{shaderModule});
     }
     if ((false)) {

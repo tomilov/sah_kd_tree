@@ -88,7 +88,7 @@ ApplicationWindow {
                 model: FolderListModel {
                     folder: sceneOpenDialog.folder
 
-                    nameFilters: SahKdTreeEngine.supportedExtensions
+                    nameFilters: SahKdTreeEngine.supportedSceneFileExtensions
 
                     showDirsFirst: true
                     showOnlyReadable: true
@@ -227,19 +227,19 @@ ApplicationWindow {
             TabButton {
                 text: qsTr("Single")
 
-                //width: implicitWidth
+                width: implicitWidth
             }
 
             TabButton {
                 text: qsTr("Swipe")
 
-                //width: implicitWidth
+                width: implicitWidth
             }
 
             TabButton {
                 text: qsTr("Grid")
 
-                //width: implicitWidth
+                width: implicitWidth
             }
         }
 
@@ -255,7 +255,8 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                scale: 0.8
+                scale: 0.2
+                rotation: -5.0
 
                 focus: StackLayout.isCurrentItem
             }
