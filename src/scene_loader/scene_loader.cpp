@@ -133,16 +133,64 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
         return {};
     }
 
+    std::unordered_map<std::remove_pointer_t<decltype(aiNode::mMeshes)>, size_t> meshes;
+    {
+        std::unordered_map<const aiNode *, size_t> parents;
+        static constexpr auto toMatrix = [](const aiMatrix4x4 & m) -> glm::mat4
+        {
+            return {
+                m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4,
+            };
+        };
+        const auto traverseNodes = [&scene, &parents, &meshes](const auto & traverseNodes, const aiNode & assimpNode) -> size_t
+        {
+            size_t nodeIndex = scene.nodes.size();
+            scene::Node & node = scene.nodes.emplace_back();
+            if (assimpNode.mParent) {
+                auto p = parents.find(assimpNode.mParent);
+                INVARIANT(p != std::end(parents), "");
+                node.parent = p->second;
+            } else {
+                node.parent = nodeIndex;
+            }
+            parents.emplace(&assimpNode, nodeIndex);
+            node.transform = toMatrix(assimpNode.mTransformation);
+            if (assimpNode.mNumMeshes > 0) {
+                size_t meshCount = utils::autoCast(assimpNode.mNumMeshes);
+                node.meshes.reserve(meshCount);
+                for (size_t m = 0; m < meshCount; ++m) {
+                    auto assimpMeshIndex = assimpNode.mMeshes[m];
+                    auto mesh = meshes.find(assimpMeshIndex);
+                    if (mesh == std::end(meshes)) {
+                        mesh = meshes.emplace(assimpMeshIndex, std::size(meshes)).first;
+                    }
+                    node.meshes.push_back(mesh->second);
+                }
+            }
+            INVARIANT(std::empty(node.children), "");
+            size_t childrenCount = utils::autoCast(assimpNode.mNumChildren);
+            node.children.reserve(childrenCount);
+            for (size_t c = 0; c < childrenCount; ++c) {
+                size_t childNodeIndex = traverseNodes(traverseNodes, *assimpNode.mChildren[c]);
+                scene.nodes[nodeIndex].children.push_back(childNodeIndex);
+            }
+            return nodeIndex;
+        };
+        if (traverseNodes(traverseNodes, *assimpRootNode) != 0) {
+            ASSERT(false);
+        }
+    }
+    qCInfo(sceneLoaderLog).noquote() << u"expected number of meshes: %1"_s.arg(assimpScene->mNumMeshes);
+    qCInfo(sceneLoaderLog).noquote() << u"actual number of meshes: %1"_s.arg(std::size(scene.meshes));
+
+    std::unordered_map<const aiMesh *, uint32_t> instances;
     uint32_t indexCount = 0;
     uint32_t vertexCount = 0;
-    std::unordered_map<const aiMesh *, uint32_t> instances;
     {
-        size_t meshCount = utils::autoCast(assimpScene->mNumMeshes);
-        scene.meshes.resize(meshCount);
-        qCInfo(sceneLoaderLog).noquote() << u"total number of meshes: %1"_s.arg(std::size(scene.meshes));
+        scene.meshes.resize(std::size(meshes));
         const auto & assimpMeshes = assimpScene->mMeshes;
-        for (uint32_t m = 0; m < meshCount; ++m) {
-            auto assimpMesh = assimpMeshes[m];
+        for (const auto & [assimpMeshIndex, m] : meshes) {
+            auto assimpMesh = assimpMeshes[assimpMeshIndex];
             if ((assimpMesh->mPrimitiveTypes & ~(aiPrimitiveType_TRIANGLE | aiPrimitiveType_NGONEncodingFlag)) != 0) {
                 qCWarning(sceneLoaderLog).noquote() << u"primitive type of mesh %1 is not triangle (possibly NGON-encoded)"_s.arg(m);
                 return {};
@@ -180,68 +228,30 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
                 return {v.x, v.y, v.z};
             }
         };
-        for (const auto & [assimpMeshPointer, m] : instances) {
+        for (const auto & [assimpMesh, m] : instances) {
             auto [indexOffset, indexCount, vertexOffset, vertexCount] = scene.meshes[m];
             INVARIANT((indexCount % 3) == 0, "");
-            const aiMesh & assimpMesh = *assimpMeshPointer;
             auto index = std::next(scene.indices.get(), indexOffset);
             const auto indexEnd = std::next(index, indexCount);
+            auto assimpFaces = assimpMesh->mFaces;
             for (uint32_t f = 0; f < indexCount / 3; ++f) {
-                const aiFace & assimpFace = assimpMesh.mFaces[f];
+                const aiFace & assimpFace = assimpFaces[f];
                 INVARIANT(assimpFace.mNumIndices == 3, "");
-                *index++ = utils::autoCast(assimpFace.mIndices[0]);
-                *index++ = utils::autoCast(assimpFace.mIndices[1]);
-                *index++ = utils::autoCast(assimpFace.mIndices[2]);
+                auto assimpIndices = assimpFace.mIndices;
+                *index++ = utils::autoCast(assimpIndices[0]);
+                *index++ = utils::autoCast(assimpIndices[1]);
+                *index++ = utils::autoCast(assimpIndices[2]);
             }
             INVARIANT(index == indexEnd, "");
             auto vertex = std::next(scene.vertices.get(), vertexOffset);
             const auto vertexEnd = std::next(vertex, vertexCount);
+            auto assimpVertices = assimpMesh->mVertices;
             for (uint32_t v = 0; v < vertexCount; ++v) {
                 auto & vertexAttributes = *vertex++;
-                vertexAttributes.position = toVertex(assimpMesh.mVertices[v]);
+                vertexAttributes.position = toVertex(assimpVertices[v]);
                 // another vertex attributes
             }
             INVARIANT(vertex == vertexEnd, "");
-        }
-    }
-
-    {
-        std::unordered_map<const aiNode *, size_t> parents;
-        static constexpr auto toMatrix = [](const aiMatrix4x4 & m) -> glm::mat4
-        {
-            return {
-                m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4,
-            };
-        };
-        const auto traverseNodes = [&scene, &parents](const auto & traverseNodes, const aiNode & assimpNode) -> size_t
-        {
-            size_t nodeIndex = scene.nodes.size();
-            scene::Node & node = scene.nodes.emplace_back();
-            if (assimpNode.mParent) {
-                INVARIANT(parents.find(assimpNode.mParent) != std::end(parents), "");
-                node.parent = parents.find(assimpNode.mParent)->second;
-            } else {
-                node.parent = nodeIndex;
-            }
-            parents.emplace(&assimpNode, nodeIndex);
-            node.transform = toMatrix(assimpNode.mTransformation);
-            if (assimpNode.mNumMeshes > 0) {
-                size_t meshCount = utils::autoCast(assimpNode.mNumMeshes);
-                node.meshes.resize(meshCount);
-                for (size_t m = 0; m < meshCount; ++m) {
-                    node.meshes[m] = utils::autoCast(assimpNode.mMeshes[m]);
-                }
-            }
-            INVARIANT(std::empty(node.children), "");
-            node.children.reserve(utils::autoCast(assimpNode.mNumChildren));
-            for (unsigned int c = 0; c < assimpNode.mNumChildren; ++c) {
-                size_t child = traverseNodes(traverseNodes, *assimpNode.mChildren[c]);
-                scene.nodes[nodeIndex].children.push_back(child);
-            }
-            return nodeIndex;
-        };
-        if (traverseNodes(traverseNodes, *assimpRootNode) != 0) {
-            INVARIANT(false, "");
         }
     }
     importer.FreeScene();

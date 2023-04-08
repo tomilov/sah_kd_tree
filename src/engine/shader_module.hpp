@@ -12,7 +12,6 @@
 #include <functional>
 #include <limits>
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -54,9 +53,10 @@ private:
 
 struct ENGINE_EXPORT VertexInputState final : utils::OnlyMoveable
 {
+    std::vector<std::string> variableNames;
     std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions;
     std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
-    std::optional<vk::PipelineVertexInputStateCreateInfo> pipelineVertexInputStateCreateInfo;
+    vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
 };
 
 struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable

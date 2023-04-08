@@ -124,8 +124,8 @@ struct Renderer::Impl
 
     void init()
     {
-        INVARIANT(!std::empty(token), "token is empty");
-        INVARIANT(!std::empty(scenePath), "scenePath is empty");
+        INVARIANT(!std::empty(token), "token should not be empty");
+        INVARIANT(!std::empty(scenePath), "scenePath should not be empty");
     }
 };
 
@@ -199,8 +199,6 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         }
 
         descriptors = scene->makeDescriptors();
-
-        std::copy_n(std::data(kVertices), std::size(kVertices), descriptors->vertexBuffer.map<VertexType>().get());
     }
 
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
@@ -225,13 +223,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kMagentaColor);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
-
-    constexpr uint32_t firstBinding = 0;
-    std::initializer_list<vk::Buffer> vertexBuffers = {
-        descriptors->vertexBuffer.getBuffer(),
-    };
-    std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
-    commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
     constexpr uint32_t firstSet = 0;
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
@@ -270,11 +261,29 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     };
     commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);
 
-    uint32_t vertexCount = utils::autoCast(std::size(kVertices));
-    constexpr uint32_t instanceCount = 1;
-    constexpr uint32_t firstVertex = 0;
-    constexpr uint32_t firstInstance = 0;
-    commandBuffer.draw(vertexCount, instanceCount, firstVertex, firstInstance, library.dispatcher);
+    constexpr uint32_t firstBinding = 0;
+    std::initializer_list<vk::Buffer> vertexBuffers = {
+        descriptors->vertexBuffer.getBuffer(),
+    };
+    if (sah_kd_tree::kIsDebugBuild) {
+        for (const auto & vertexBuffer : vertexBuffers) {
+            if (vertexBuffer == vk::Buffer{}) {
+                ASSERT(device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
+            }
+        }
+    }
+    std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
+    commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
+
+    // TODO: Scene::kUseDrawIndexedIndirect
+    auto indexBuffer = descriptors->indexBuffer.getBuffer();
+    constexpr vk::DeviceSize bufferDeviceOffset = 0;
+    auto indexType = std::cbegin(descriptors->indexTypes);
+    for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
+        INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
+        commandBuffer.bindIndexBuffer(indexBuffer, bufferDeviceOffset, *indexType++, library.dispatcher);
+        commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
+    }
 }
 
 }  // namespace viewer

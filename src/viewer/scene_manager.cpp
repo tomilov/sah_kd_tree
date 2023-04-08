@@ -13,6 +13,7 @@
 #include <fmt/format.h>
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan_format_traits.hpp>
 
 #include <bit>
 #include <iterator>
@@ -34,13 +35,34 @@ namespace
 
 const auto kRasterization = "rasterization"sv;
 constexpr uint32_t kUniformBufferSet = 0;
+constexpr uint32_t kTransformBuferSet = 0;
 const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
+const std::string kTransformBuferName = "transformBuffer"; // clazy:exclude=non-pod-global-static
 
 [[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
-    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {}", alignment);
+    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
     --alignment;
     return (size + alignment) & ~alignment;
+}
+
+vk::Format indexTypeToFormat(vk::IndexType indexType)
+{
+    switch (indexType) {
+    case vk::IndexType::eUint16: {
+        return vk::Format::eR16Uint;
+    }
+    case vk::IndexType::eUint32: {
+        return vk::Format::eR32Uint;
+    }
+    case vk::IndexType::eNoneKHR: {
+        INVARIANT(false, "{} is not supported", indexType);
+    }
+    case vk::IndexType::eUint8EXT: {
+        return vk::Format::eR8Uint;
+    }
+    }
+    INVARIANT(false, "Unknown index type {}", indexType);
 }
 
 }  // namespace
@@ -158,22 +180,166 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-engine::Buffer Scene::createVertexBuffer() const
+void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, engine::Buffer & indexBuffer, engine::Buffer & transformBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = engine.getMemoryAllocator();
 
-    vk::BufferCreateInfo vertexBufferCreateInfo;
-    vertexBufferCreateInfo.size = sizeof kVertices;
-    vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-    auto vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices of square");
-    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    auto memoryPropertyFlags = vertexBuffer.getMemoryPropertyFlags();
-    INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
-    return vertexBuffer;
+    std::vector<std::vector<glm::mat4>> transforms;
+
+    const bool kIndexTypeUint8 = engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);
+
+    auto indices = sceneData->indices.get();
+
+    vk::DeviceSize indexBufferSize = 0;
+    const auto traverseNodes = [&sceneData = *sceneData, indices, kIndexTypeUint8, &indexBufferSize, &instances, &indexTypes, &transforms](const auto & traverseNodes, size_t nodeIndex) -> void
+    {
+        const scene::Node & node = sceneData.nodes[nodeIndex];
+        for (size_t m : node.meshes) {
+            const scene::Mesh & mesh = sceneData.meshes.at(m);
+            if (m < std::size(instances)) {
+                auto & instance = instances.at(m);
+                ++instance.instanceCount;
+                transforms.at(m).push_back(node.transform);
+            } else {
+                auto & indexType = indexTypes.emplace_back();
+                auto & instance = instances.emplace_back();
+                instance.instanceCount = 1;
+                if (mesh.indexCount > 0) {
+                    auto firstIndex = std::next(indices, instance.firstIndex);
+                    uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, mesh.indexCount));
+                    if (kUseDrawIndexedIndirect) {
+                        indexType = vk::IndexType::eUint32;
+                    } else {
+                        if (kIndexTypeUint8 && (maxIndex <= std::numeric_limits<uint8_t>::max())) {
+                            indexType = vk::IndexType::eUint8EXT;
+                        } else if (maxIndex <= std::numeric_limits<uint16_t>::max()) {
+                            indexType = vk::IndexType::eUint16;
+                        } else {
+                            indexType = vk::IndexType::eUint32;
+                        }
+                    }
+                    instance.indexCount = mesh.indexCount;
+                    vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
+                    indexBufferSize = alignedSize(indexBufferSize, formatSize);
+                    instance.firstIndex = utils::autoCast(indexBufferSize / formatSize);
+                    indexBufferSize += mesh.indexCount * formatSize;
+                    instance.vertexOffset = utils::autoCast(mesh.vertexOffset);
+                } else {
+                    indexType = vk::IndexType::eNoneKHR;
+                }
+                transforms.emplace_back().push_back(node.transform);
+            }
+        }
+        for (size_t childIndex : node.children) {
+            traverseNodes(traverseNodes, childIndex);
+        }
+    };
+    constexpr size_t kRootNodeIndex = 0;
+    traverseNodes(traverseNodes, kRootNodeIndex);
+
+    {
+        vk::BufferCreateInfo indexBufferCreateInfo;
+        indexBufferCreateInfo.size = indexBufferSize;
+        indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
+        indexBuffer = vma.createStagingBuffer(indexBufferCreateInfo, minAlignment, "Indices");
+        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        auto memoryPropertyFlags = indexBuffer.getMemoryPropertyFlags();
+        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+    }
+
+    uint32_t firstInstance = 0;
+    {
+        auto mappedIndexBuffer = indexBuffer.map<void>();
+        auto p = mappedIndexBuffer.get();
+        size_t m = 0;
+        for (auto & instance : instances) {
+            instance.firstInstance = firstInstance;
+            ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
+            firstInstance += instance.instanceCount;
+
+            const auto convertCopy = [&instance, p, indices]<typename T>(std::type_identity<T>)
+            {
+                T * firstIndex = utils::autoCast(p);
+                std::advance(firstIndex, instance.firstIndex);
+                for (uint32_t i = 0; i < instance.indexCount; ++i) {
+                    auto index = indices[instance.firstIndex + i];
+                    ASSERT(utils::inRange<T>(index));
+                    *firstIndex++ = T(index);
+                }
+            };
+            auto indexType = indexTypes.at(m);
+            switch (indexType) {
+            case vk::IndexType::eUint8EXT: {
+                convertCopy(std::type_identity<uint8_t>{});
+                break;
+            }
+            case vk::IndexType::eUint16: {
+                convertCopy(std::type_identity<uint16_t>{});
+                break;
+            }
+            case vk::IndexType::eUint32: {
+                convertCopy(std::type_identity<uint32_t>{});
+                break;
+            }
+            default: {
+                INVARIANT(false, "{} is not supported", indexType);
+            }
+            }
+
+            ++m;
+        }
+    }
+
+    {
+        vk::BufferCreateInfo transformBufferCreateInfo;
+        transformBufferCreateInfo.size = firstInstance * sizeof(glm::mat4);
+        transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
+        if (kUseDescriptorBuffer) {
+            transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
+        }
+        transformBuffer = vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Indices");
+        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        auto memoryPropertyFlags = transformBuffer.getMemoryPropertyFlags();
+        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+    }
+
+    {
+        auto mappedTransformBuffer = transformBuffer.map<glm::mat4>();
+        auto t = mappedTransformBuffer.get();
+        for (const auto & instanceTransforms : transforms) {
+            t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);
+        }
+        ASSERT(std::next(mappedTransformBuffer.get(), firstInstance) == t);
+    }
 }
 
-std::vector<engine::Buffer> Scene::createUniformBuffers() const
+void Scene::createVertexBuffer(engine::Buffer & vertexBuffer) const
+{
+    const auto minAlignment = getMinAlignment();
+    const auto & vma = engine.getMemoryAllocator();
+
+    vk::DeviceSize vertexSize = 0;
+    for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.vertexInputAttributeDescriptions) {
+        vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
+    }
+
+    if (vertexSize > 0) {
+        INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
+
+        vk::BufferCreateInfo vertexBufferCreateInfo;
+        vertexBufferCreateInfo.size = sceneData->vertexCount * vertexSize;
+        vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+        vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices");
+        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        auto memoryPropertyFlags = vertexBuffer.getMemoryPropertyFlags();
+        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+        std::copy_n(sceneData->vertices.get(), sceneData->vertexCount, vertexBuffer.map<scene::VertexAttributes>().get());
+    }
+}
+
+void Scene::createUniformBuffers(std::vector<engine::Buffer> & uniformBuffers) const
 {
     const uint32_t framesInFlight = getFramesInFlight();
     const auto minAlignment = getMinAlignment();
@@ -185,7 +351,6 @@ std::vector<engine::Buffer> Scene::createUniformBuffers() const
     if (kUseDescriptorBuffer) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
-    std::vector<engine::Buffer> uniformBuffers;
     uniformBuffers.reserve(framesInFlight);
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     for (uint32_t i = 0; i < framesInFlight; ++i) {
@@ -194,7 +359,6 @@ std::vector<engine::Buffer> Scene::createUniformBuffers() const
         auto memoryPropertyFlags = uniformBuffers.back().getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
     }
-    return uniformBuffers;
 }
 
 void Scene::createDescriptorSets(std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::deque<engine::DescriptorSets> & descriptorSets) const
@@ -207,14 +371,13 @@ void Scene::createDescriptorSets(std::unique_ptr<engine::DescriptorPool> & descr
     }
 }
 
-void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, std::deque<engine::DescriptorSets> & descriptorSets) const
+void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::deque<engine::DescriptorSets> & descriptorSets) const
 {
     const uint32_t framesInFlight = getFramesInFlight();
     const auto & dispatcher = engine.getLibrary().dispatcher;
     const auto & device = engine.getDevice();
 
-    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
-    descriptorBufferInfos.resize(framesInFlight);
+    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos(framesInFlight);
     for (uint32_t i = 0; i < framesInFlight; ++i) {
         descriptorBufferInfos.at(i) = {
             .buffer = uniformBuffers.at(i).getBuffer(),
@@ -239,6 +402,8 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
         writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
     }
     device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+
+    // TODO: add transformBuffer
 }
 
 void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
@@ -256,7 +421,7 @@ void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetB
     for (const auto & descriptorSetLayout : shaderStages.descriptorSetLayouts) {
         vk::BufferCreateInfo descriptorBufferCreateInfo;
         descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
-        descriptorBufferCreateInfo.size = alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), descriptorBufferOffsetAlignment) * framesInFlight;
+        descriptorBufferCreateInfo.size = alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), std::max(descriptorBufferOffsetAlignment, minAlignment)) * framesInFlight;
         INVARIANT(set != std::cend(shaderStages.setBindings), "");
         for (const auto & binding : set->second.bindings) {
             switch (binding.descriptorType) {
@@ -290,7 +455,7 @@ void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetB
     }
 }
 
-void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, std::vector<engine::Buffer> & descriptorSetBuffers) const
+void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer &transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
 {
     const uint32_t framesInFlight = getFramesInFlight();
     const auto & dispatcher = engine.getLibrary().dispatcher;
@@ -319,6 +484,14 @@ void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuf
                         .format = vk::Format::eUndefined,
                     };
                     descriptorGetInfo.data.pUniformBuffer = &descriptorAddressInfo;
+                } else if (bindingName == kTransformBuferName) {
+                    ASSERT(binding.descriptorType == vk::DescriptorType::eStorageBuffer);
+                    descriptorAddressInfo = {
+                        .address = transformBuffer.getDeviceAddress(),
+                        .range = transformBuffer.getSize(),
+                        .format = vk::Format::eUndefined,
+                    };
+                    descriptorGetInfo.data.pStorageBuffer = &descriptorAddressInfo;
                 } else {
                     INVARIANT(false, "Cannot find descriptor for binding '{}'", bindingName);
                 }
@@ -354,8 +527,9 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
 {
     auto descriptors = std::make_unique<Descriptors>();
 
-    descriptors->uniformBuffers = createUniformBuffers();
-    descriptors->vertexBuffer = createVertexBuffer();
+    createUniformBuffers(descriptors->uniformBuffers);
+    createInstances(descriptors->indexTypes, descriptors->instances, descriptors->indexBuffer, descriptors->transformBuffer);
+    createVertexBuffer(descriptors->vertexBuffer);
 
     for (const auto & [set, bindings] : shaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
@@ -370,9 +544,9 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
     descriptors->pushConstantRanges = engine::getDisjointPushConstantRanges(shaderStages.pushConstantRanges);
 
     if (kUseDescriptorBuffer) {
-        fillDescriptorBuffers(descriptors->uniformBuffers, descriptors->descriptorSetBuffers);
+        fillDescriptorBuffers(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
     } else {
-        fillDescriptorSets(descriptors->uniformBuffers, descriptors->descriptorSets);
+        fillDescriptorSets(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSets);
     }
 
     return descriptors;
@@ -389,10 +563,6 @@ Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_p
     , pipelineCache{std::move(pipelineCache)}
     , sceneDesignator{std::move(sceneDesignator)}
     , sceneData{std::move(sceneData)}
-    , vertexShader{"fullscreen_rect.vert", engine, fileIo}
-    , vertexShaderReflection{vertexShader, "main"}
-    , fragmentShader{"squircle.frag", engine, fileIo}
-    , fragmentShaderReflection{fragmentShader, "main"}
     , shaderStages{engine, vertexBufferBinding}
 {
     init();
@@ -403,34 +573,79 @@ void Scene::init()
     INVARIANT(!kUseDescriptorBuffer || engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME), VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME " should be enabled if kUseDescriptorBuffer");
 
     ASSERT(sceneDesignator);
-    INVARIANT(vertexShader.shaderStage == vk::ShaderStageFlagBits::eVertex, "Vertex shader has mismatched stage flags {} in reflection", vertexShader.shaderStage);
-    INVARIANT(fragmentShader.shaderStage == vk::ShaderStageFlagBits::eFragment, "Fragment shader has mismatched stage flags {} in reflection", fragmentShader.shaderStage);
 
+    const auto addShader = [this](std::string_view shaderName, std::string_view entryPoint = "main") -> const Shader &
     {
-        INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
+        auto [it, inserted] = shaders.emplace(std::piecewise_construct, std::tie(shaderName), std::tie(engine, fileIo, shaderName, entryPoint));
+        INVARIANT(inserted, "");
+        return it->second;
+    };
 
-        INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
-        const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
-        INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-        INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
-        INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+    if ((false)) {
+        const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
+
+            INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
+            const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
+            INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
+            INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+        }
+        shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
+
+        const auto & [fragmentShader, fragmentShaderReflection] = addShader("squircle.frag");
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+            INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+
+            INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
+        }
+        shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
+    } else {
+        const auto & [vertexShader, vertexShaderReflection] = addShader("identity.vert");
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kTransformBuferSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kTransformBuferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
+            INVARIANT(descriptorSetLayoutBindingReflection.binding == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eStorageBuffer, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+
+            INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
+            const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
+            INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
+            INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+        }
+        shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
+
+        const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+            INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+
+            INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
+        }
+        shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
     }
-    shaderStages.append(vertexShader, vertexShaderReflection, vertexShaderReflection.entryPoint);
-
-    {
-        INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-        INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
-        auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-        INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
-        auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-        INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-        INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-
-        INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
-    }
-    shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
 
     vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
     if (kUseDescriptorBuffer) {

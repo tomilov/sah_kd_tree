@@ -1,5 +1,6 @@
 #include <codegen/vulkan_utils.hpp>
 #include <engine/device.hpp>
+#include <engine/physical_device.hpp>
 #include <engine/engine.hpp>
 #include <engine/file_io.hpp>
 #include <engine/library.hpp>
@@ -381,11 +382,13 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
     };
     std::sort(std::begin(reflectInterfaceVariable), std::end(reflectInterfaceVariable), locationLess);
 
+    auto & variableNames = vertexInputState.variableNames;
     auto & vertexInputAttributeDescriptions = vertexInputState.vertexInputAttributeDescriptions;
     for (const auto inputVariable : reflectInterfaceVariable) {
         INVARIANT(inputVariable, "");
         auto variableName = inputVariable->name ? inputVariable->name : fmt::to_string(inputVariable->spirv_id);
         SPDLOG_DEBUG("Variable name: '{}'", variableName);
+        variableNames.push_back(std::move(variableName));
         if (inputVariable->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
             continue;
         }
@@ -394,12 +397,16 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         vertexInputAttributeDescription.binding = vertexInputBindingDescription.binding;
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
+
+        auto formatProperties = shaderModule.device.physicalDevice.physicalDevice.getFormatProperties(vertexInputAttributeDescription.format, shaderModule.library.dispatcher);
+        INVARIANT(formatProperties.bufferFeatures & vk::FormatFeatureFlagBits::eVertexBuffer, "");
+
         auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor);
         INVARIANT(formatSize > 0, "Expected known to VkLayer_utils format {}", vertexInputAttributeDescription.format);
         vertexInputBindingDescription.stride += formatSize;
     }
 
-    auto & pipelineVertexInputStateCreateInfo = vertexInputState.pipelineVertexInputStateCreateInfo.emplace();
+    auto & pipelineVertexInputStateCreateInfo = vertexInputState.pipelineVertexInputStateCreateInfo;
     pipelineVertexInputStateCreateInfo.flags = {};
     pipelineVertexInputStateCreateInfo.setVertexAttributeDescriptions(vertexInputAttributeDescriptions);
     pipelineVertexInputStateCreateInfo.setVertexBindingDescriptions(vertexInputBindingDescriptions);
@@ -499,7 +506,6 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
 
     if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {
-        INVARIANT(!vertexInputState.pipelineVertexInputStateCreateInfo, "Second vertex shader in pipeline");
         vertexInputState = shaderModuleReflection.getVertexInputState(vertexBufferBinding);
     }
 

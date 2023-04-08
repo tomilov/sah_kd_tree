@@ -1,16 +1,12 @@
 #version 460 core
 
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_fragment_shader_barycentric : enable
+
+#include "uniform_buffer.glsl"
 
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 fragColor;
-
-layout(std140, set = 0, binding = 0) uniform UniformBuffer
-{
-    float alpha;
-
-    float t;
-} uniformBuffer;
 
 void main()
 {
@@ -23,5 +19,4 @@ void main()
     i = floor(i * 20.0f) / 20.0f;
     fragColor.rgb = vec3(uv * 0.5f + 0.5f, i);
     fragColor.a = uniformBuffer.alpha;
-    fragColor.rgb = gl_BaryCoordEXT.rgb;
 }

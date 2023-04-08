@@ -66,15 +66,6 @@ struct fmt::formatter<viewer::SceneDesignator> : fmt::formatter<fmt::string_view
 namespace viewer
 {
 
-using VertexType = glm::vec2;
-
-inline const VertexType kVertices[] = {
-    {-1.0f, -1.0f},
-    {1.0f, -1.0f},
-    {-1.0f, 1.0f},
-    {1.0f, 1.0f},
-};
-
 #pragma pack(push, 1)
 struct UniformBuffer
 {
@@ -97,10 +88,16 @@ class Scene
 {
 public:
     static constexpr bool kUseDescriptorBuffer = true;
+    static constexpr bool kUseDrawIndexedIndirect = false;
 
     struct Descriptors : utils::NonCopyable
     {
         std::vector<engine::Buffer> uniformBuffers;
+
+        std::vector<vk::IndexType> indexTypes;
+        std::vector<vk::DrawIndexedIndirectCommand> instances;
+        engine::Buffer transformBuffer;
+        engine::Buffer indexBuffer;
         engine::Buffer vertexBuffer;
 
         std::unique_ptr<engine::DescriptorPool> descriptorPool;
@@ -129,18 +126,24 @@ public:
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
 private:
+    struct Shader
+    {
+        Shader(const engine::Engine & engine, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
+            : shader{shaderName, engine, fileIo}
+            , shaderReflection{shader, entryPoint}
+        {}
+
+        engine::ShaderModule shader;
+        engine::ShaderModuleReflection shaderReflection;
+    };
+
     const engine::Engine & engine;
     const FileIo & fileIo;
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::shared_ptr<const SceneDesignator> sceneDesignator;
     const std::shared_ptr<const scene::Scene> sceneData;
 
-    engine::ShaderModule vertexShader;
-    engine::ShaderModuleReflection vertexShaderReflection;
-
-    engine::ShaderModule fragmentShader;
-    engine::ShaderModuleReflection fragmentShaderReflection;
-
+    std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
 
@@ -152,14 +155,15 @@ private:
     [[nodiscard]] uint32_t getFramesInFlight() const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    [[nodiscard]] engine::Buffer createVertexBuffer() const;
-    [[nodiscard]] std::vector<engine::Buffer> createUniformBuffers() const;
+    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, engine::Buffer & indexBuffer, engine::Buffer & transformBuffer) const;
+    void createVertexBuffer(engine::Buffer & vertexBuffer) const;
+    void createUniformBuffers(std::vector<engine::Buffer> & uniformBuffers) const;
 
     void createDescriptorSets(std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::deque<engine::DescriptorSets> & descriptorSets) const;
-    void fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, std::deque<engine::DescriptorSets> & descriptorSets) const;
+    void fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::deque<engine::DescriptorSets> & descriptorSets) const;
 
     void createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
-    void fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, std::vector<engine::Buffer> & descriptorSetBuffers) const;
+    void fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const;
 };
 
 class SceneManager
