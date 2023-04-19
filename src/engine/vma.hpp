@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -8,6 +9,7 @@
 
 #include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -95,6 +97,7 @@ public:
     ~MappedMemory() noexcept(false);
 
     void * get() const;
+    vk::DeviceSize getSize() const;
 
 private:
     friend Buffer;
@@ -117,9 +120,15 @@ template<typename T>
 class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
 {
 public:
-    T * get() const
+    T * begin() const
     {
         return static_cast<T *>(mappedMemory.get());
+    }
+
+    T * end() const
+    {
+        INVARIANT((mappedMemory.getSize() % sizeof(T)) == 0, "Size of mapped memory {} is not multiple of {}", mappedMemory.getSize(), sizeof(T));
+        return std::next(begin(), mappedMemory.getSize() / sizeof(T));
     }
 
 private:

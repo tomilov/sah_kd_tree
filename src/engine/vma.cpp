@@ -753,6 +753,15 @@ void * MappedMemory<void>::get() const
     return std::next(static_cast<std::byte *>(allocationInfo.pMappedData), offset);
 }
 
+vk::DeviceSize MappedMemory<void>::getSize() const
+{
+    if (size == VK_WHOLE_SIZE) {
+        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
+        return bufferCreateInfo.size - offset;
+    }
+    return size;
+}
+
 MappedMemory<void>::~MappedMemory() noexcept(false)
 {
     auto allocator = resource.getAllocator();
@@ -763,8 +772,7 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
     }
     vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        const auto & bufferCreateInfo = resource.getBufferCreateInfo();
-        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, getSize()));
         INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
     }
 }
