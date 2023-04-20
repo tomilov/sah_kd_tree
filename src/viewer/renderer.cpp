@@ -202,7 +202,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     }
 
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    *descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().begin() = uniformBuffer;
+    *descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data() = uniformBuffer;
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)

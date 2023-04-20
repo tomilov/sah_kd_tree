@@ -87,7 +87,7 @@ class Scene
     , public std::enable_shared_from_this<Scene>
 {
 public:
-    static constexpr bool kUseDescriptorBuffer = true;
+    static constexpr bool kUseDescriptorBuffer = false;
     static constexpr bool kUseDrawIndexedIndirect = false;
 
     struct Descriptors : utils::NonCopyable
@@ -114,7 +114,7 @@ public:
         engine::GraphicsPipelineLayout pipelineLayout;
         engine::GraphicsPipelines pipelines;
 
-        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass);
+        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer);
     };
 
     [[nodiscard]] const std::shared_ptr<const SceneDesignator> & getSceneDesignator() const;
@@ -128,9 +128,7 @@ public:
 private:
     struct Shader
     {
-        Shader(const engine::Engine & engine, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
-            : shader{shaderName, engine, fileIo}
-            , shaderReflection{shader, entryPoint}
+        Shader(const engine::Engine & engine, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, engine, fileIo}, shaderReflection{shader, entryPoint}
         {}
 
         engine::ShaderModule shader;
@@ -143,6 +141,8 @@ private:
     const std::shared_ptr<const SceneDesignator> sceneDesignator;
     const std::shared_ptr<const scene::Scene> sceneData;
 
+    bool useDescriptorBuffer = false;
+    bool useIndexTypeUint8 = false;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;

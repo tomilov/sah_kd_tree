@@ -38,8 +38,8 @@ namespace
 const auto kRasterization = "rasterization"sv;
 constexpr uint32_t kUniformBufferSet = 0;
 constexpr uint32_t kTransformBuferSet = 0;
-const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
-const std::string kTransformBuferName = "transformBuffer"; // clazy:exclude=non-pod-global-static
+const std::string kUniformBufferName = "uniformBuffer";     // clazy:exclude=non-pod-global-static
+const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
 
 [[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
 {
@@ -65,6 +65,29 @@ vk::Format indexTypeToFormat(vk::IndexType indexType)
     }
     }
     INVARIANT(false, "Unknown index type {}", indexType);
+}
+
+uint32_t indexTypeRank(vk::IndexType indexType)
+{
+    switch (indexType) {
+    case vk::IndexType::eNoneKHR: {
+        return 0;
+    }
+    case vk::IndexType::eUint8EXT: {
+        return 1;
+    }
+    case vk::IndexType::eUint16: {
+        return 2;
+    }
+    case vk::IndexType::eUint32: {
+        return 3;
+    }
+    }
+}
+
+bool indexTypeLess(auto lhs, auto rhs)
+{
+    return indexTypeRank(lhs) < indexTypeRank(rhs);
 }
 
 }  // namespace
@@ -189,32 +212,11 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
     std::vector<std::vector<glm::mat4>> transforms;
 
-    const bool kHasIndexTypeUint8 = engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);
-
     auto indices = sceneData->indices.get();
 
     constexpr size_t kRootNodeIndex = 0;
-
-    static constexpr auto indexTypeRank = [](vk::IndexType indexType) -> uint32_t
-    {
-        switch (indexType) {
-        case vk::IndexType::eNoneKHR : {
-            return 0;
-        }
-        case vk::IndexType::eUint8EXT : {
-            return 1;
-        }
-        case vk::IndexType::eUint16 : {
-            return 2;
-        }
-        case vk::IndexType::eUint32 : {
-            return 3;
-        }
-        }
-    };
-    static constexpr auto indexTypeLess = [](auto lhs, auto rhs) -> bool { return indexTypeRank(lhs) < indexTypeRank(rhs); };
     vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
-    const auto collectNodeInfos = [&sceneData = *sceneData, indices, kHasIndexTypeUint8, &instances, &indexTypes, &transforms, &maxIndexType](const auto & collectNodeInfos, size_t nodeIndex) -> void
+    const auto collectNodeInfos = [this, &sceneData = *sceneData, indices, &instances, &indexTypes, &transforms, &maxIndexType](const auto & collectNodeInfos, size_t nodeIndex) -> void
     {
         const scene::Node & node = sceneData.nodes[nodeIndex];
         for (size_t m : node.meshes) {
@@ -232,7 +234,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 if (mesh.indexCount > 0) {
                     auto firstIndex = std::next(indices, mesh.indexOffset);
                     uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, mesh.indexCount));
-                    if (kHasIndexTypeUint8 && (maxIndex <= std::numeric_limits<uint8_t>::max())) {
+                    if (useIndexTypeUint8 && (maxIndex <= std::numeric_limits<uint8_t>::max())) {
                         indexType = vk::IndexType::eUint8EXT;
                     } else if (maxIndex <= std::numeric_limits<uint16_t>::max()) {
                         indexType = vk::IndexType::eUint16;
@@ -337,7 +339,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         vk::BufferCreateInfo transformBufferCreateInfo;
         transformBufferCreateInfo.size = totalInstanceCount * sizeof(glm::mat4);
         transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-        if (kUseDescriptorBuffer) {
+        if (useDescriptorBuffer) {
             transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
         transformBuffer = vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Indices");
@@ -380,7 +382,11 @@ void Scene::createVertexBuffer(engine::Buffer & vertexBuffer) const
         auto memoryPropertyFlags = vertexBuffer.getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
-        std::copy_n(sceneData->vertices.get(), sceneData->vertexCount, vertexBuffer.map<scene::VertexAttributes>().begin());
+        auto mappedVertexBuffer = vertexBuffer.map<scene::VertexAttributes>();
+        ASSERT(sceneData->vertexCount == mappedVertexBuffer.getSize());
+        if (std::copy_n(sceneData->vertices.get(), sceneData->vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+            INVARIANT(false, "");
+        }
     }
 }
 
@@ -393,7 +399,7 @@ void Scene::createUniformBuffers(std::vector<engine::Buffer> & uniformBuffers) c
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = sizeof(UniformBuffer);
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    if (kUseDescriptorBuffer) {
+    if (useDescriptorBuffer) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
     uniformBuffers.reserve(framesInFlight);
@@ -423,33 +429,65 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
     const auto & dispatcher = engine.getLibrary().dispatcher;
     const auto & device = engine.getDevice();
 
-    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos(framesInFlight);
-    for (uint32_t i = 0; i < framesInFlight; ++i) {
-        descriptorBufferInfos.at(i) = {
-            .buffer = uniformBuffers.at(i).getBuffer(),
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
+    writeDescriptorSets.reserve(framesInFlight * 2);
+    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
+    descriptorBufferInfos.reserve(framesInFlight + 1);
+
+    {
+        for (uint32_t i = 0; i < framesInFlight; ++i) {
+            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+            descriptorBufferInfos.emplace_back() = {
+                .buffer = uniformBuffers.at(i).getBuffer(),
+                .offset = 0,
+                .range = uniformBuffers.at(i).getSize(),
+            };
+        }
+
+        auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
+        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kUniformBufferSet, kUniformBufferName);
+        uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
+        const auto & uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName);
+
+        for (uint32_t i = 0; i < framesInFlight; ++i) {
+            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+            writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
+            writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
+            writeDescriptorSet.dstArrayElement = 0;  // not an array
+            writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
+            writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
+        }
+    }
+
+    {
+        ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+        auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
+        descriptorBufferInfo = {
+            .buffer = transformBuffer.getBuffer(),
             .offset = 0,
-            .range = uniformBuffers.at(i).getSize(),
+            .range = transformBuffer.getSize(),
         };
+
+        auto setBindings = shaderStages.setBindings.find(kTransformBuferSet);
+        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
+        uint32_t transformBufferSetIndex = setBindings->second.setIndex;
+        const auto & transformBufferBinding = setBindings->second.getBinding(kTransformBuferName);
+
+        for (uint32_t i = 0; i < framesInFlight; ++i) {
+            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+            writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(transformBufferSetIndex);
+            writeDescriptorSet.dstBinding = transformBufferBinding.binding;
+            writeDescriptorSet.dstArrayElement = 0;  // not an array
+            writeDescriptorSet.descriptorType = transformBufferBinding.descriptorType;
+            writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
+        }
     }
 
-    auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
-    INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} is not found", kUniformBufferSet);
-    uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
-    const auto & uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName);
-
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets(framesInFlight);
-    for (uint32_t i = 0; i < framesInFlight; ++i) {
-        auto & writeDescriptorSet = writeDescriptorSets.at(i);
-
-        writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
-        writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
-        writeDescriptorSet.dstArrayElement = 0;  // not an array
-        writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
-        writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
-    }
     device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
-
-    // TODO: add transformBuffer
 }
 
 void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
@@ -502,7 +540,7 @@ void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetB
     }
 }
 
-void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer &transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
+void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
 {
     const uint32_t framesInFlight = getFramesInFlight();
     const auto & dispatcher = engine.getLibrary().dispatcher;
@@ -554,10 +592,10 @@ void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuf
     }
 }
 
-Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
+Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
     : pipelineLayout{name, engine, shaderStages, renderPass}, pipelines{engine, pipelineCache}
 {
-    pipelines.add(pipelineLayout, kUseDescriptorBuffer);
+    pipelines.add(pipelineLayout, useDescriptorBuffer);
     pipelines.create();
 }
 
@@ -584,7 +622,7 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
         INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
 
-    if (kUseDescriptorBuffer) {
+    if (useDescriptorBuffer) {
         createDescriptorBuffers(descriptors->descriptorSetBuffers, descriptors->descriptorBufferBindingInfos);
     } else {
         createDescriptorSets(descriptors->descriptorPool, descriptors->descriptorSets);
@@ -592,7 +630,7 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
 
     descriptors->pushConstantRanges = engine::getDisjointPushConstantRanges(shaderStages.pushConstantRanges);
 
-    if (kUseDescriptorBuffer) {
+    if (useDescriptorBuffer) {
         fillDescriptorBuffers(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
     } else {
         fillDescriptorSets(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSets);
@@ -603,23 +641,22 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>(kRasterization, engine, pipelineCache->pipelineCache, shaderStages, renderPass);
+    return std::make_unique<GraphicsPipeline>(kRasterization, engine, pipelineCache->pipelineCache, shaderStages, renderPass, useDescriptorBuffer);
 }
 
 Scene::Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::shared_ptr<const SceneDesignator> && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData)
-    : engine{engine}
-    , fileIo{fileIo}
-    , pipelineCache{std::move(pipelineCache)}
-    , sceneDesignator{std::move(sceneDesignator)}
-    , sceneData{std::move(sceneData)}
-    , shaderStages{engine, vertexBufferBinding}
+    : engine{engine}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, sceneDesignator{std::move(sceneDesignator)}, sceneData{std::move(sceneData)}, shaderStages{engine, vertexBufferBinding}
 {
     init();
 }
 
 void Scene::init()
 {
-    INVARIANT(!kUseDescriptorBuffer || engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME), VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME " should be enabled if kUseDescriptorBuffer");
+    if (kUseDescriptorBuffer) {
+        useDescriptorBuffer = engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+    }
+
+    useIndexTypeUint8 = engine.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);
 
     ASSERT(sceneDesignator);
 
@@ -697,7 +734,7 @@ void Scene::init()
     }
 
     vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
-    if (kUseDescriptorBuffer) {
+    if (useDescriptorBuffer) {
         descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
     }
     shaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);

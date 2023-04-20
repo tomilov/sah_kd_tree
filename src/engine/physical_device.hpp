@@ -103,7 +103,6 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
     };
@@ -113,6 +112,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         // VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
         // VK_EXT_MESH_SHADER_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME,
     };
 

@@ -120,15 +120,25 @@ template<typename T>
 class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
 {
 public:
-    T * begin() const
+    T * data() const
     {
         return static_cast<T *>(mappedMemory.get());
     }
 
-    T * end() const
+    vk::DeviceSize getSize() const
     {
         INVARIANT((mappedMemory.getSize() % sizeof(T)) == 0, "Size of mapped memory {} is not multiple of {}", mappedMemory.getSize(), sizeof(T));
-        return std::next(begin(), mappedMemory.getSize() / sizeof(T));
+        return mappedMemory.getSize() / sizeof(T);
+    }
+
+    T * begin() const
+    {
+        return data();
+    }
+
+    T * end() const
+    {
+        return std::next(begin(), getSize());
     }
 
 private:

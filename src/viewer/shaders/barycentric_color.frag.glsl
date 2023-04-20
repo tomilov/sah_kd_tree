@@ -9,6 +9,6 @@ layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-    fragColor.rgb = gl_BaryCoordEXT.rgb;
+    fragColor.rgb = gl_BaryCoordEXT.xyz;
     fragColor.a = uniformBuffer.alpha;
 }
