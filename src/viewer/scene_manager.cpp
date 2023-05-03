@@ -4,7 +4,6 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
-#include <engine/push_constant_ranges.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
@@ -628,7 +627,7 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
         createDescriptorSets(descriptors->descriptorPool, descriptors->descriptorSets);
     }
 
-    descriptors->pushConstantRanges = engine::getDisjointPushConstantRanges(shaderStages.pushConstantRanges);
+    descriptors->pushConstantRanges = shaderStages.pushConstantRanges;
 
     if (useDescriptorBuffer) {
         fillDescriptorBuffers(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
@@ -672,8 +671,8 @@ void Scene::init()
         {
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
 
-            INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
-            const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
+            INVARIANT(vertexShaderReflection.pushConstantRange, "");
+            const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
             INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
             INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
             INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
@@ -692,7 +691,7 @@ void Scene::init()
             INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
             INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
 
-            INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
         }
         shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
     } else {
@@ -708,8 +707,8 @@ void Scene::init()
             INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
             INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
 
-            INVARIANT(std::size(vertexShaderReflection.pushConstantRanges) == 1, "");
-            const auto & pushConstantRange = vertexShaderReflection.pushConstantRanges.at(0);
+            INVARIANT(vertexShaderReflection.pushConstantRange, "");
+            const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
             INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
             INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
             INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
@@ -728,7 +727,7 @@ void Scene::init()
             INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
             INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
 
-            INVARIANT(std::empty(fragmentShaderReflection.pushConstantRanges), "");
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
         }
         shaderStages.append(fragmentShader, fragmentShaderReflection, fragmentShaderReflection.entryPoint);
     }

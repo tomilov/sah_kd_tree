@@ -12,6 +12,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -70,7 +71,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
 
     vk::ShaderStageFlagBits shaderStage = {};
     std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, vk::DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
-    std::vector<vk::PushConstantRange> pushConstantRanges;
+    std::optional<vk::PushConstantRange> pushConstantRange;
 
     ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint);
     ~ShaderModuleReflection();

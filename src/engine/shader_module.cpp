@@ -471,14 +471,21 @@ void ShaderModuleReflection::reflect()
     reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPoint.c_str(), &pushConstantBlockCount, std::data(pushConstantBlocks));
     INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
 
-    pushConstantRanges.resize(pushConstantBlockCount);
-    for (uint32_t index = 0; index < pushConstantBlockCount; ++index) {
-        const auto reflectPushConstantBlock = pushConstantBlocks.at(index);
-        INVARIANT(reflectPushConstantBlock, "");
-        auto & pushConstantRange = pushConstantRanges.at(index);
-        pushConstantRange.stageFlags = shaderStage;
-        pushConstantRange.offset = reflectPushConstantBlock->offset;  // TODO:
-        pushConstantRange.size = reflectPushConstantBlock->size;
+    if (pushConstantBlockCount > 0) {
+        auto & [stageFlags, offset, size] = pushConstantRange.emplace();
+        stageFlags = shaderStage;
+        offset = pushConstantBlocks.front()->offset;
+        size = pushConstantBlocks.front()->size;
+        for (uint32_t index = 1; index < pushConstantBlockCount; ++index) {
+            const auto reflectPushConstantBlock = pushConstantBlocks.at(index);
+            INVARIANT(reflectPushConstantBlock, "");
+            if (offset > reflectPushConstantBlock->offset) {
+                offset = reflectPushConstantBlock->offset;
+            }
+            if (offset + size < reflectPushConstantBlock->offset + reflectPushConstantBlock->size) {
+                size = reflectPushConstantBlock->offset - offset + reflectPushConstantBlock->size;
+            }
+        }
     }
 }
 
@@ -538,7 +545,9 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
         bindings.setIndex = setIndex++;
     }
 
-    pushConstantRanges.insert(std::cend(pushConstantRanges), std::cbegin(shaderModuleReflection.pushConstantRanges), std::cend(shaderModuleReflection.pushConstantRanges));
+    if (shaderModuleReflection.pushConstantRange) {
+        pushConstantRanges.push_back(shaderModuleReflection.pushConstantRange.value());
+    }
 }
 
 void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
