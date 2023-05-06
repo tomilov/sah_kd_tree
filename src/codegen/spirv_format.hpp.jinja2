@@ -2,13 +2,13 @@
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
 
-#include <codegen/codegen_spirv_export.h>
+#include <codegen/spirv_format_export.h>
 
 namespace codegen::spv
 {
 
 {% for spv_enum in spv_enums %}
-[[nodiscard]] const char * toString({{ spv_enum.enum_typename }} {{ spv_enum.variable_name }}) CODEGEN_SPIRV_EXPORT;
+[[nodiscard]] const char * toString({{ spv_enum.enum_typename }} {{ spv_enum.variable_name }}) SPIRV_FORMAT_EXPORT;
 {% endfor %}
 
 }  // namespace codegen::spv

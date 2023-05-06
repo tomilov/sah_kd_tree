@@ -53,9 +53,9 @@ macro(add_codegen_library name dependency command_arg)
         PROPERTIES
             LIBRARY_OUTPUT_NAME "${target_name}"
             ARCHIVE_OUTPUT_NAME "${target_name}")
-    generate_export_header("lib${target_name}" BASE_NAME "${target_name}")
+    generate_export_header("lib${target_name}" BASE_NAME "${name}")
     if(NOT BUILD_SHARED_LIBS)
-        string(TOUPPER "${target_name}" STATIC_DEFINE_PREFIX)
+        string(TOUPPER "${name}" STATIC_DEFINE_PREFIX)
         target_compile_definitions(
             "lib${target_name}"
             PUBLIC
@@ -76,11 +76,11 @@ macro(add_codegen_library name dependency command_arg)
             "libutils")
 endmacro()
 
-get_target_property(spirv_headers_path "SPIRV-Headers" INTERFACE_INCLUDE_DIRECTORIES)
+set(spirv_headers_path "${SPIRV-Headers_SOURCE_DIR}/include")
 add_codegen_library(
     "spirv_format"
     "${spirv_headers_path}/spirv/unified1/spirv.py"
-    --spirv="${spirv_headers_path}")
+    --spirv-headers="${spirv_headers_path}")
 
 target_link_libraries(
     "lib${PROJECT_NAME}_spirv_format"
@@ -88,6 +88,10 @@ target_link_libraries(
         "SPIRV-Headers"
     PUBLIC
         "SPIRV-Reflect")
+target_include_directories(
+    "lib${PROJECT_NAME}_spirv_format"
+    SYSTEM PUBLIC
+        "${spirv_headers_path}")
 
 get_target_property(vulkan_registry_path Vulkan::Headers VULKAN_REGISTRY_PATH)
 add_codegen_library(
@@ -101,4 +105,8 @@ target_link_libraries(
         "SPIRV-Reflect"
     PUBLIC
         "Vulkan-Headers")
+target_include_directories(
+    "lib${PROJECT_NAME}_vulkan_utils"
+    SYSTEM PUBLIC
+        "${spirv_headers_path}")
 

@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include <codegen/codegen_vulkan_export.h>
+#include <codegen/vulkan_utils_export.h>
 
 namespace codegen::vulkan
 {
@@ -108,6 +108,6 @@ extern const std::unordered_set<vk::Format> kMultiplaneFormats;
 extern const std::unordered_set<vk::Format> kFormatHasSpvImageFormat;
 extern const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat;
 
-[[nodiscard]] vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect) CODEGEN_VULKAN_EXPORT;
+[[nodiscard]] vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect) VULKAN_UTILS_EXPORT;
 
 }  // namespace codegen::vulkan

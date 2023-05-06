@@ -15,6 +15,8 @@ if(NOT BUILD_SHARED_LIBS)
             ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
 endif()
 
+add_custom_target("lib${PROJECT_NAME}_shaders")
+
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -80,7 +82,12 @@ foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS com
         "lib${PROJECT_NAME}"
         RESOURCES
             "${compiled_shader_file}")
+    target_sources(
+        "lib${PROJECT_NAME}_shaders"
+        PRIVATE
+            "${compiled_shader_file}")
 endforeach()
+add_dependencies("lib${PROJECT_NAME}" "lib${PROJECT_NAME}_shaders")
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(

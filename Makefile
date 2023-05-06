@@ -28,7 +28,6 @@ print-cuda-arch:
 
 .PHONY: configure
 configure:
-	@cmake -E make_directory $(BUILD_DIR)
 	@nice cmake \
 		-S $(ROOT_DIR) \
 		-B $(BUILD_DIR) \

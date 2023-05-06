@@ -16,9 +16,7 @@ include(CMakeDependentOption)
 
 cmake_policy(SET CMP0105 NEW) # link options for device link step
 
-if(BUILD_SHARED_LIBS)
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-endif()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory("external" EXCLUDE_FROM_ALL SYSTEM)
 add_subdirectory("src")

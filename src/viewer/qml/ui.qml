@@ -25,7 +25,7 @@ ApplicationWindow {
 
     Shortcut {
         sequences: [StandardKey.Cancel] // "Escape"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         autoRepeat: false
         onActivated: root.close()
     }
