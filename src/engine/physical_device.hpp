@@ -109,6 +109,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
         // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
         // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        // VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,
         // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         // VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
         // VK_EXT_MESH_SHADER_EXTENSION_NAME,
