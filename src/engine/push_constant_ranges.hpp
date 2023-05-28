@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <utils/assert.hpp>
 
 #include <vulkan/vulkan.hpp>
 

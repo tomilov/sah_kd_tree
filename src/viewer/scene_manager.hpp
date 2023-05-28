@@ -7,6 +7,7 @@
 #include <engine/vma.hpp>
 #include <scene/scene.hpp>
 #include <scene_loader/scene_loader.hpp>
+#include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/file_io.hpp>
 

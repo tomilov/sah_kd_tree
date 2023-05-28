@@ -31,8 +31,7 @@ void CommandPool::create()
 size_t CommandPools::CommandPoolHash::operator()(const CommandPoolInfo & commandBufferInfo) const noexcept
 {
     auto hash = std::hash<uint32_t>{}(commandBufferInfo.first);
-    using U = std::underlying_type_t<vk::CommandBufferLevel>;
-    hash ^= std::hash<U>{}(U(commandBufferInfo.second));
+    hash ^= std::hash<vk::CommandBufferLevel>{}(commandBufferInfo.second);
     return hash;
 }
 

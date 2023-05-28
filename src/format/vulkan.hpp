@@ -1,8 +1,11 @@
 #pragma once
 
+#include <utils/assert.hpp>
+
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_to_string.hpp>
 
 #include <limits>
 #include <type_traits>

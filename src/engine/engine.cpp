@@ -4,10 +4,8 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
-#include <utils/assert.hpp>
 
 #include <spdlog/spdlog.h>
-#include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
 #include <iterator>

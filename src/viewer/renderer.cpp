@@ -209,6 +209,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 {
     auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
+    engine::LabelColor labelColor = {0.0f, 1.0f, 0.0f, 1.0f};
+    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);
+
     if (!scene) {
         return;
     }

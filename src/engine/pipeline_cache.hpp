@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <utils/assert.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/noncopyable.hpp>
 

@@ -73,7 +73,7 @@ MemoryAllocator::Impl::~Impl()
 
 struct Resource final : utils::OnlyMoveable
 {
-    using ResourceDestroy = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
+    using ResourceDeleter = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
 
     struct BufferResource final : utils::OnlyMoveable
     {
@@ -92,12 +92,12 @@ struct Resource final : utils::OnlyMoveable
         {}
 
         BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
-            : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}, minAlignment{minAlignment}
+            : allocator{resource.getAllocator()}, bufferCreateInfo{bufferCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}, minAlignment{minAlignment}, buffer{VK_NULL_HANDLE, resource.makeResourceDestroy()}
         {
             vk::Buffer::NativeType newBuffer = VK_NULL_HANDLE;
-            auto result = vk::Result(vmaCreateBufferWithAlignment(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, minAlignment, &newBuffer, &allocation, &allocationInfo));
-            buffer = vk::UniqueBuffer{newBuffer, ResourceDestroy{resource.getAllocatorInfo().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
+            auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &static_cast<const vk::BufferCreateInfo::NativeType &>(bufferCreateInfo), &this->allocationCreateInfo, minAlignment, &newBuffer, &allocation, &allocationInfo)};
             INVARIANT(result == vk::Result::eSuccess, "Cannot create buffer: {}", result);
+            buffer.reset(newBuffer);
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
@@ -159,12 +159,12 @@ struct Resource final : utils::OnlyMoveable
         {}
 
         ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
-            : allocator{resource.getAllocator()}, imageCreateInfo{imageCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}
+            : allocator{resource.getAllocator()}, imageCreateInfo{imageCreateInfo}, allocationCreateInfo{resource.makeAllocationCreateInfo(allocationCreateInfo)}, image{VK_NULL_HANDLE, resource.makeResourceDestroy()}
         {
             vk::Image::NativeType newImage = VK_NULL_HANDLE;
-            auto result = vk::Result(vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &this->allocationCreateInfo, &newImage, &allocation, &allocationInfo));
-            image = vk::UniqueImage{newImage, ResourceDestroy{resource.getAllocatorInfo().device, resource.memoryAllocator->library.allocationCallbacks, resource.memoryAllocator->library.dispatcher}};
+            auto result = vk::Result{vmaCreateImage(allocator, &static_cast<const vk::ImageCreateInfo::NativeType &>(imageCreateInfo), &this->allocationCreateInfo, &newImage, &allocation, &allocationInfo)};
             INVARIANT(result == vk::Result::eSuccess, "Cannot create image: {}", result);
+            image.reset(newImage);
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
@@ -243,6 +243,12 @@ struct Resource final : utils::OnlyMoveable
     const VmaAllocationInfo & getAllocationInfo() const;
     vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
+    ResourceDeleter makeResourceDestroy() const
+    {
+        ASSERT(memoryAllocator);
+        return {getAllocatorInfo().device, memoryAllocator->library.allocationCallbacks, memoryAllocator->library.dispatcher};
+    }
+
     BufferResource & getBufferResource()
     {
         return std::get<BufferResource>(resource);
@@ -285,7 +291,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
 
     VmaDefragmentationContext defragmentationContext = {};
     {
-        auto result = vk::Result(vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext));
+        auto result = vk::Result{vmaBeginDefragmentation(allocator, &defragmentationInfo, &defragmentationContext)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot start defragmentation: {}", result);
     }
 
@@ -302,7 +308,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
     VmaDefragmentationPassMoveInfo defragmentationPassMoveInfo = {};
     for (;;) {
         {
-            auto result = vk::Result(vmaBeginDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
+            auto result = vk::Result{vmaBeginDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo)};
             if (result == vk::Result::eSuccess) {
                 break;
             }
@@ -332,7 +338,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                 {
                     auto newBuffer = device.createBufferUnique(bufferResource.bufferCreateInfo, library.allocationCallbacks, library.dispatcher);
 
-                    auto result = vk::Result(vmaBindBufferMemory(allocator, move.dstTmpAllocation, *newBuffer));
+                    auto result = vk::Result{vmaBindBufferMemory(allocator, move.dstTmpAllocation, *newBuffer)};
                     INVARIANT(result == vk::Result::eSuccess, "Cannot bind buffer memory: {}", result);
 
                     bufferResource.newBuffer = std::move(newBuffer);
@@ -350,7 +356,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
                 {
                     auto image = device.createImageUnique(imageResource.imageCreateInfo, library.allocationCallbacks, library.dispatcher);
 
-                    auto result = vk::Result(vmaBindImageMemory(allocator, move.dstTmpAllocation, *image));
+                    auto result = vk::Result{vmaBindImageMemory(allocator, move.dstTmpAllocation, *image)};
                     INVARIANT(result == vk::Result::eSuccess, "Cannot bind image memory: {}", result);
 
                     imageResource.newImage = std::move(image);
@@ -545,7 +551,7 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
         }
 
         {
-            auto result = vk::Result(vmaEndDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo));
+            auto result = vk::Result{vmaEndDefragmentationPass(allocator, defragmentationContext, &defragmentationPassMoveInfo)};
             if (result == vk::Result::eSuccess) {
                 break;
             }
@@ -614,7 +620,7 @@ void MemoryAllocator::Impl::init()
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 
-    auto result = vk::Result(vmaCreateAllocator(&allocatorInfo, &allocator));
+    auto result = vk::Result{vmaCreateAllocator(&allocatorInfo, &allocator)};
     INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
 }
 
@@ -733,12 +739,12 @@ void MappedMemory<void>::init()
         if (size != VK_WHOLE_SIZE) {
             INVARIANT(offset + size <= bufferCreateInfo.size, "Sum {} of offset {} and size {} is greater then size of buffer {}", offset + size, offset, size, bufferCreateInfo.size);
         }
-        auto result = vk::Result(vmaInvalidateAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size));
+        auto result = vk::Result{vmaInvalidateAllocation(allocator, allocation, offset, (size == VK_WHOLE_SIZE) ? (bufferCreateInfo.size - offset) : size)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
     }
     const auto & allocationInfo = resource.getAllocationInfo();
     if (!allocationInfo.pMappedData) {
-        auto result = vk::Result(vmaMapMemory(allocator, allocation, &mappedData));
+        auto result = vk::Result{vmaMapMemory(allocator, allocation, &mappedData)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot map memory: {}", result);
     }
 }
@@ -772,7 +778,7 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
     }
     vk::MemoryPropertyFlags memoryPropertyFlags = resource.getMemoryPropertyFlags();
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        auto result = vk::Result(vmaFlushAllocation(allocator, allocation, offset, getSize()));
+        auto result = vk::Result{vmaFlushAllocation(allocator, allocation, offset, getSize())};
         INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
     }
 }

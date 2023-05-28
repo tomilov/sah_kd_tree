@@ -40,6 +40,14 @@ qt6_add_qml_module(
         SahKdTree
     VERSION
         1.0
+    DEPENDENCIES
+        QtQuick
+        QtQuick.Controls
+        QtQuick.Window
+        QtQuick.Layouts
+        QtQuick.Dialogs
+        Qt.labs.settings
+        Qt.labs.folderlistmodel
     RESOURCE_PREFIX
         "/${CMAKE_PROJECT_NAME}/imports"
     SOURCES

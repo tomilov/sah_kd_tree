@@ -314,7 +314,7 @@ int main(int argc, char * argv[])
         }
     }
     if (!vulkanInstance.create()) {
-        qCCritical(viewerMainCategory) << u"Cannot create Vulkan instance: %1"_s.arg(QString::fromStdString(fmt::to_string(vk::Result(vulkanInstance.errorCode()))));
+        qCCritical(viewerMainCategory) << u"Cannot create Vulkan instance: %1"_s.arg(QString::fromStdString(fmt::to_string(vk::Result{vulkanInstance.errorCode()})));
         return EXIT_FAILURE;
     }
 

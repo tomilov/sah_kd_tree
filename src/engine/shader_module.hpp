@@ -2,6 +2,7 @@
 
 #include <engine/fwd.hpp>
 #include <engine/utils.hpp>
+#include <utils/assert.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
@@ -93,9 +94,13 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
         std::unordered_map<std::string, size_t> bindingIndices;
         std::vector<std::string> bindingNames;
 
-        const vk::DescriptorSetLayoutBinding & getBinding(const std::string & variableName) const
+        const vk::DescriptorSetLayoutBinding * getBinding(const std::string & variableName) const
         {
-            return bindings.at(bindingIndices.at(variableName));
+            auto bindingIndex = bindingIndices.find(variableName);
+            if (bindingIndex == std::cend(bindingIndices)) {
+                return nullptr;
+            }
+            return &bindings.at(bindingIndex->second);
         }
     };
 

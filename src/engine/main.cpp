@@ -3,6 +3,7 @@
 #include <engine/exception.hpp>
 #include <engine/file_io.hpp>
 #include <engine/memory.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 
 #include <fmt/std.h>

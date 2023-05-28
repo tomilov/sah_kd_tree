@@ -6,7 +6,6 @@
 #include <engine/pipeline_cache.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
-#include <utils/assert.hpp>
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/format.h>
@@ -317,15 +316,15 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 break;
             }
             case vk::IndexType::eUint8EXT: {
-                convertCopy(std::type_identity<uint8_t>{});
+                convertCopy(std::type_identity<vk::CppType<vk::IndexType, vk::IndexType::eUint8EXT>::Type>{});
                 break;
             }
             case vk::IndexType::eUint16: {
-                convertCopy(std::type_identity<uint16_t>{});
+                convertCopy(std::type_identity<vk::CppType<vk::IndexType, vk::IndexType::eUint16>::Type>{});
                 break;
             }
             case vk::IndexType::eUint32: {
-                convertCopy(std::type_identity<uint32_t>{});
+                convertCopy(std::type_identity<vk::CppType<vk::IndexType, vk::IndexType::eUint32>::Type>{});
                 break;
             }
             }
@@ -434,55 +433,57 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
     descriptorBufferInfos.reserve(framesInFlight + 1);
 
     {
-        for (uint32_t i = 0; i < framesInFlight; ++i) {
-            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-            descriptorBufferInfos.emplace_back() = {
-                .buffer = uniformBuffers.at(i).getBuffer(),
-                .offset = 0,
-                .range = uniformBuffers.at(i).getSize(),
-            };
-        }
-
         auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
         INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kUniformBufferSet, kUniformBufferName);
-        uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
-        const auto & uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName);
+        if (const auto * uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName)) {
+            uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
 
-        for (uint32_t i = 0; i < framesInFlight; ++i) {
-            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+                descriptorBufferInfos.emplace_back() = {
+                    .buffer = uniformBuffers.at(i).getBuffer(),
+                    .offset = 0,
+                    .range = uniformBuffers.at(i).getSize(),
+                };
+            }
 
-            writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
-            writeDescriptorSet.dstBinding = uniformBufferBinding.binding;
-            writeDescriptorSet.dstArrayElement = 0;  // not an array
-            writeDescriptorSet.descriptorType = uniformBufferBinding.descriptorType;
-            writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+                writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
+                writeDescriptorSet.dstBinding = uniformBufferBinding->binding;
+                writeDescriptorSet.dstArrayElement = 0;  // not an array
+                writeDescriptorSet.descriptorType = uniformBufferBinding->descriptorType;
+                writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
+            }
         }
     }
 
     {
-        ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-        auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
-        descriptorBufferInfo = {
-            .buffer = transformBuffer.getBuffer(),
-            .offset = 0,
-            .range = transformBuffer.getSize(),
-        };
-
         auto setBindings = shaderStages.setBindings.find(kTransformBuferSet);
         INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
-        uint32_t transformBufferSetIndex = setBindings->second.setIndex;
-        const auto & transformBufferBinding = setBindings->second.getBinding(kTransformBuferName);
+        if (const auto * transformBufferBinding = setBindings->second.getBinding(kTransformBuferName)) {
+            uint32_t transformBufferSetIndex = setBindings->second.setIndex;
 
-        for (uint32_t i = 0; i < framesInFlight; ++i) {
-            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
+            descriptorBufferInfo = {
+                .buffer = transformBuffer.getBuffer(),
+                .offset = 0,
+                .range = transformBuffer.getSize(),
+            };
 
-            writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(transformBufferSetIndex);
-            writeDescriptorSet.dstBinding = transformBufferBinding.binding;
-            writeDescriptorSet.dstArrayElement = 0;  // not an array
-            writeDescriptorSet.descriptorType = transformBufferBinding.descriptorType;
-            writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+                writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(transformBufferSetIndex);
+                writeDescriptorSet.dstBinding = transformBufferBinding->binding;
+                writeDescriptorSet.dstArrayElement = 0;  // not an array
+                writeDescriptorSet.descriptorType = transformBufferBinding->descriptorType;
+                writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
+            }
         }
     }
 
@@ -666,7 +667,7 @@ void Scene::init()
         return it->second;
     };
 
-    if ((false)) {
+    if ((true)) {
         const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
         {
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");

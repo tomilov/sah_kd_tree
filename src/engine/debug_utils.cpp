@@ -1,5 +1,4 @@
 #include <engine/debug_utils.hpp>
-#include <utils/assert.hpp>
 
 #include <algorithm>
 #include <iterator>
@@ -40,11 +39,10 @@ auto ScopedDebugUtilsLabel<Object>::operator=(ScopedDebugUtilsLabel && rhs) noex
 template<typename Object>
 ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 {
+    ASSERT(!object == !dispatcher);
     if (!dispatcher) {
-        ASSERT(!object);
         return;
     }
-    ASSERT(object);
     object.endDebugUtilsLabelEXT(*dispatcher);
 }
 

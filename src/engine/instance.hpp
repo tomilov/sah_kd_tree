@@ -4,6 +4,7 @@
 #include <engine/fwd.hpp>
 #include <engine/library.hpp>
 #include <engine/types.hpp>
+#include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>

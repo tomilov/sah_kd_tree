@@ -8,9 +8,12 @@ target_compile_definitions(
     INTERFACE
         VK_ENABLE_BETA_EXTENSIONS
         VK_USE_PLATFORM_XCB_KHR
-        VULKAN_HPP_NO_DEFAULT_DISPATCHER
         VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-        VULKAN_HPP_NO_STRUCT_CONSTRUCTORS)
+        VULKAN_HPP_NO_DEFAULT_DISPATCHER
+        VULKAN_HPP_STORAGE_SHARED
+        VULKAN_HPP_NO_CONSTRUCTORS
+        VULKAN_HPP_TYPESAFE_CONVERSION
+        VULKAN_HPP_ASSERT=ASSERT)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
         Vulkan-Headers
@@ -76,9 +79,9 @@ add_subdirectory("nlohmann")
 
 set(TINYEXR_BUILD_SAMPLE OFF)
 set(TINYEXR_USE_MINIZ ON)
-add_subdirectory("tinyexr")
+add_subdirectory("tinyexr" EXCLUDE_FROM_ALL SYSTEM)
 
 
 set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF)
 set(TINYGLTF_INSTALL OFF)
-add_subdirectory("tinygltf")
+add_subdirectory("tinygltf" EXCLUDE_FROM_ALL SYSTEM)

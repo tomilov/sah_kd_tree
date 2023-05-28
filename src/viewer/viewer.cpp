@@ -6,6 +6,7 @@
 #include <viewer/renderer.hpp>
 #include <viewer/viewer.hpp>
 
+#include <fmt/std.h>
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -207,7 +208,9 @@ void Viewer::beforeRenderPassRecording()
         auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
-        engine->getEngine().getDevice().setDebugUtilsObjectName(*renderPass, "Qt render pass");
+        auto & device = engine->getEngine().getDevice();
+        device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
+        device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
         renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo());
     }

@@ -3,7 +3,6 @@
 #include <engine/engine.hpp>
 #include <engine/instance.hpp>
 #include <format/vulkan.hpp>
-#include <utils/assert.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 

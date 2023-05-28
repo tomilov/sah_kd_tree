@@ -7,7 +7,6 @@
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
 #include <format/vulkan.hpp>
-#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
 

@@ -59,11 +59,11 @@ if(${SAH_KD_TREE_BUILD_FUZZER})
     target_compile_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            "-fsanitize=fuzzer-no-link")
+            $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer-no-link>>)
     target_link_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            "-fsanitize=fuzzer-no-link")
+            $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer-no-link>>)
     target_link_directories(
         "lib${PROJECT_NAME}"
         PUBLIC

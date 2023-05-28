@@ -88,6 +88,11 @@ set_source_files_properties(
     PROPERTIES
         COMPILE_FLAGS
             "-Werror=switch")
+set_source_files_properties(
+    "library.cpp"
+    PROPERTIES
+        VULKAN_HPP_STORAGE_SHARED_EXPORT
+            1)
 
 add_executable("${PROJECT_NAME}")
 target_sources(

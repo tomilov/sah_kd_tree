@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utils/assert.hpp>
+
 #include <vulkan/vulkan.hpp>
 
 #include <limits>

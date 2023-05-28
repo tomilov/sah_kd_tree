@@ -1,6 +1,5 @@
 #include <engine/push_constant_ranges.hpp>
 #include <format/vulkan.hpp>
-#include <utils/assert.hpp>
 
 #include <algorithm>
 #include <iterator>

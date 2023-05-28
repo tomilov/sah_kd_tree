@@ -23,11 +23,11 @@ target_link_libraries(
 target_compile_options(
     "${PROJECT_NAME}"
     PRIVATE
-        "-fsanitize=fuzzer")
+        $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>)
 target_link_options(
     "${PROJECT_NAME}"
     PRIVATE
-        "-fsanitize=fuzzer")
+        $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>)
 
 add_custom_command(
     TARGET

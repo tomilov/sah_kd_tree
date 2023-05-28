@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
