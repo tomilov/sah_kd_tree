@@ -177,7 +177,7 @@ public:
 private:
     const engine::Engine & engine;
     const FileIo fileIo{u"shaders:"_s};
-    const scene_loader::SceneLoader sceneLoader;
+    const scene_loader::SceneLoader sceneLoader = {};
 
     mutable std::mutex mutex;
     mutable std::unordered_map<std::filesystem::path, std::weak_ptr<const scene::Scene>> sceneData;

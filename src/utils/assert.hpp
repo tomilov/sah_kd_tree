@@ -12,30 +12,37 @@
 namespace utils
 {
 
-namespace impl
+void vAssertFailed [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, fmt::string_view format, fmt::format_args args) UTILS_EXPORT;
+void vThrowInvariantError [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, fmt::string_view format, fmt::format_args args) UTILS_EXPORT;
+
+template<typename... T>
+void assertFailed [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, fmt::format_string<T...> format, T &&... args)
 {
+    vAssertFailed(expression, sourceLoc, format, fmt::make_format_args(args...));
+}
 
-void assertFailed [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, std::string_view message) UTILS_EXPORT;
-void throwInvariantError [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, std::string_view message) UTILS_EXPORT;
-
-}  // namespace impl
+template<typename... T>
+void throwInvariantError [[noreturn]] (const char * expression, spdlog::source_loc sourceLoc, fmt::format_string<T...> format, T &&... args)
+{
+    vThrowInvariantError(expression, sourceLoc, format, fmt::make_format_args(args...));
+}
 
 }  // namespace utils
 
-#define ASSERT_MSG(condition, format, ...)                                                                                                                                                  \
-    do {                                                                                                                                                                                    \
-        if constexpr (sah_kd_tree::kIsDebugBuild) {                                                                                                                                         \
-            if (!(condition)) {                                                                                                                                                             \
-                utils::impl::assertFailed(#condition, {__FILE__, __LINE__, static_cast<const char *>(__FUNCTION__)}, fmt::vformat(FMT_STRING(format), fmt::make_format_args(__VA_ARGS__))); \
-            }                                                                                                                                                                               \
-        }                                                                                                                                                                                   \
+#define ASSERT_MSG(condition, format, ...)                                                                              \
+    do {                                                                                                                \
+        if constexpr (sah_kd_tree::kIsDebugBuild) {                                                                     \
+            if (!(condition)) {                                                                                         \
+                utils::assertFailed(#condition, {__FILE__, __LINE__, __FUNCTION__}, FMT_STRING(format), ##__VA_ARGS__); \
+            }                                                                                                           \
+        }                                                                                                               \
     } while (false)
 
 #define ASSERT(condition) ASSERT_MSG(condition, "")
 
-#define INVARIANT(condition, format, ...)                                                                                                                                                      \
-    do {                                                                                                                                                                                       \
-        if (!(condition)) {                                                                                                                                                                    \
-            utils::impl::throwInvariantError(#condition, {__FILE__, __LINE__, static_cast<const char *>(__FUNCTION__)}, fmt::vformat(FMT_STRING(format), fmt::make_format_args(__VA_ARGS__))); \
-        }                                                                                                                                                                                      \
+#define INVARIANT(condition, format, ...)                                                                                  \
+    do {                                                                                                                   \
+        if (!(condition)) {                                                                                                \
+            utils::throwInvariantError(#condition, {__FILE__, __LINE__, __FUNCTION__}, FMT_STRING(format), ##__VA_ARGS__); \
+        }                                                                                                                  \
     } while (false)

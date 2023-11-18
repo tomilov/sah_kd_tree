@@ -23,14 +23,16 @@ SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' '
 .DEFAULT_GOAL := build
 
 .ONESHELL:
+SHELL = bash
+.SHELLFLAGS = -xeu -o pipefail -c
 
 .PHONY: print-cuda-arch
 print-cuda-arch:
-	@echo $(CUDA_ARCH)
+	echo $(CUDA_ARCH)
 
 .PHONY: configure
 configure:
-	@nice cmake \
+	nice cmake \
 		-S $(ROOT_DIR) \
 		-B $(BUILD_DIR) \
 		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
@@ -46,16 +48,38 @@ configure:
 		-DCMAKE_VERBOSE_MAKEFILE=ON \
 		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM)
 
+.PHONY: cmake-graphviz
+cmake-graphviz:
+	cmake \
+		--graphviz=$(BUILD_DIR)/sah_kd_tree.dot \
+		-S $(ROOT_DIR) \
+		-B $(BUILD_DIR) \
+		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
+		-DCMAKE_LINKER=$(LINKER) \
+		-DCMAKE_C_COMPILER=$(C_COMPILER) \
+		-DCMAKE_C_FLAGS="$(C_FLAGS)" \
+		-DCMAKE_CXX_COMPILER=$(CXX_COMPILER) \
+		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
+		-DCMAKE_CUDA_HOST_COMPILER=$(CXX_COMPILER) \
+		-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH) \
+		-DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)" \
+		-DCMAKE_VERBOSE_MAKEFILE=ON \
+		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
+		$(ROOT_DIR)
+	dot -Tpng -o $(BUILD_DIR)/sah_kd_tree.png $(BUILD_DIR)/sah_kd_tree.dot
+	xdg-open $(BUILD_DIR)/sah_kd_tree.png
+
 .PHONY: build
 build: configure
-	@nice cmake \
+	nice cmake \
 		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target all
 
 .PHONY:
 rebuild: configure
-	@nice cmake \
+	nice cmake \
 		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--clean-first \
@@ -63,14 +87,14 @@ rebuild: configure
 
 .PHONY: clean
 clean: configure
-	@nice cmake \
+	nice cmake \
 		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target clean
 
 .PHONY: test
 test: build
-	@ctest \
+	ctest \
 		--parallel $(NPROC) \
 		--output-on-failure \
 		--test-dir $(BUILD_DIR)/src/ \
@@ -78,12 +102,11 @@ test: build
 
 .PHONY: fuzz
 fuzz: configure
-	@set -e
-	@nice cmake \
+	nice cmake \
 		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target fuzzer
-	@tools/fuzz/fuzzer \
+	tools/fuzz/fuzzer \
 		-box_world=$(FUZZ_BOX_WORLD) \
 		-max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
 		-max_total_time=$(FUZZ_MAX_TOTAL_TIME) \
@@ -104,12 +127,11 @@ fuzz: configure
 
 .PHONY: fuzz-merge
 fuzz-merge: configure
-	@set -e
-	@nice cmake \
+	nice cmake \
 		--build $(BUILD_DIR) \
 		--parallel $(NPROC) \
 		--target fuzzer
-	@tools/fuzz/fuzzer \
+	tools/fuzz/fuzzer \
 		-fork=$(FORK) \
 		-merge=1 \
 		$(ROOT_DIR)/data/fuzz/CORPUS*/ \
@@ -117,30 +139,16 @@ fuzz-merge: configure
 
 .PHONY: plan 3d
 plan 3d: $(CRASH_FILE)
-	@gnuplot \
+	gnuplot \
 		-persist \
 		-c $(ROOT_DIR)/tools/plot/plot.plt \
 		$@ \
 		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
-.PHONY: cmake-graphviz
-cmake-graphviz:
-	@set -e
-	@cmake \
-		--graphviz=$(BUILD_DIR)/sah_kd_tree.dot \
-		-S $(ROOT_DIR) \
-		-B $(BUILD_DIR) \
-		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
-		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
-		$(ROOT_DIR)
-	@dot -Tpng -o $(BUILD_DIR)/sah_kd_tree.png $(BUILD_DIR)/sah_kd_tree.dot
-	@xdg-open $(BUILD_DIR)/sah_kd_tree.png
-
 .PHONY: format
 format:
-	@set -e
-	@git add $(ROOT_DIR)
-	@git clang-format $(shell git rev-list --max-parents=0 @) || true
+	git add $(ROOT_DIR)
+	git clang-format $(shell git rev-list --max-parents=0 HEAD) || true
+	python -m black $(ROOT_DIR)/src/
 

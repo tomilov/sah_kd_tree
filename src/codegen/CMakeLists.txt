@@ -19,6 +19,7 @@ macro(add_codegen_library name dependency command_arg)
             "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
         DEPENDS
             "${dependency}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
             "${CMAKE_CURRENT_SOURCE_DIR}/${name}.hpp.jinja2"
             "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp.jinja2"
         COMMAND

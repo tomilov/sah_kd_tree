@@ -6,6 +6,7 @@
 #include <engine/pipeline_cache.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/format.h>
@@ -81,6 +82,7 @@ uint32_t indexTypeRank(vk::IndexType indexType)
         return 3;
     }
     }
+    INVARIANT(false, "{}", fmt::underlying(indexType));
 }
 
 bool indexTypeLess(auto lhs, auto rhs)
@@ -440,7 +442,7 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
                 ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-                descriptorBufferInfos.emplace_back() = {
+                descriptorBufferInfos.emplace_back() = vk::DescriptorBufferInfo{
                     .buffer = uniformBuffers.at(i).getBuffer(),
                     .offset = 0,
                     .range = uniformBuffers.at(i).getSize(),
@@ -468,7 +470,7 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
 
             ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
             auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
-            descriptorBufferInfo = {
+            descriptorBufferInfo = vk::DescriptorBufferInfo{
                 .buffer = transformBuffer.getBuffer(),
                 .offset = 0,
                 .range = transformBuffer.getSize(),

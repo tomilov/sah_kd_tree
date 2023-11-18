@@ -10,7 +10,7 @@ namespace sah_kd_tree
 {
 namespace
 {
-SAH_KD_TREE_NO_EXPORT __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
+__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
 {
     if (nodeXMins[leftChild] != nodeXMins[node]) {
         return false;

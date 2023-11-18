@@ -72,6 +72,8 @@ namespace
         return "ERROR_SPIRV_INVALID_ENTRY_POINT";
     case SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_EXECUTION_MODE:
         return "ERROR_SPIRV_INVALID_EXECUTION_MODE";
+    case SPV_REFLECT_RESULT_ERROR_SPIRV_MAX_RECURSIVE_EXCEEDED:
+        return "ERROR_SPIRV_MAX_RECURSIVE_EXCEEDED";
     }
     INVARIANT(false, "Unknown SpvReflectResult value {}", fmt::underlying(result));
 }

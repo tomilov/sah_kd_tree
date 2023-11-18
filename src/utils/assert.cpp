@@ -11,26 +11,26 @@
 
 using namespace std::string_view_literals;
 
-namespace utils::impl
+namespace utils
 {
 
-void assertFailed(const char * expression, spdlog::source_loc sourceLoc, std::string_view message)
+void vAssertFailed(const char * expression, spdlog::source_loc sourceLoc, fmt::string_view format, fmt::format_args args)
 {
-    if (std::empty(message)) {
+    if (std::size(format) == 0) {
         spdlog::log(sourceLoc, spdlog::level::critical, FMT_STRING("Assertion ({}) failed"), expression);
     } else {
-        spdlog::log(sourceLoc, spdlog::level::critical, FMT_STRING("Assertion ({}) failed: {}"), expression, message);
+        spdlog::log(sourceLoc, spdlog::level::critical, FMT_STRING("Assertion ({}) failed: {}"), expression, fmt::vformat(format, args));
     }
     std::abort();
 }
 
-void throwInvariantError(const char * expression, spdlog::source_loc sourceLoc, std::string_view message)
+void vThrowInvariantError(const char * expression, spdlog::source_loc sourceLoc, fmt::string_view format, fmt::format_args args)
 {
     std::string errorMessage;
-    if (std::empty(message)) {
+    if (std::size(format) == 0) {
         errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation"), expression);
     } else {
-        errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation: {}"), expression, message);
+        errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation: {}"), expression, fmt::vformat(format, args));
     }
     spdlog::log(sourceLoc, spdlog::level::critical, "{}", errorMessage);
     if constexpr (sah_kd_tree::kIsDebugBuild) {
@@ -40,4 +40,4 @@ void throwInvariantError(const char * expression, spdlog::source_loc sourceLoc, 
     }
 }
 
-}  // namespace utils::impl
+}  // namespace utils

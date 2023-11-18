@@ -27,6 +27,9 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
     const std::string name;
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     size_t index = std::numeric_limits<size_t>::max();
+
+    explicit QueueCreateInfo(const std::string & name) : name{name}
+    {}
 };
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
@@ -128,11 +131,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     std::unordered_map<uint32_t /*queueFamilyIndex*/, size_t /*count*/> usedQueueFamilySizes;
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
 
-    QueueCreateInfo externalGraphicsQueueCreateInfo{.name = "External graphics queue"};
-    QueueCreateInfo graphicsQueueCreateInfo{.name = "Graphics queue"};
-    QueueCreateInfo computeQueueCreateInfo{.name = "Compute queue"};
-    QueueCreateInfo transferHostToDeviceQueueCreateInfo{.name = "Host -> Device transfer queue"};
-    QueueCreateInfo transferDeviceToHostQueueCreateInfo{.name = "Device -> Host transfer queue"};
+    QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics queue"};
+    QueueCreateInfo graphicsQueueCreateInfo{"Graphics queue"};
+    QueueCreateInfo computeQueueCreateInfo{"Compute queue"};
+    QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
+    QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
 
     PhysicalDevice(const Engine & engine, vk::PhysicalDevice physicalDevice);
 

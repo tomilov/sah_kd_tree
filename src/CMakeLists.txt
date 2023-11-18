@@ -1,5 +1,3 @@
-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,12 +23,11 @@ include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}")
 add_compile_options(
     "-Wall"
-    "-Wextra"
-    "-Weffc++")
+    "-Wextra")
 
 link_libraries(fmt::fmt)
 
-add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>)
+add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
 link_libraries(spdlog::spdlog)
 
 include(CUDA)

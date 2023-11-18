@@ -144,6 +144,30 @@ namespace
     switch (reflectFormat) {
     case SPV_REFLECT_FORMAT_UNDEFINED:
         return "UNDEFINED";
+    case SPV_REFLECT_FORMAT_R16_UINT:
+        return "R16_UINT";
+    case SPV_REFLECT_FORMAT_R16_SINT:
+        return "R16_SINT";
+    case SPV_REFLECT_FORMAT_R16_SFLOAT:
+        return "R16_SFLOAT";
+    case SPV_REFLECT_FORMAT_R16G16_UINT:
+        return "R16G16_UINT";
+    case SPV_REFLECT_FORMAT_R16G16_SINT:
+        return "R16G16_SINT";
+    case SPV_REFLECT_FORMAT_R16G16_SFLOAT:
+        return "R16G16_SFLOAT";
+    case SPV_REFLECT_FORMAT_R16G16B16_UINT:
+        return "R16G16B16_UINT";
+    case SPV_REFLECT_FORMAT_R16G16B16_SINT:
+        return "R16G16B16_SINT";
+    case SPV_REFLECT_FORMAT_R16G16B16_SFLOAT:
+        return "R16G16B16_SFLOAT";
+    case SPV_REFLECT_FORMAT_R16G16B16A16_UINT:
+        return "R16G16B16A16_UINT";
+    case SPV_REFLECT_FORMAT_R16G16B16A16_SINT:
+        return "R16G16B16A16_SINT";
+    case SPV_REFLECT_FORMAT_R16G16B16A16_SFLOAT:
+        return "R16G16B16A16_SFLOAT";
     case SPV_REFLECT_FORMAT_R32_UINT:
         return "R32_UINT";
     case SPV_REFLECT_FORMAT_R32_SINT:
@@ -229,6 +253,8 @@ namespace
         return "STRUCT";
     case SPV_REFLECT_TYPE_FLAG_ARRAY:
         return "ARRAY";
+    case SPV_REFLECT_TYPE_FLAG_REF:
+        return "REF";
     }
     INVARIANT(false, "Unknown SpvReflectTypeFlagBits value {}", fmt::underlying(typeFlagBits));
 }
@@ -269,6 +295,12 @@ namespace
         return "RELAXED_PRECISION";
     case SPV_REFLECT_DECORATION_NON_READABLE:
         return "NON_READABLE";
+    case SPV_REFLECT_DECORATION_PATCH:
+        return "PATCH";
+    case SPV_REFLECT_DECORATION_PER_VERTEX:
+        return "PER_VERTEX";
+    case SPV_REFLECT_DECORATION_PER_TASK:
+        return "PER_TASK";
     }
     INVARIANT(false, "Unknown SpvReflectDecorationFlagBits value {}", fmt::underlying(decorationFlagBits));
 }
@@ -495,11 +527,7 @@ struct nlohmann::adl_serializer<SpvBuiltIn>
 {
     static void to_json(json & j, const SpvBuiltIn & builtIn)
     {
-        if (engine::kUseSpirvReflectConversion) {
-            j = ToStringSpvBuiltIn(builtIn);
-        } else {
-            j = engine::toStringSpv(builtIn);
-        }
+        j = engine::toStringSpv(builtIn);
     }
 };
 
@@ -708,7 +736,7 @@ struct nlohmann::adl_serializer<SpvReflectInterfaceVariable>
         j.emplace("members", engine::List(interfaceVariable.members, interfaceVariable.member_count));
         j.emplace("format", interfaceVariable.format);
         j.emplace("type_description", engine::Nullable(interfaceVariable.type_description));
-        j.emplace("location", interfaceVariable.location);
+        j.emplace("location", interfaceVariable.word_offset.location);
     }
 };
 

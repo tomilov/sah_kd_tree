@@ -7,6 +7,7 @@
 #include <thrust/tuple.h>
 
 #include <limits>
+#include <type_traits>
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
@@ -245,7 +246,7 @@ struct Triangle
     template<typename TriangleIterator>
     void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
     {
-        using TriangleType = thrust::iterator_value_t<TriangleIterator>;
+        using TriangleType = std::remove_const_t<thrust::iterator_value_t<TriangleIterator>>;
         thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
         count = U(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)

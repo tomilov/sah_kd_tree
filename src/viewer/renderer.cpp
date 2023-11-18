@@ -93,7 +93,7 @@ struct Renderer::Impl
         auto width = std::floor(viewportRect.width());
         auto height = std::floor(viewportRect.height());
 
-        viewport = {
+        viewport = vk::Viewport{
             .x = utils::autoCast(x),
             .y = utils::autoCast(y),
             .width = utils::autoCast(width),
@@ -101,16 +101,22 @@ struct Renderer::Impl
             .minDepth = 0.0f,
             .maxDepth = 1.0f,
         };
-        scissor = {
-            .offset = {.x = utils::autoCast(x), .y = utils::autoCast(y)},
-            .extent = {.width = utils::autoCast(width), .height = utils::autoCast(height)},
+        scissor = vk::Rect2D{
+            .offset = {
+                .x = utils::autoCast(x),
+                .y = utils::autoCast(y),
+            },
+            .extent = {
+                .width = utils::autoCast(width),
+                .height = utils::autoCast(height),
+            },
         };
     }
 
     void setViewTransform(const glm::dmat3 & viewTransform)
     {
         pushConstants = {
-            .viewTransform{glm::mat3(viewTransform)},  // double to float conversion and mat3x3 to mat3x4 conversion
+            .viewTransform = glm::mat3x4{glm::mat3(viewTransform)},  // double to float conversion and mat3x3 to mat3x4 conversion
         };
     }
 

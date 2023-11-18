@@ -15,7 +15,7 @@ void sah_kd_tree::Projection::calculateTriangleBbox()
     auto triangleBegin = thrust::make_zip_iterator(triangle.a, triangle.b, triangle.c);
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.begin(), polygon.max.begin());
     using PolygonBboxType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;
-    const auto toTriangleBbox = [] __host__ __device__(F a, F b, F c) -> PolygonBboxType
+    auto toTriangleBbox = [] __host__ __device__(F a, F b, F c) -> PolygonBboxType
     {
         return {thrust::min(a, thrust::min(b, c)), thrust::max(a, thrust::max(b, c))};
     };

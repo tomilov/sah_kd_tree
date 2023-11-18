@@ -5,6 +5,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <span>
 #include <vector>
 
 #include <engine/engine_export.h>
@@ -12,6 +13,6 @@
 namespace engine
 {
 
-std::vector<vk::PushConstantRange> getDisjointPushConstantRanges(const std::vector<vk::PushConstantRange> & pushConstantRanges) ENGINE_EXPORT;
+std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::PushConstantRange> pushConstantRanges) ENGINE_EXPORT;
 
 }  // namespace engine

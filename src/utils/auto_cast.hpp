@@ -117,4 +117,10 @@ private:
 template<typename Source>
 autoCast(Source && source) -> autoCast<Source>;
 
+template<typename Destination, typename Source>
+Destination safeCast(Source && source)
+{
+    return autoCast<Source>{std::forward<Source>(source)}.operator Destination();
+}
+
 }  // namespace utils

@@ -34,8 +34,6 @@ target_link_libraries(
 
 qt6_add_qml_module(
     "lib${PROJECT_NAME}"
-    OUTPUT_DIRECTORY
-        "lib"
     URI
         SahKdTree
     VERSION

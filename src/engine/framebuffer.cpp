@@ -21,7 +21,7 @@ Framebuffer::Framebuffer(std::string_view name, const Engine & engine, RenderPas
 
 void Framebuffer::init()
 {
-    framebufferCreateInfo = {
+    framebufferCreateInfo = vk::FramebufferCreateInfo{
         .renderPass = renderPass.renderPass,
         .width = width,
         .height = height,

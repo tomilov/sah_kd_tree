@@ -64,10 +64,12 @@ if(${SAH_KD_TREE_BUILD_FUZZER})
         "lib${PROJECT_NAME}"
         PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer-no-link>>)
+    string(REPLACE "." ";" CXX_COMPILER_VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
+    list(GET CXX_COMPILER_VERSION_LIST 0 CXX_COMPILER_VERSION_MAJOR)
     target_link_directories(
         "lib${PROJECT_NAME}"
         PUBLIC
-            "/usr/lib/clang/${CMAKE_CXX_COMPILER_VERSION}/lib/linux/")
+            "/usr/lib/clang/${CXX_COMPILER_VERSION_MAJOR}/lib/linux/")
     target_link_libraries(
         "lib${PROJECT_NAME}"
         PUBLIC

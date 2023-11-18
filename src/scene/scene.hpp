@@ -17,30 +17,38 @@ namespace scene
 
 using Position = glm::vec3;
 
+#pragma pack(push, 1)
+
 struct Triangle
 {
     Position a, b, c;
 };
 
+#pragma pack(pop)
+
 struct SCENE_EXPORT Triangles
 {
     size_t triangleCount = 0;
-    std::unique_ptr<Triangle[]> triangles;
+    std::unique_ptr<Triangle[]> triangles = nullptr;
 
     void resize(size_t newTraingleCount);
 };
+
+#pragma pack(push, 1)
 
 struct VertexAttributes
 {
     Position position;
 };
 
+#pragma pack(pop)
+
 struct SCENE_EXPORT Node
 {
     size_t parent = 0;  // index in Scene::Nodes
     glm::mat4 transform{1.0f};
-    std::vector<size_t> meshes;    // indices in Scene::meshes
-    std::vector<size_t> children;  // indices in Scene::nodes
+    std::vector<size_t> meshes = {};    // indices in Scene::meshes
+    std::vector<size_t> children = {};  // indices in Scene::nodes
 };
 
 struct SCENE_EXPORT Mesh

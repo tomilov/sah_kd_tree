@@ -31,9 +31,9 @@ struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
     const uint32_t layers;
     const std::vector<vk::ImageView> imageViews;
 
-    vk::FramebufferCreateInfo framebufferCreateInfo;
-    std::vector<vk::UniqueFramebuffer> framebufferHolders;
-    std::vector<vk::Framebuffer> framebuffers;
+    vk::FramebufferCreateInfo framebufferCreateInfo = {};
+    std::vector<vk::UniqueFramebuffer> framebufferHolders = {};
+    std::vector<vk::Framebuffer> framebuffers = {};
 
     Framebuffer(std::string_view name, const Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews);
 

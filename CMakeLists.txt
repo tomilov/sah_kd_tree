@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25..3.25 FATAL_ERROR)
 project(
     "sah_kd_tree"
     LANGUAGES
-        NONE
+        CXX CUDA
     VERSION
         0.0.1.0)
 
@@ -16,6 +16,9 @@ include(CMakeDependentOption)
 
 cmake_policy(SET CMP0105 NEW) # link options for device link step
 
+cmake_policy(SET CMP0077 NEW)
+
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory("external" EXCLUDE_FROM_ALL SYSTEM)
