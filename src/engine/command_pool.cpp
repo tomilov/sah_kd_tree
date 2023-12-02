@@ -52,7 +52,7 @@ vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t que
             .queueFamilyIndex = queueFamilyIndex,
         };
         commandPool.create();
-        static_assert(std::is_move_constructible_v<CommandPool>);
+        static_assert(std::is_nothrow_move_constructible_v<CommandPool>);
         perThreadCommandPool = perThreadCommandPools.emplace_hint(perThreadCommandPool, std::move(commandPoolInfo), std::move(commandPool));
     } else {
         if (perThreadCommandPool->second.name != name) {

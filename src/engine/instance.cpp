@@ -3,6 +3,7 @@
 #include <engine/engine.hpp>
 #include <engine/instance.hpp>
 #include <format/vulkan.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -77,8 +78,8 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
     auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
-    spdlog::log(lvl, "[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}", callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects), std::move(queues),
-                std::move(buffers), */
+    spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
+                std::move(queues), std::move(buffers), */
                 messageIdNumber, callbackData.pMessage);
     return VK_FALSE;
 }
@@ -213,7 +214,7 @@ void Instance::init()
         {
             vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
             debugUtilsMessengerCallbackData = *pCallbackData;
-            return static_cast<Instance *>(pUserData)->userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT(messageSeverity), vk::DebugUtilsMessageTypeFlagsEXT(messageTypes), debugUtilsMessengerCallbackData);
+            return static_cast<Instance *>(pUserData)->userDebugUtilsCallbackWrapper(utils::autoCast(messageSeverity), utils::autoCast(messageTypes), debugUtilsMessengerCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;

@@ -8,29 +8,24 @@ namespace meta
 template<typename>
 inline constexpr bool kAlwaysFalse = false;
 
-struct NotDetected
-{
-};
-
 namespace impl
 {
 
-template<typename Default, typename AlwaysVoid, template<typename...> typename Trait, typename... Args>
+template<typename AlwaysVoid, template<typename...> typename Trait, typename... Args>
 struct Detector
 {
-    using type = Default;
+    static constexpr bool value = false;
 };
 
-template<typename Default, template<typename...> typename Trait, typename... Args>
-struct Detector<Default, std::void_t<Trait<Args...>>, Trait, Args...>
+template<template<typename...> typename Trait, typename... Args>
+struct Detector<std::void_t<Trait<Args...>>, Trait, Args...>
 {
-    using type = Trait<Args...>;
+    static constexpr bool value = true;
 };
 
 }  // namespace impl
 
-// Checks whether a trait is correct for the given template args
 template<template<typename...> typename Trait, typename... Args>
-inline constexpr bool kIsDetected = !std::is_same_v<typename impl::Detector<NotDetected, void, Trait, Args...>::type, NotDetected>;
+inline constexpr bool kIsDetected = impl::Detector<void, Trait, Args...>::value;
 
 }  // namespace meta

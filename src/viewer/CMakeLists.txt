@@ -15,8 +15,6 @@ if(NOT BUILD_SHARED_LIBS)
             ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
 endif()
 
-add_custom_target("lib${PROJECT_NAME}_shaders")
-
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
@@ -61,16 +59,18 @@ qt6_add_qml_module(
         "renderer.hpp"
         "renderer.cpp")
 
-process_directory_shaders()
+compile_stage_shaders(
+    compiled_shader_files_debug
+    compiled_shader_files_release
+    #"shaders/uniform_buffer.glsl"
+    "shaders/barycentric_color.frag.glsl"
+    "shaders/fullscreen_rect.vert.glsl"
+    "shaders/identity.vert.glsl"
+    "shaders/squircle.frag.glsl")
 
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
-        ${shader_files})
-
-source_group(
-    "Shaders"
-    FILES
         ${shader_files})
 
 foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS compiled_shader_files_debug compiled_shader_files_release)
@@ -82,18 +82,15 @@ foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS com
     endif()
     set_source_files_properties(
         "${compiled_shader_file}"
+        DIRECTORY
+            "${CMAKE_CURRENT_BINARY_DIR}"
         PROPERTIES
             QT_RESOURCE_ALIAS "${resource_alias}")
     qt6_target_qml_sources(
         "lib${PROJECT_NAME}"
         RESOURCES
             "${compiled_shader_file}")
-    target_sources(
-        "lib${PROJECT_NAME}_shaders"
-        PRIVATE
-            "${compiled_shader_file}")
 endforeach()
-add_dependencies("lib${PROJECT_NAME}" "lib${PROJECT_NAME}_shaders")
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(

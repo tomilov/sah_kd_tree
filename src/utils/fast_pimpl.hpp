@@ -15,30 +15,30 @@ class FastPimpl final
 {
 public:
     template<typename... Args>
-    explicit FastPimpl(Args &&... args) noexcept(noexcept(T{std::declval<Args>()...}))
+    explicit FastPimpl(Args &&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
-        new (operator->()) T{std::forward<Args>(args)...};
+        new (get()) T{std::forward<Args>(args)...};
     }
 
-    FastPimpl(const FastPimpl & v) noexcept(noexcept(T{std::declval<const T &>()})) : FastPimpl{*v}
+    FastPimpl(const FastPimpl & v) : FastPimpl{*v}
     {}
 
-    FastPimpl(FastPimpl && v) noexcept(noexcept(T(std::declval<T>()))) : FastPimpl{std::move(*v)}
+    FastPimpl(FastPimpl && v) noexcept(std::is_nothrow_move_constructible_v<T>) : FastPimpl{std::move(*v)}
     {}
 
-    FastPimpl & operator=(const FastPimpl & rhs) noexcept(noexcept(std::declval<T &>() = std::declval<const T &>()))
+    FastPimpl & operator=(const FastPimpl & rhs)
     {
         *get() = *rhs;
         return *this;
     }
 
-    FastPimpl & operator=(FastPimpl && rhs) noexcept(noexcept(std::declval<T &>() = std::declval<T>()))
+    FastPimpl & operator=(FastPimpl && rhs) noexcept(std::is_nothrow_move_assignable_v<T>)
     {
         *get() = std::move(*rhs);
         return *this;
     }
 
-    ~FastPimpl() noexcept
+    ~FastPimpl()
     {
         [[maybe_unused]] Validate<sizeof(T), alignof(T)> validate;
         get()->~T();
@@ -46,12 +46,12 @@ public:
 
     T * get() noexcept
     {
-        return std::bit_cast<T *>(&storage_);
+        return std::bit_cast<T *>(&storage);
     }
 
     const T * get() const noexcept
     {
-        return std::bit_cast<const T *>(&storage_);
+        return std::bit_cast<const T *>(&storage);
     }
 
     T * operator->() noexcept
@@ -75,7 +75,7 @@ public:
     }
 
 private:
-    alignas(kAlignment) std::byte storage_[kSize];
+    alignas(kAlignment) std::byte storage[kSize];
 
     template<size_t kActualSize, size_t kActualAlignment>
     struct Validate

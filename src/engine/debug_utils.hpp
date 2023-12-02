@@ -53,9 +53,9 @@ extern template class ENGINE_EXPORT ScopedDebugUtilsLabel<vk::CommandBuffer>;
 using ScopedQueueLabel = ScopedDebugUtilsLabel<vk::Queue>;
 using ScopedCommandBufferLabel = ScopedDebugUtilsLabel<vk::CommandBuffer>;
 
-static_assert(std::is_move_constructible_v<ScopedQueueLabel>);
-static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
-static_assert(std::is_move_constructible_v<ScopedCommandBufferLabel>);
-static_assert(std::is_move_assignable_v<ScopedQueueLabel>);
+static_assert(std::is_nothrow_move_constructible_v<ScopedQueueLabel>);
+static_assert(std::is_nothrow_move_assignable_v<ScopedQueueLabel>);
+static_assert(std::is_nothrow_move_constructible_v<ScopedCommandBufferLabel>);
+static_assert(std::is_nothrow_move_assignable_v<ScopedQueueLabel>);
 
 }  // namespace engine

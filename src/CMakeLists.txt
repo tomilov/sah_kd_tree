@@ -26,9 +26,10 @@ add_compile_options(
     "-Wextra")
 
 link_libraries(fmt::fmt)
+add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS)
 
-add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
 link_libraries(spdlog::spdlog)
+add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
 
 include(CUDA)
 include(Thrust)

@@ -5,7 +5,6 @@
 #include <bit>
 #include <iterator>
 #include <limits>
-#include <optional>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -40,13 +39,15 @@ void widenPushConstantRange(vk::PushConstantRange & lhs, const vk::PushConstantR
 std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::PushConstantRange> pushConstantRanges)
 {
     using MaskType = typename vk::ShaderStageFlags::MaskType;
-    std::optional<vk::PushConstantRange> stagePushContantRanges[std::numeric_limits<MaskType>::digits];
+    vk::PushConstantRange stagePushContantRanges[std::numeric_limits<MaskType>::digits];
     for (const auto & pushConstantRange : pushConstantRanges) {
         for (vk::ShaderStageFlagBits stageFlagBit : FlagBits{pushConstantRange.stageFlags}) {
-            if (auto & stagePushContantRange = stagePushContantRanges[std::countr_zero(static_cast<MaskType>(stageFlagBit))]) {
-                widenPushConstantRange(stagePushContantRange.value(), pushConstantRange);
+            auto & stagePushContantRange = stagePushContantRanges[std::countr_zero(static_cast<MaskType>(stageFlagBit))];
+            if (stagePushContantRange.stageFlags) {
+                ASSERT(stagePushContantRange.stageFlags == stageFlagBit);
+                widenPushConstantRange(stagePushContantRange, pushConstantRange);
             } else {
-                stagePushContantRange.emplace() = {
+                stagePushContantRange = {
                     .stageFlags = stageFlagBit,
                     .offset = pushConstantRange.offset,
                     .size = pushConstantRange.size,
@@ -56,16 +57,16 @@ std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::P
     }
     std::set<vk::PushConstantRange, PushConstantRangeLess> mergedPushConstantRanges;
     for (auto & stagePushContantRange : stagePushContantRanges) {
-        if (!stagePushContantRange) {
+        if (!stagePushContantRange.stageFlags) {
             continue;
         }
-        const auto [l, r] = mergedPushConstantRanges.equal_range(stagePushContantRange.value());
+        const auto [l, r] = mergedPushConstantRanges.equal_range(stagePushContantRange);
         for (auto it = l; it != r; ++it) {
-            ASSERT(!(stagePushContantRange.value().stageFlags & it->stageFlags));
-            stagePushContantRange.value().stageFlags |= it->stageFlags;
-            widenPushConstantRange(stagePushContantRange.value(), *it);
+            ASSERT(!(stagePushContantRange.stageFlags & it->stageFlags));
+            stagePushContantRange.stageFlags |= it->stageFlags;
+            widenPushConstantRange(stagePushContantRange, *it);
         }
-        mergedPushConstantRanges.insert(mergedPushConstantRanges.erase(l, r), stagePushContantRange.value());
+        mergedPushConstantRanges.insert(mergedPushConstantRanges.erase(l, r), stagePushContantRange);
     }
     return {std::cbegin(mergedPushConstantRanges), std::cend(mergedPushConstantRanges)};
 }

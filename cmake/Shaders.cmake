@@ -4,50 +4,52 @@ find_package(
     COMPONENTS
         glslangValidator)
 
-function(process_directory_shaders)
-    file(
-        GLOB_RECURSE
-            shader_files
-        LIST_DIRECTORIES
-            FALSE
-        "*.glsl")
-    set_source_files_properties(
-        ${shader_files}
-        PROPERTIES
-            HEADER_FILE_ONLY TRUE)
+list(
+    APPEND
+        stage_shader_extensions
+    "vert"
+    "tesc"
+    "tese"
+    "geom"
+    "frag"
+    "comp"
+    "rgen"
+    "rahit"
+    "rchit"
+    "rmiss"
+    "rint"
+    "rcall"
+    "mesh"
+    "task")
+list(JOIN stage_shader_extensions "|" stage_shader_regex)
+set(stage_shader_regex "\.(${stage_shader_regex})\.glsl")
 
-    list(
-        APPEND
-            stage_shader_globs
-        "vert"
-        "tesc"
-        "tese"
-        "geom"
-        "frag"
-        "comp"
-        "rgen"
-        "rahit"
-        "rchit"
-        "rmiss"
-        "rint"
-        "rcall"
-        "mesh"
-        "task")
-    list(
-        TRANSFORM
-            stage_shader_globs
-        REPLACE
-            ".+"
-            "*.\\0.glsl")
-
-    file(
-        GLOB_RECURSE
-            stage_shader_files
-        LIST_DIRECTORIES
-            FALSE
-        ${stage_shader_globs})
-
+# macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
+# because of wierd logic
+function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_shader_files_release_list_name)
+    list(SUBLIST ARGV 2 -1 stage_shader_files)
     foreach(stage_shader_file IN LISTS stage_shader_files)
+        if(NOT stage_shader_file MATCHES "${stage_shader_regex}")
+            message(FATAL_ERROR "${stage_shader_file} is not shader stage file")
+        endif()
+        cmake_path(IS_RELATIVE stage_shader_file stage_shader_file_is_relative)
+        if(NOT stage_shader_file_is_relative)
+            message(FATAL_ERROR "${stage_shader_file} is not relative path")
+        endif()
+        cmake_path(
+            GET
+                stage_shader_file
+            PARENT_PATH
+                output_path)
+        add_custom_command(
+            VERBATIM
+            WORKING_DIRECTORY
+                "${CMAKE_CURRENT_SOURCE_DIR}"
+            COMMAND
+                "${CMAKE_COMMAND}" -E make_directory "${output_path}"
+            OUTPUT
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}")
+
         cmake_path(
             REPLACE_EXTENSION
                 stage_shader_file
@@ -58,7 +60,11 @@ function(process_directory_shaders)
         add_custom_command(
             MAIN_DEPENDENCY
                 "${stage_shader_file}"
+            DEPENDS
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}"
             VERBATIM
+            WORKING_DIRECTORY
+                "${CMAKE_CURRENT_SOURCE_DIR}"
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
@@ -68,7 +74,7 @@ function(process_directory_shaders)
                     "${stage_shader_file}"
                     -o "${debug_output_file}"
             OUTPUT
-                "${debug_output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${debug_output_file}")
         list(APPEND compiled_shader_files_debug "${debug_output_file}")
 
         cmake_path(
@@ -81,7 +87,11 @@ function(process_directory_shaders)
         add_custom_command(
             MAIN_DEPENDENCY
                 "${stage_shader_file}"
+            DEPENDS
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}"
             VERBATIM
+            WORKING_DIRECTORY
+                "${CMAKE_CURRENT_SOURCE_DIR}"
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
@@ -91,12 +101,10 @@ function(process_directory_shaders)
                     "${stage_shader_file}"
                     -o "${release_output_file}"
             OUTPUT
-                "${release_output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${release_output_file}")
         list(APPEND compiled_shader_files_release "${release_output_file}")
     endforeach()
 
-    set(shader_files "${shader_files}" PARENT_SCOPE)
-    set(stage_shader_files "${stage_shader_files}" PARENT_SCOPE)
-    set(compiled_shader_files_debug "${compiled_shader_files_debug}" PARENT_SCOPE)
-    set(compiled_shader_files_release "${compiled_shader_files_release}" PARENT_SCOPE)
+    set("${compiled_shader_files_debug_list_name}" "${compiled_shader_files_debug}" PARENT_SCOPE)
+    set("${compiled_shader_files_release_list_name}" "${compiled_shader_files_release}" PARENT_SCOPE)
 endfunction()

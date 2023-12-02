@@ -101,7 +101,7 @@ struct Resource final : utils::OnlyMoveable
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
-        BufferResource(BufferResource && bufferResource)
+        BufferResource(BufferResource && bufferResource) noexcept
             : allocator{std::exchange(bufferResource.allocator, VK_NULL_HANDLE)}
             , bufferCreateInfo{std::exchange(bufferResource.bufferCreateInfo, vk::BufferCreateInfo{})}
             , allocationCreateInfo{std::exchange(bufferResource.allocationCreateInfo, VmaAllocationCreateInfo{})}
@@ -112,7 +112,7 @@ struct Resource final : utils::OnlyMoveable
             , newBuffer{std::move(bufferResource.newBuffer)}
         {}
 
-        BufferResource & operator=(BufferResource && bufferResource)
+        BufferResource & operator=(BufferResource && bufferResource) noexcept
         {
             allocator = std::exchange(bufferResource.allocator, VK_NULL_HANDLE);
             bufferCreateInfo = std::exchange(bufferResource.bufferCreateInfo, vk::BufferCreateInfo{});
@@ -137,8 +137,8 @@ struct Resource final : utils::OnlyMoveable
     static_assert(std::is_default_constructible_v<BufferResource>);
     static_assert(!std::is_copy_constructible_v<BufferResource>);
     static_assert(!std::is_copy_assignable_v<BufferResource>);
-    static_assert(std::is_move_constructible_v<BufferResource>);
-    static_assert(std::is_move_assignable_v<BufferResource>);
+    static_assert(std::is_nothrow_move_constructible_v<BufferResource>);
+    static_assert(std::is_nothrow_move_assignable_v<BufferResource>);
 
     struct ImageResource final : utils::OnlyMoveable
     {
@@ -168,7 +168,7 @@ struct Resource final : utils::OnlyMoveable
             vmaSetAllocationName(allocator, allocation, allocationCreateInfo.name.c_str());
         }
 
-        ImageResource(ImageResource && imageResource)
+        ImageResource(ImageResource && imageResource) noexcept
             : allocator{std::exchange(imageResource.allocator, VK_NULL_HANDLE)}
             , imageCreateInfo{std::exchange(imageResource.imageCreateInfo, vk::ImageCreateInfo{})}
             , allocationCreateInfo{std::exchange(imageResource.allocationCreateInfo, VmaAllocationCreateInfo{})}
@@ -180,7 +180,7 @@ struct Resource final : utils::OnlyMoveable
             , aspect{std::exchange(imageResource.aspect, vk::ImageAspectFlagBits::eColor)}
         {}
 
-        ImageResource & operator=(ImageResource && imageResource)
+        ImageResource & operator=(ImageResource && imageResource) noexcept
         {
             allocator = std::exchange(imageResource.allocator, VK_NULL_HANDLE);
             imageCreateInfo = std::exchange(imageResource.imageCreateInfo, vk::ImageCreateInfo{});
@@ -217,8 +217,8 @@ struct Resource final : utils::OnlyMoveable
     static_assert(std::is_default_constructible_v<ImageResource>);
     static_assert(!std::is_copy_constructible_v<ImageResource>);
     static_assert(!std::is_copy_assignable_v<ImageResource>);
-    static_assert(std::is_move_constructible_v<ImageResource>);
-    static_assert(std::is_move_assignable_v<ImageResource>);
+    static_assert(std::is_nothrow_move_constructible_v<ImageResource>);
+    static_assert(std::is_nothrow_move_assignable_v<ImageResource>);
 
     const MemoryAllocator::Impl * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
@@ -229,8 +229,8 @@ struct Resource final : utils::OnlyMoveable
     Resource(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment);
     Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
-    Resource(Resource &&) = default;
-    Resource & operator=(Resource &&) = default;
+    Resource(Resource &&) noexcept = default;
+    Resource & operator=(Resource &&) noexcept = default;
 
     ~Resource();
 
@@ -276,8 +276,8 @@ private:
 static_assert(std::is_default_constructible_v<Resource>);
 static_assert(!std::is_copy_constructible_v<Resource>);
 static_assert(!std::is_copy_assignable_v<Resource>);
-static_assert(std::is_move_constructible_v<Resource>);
-static_assert(std::is_move_assignable_v<Resource>);
+static_assert(std::is_nothrow_move_constructible_v<Resource>);
+static_assert(std::is_nothrow_move_assignable_v<Resource>);
 
 void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer)> submit, uint32_t queueFamilyIndex)
 {
@@ -789,9 +789,9 @@ Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateIn
     : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo, minAlignment}
 {}
 
-Buffer::Buffer(Buffer &&) = default;
+Buffer::Buffer(Buffer &&) noexcept = default;
 
-auto Buffer::operator=(Buffer &&) -> Buffer & = default;
+auto Buffer::operator=(Buffer &&) noexcept -> Buffer & = default;
 
 Buffer::~Buffer() = default;
 
@@ -824,9 +824,9 @@ Image::Image() = default;
 Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo) : impl_{memoryAllocator, imageCreateInfo, allocationCreateInfo}
 {}
 
-Image::Image(Image &&) = default;
+Image::Image(Image &&) noexcept = default;
 
-auto Image::operator=(Image &&) -> Image & = default;
+auto Image::operator=(Image &&) noexcept -> Image & = default;
 
 Image::~Image() = default;
 

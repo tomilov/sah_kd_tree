@@ -2,6 +2,7 @@
 #include <engine/engine.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
 
 #include <spdlog/details/null_mutex.h>
@@ -196,7 +197,8 @@ int main(int argc, char * argv[])
 
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
     }
-    spdlog::set_level(spdlog::level::level_enum(SPDLOG_ACTIVE_LEVEL));
+    spdlog::level::level_enum spdlogActiveLevel = utils::autoCast(SPDLOG_ACTIVE_LEVEL);
+    spdlog::set_level(spdlogActiveLevel);
     if ((true)) {
         // set env QT_ASSUME_STDERR_HAS_CONSOLE=1 or QT_FORCE_STDERR_LOGGING=1 if nothing is visible
         QString messagePattern;

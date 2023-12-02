@@ -30,6 +30,17 @@ ApplicationWindow {
         onActivated: root.close()
     }
 
+    SahKdTreeViewer {
+        anchors.fill: parent
+
+        focus: true
+
+        id: mainSahKdTreeViewer
+        objectName: "Main"
+
+        engine: SahKdTreeEngine
+    }
+
     Shortcut {
         sequences: [StandardKey.Open]
         context: Qt.WindowShortcut
@@ -122,6 +133,7 @@ ApplicationWindow {
         standardButtons: Dialog.Close
     }
 
+    /*
     Component {
         id: sahKdTreeViewer
 
@@ -133,17 +145,15 @@ ApplicationWindow {
 
             //transformOrigin: Item.BottomRight
 
-            /*
-            SequentialAnimation on rotation {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 0.0
-                    to: 360.0
-                    duration: 3333
-                }
-            }
-            */
+            //SequentialAnimation on rotation {
+            //    loops: Animation.Infinite
+            //    running: true
+            //    NumberAnimation {
+            //        from: 0.0
+            //        to: 360.0
+            //        duration: 3333
+            //    }
+            //}
 
             SequentialAnimation on t {
                 loops: Animation.Infinite
@@ -348,6 +358,7 @@ ApplicationWindow {
         color: "green"
         opacity: 0.4
     }
+    */
 
     Settings {
         property alias openDilaogFolderFolder: sceneOpenDialog.folder

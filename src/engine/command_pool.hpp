@@ -35,6 +35,9 @@ struct ENGINE_EXPORT CommandPool final
 
     CommandPool(std::string_view name, const Engine & engine);
 
+    CommandPool(CommandPool &&) noexcept = default;
+    CommandPool & operator=(CommandPool &&) = delete;
+
     void create();
 };
 
@@ -57,7 +60,7 @@ struct CommandPools : utils::NonCopyable
     mutable std::mutex commandPoolsMutex;
     mutable CommandPoolsType commandPools;
 
-    CommandPools(const Engine & engine);
+    explicit CommandPools(const Engine & engine);
 
     [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 };
