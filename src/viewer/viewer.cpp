@@ -45,7 +45,7 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 class CleanupJob : public QRunnable
 {
 public:
-    CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
+    explicit CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
     {}
 
     void run() override
@@ -203,9 +203,9 @@ void Viewer::beforeRenderPassRecording()
     {
         INVARIANT(engine, "");
         auto ri = w->rendererInterface();
-        auto commandBuffer = static_cast<vk::CommandBuffer *>(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
+        vk::CommandBuffer * commandBuffer = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
         Q_CHECK_PTR(commandBuffer);
-        auto renderPass = static_cast<vk::RenderPass *>(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
+        vk::RenderPass * renderPass = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
         auto & device = engine->getEngine().getDevice();
@@ -256,19 +256,23 @@ void Viewer::checkEngine() const
     auto w = window();
     auto ri = w->rendererInterface();
 
-    auto vulkanInstance = static_cast<QVulkanInstance *>(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
+    QVulkanInstance * vulkanInstance = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
     Q_CHECK_PTR(vulkanInstance);
 
-    auto vulkanPhysicalDevice = static_cast<vk::PhysicalDevice *>(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
+    vk::PhysicalDevice * vulkanPhysicalDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
     Q_CHECK_PTR(vulkanPhysicalDevice);
 
-    auto vulkanDevice = static_cast<vk::Device *>(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
-    Q_CHECK_PTR(vulkanInstance);
+    vk::Device * vulkanDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
+    Q_CHECK_PTR(vulkanDevice);
 
-    uint32_t queueFamilyIndex = 0;  // chosen by smart heuristics
+    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
+    Q_CHECK_PTR(queueFamilyIndex);
 
-    auto vulkanQueue = static_cast<vk::Queue *>(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
-    Q_CHECK_PTR(vulkanInstance);
+    uint32_t * queueIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
+    Q_CHECK_PTR(queueIndex);
+
+    vk::Queue * vulkanQueue = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
+    Q_CHECK_PTR(vulkanQueue);
 
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
     // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
@@ -280,10 +284,11 @@ void Viewer::checkEngine() const
     INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == e.getVulkanInstance(), "Should match");
     INVARIANT(*vulkanPhysicalDevice == e.getVulkanPhysicalDevice(), "Should match");
     INVARIANT(*vulkanDevice == e.getVulkanDevice(), "Should match");
-    INVARIANT(queueFamilyIndex == e.getVulkanGraphicsQueueFamilyIndex(), "Should match");
+    INVARIANT(*queueFamilyIndex == e.getVulkanGraphicsQueueFamilyIndex(), "Should match");
+    INVARIANT(*queueIndex == e.getVulkanGraphicsQueueIndex(), "Should match");
     {
         VkQueue queue = VK_NULL_HANDLE;
-        vkGetDeviceQueue(*vulkanDevice, queueFamilyIndex, e.getVulkanGraphicsQueueIndex(), &queue);
+        vkGetDeviceQueue(*vulkanDevice, *queueFamilyIndex, *queueIndex, &queue);
         INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
     }
 

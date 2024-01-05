@@ -20,14 +20,13 @@ constexpr bool isLess(const L & lhs, const R & rhs) noexcept
     static_assert(std::is_arithmetic_v<R>);
     static_assert(!std::is_same_v<R, bool>);
 
+    using CommonType = std::common_type_t<L, R>;
     if constexpr (std::is_signed_v<L> == std::is_signed_v<R>) {
-        return lhs < rhs;
+        return static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs);
     } else if constexpr (std::is_signed_v<L>) {
-        using CommonType = std::common_type_t<L, R>;
         return (lhs < static_cast<L>(0)) || (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
     } else {
         static_assert(std::is_signed_v<R>);
-        using CommonType = std::common_type_t<L, R>;
         return !(rhs < static_cast<R>(0)) && (static_cast<CommonType>(lhs) < static_cast<CommonType>(rhs));
     }
 }
@@ -53,7 +52,7 @@ template<typename Source>
 class autoCast
 {
 public:
-    constexpr autoCast(Source && source) noexcept : source{source}
+    constexpr explicit autoCast(Source && source) noexcept : source{source}
     {}
 
     template<typename Destination>
@@ -118,7 +117,7 @@ template<typename Source>
 autoCast(Source && source) -> autoCast<Source>;
 
 template<typename Destination, typename Source>
-Destination safeCast(Source && source)
+constexpr Destination safeCast(Source && source)
 {
     return autoCast<Source>{std::forward<Source>(source)}.operator Destination();
 }

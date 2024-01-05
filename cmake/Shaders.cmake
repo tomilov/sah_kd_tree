@@ -32,23 +32,6 @@ function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_sh
         if(NOT stage_shader_file MATCHES "${stage_shader_regex}")
             message(FATAL_ERROR "${stage_shader_file} is not shader stage file")
         endif()
-        cmake_path(IS_RELATIVE stage_shader_file stage_shader_file_is_relative)
-        if(NOT stage_shader_file_is_relative)
-            message(FATAL_ERROR "${stage_shader_file} is not relative path")
-        endif()
-        cmake_path(
-            GET
-                stage_shader_file
-            PARENT_PATH
-                output_path)
-        add_custom_command(
-            VERBATIM
-            WORKING_DIRECTORY
-                "${CMAKE_CURRENT_SOURCE_DIR}"
-            COMMAND
-                "${CMAKE_COMMAND}" -E make_directory "${output_path}"
-            OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}")
 
         cmake_path(
             REPLACE_EXTENSION
@@ -60,8 +43,6 @@ function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_sh
         add_custom_command(
             MAIN_DEPENDENCY
                 "${stage_shader_file}"
-            DEPENDS
-                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}"
             VERBATIM
             WORKING_DIRECTORY
                 "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -74,7 +55,7 @@ function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_sh
                     "${stage_shader_file}"
                     -o "${debug_output_file}"
             OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${debug_output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${debug_output_file}") # full path is required because on Qt's side logic tied to full path
         list(APPEND compiled_shader_files_debug "${debug_output_file}")
 
         cmake_path(
@@ -87,8 +68,6 @@ function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_sh
         add_custom_command(
             MAIN_DEPENDENCY
                 "${stage_shader_file}"
-            DEPENDS
-                "${CMAKE_CURRENT_SOURCE_DIR}/${output_path}"
             VERBATIM
             WORKING_DIRECTORY
                 "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -101,7 +80,7 @@ function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_sh
                     "${stage_shader_file}"
                     -o "${release_output_file}"
             OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${release_output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${release_output_file}") # full path is required because on Qt's side logic tied to full path
         list(APPEND compiled_shader_files_release "${release_output_file}")
     endforeach()
 

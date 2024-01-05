@@ -6,16 +6,18 @@ include(GenerateExportHeader)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
-include(CheckIPOSupported)
-check_ipo_supported(
-    RESULT
-        ipo_is_supported
-    OUTPUT
-        ipo_support_check_error
-    LANGUAGES
-        CXX)
-if(NOT ${ipo_is_supported})
-    message(WARNING "LTO is not supported: ${ipo_support_check_error}")
+if(FALSE)
+    include(CheckIPOSupported)
+    check_ipo_supported(
+        RESULT
+            ipo_is_supported
+        OUTPUT
+            ipo_support_check_error
+        LANGUAGES
+            CXX)
+    if(NOT ${ipo_is_supported})
+        message(WARNING "LTO is not supported: ${ipo_support_check_error}")
+    endif()
 endif()
 
 include_directories(

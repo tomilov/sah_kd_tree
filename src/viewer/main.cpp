@@ -245,7 +245,7 @@ int main(int argc, char * argv[])
 
     qCInfo(viewerMainCategory).noquote() << u"Current path: %1"_s.arg(QDir::currentPath());
 
-    if ((false)) {
+    if ((true)) {
         QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
         while (resources.hasNext()) {
             qCDebug(viewerMainCategory) << resources.next();

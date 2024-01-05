@@ -57,7 +57,8 @@ qt6_add_qml_module(
         "engine_wrapper.hpp"
         "engine_wrapper.cpp"
         "renderer.hpp"
-        "renderer.cpp")
+        "renderer.cpp"
+        "shaders/uniform_buffer.glsl")
 
 compile_stage_shaders(
     compiled_shader_files_debug
@@ -68,13 +69,9 @@ compile_stage_shaders(
     "shaders/identity.vert.glsl"
     "shaders/squircle.frag.glsl")
 
-target_sources(
-    "lib${PROJECT_NAME}"
-    PRIVATE
-        ${shader_files})
-
 foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS compiled_shader_files_debug compiled_shader_files_release)
-    cmake_path(RELATIVE_PATH compiled_shader_file_release OUTPUT_VARIABLE resource_alias)
+    set(resource_alias "${compiled_shader_file_release}")
+    #cmake_path(RELATIVE_PATH compiled_shader_file_release OUTPUT_VARIABLE resource_alias)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(compiled_shader_file "${compiled_shader_file_debug}")
     else()
