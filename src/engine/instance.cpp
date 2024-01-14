@@ -6,6 +6,7 @@
 #include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <iterator>

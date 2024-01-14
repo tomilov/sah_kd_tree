@@ -7,6 +7,7 @@
 #include <format/vulkan.hpp>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <bitset>

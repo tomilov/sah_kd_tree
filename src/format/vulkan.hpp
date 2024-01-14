@@ -4,6 +4,7 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_to_string.hpp>
 
@@ -137,15 +138,5 @@ struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_LUID_SIZE>> : fmt::formatte
         static_assert(VK_LUID_SIZE == 8);
         auto data = luid.data();
         return fmt::format_to(ctx.out(), "{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 8, ""));
-    }
-};
-
-template<size_t kSize>
-struct fmt::formatter<vk::ArrayWrapper1D<char, kSize>> : fmt::formatter<fmt::string_view>
-{
-    template<typename FormatContext>
-    auto format(const vk::ArrayWrapper1D<char, kSize> & str, FormatContext & ctx) const
-    {
-        return fmt::formatter<fmt::string_view>::format(std::string_view(str), ctx);
     }
 };

@@ -266,6 +266,8 @@ namespace
         return "NONE";
     case SPV_REFLECT_VARIABLE_FLAGS_UNUSED:
         return "UNUSED";
+    case SPV_REFLECT_VARIABLE_FLAGS_PHYSICAL_POINTER_COPY:
+        return "PHYSICAL_POINTER_COPY";
     }
     INVARIANT(false, "Unknown SpvReflectVariableFlagBits value {}", fmt::underlying(ariableFlagBits));
 }
@@ -301,6 +303,10 @@ namespace
         return "PER_VERTEX";
     case SPV_REFLECT_DECORATION_PER_TASK:
         return "PER_TASK";
+    case SPV_REFLECT_DECORATION_WEIGHT_TEXTURE:
+        return "WEIGHT_TEXTURE";
+    case SPV_REFLECT_DECORATION_BLOCK_MATCH_TEXTURE:
+        return "BLOCK_MATCH_TEXTURE";
     }
     INVARIANT(false, "Unknown SpvReflectDecorationFlagBits value {}", fmt::underlying(decorationFlagBits));
 }
