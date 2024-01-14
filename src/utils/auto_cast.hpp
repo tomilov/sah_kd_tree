@@ -56,7 +56,7 @@ public:
     {}
 
     template<typename Destination>
-    constexpr operator Destination() const &&
+    constexpr operator Destination() const &&  // NOLINT(google-explicit-constructor)
     {
         using S = std::remove_reference_t<Source>;
         if constexpr (std::is_same_v<S, Destination>) {

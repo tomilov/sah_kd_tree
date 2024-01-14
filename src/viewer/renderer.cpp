@@ -116,11 +116,11 @@ struct Renderer::Impl
     void setViewTransform(const glm::dmat3 & viewTransform)
     {
         pushConstants = {
-            .viewTransform = glm::mat3x4{glm::mat3(viewTransform)},  // double to float conversion and mat3x3 to mat3x4 conversion
+            .viewTransform = glm::mat3x4{glm::mat3{viewTransform}},  // double to float conversion and mat3x3 to mat3x4 conversion
         };
     }
 
-    const std::filesystem::path & getScenePath() const
+    [[nodiscard]] const std::filesystem::path & getScenePath() const
     {
         return scenePath;
     }
@@ -213,7 +213,11 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
+    std::initializer_list<uint32_t> unmutedMessageIdNumbers = {
+        0x5C0EC5D6,
+        0xE4D96472,
+    };
+    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages(unmutedMessageIdNumbers);
 
     engine::LabelColor labelColor = {0.0f, 1.0f, 0.0f, 1.0f};
     auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);
@@ -223,6 +227,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
     ASSERT(descriptors);
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
+        graphicsPipeline.reset();
         graphicsPipeline = scene->createGraphicsPipeline(renderPass);
     }
     auto pipeline = graphicsPipeline->pipelines.pipelines.at(0);
@@ -233,9 +238,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
 
-    constexpr uint32_t firstSet = 0;
+    constexpr uint32_t kFirstSet = 0;
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    if (Scene::kUseDescriptorBuffer) {
+    if (scene->isDescriptorBufferUsed()) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
             commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, library.dispatcher);
@@ -248,49 +253,50 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
                 offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
             }
-            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, bufferIndices, offsets, library.dispatcher);
+            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, library.dispatcher);
         }
     } else {
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, firstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, nullptr, library.dispatcher);
+        constexpr auto kDynamicOffsets = nullptr;
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, kDynamicOffsets, library.dispatcher);
     }
 
     for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);
     }
 
-    constexpr uint32_t firstViewport = 0;
+    constexpr uint32_t kFirstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
         viewport,
     };
-    commandBuffer.setViewport(firstViewport, viewports, library.dispatcher);
+    commandBuffer.setViewport(kFirstViewport, viewports, library.dispatcher);
 
-    constexpr uint32_t firstScissor = 0;
+    constexpr uint32_t kFirstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
         scissor,
     };
-    commandBuffer.setScissor(firstScissor, scissors, library.dispatcher);
+    commandBuffer.setScissor(kFirstScissor, scissors, library.dispatcher);
 
-    constexpr uint32_t firstBinding = 0;
+    constexpr uint32_t kFirstBinding = 0;
     std::initializer_list<vk::Buffer> vertexBuffers = {
-        descriptors->vertexBuffer.getBuffer(),
+        descriptors->vertexBuffer,
     };
     if (sah_kd_tree::kIsDebugBuild) {
         for (const auto & vertexBuffer : vertexBuffers) {
-            if (vertexBuffer == vk::Buffer{}) {
+            if (!vertexBuffer) {
                 ASSERT(device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
             }
         }
     }
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
-    commandBuffer.bindVertexBuffers(firstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
+    commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
     // TODO: Scene::kUseDrawIndexedIndirect
-    auto indexBuffer = descriptors->indexBuffer.getBuffer();
-    constexpr vk::DeviceSize bufferDeviceOffset = 0;
+    vk::Buffer indexBuffer = descriptors->indexBuffer;
+    constexpr vk::DeviceSize kBufferDeviceOffset = 0;
     auto indexType = std::cbegin(descriptors->indexTypes);
     for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
         INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
-        commandBuffer.bindIndexBuffer(indexBuffer, bufferDeviceOffset, *indexType++, library.dispatcher);
+        commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
         commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
     }
 }

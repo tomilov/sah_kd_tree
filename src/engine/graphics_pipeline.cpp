@@ -93,7 +93,7 @@ void GraphicsPipelineLayout::init()
         .flags = {},
         .depthTestEnable = VK_FALSE,
         .depthWriteEnable = VK_FALSE,
-        .depthCompareOp = vk::CompareOp::eLess,
+        .depthCompareOp = vk::CompareOp::eAlways,
         .depthBoundsTestEnable = VK_FALSE,
         .stencilTestEnable = VK_FALSE,
         .front = {},

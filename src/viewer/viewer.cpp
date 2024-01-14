@@ -164,8 +164,8 @@ void Viewer::frameStart()
         return;
     }
 
-    QFileInfo sceneFileInfo{scenePath.toLocalFile()};
-    if (renderer && (renderer->getScenePath() != sceneFileInfo.filesystemFilePath())) {
+    auto sceneFileInfo = QFileInfo{scenePath.toLocalFile()}.filesystemFilePath();
+    if (renderer && (renderer->getScenePath() != sceneFileInfo)) {
         renderer.reset();
     }
 
@@ -173,7 +173,7 @@ void Viewer::frameStart()
         checkEngine();
         auto token = objectName();
         INVARIANT(!token.isEmpty(), "Viewer objectName should not be empty");
-        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo.filesystemFilePath(), engine->getEngine(), engine->getSceneManager());
+        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo, engine->getEngine(), engine->getSceneManager());
     }
 
     if (boundingRect().isEmpty()) {

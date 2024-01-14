@@ -493,11 +493,11 @@ void ShaderModuleReflection::reflect()
 ShaderStages::ShaderStages(const Engine & engine, uint32_t vertexBufferBinding) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, vertexBufferBinding{vertexBufferBinding}
 {}
 
-void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint)
+void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
 {
     shaderModuleReflections.emplace_back(shaderModuleReflection);
-    entryPoints.emplace_back(entryPoint);
-    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, entryPoint));
+    entryPoints.emplace_back(shaderModuleReflection.entryPoint);
+    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, shaderModuleReflection.entryPoint));
 
     shaderStages.emplace_back();
     auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
@@ -510,7 +510,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     };
     auto & debugUtilsObjectNameInfo = shaderStages.back<vk::DebugUtilsObjectNameInfoEXT>();
     debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
-    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(typename vk::ShaderModule::NativeType(shaderModule.shaderModule));
+    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.shaderModule));
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
 
     if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {

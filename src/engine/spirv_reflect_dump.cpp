@@ -817,7 +817,7 @@ namespace engine
 
 void dump(const spv_reflect::ShaderModule & shaderModule)
 {
-    if ((false)) {
+    if ((true)) {
         nlohmann::json j = shaderModule.GetShaderModule();
         SPDLOG_INFO("ShaderModule: {}", JsonStreamedFmt{j});
     }

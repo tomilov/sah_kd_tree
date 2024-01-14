@@ -35,22 +35,22 @@ public:
         VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
     };
 
-    MemoryAllocator(const Engine & engine);
+    explicit MemoryAllocator(const Engine & engine);
     ~MemoryAllocator();
 
-    vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
-    vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
+    [[nodiscard]] vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;
+    [[nodiscard]] vk::MemoryPropertyFlags getMemoryTypeProperties(uint32_t memoryTypeIndex) const;
 
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
-    Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
 
-    Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
-    Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
-    Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
+    [[nodiscard]] Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
+    [[nodiscard]] Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
+    [[nodiscard]] Image createReadbackImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
 
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 
@@ -96,8 +96,8 @@ class ENGINE_EXPORT MappedMemory<void> final : utils::NonCopyable
 public:
     ~MappedMemory() noexcept(false);
 
-    void * get() const;
-    vk::DeviceSize getSize() const;
+    [[nodiscard]] void * get() const;
+    [[nodiscard]] vk::DeviceSize getSize() const;
 
 private:
     friend Buffer;
@@ -120,23 +120,23 @@ template<typename T>
 class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
 {
 public:
-    T * data() const
+    [[nodiscard]] T * data() const
     {
         return static_cast<T *>(mappedMemory.get());
     }
 
-    vk::DeviceSize getSize() const
+    [[nodiscard]] vk::DeviceSize getSize() const
     {
         INVARIANT((mappedMemory.getSize() % sizeof(T)) == 0, "Size of mapped memory {} is not multiple of {}", mappedMemory.getSize(), sizeof(T));
         return mappedMemory.getSize() / sizeof(T);
     }
 
-    T * begin() const
+    [[nodiscard]] T * begin() const
     {
         return data();
     }
 
-    T * end() const
+    [[nodiscard]] T * end() const
     {
         return std::next(begin(), getSize());
     }
@@ -161,17 +161,17 @@ public:
 
     ~Buffer();
 
-    vk::Buffer getBuffer() const;
-    vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
+    operator vk::Buffer() const &;  // NOLINT(google-explicit-constructor)
+    [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     template<typename T>
-    MappedMemory<T> map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const
+    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const
     {
         return {*impl_, offset, size};
     }
 
-    vk::DeviceSize getSize() const;
-    vk::DeviceAddress getDeviceAddress() const;
+    [[nodiscard]] vk::DeviceSize getSize() const;
+    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const;
 
 private:
     friend class MappedMemory<void>;
@@ -198,12 +198,12 @@ public:
 
     ~Image();
 
-    vk::Image getImage() const;
-    vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
+    operator vk::Image() const &;  // NOLINT(google-explicit-constructor)
+    [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
-    vk::ImageLayout exchangeLayout(vk::ImageLayout layout);
+    [[nodiscard]] vk::ImageLayout exchangeLayout(vk::ImageLayout layout);
 
-    static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
+    [[nodiscard]] static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
 
 private:
     static constexpr size_t kSize = 304;

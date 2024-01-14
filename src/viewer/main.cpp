@@ -227,7 +227,7 @@ int main(int argc, char * argv[])
         if (!sah_kd_tree::kIsDebugBuild) {
             spdlog::default_logger_raw()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [file://%g:%# (%!)] %v");  // (-logger name +full file path +func name) if comapre vs default "%+" format (spdlog::details::full_formatter)
         }
-        static constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message)
+        constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message)
         {
             auto lvl = qtMsgTypeToSpdlogLevel(msgType);
             if (!spdlog::should_log(lvl)) {

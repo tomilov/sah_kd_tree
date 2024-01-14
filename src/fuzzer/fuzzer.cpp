@@ -1,4 +1,5 @@
 #include <fuzzer/fuzzer.hpp>
+#include <utils/auto_cast.hpp>
 #include <utils/random.hpp>
 
 #include <fmt/color.h>
@@ -49,7 +50,7 @@ UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
 
 void setSeed(unsigned int seed)
 {
-    utils::defaultRandom().seed(RandomValueType(seed));
+    utils::defaultRandom().seed(utils::safeCast<RandomValueType>(seed));
 }
 
 F genFloat()
@@ -479,7 +480,7 @@ struct TestInput
                         return *v;
                     }
                 }
-                INVARIANT(false);
+                std::abort();
             } else {
                 const Vertex * v = nullptr;
                 std::sample(std::cbegin(vertices), std::cend(vertices), &v, 1, utils::defaultRandom());
@@ -655,7 +656,7 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
         fuzzer::writeIntArg(maxLenOption, maxLenSize, maxLen);
         *maxPrimitiveCountArg = maxLenOption.data();
     } else {
-        INVARIANT(false);
+        std::abort();
     }
 
     if (boxWorldArg) {

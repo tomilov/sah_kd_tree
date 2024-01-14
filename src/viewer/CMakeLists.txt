@@ -1,6 +1,6 @@
 project("viewer")
 
-qt6_add_library("lib${PROJECT_NAME}" SHARED) # cannot be STATIC
+qt6_add_library("lib${PROJECT_NAME}" SHARED) # cannot be STATIC because of QML module
 set_target_properties(
     "lib${PROJECT_NAME}"
     PROPERTIES

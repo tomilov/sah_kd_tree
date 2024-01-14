@@ -40,9 +40,9 @@ struct SceneDesignator
     std::filesystem::path path;
     uint32_t framesInFlight;
 
-    bool operator==(const SceneDesignator & rhs) const noexcept;
+    [[nodiscard]] bool operator==(const SceneDesignator & rhs) const noexcept;
 
-    bool isValid() const noexcept;
+    [[nodiscard]] bool isValid() const noexcept;
 };
 
 using SceneDesignatorPtr = std::shared_ptr<const SceneDesignator>;
@@ -51,14 +51,14 @@ using SceneDesignatorPtr = std::shared_ptr<const SceneDesignator>;
 template<>
 struct std::hash<viewer::SceneDesignatorPtr>
 {
-    size_t operator()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept;
+    [[nodiscard]] size_t operator()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept;
 };
 
 template<>
 struct fmt::formatter<viewer::SceneDesignator> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const viewer::SceneDesignator & sceneDesignator, FormatContext & ctx) const
+    [[nodiscard]] auto format(const viewer::SceneDesignator & sceneDesignator, FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{ token = '{}', path = {}, framesInFlight = {} }}", sceneDesignator.token, sceneDesignator.path, sceneDesignator.framesInFlight);
     }
@@ -79,7 +79,8 @@ struct UniformBuffer
 #pragma pack(push, 1)
 struct PushConstants
 {
-    glm::mat3x4 viewTransform{1.0};
+    glm::mat3x4 viewTransform{1.0f};
+    float x = 1E-5f;
 };
 #pragma pack(pop)
 
@@ -126,6 +127,11 @@ public:
     [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors() const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
+    [[nodiscard]] bool isDescriptorBufferUsed() const
+    {
+        return useDescriptorBuffer;
+    }
+
 private:
     struct Shader
     {
@@ -170,7 +176,7 @@ private:
 class SceneManager
 {
 public:
-    SceneManager(const engine::Engine & engine);
+    explicit SceneManager(const engine::Engine & engine);
 
     [[nodiscard]] std::shared_ptr<const Scene> getOrCreateScene(SceneDesignator && sceneDesignator) const;
 

@@ -37,7 +37,7 @@ class Viewer : public QQuickItem
 
 public:
     Viewer();
-    ~Viewer();
+    ~Viewer() override;
 
     Q_INVOKABLE void rotate(QVector3D tiltPanRoll);
     Q_INVOKABLE void rotate(QVector2D tiltPan);

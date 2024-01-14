@@ -17,13 +17,29 @@ namespace viewer
 namespace
 {
 
+// clang-format off
 constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
-    0x0,        0xB3D4346B, 0xDC18AD6B, 0xD7FA5F44,
+    0x0,
+    0xB3D4346B,
+    0xDC18AD6B,
+    0xD7FA5F44,
     0x5C0EC5D6,  // Qt vkCmdBeginRenderPass: Hazard WRITE_AFTER_WRITE vs. layout transition in subpass 0 for attachment 1 aspect depth during load with loadOp VK_ATTACHMENT_LOAD_OP_CLEAR
     0xE4D96472,  // Qt vkCmdBeginRenderPass: Hazard WRITE_AFTER_WRITE vs. layout transition in subpass 0 for attachment 1 aspect depth during load with loadOp VK_ATTACHMENT_LOAD_OP_CLEAR
 };
+// clang-format on
 
 const auto kUri = u"SahKdTree"_s;
+
+QString toCamelCase(const QString & s, bool startFromFirstWord = false)
+{
+    QStringList parts = s.split('_', Qt::SkipEmptyParts);
+    for (int i = startFromFirstWord ? 0 : 1; i < parts.length(); ++i) {
+        auto & part = parts[i];
+        part.replace(0, 1, part[0].toUpper());
+    }
+
+    return parts.join("");
+}
 
 }  // namespace
 
@@ -35,7 +51,8 @@ struct Engine::Impl final : utils::NonCopyable
 
 Engine::Engine(QObject * parent) : QObject{parent}
 {
-    auto shaderLocation = u":/%1/imports/%2/shaders/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName), kUri);
+    auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
+    auto shaderLocation = u":/%1/imports/%2/shaders/"_s.arg(projectName, toCamelCase(projectName, true));
     QDir::addSearchPath(u"shaders"_s, shaderLocation);
 }
 

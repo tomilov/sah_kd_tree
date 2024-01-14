@@ -30,7 +30,7 @@ class VIEWER_EXPORT Engine : public QObject
 
 public:
     explicit Engine(QObject * parent = nullptr);
-    ~Engine();
+    ~Engine() override;
 
     engine::Engine & getEngine();
     const SceneManager & getSceneManager();

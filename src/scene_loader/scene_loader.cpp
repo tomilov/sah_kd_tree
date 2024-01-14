@@ -4,8 +4,18 @@
 #include <utils/auto_cast.hpp>
 
 #include <assimp/Importer.hpp>
+#include <assimp/matrix3x3.h>
+#include <assimp/matrix4x4.h>
 #include <assimp/postprocess.h>
+#include <assimp/quaternion.h>
 #include <assimp/scene.h>
+#include <assimp/vector3.h>
+#include <glm/ext/quaternion_double.hpp>
+#include <glm/ext/quaternion_float.hpp>
+#include <glm/ext/vector_double3.hpp>
+#include <glm/ext/vector_double4.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <QtCore/QByteArray>
@@ -20,6 +30,16 @@
 #include <QtCore/QSaveFile>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
+
+#include <algorithm>
+#include <iterator>
+#include <memory>
+#include <span>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace Qt::StringLiterals;
 
@@ -48,6 +68,39 @@ bool checkDataStreamStatus(QDataStream & dataStream, QString description)
         return {};
     }
     return true;
+}
+
+constexpr glm::vec3 assimpToGlmVector [[maybe_unused]] (const aiVector3D & v)
+{
+    return glm::vec3{glm::tvec3<ai_real>{v.x, v.y, v.z}};
+}
+
+constexpr glm::quat assimpToGlmQuaternion [[maybe_unused]] (const aiQuaternion & q)
+{
+    return glm::quat{glm::tquat<ai_real>{q.w, q.x, q.y, q.z}};
+}
+
+constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)
+{
+    using SrcCol = glm::tvec3<ai_real>;
+    using DstCol = glm::mat3::col_type;
+    return {
+        DstCol{SrcCol{m.a1, m.b1, m.c1}},
+        DstCol{SrcCol{m.a2, m.b2, m.c2}},
+        DstCol{SrcCol{m.a3, m.b3, m.c3}},
+    };
+}
+
+constexpr glm::mat4 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix4x4 & m)
+{
+    using SrcCol = glm::tvec4<ai_real>;
+    using DstCol = glm::mat4::col_type;
+    return {
+        DstCol{SrcCol{m.a1, m.b1, m.c1, m.d1}},
+        DstCol{SrcCol{m.a2, m.b2, m.c2, m.d2}},
+        DstCol{SrcCol{m.a3, m.b3, m.c3, m.d3}},
+        DstCol{SrcCol{m.a4, m.b4, m.c4, m.d4}},
+    };
 }
 }  // namespace
 
@@ -133,125 +186,177 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
         return {};
     }
 
-    std::unordered_map<std::remove_pointer_t<decltype(aiNode::mMeshes)>, size_t> meshes;
+    struct MeshUsage
     {
-        std::unordered_map<const aiNode *, size_t> parents;
-        static constexpr auto toMatrix = [](const aiMatrix4x4 & m) -> glm::mat4
-        {
-            return {
-                m.a1, m.a2, m.a3, m.a4, m.b1, m.b2, m.b3, m.b4, m.c1, m.c2, m.c3, m.c4, m.d1, m.d2, m.d3, m.d4,
+        size_t meshIndex;
+        size_t useCount = 0;
+    };
+    std::unordered_map<const aiMesh *, MeshUsage> meshUsages;
+    {
+        size_t assimpMeshCount = utils::autoCast(assimpScene->mNumMeshes);
+        auto assimpMeshes = assimpScene->mMeshes;
+        meshUsages.reserve(assimpMeshCount);
+        for (size_t assimpMeshIndex = 0; assimpMeshIndex < assimpMeshCount; ++assimpMeshIndex) {
+            auto assimpMesh = assimpMeshes[assimpMeshIndex];
+            MeshUsage meshUsage = {
+                .meshIndex = std::size(meshUsages),
             };
-        };
-        const auto traverseNodes = [&scene, &parents, &meshes](const auto & traverseNodes, const aiNode & assimpNode) -> size_t
+            if (const auto & [m, inserted] = meshUsages.emplace(assimpMesh, meshUsage); !inserted) {
+                INVARIANT(false, "Duplicated mesh #{}: #{}", m->second.meshIndex, meshUsage.meshIndex);
+            }
+        }
+
+        std::unordered_map<const aiNode *, size_t> parents;
+        const auto traverseNodes = [&scene, &parents, &meshUsages, assimpMeshes](const auto & traverseNodes, const aiNode * assimpNode) -> size_t
         {
-            size_t nodeIndex = scene.nodes.size();
+            size_t nodeIndex = std::size(scene.nodes);
             scene::Node & node = scene.nodes.emplace_back();
-            if (assimpNode.mParent) {
-                auto p = parents.find(assimpNode.mParent);
-                INVARIANT(p != std::end(parents), "");
+            if (auto assimpNodeParent = assimpNode->mParent) {
+                auto p = parents.find(assimpNodeParent);
+                ASSERT(p != std::end(parents));
                 node.parent = p->second;
             } else {
                 node.parent = nodeIndex;
             }
-            parents.emplace(&assimpNode, nodeIndex);
-            node.transform = toMatrix(assimpNode.mTransformation);
-            if (assimpNode.mNumMeshes > 0) {
-                size_t meshCount = utils::autoCast(assimpNode.mNumMeshes);
-                node.meshes.reserve(meshCount);
-                for (size_t m = 0; m < meshCount; ++m) {
-                    auto assimpMeshIndex = assimpNode.mMeshes[m];
-                    auto mesh = meshes.find(assimpMeshIndex);
-                    if (mesh == std::end(meshes)) {
-                        mesh = meshes.emplace(assimpMeshIndex, std::size(meshes)).first;
-                    }
-                    node.meshes.push_back(mesh->second);
+            parents.emplace(assimpNode, nodeIndex);
+            node.transform = assimpToGlmMatrix(assimpNode->mTransformation);
+            if (assimpNode->mNumMeshes > 0) {
+                size_t assimpMeshCount = utils::autoCast(assimpNode->mNumMeshes);
+                node.meshes.reserve(assimpMeshCount);
+                for (size_t m = 0; m < assimpMeshCount; ++m) {
+                    auto assimpMeshIndex = assimpNode->mMeshes[m];
+                    auto assimpMesh = assimpMeshes[assimpMeshIndex];
+                    auto u = meshUsages.find(assimpMesh);
+                    ASSERT(u != std::end(meshUsages));
+                    MeshUsage & meshUsage = u->second;
+                    node.meshes.push_back(meshUsage.meshIndex);
+                    ++meshUsage.useCount;
                 }
             }
-            INVARIANT(std::empty(node.children), "");
-            size_t childrenCount = utils::autoCast(assimpNode.mNumChildren);
+            ASSERT(std::empty(node.children));
+            size_t childrenCount = utils::autoCast(assimpNode->mNumChildren);
             node.children.reserve(childrenCount);
+            auto assimpNodeChildren = assimpNode->mChildren;
             for (size_t c = 0; c < childrenCount; ++c) {
-                size_t childNodeIndex = traverseNodes(traverseNodes, *assimpNode.mChildren[c]);
-                scene.nodes[nodeIndex].children.push_back(childNodeIndex);
+                auto assimpNodeChild = assimpNodeChildren[c];
+                ASSERT(assimpNodeChild->mParent == assimpNode);
+                size_t childNodeIndex = traverseNodes(traverseNodes, assimpNodeChild);
+                scene.nodes.at(nodeIndex).children.push_back(childNodeIndex);
             }
             return nodeIndex;
         };
-        if (traverseNodes(traverseNodes, *assimpRootNode) != 0) {
+        if (traverseNodes(traverseNodes, assimpRootNode) != 0) {
             ASSERT(false);
         }
     }
-    qCInfo(sceneLoaderLog).noquote() << u"expected number of meshes: %1"_s.arg(assimpScene->mNumMeshes);
-    qCInfo(sceneLoaderLog).noquote() << u"actual number of meshes: %1"_s.arg(std::size(scene.meshes));
 
-    std::unordered_map<const aiMesh *, uint32_t> instances;
+    using UsedMesh = std::pair<const aiMesh *, MeshUsage>;
+    std::vector<UsedMesh> usedMeshes{std::cbegin(meshUsages), std::cend(meshUsages)};
     uint32_t indexCount = 0;
     uint32_t vertexCount = 0;
     {
-        scene.meshes.resize(std::size(meshes));
-        const auto & assimpMeshes = assimpScene->mMeshes;
-        for (const auto & [assimpMeshIndex, m] : meshes) {
-            auto assimpMesh = assimpMeshes[assimpMeshIndex];
+        constexpr auto isMeshUsed = [](const UsedMesh & usedMesh)
+        {
+            return usedMesh.second.useCount == 0;
+        };
+        auto u = std::remove_if(std::begin(usedMeshes), std::end(usedMeshes), isMeshUsed);
+        usedMeshes.erase(u, std::end(usedMeshes));
+
+        qCInfo(sceneLoaderLog).noquote() << u"number of meshes in assimp scene: %1"_s.arg(assimpScene->mNumMeshes);
+        qCInfo(sceneLoaderLog).noquote() << u"expected number of meshes: %1"_s.arg(std::size(meshUsages));
+        qCInfo(sceneLoaderLog).noquote() << u"actual number of meshes used: %1"_s.arg(std::size(usedMeshes));
+
+        constexpr auto isMeshUsedSooner = [](const UsedMesh & l, const UsedMesh & r) -> bool
+        {
+            return l.second.meshIndex < r.second.meshIndex;
+        };
+        std::sort(std::begin(usedMeshes), std::end(usedMeshes), isMeshUsedSooner);
+
+        std::unordered_map<size_t, size_t> meshIndexRemap;
+        meshIndexRemap.reserve(std::size(usedMeshes));
+        for (auto & [assimpMesh, meshUsage] : usedMeshes) {
             if ((assimpMesh->mPrimitiveTypes & ~(aiPrimitiveType_TRIANGLE | aiPrimitiveType_NGONEncodingFlag)) != 0) {
-                qCWarning(sceneLoaderLog).noquote() << u"primitive type of mesh %1 is not triangle (possibly NGON-encoded)"_s.arg(m);
+                qCWarning(sceneLoaderLog).noquote() << u"primitive type of mesh %1 is not triangle (possibly NGON-encoded)"_s.arg(QString::fromLatin1(assimpMesh->mName.C_Str()));
                 return {};
             }
-            // qCDebug(sceneLoaderLog).noquote() << assimpMeshPointer->mName.C_Str();
-            auto & mesh = scene.meshes.at(m);
-            if (auto [instance, inserted] = instances.emplace(assimpMesh, m); inserted) {
-                mesh = {
-                    .indexOffset = indexCount,
-                    .indexCount = utils::autoCast(assimpMesh->mNumFaces * 3),
-                    .vertexOffset = vertexCount,
-                    .vertexCount = utils::autoCast(assimpMesh->mNumVertices),
-                };
-                indexCount += mesh.indexCount;
-                vertexCount += mesh.vertexCount;
-            } else {
-                INVARIANT(instance->second < m, "");
-                mesh = scene.meshes.at(instance->second);
+            size_t newMeshIndex = std::size(scene.meshes);
+            meshIndexRemap.emplace(meshUsage.meshIndex, newMeshIndex);
+            meshUsage.meshIndex = newMeshIndex;
+            auto & mesh = scene.meshes.emplace_back();
+            mesh = {
+                .indexOffset = indexCount,
+                .indexCount = utils::autoCast(assimpMesh->mNumFaces * 3),
+                .vertexOffset = vertexCount,
+                .vertexCount = utils::autoCast(assimpMesh->mNumVertices),
+            };
+            indexCount += mesh.indexCount;
+            vertexCount += mesh.vertexCount;
+        }
+
+        for (scene::Node & node : scene.nodes) {
+            for (size_t & meshIndex : node.meshes) {
+                meshIndex = meshIndexRemap.at(meshIndex);
             }
         }
     }
-    qCInfo(sceneLoaderLog).noquote() << u"total number of instances: %1"_s.arg(std::size(instances));
+    qCInfo(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(indexCount / 3);
     qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
-    qCInfo(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(indexCount);
 
     {
         scene.resizeIndices(indexCount);
         scene.resizeVertices(vertexCount);
-        static constexpr auto toVertex = [](const aiVector3D & v) -> glm::vec3
-        {
-            if constexpr (std::is_same_v<ai_real, double>) {
-                return utils::autoCast(glm::dvec3{v.x, v.y, v.z});
-            } else {
-                static_assert(std::is_same_v<ai_real, float>);
-                return {v.x, v.y, v.z};
+        for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
+            const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
+
+            {
+                auto vertex = std::next(scene.vertices.get(), mesh.vertexOffset);
+                const auto vertexEnd = std::next(vertex, mesh.vertexCount);
+                auto assimpVertices = assimpMesh->mVertices;
+                for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
+                    auto & vertexAttributes = *vertex++;
+                    vertexAttributes.position = assimpToGlmVector(assimpVertices[v]);
+                    // another vertex attributes: mNormals, mTangents, mBitangents, mColors, mTextureCoords+mNumUVComponents
+                }
+                ASSERT(vertex == vertexEnd);
             }
-        };
-        for (const auto & [assimpMesh, m] : instances) {
-            auto [indexOffset, indexCount, vertexOffset, vertexCount] = scene.meshes[m];
-            INVARIANT((indexCount % 3) == 0, "");
-            auto index = std::next(scene.indices.get(), indexOffset);
-            const auto indexEnd = std::next(index, indexCount);
-            auto assimpFaces = assimpMesh->mFaces;
-            for (uint32_t f = 0; f < indexCount / 3; ++f) {
-                const aiFace & assimpFace = assimpFaces[f];
-                INVARIANT(assimpFace.mNumIndices == 3, "");
-                auto assimpIndices = assimpFace.mIndices;
-                *index++ = utils::autoCast(assimpIndices[0]);
-                *index++ = utils::autoCast(assimpIndices[1]);
-                *index++ = utils::autoCast(assimpIndices[2]);
+
+            auto sceneIndices = scene.indices.get();
+
+            if (mesh.indexCount == 0) {
+                INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
+                continue;
             }
-            INVARIANT(index == indexEnd, "");
-            auto vertex = std::next(scene.vertices.get(), vertexOffset);
-            const auto vertexEnd = std::next(vertex, vertexCount);
-            auto assimpVertices = assimpMesh->mVertices;
-            for (uint32_t v = 0; v < vertexCount; ++v) {
-                auto & vertexAttributes = *vertex++;
-                vertexAttributes.position = toVertex(assimpVertices[v]);
-                // another vertex attributes
+
+            {
+                ASSERT_MSG((mesh.indexOffset % 3) == 0, "{} {}", mesh.indexOffset % 3, mesh.indexOffset);
+                ASSERT_MSG((mesh.indexCount % 3) == 0, "{} {}", mesh.indexCount % 3, mesh.indexCount);
+                auto index = std::next(sceneIndices, mesh.indexOffset);
+                const auto indexEnd = std::next(index, mesh.indexCount);
+                auto assimpFaces = assimpMesh->mFaces;
+                for (uint32_t f = 0; f < mesh.indexCount / 3; ++f) {
+                    const aiFace & assimpFace = assimpFaces[f];
+                    INVARIANT(assimpFace.mNumIndices == 3, "{}", assimpFace.mNumIndices);
+                    auto assimpFaceIndices = assimpFace.mIndices;
+                    *index++ = utils::autoCast(assimpFaceIndices[0]);
+                    *index++ = utils::autoCast(assimpFaceIndices[1]);
+                    *index++ = utils::autoCast(assimpFaceIndices[2]);
+                }
+                ASSERT(index == indexEnd);
             }
-            INVARIANT(vertex == vertexEnd, "");
+
+            if ((true)) {
+                std::vector<uint32_t> vertexUseCounts(mesh.vertexCount);
+                auto index = std::next(scene.indices.get(), mesh.indexOffset);
+                const auto indexEnd = std::next(index, mesh.indexCount);
+                for (uint32_t i : std::span<const uint32_t>(index, indexEnd)) {
+                    ++vertexUseCounts.at(i);
+                }
+                for (uint32_t vertexUseCount : vertexUseCounts) {
+                    if (vertexUseCount == 0) {
+                        qCWarning(sceneLoaderLog).noquote() << u"Vertex %1 is not used in mesh %2"_s.arg(vertexUseCount).arg(meshUsage.meshIndex);
+                    }
+                }
+            }
         }
     }
     importer.FreeScene();
@@ -265,7 +370,7 @@ QFileInfo SceneLoader::getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir) 
     if (!sceneFile.open(QFile::ReadOnly)) {
         return {};
     }
-    QCryptographicHash cryptographicHash{QCryptographicHash::Algorithm::Md5};
+    QCryptographicHash cryptographicHash{QCryptographicHash::Algorithm::Blake2s_256};
     cryptographicHash.addData(sceneFileInfo.filePath().toUtf8());
     if (!cryptographicHash.addData(&sceneFile)) {
         return {};
@@ -395,7 +500,7 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
     const auto saveDataToCache = [&dataStream, &cacheFile](const auto * data, size_t count, QString dataName) -> bool
     {
         static_assert(std::is_standard_layout_v<std::remove_reference_t<decltype(*data)>>, "!");
-        int size = int(utils::autoCast(count * sizeof *data));
+        int size = utils::autoCast(count * sizeof *data);
         int writeSize = dataStream.writeRawData(utils::autoCast(data), size);
         if (size != writeSize) {
             qCInfo(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
@@ -429,7 +534,7 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
         return true;
     };
 
-    if (!checkDataStreamStatus(dataStream << quint64(utils::autoCast(std::size(scene.nodes))), u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
+    if (!checkDataStreamStatus(dataStream << utils::safeCast<quint64>(std::size(scene.nodes)), u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
         return {};
     }
     for (const scene::Node & node : scene.nodes) {

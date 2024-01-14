@@ -47,7 +47,7 @@ struct MemoryAllocator::Impl final : utils::NonCopyable
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 
-    Impl(const Engine & engine);
+    Impl(const Engine & engine);  // NOLINT(google-explicit-constructor)
     ~Impl();
 
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex);
@@ -88,7 +88,7 @@ struct Resource final : utils::OnlyMoveable
 
         vk::UniqueBuffer newBuffer;
 
-        BufferResource()
+        BufferResource()  // NOLINT(modernize-use-equals-default)
         {}
 
         BufferResource(Resource & resource, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
@@ -155,7 +155,7 @@ struct Resource final : utils::OnlyMoveable
         vk::ImageLayout layout = vk::ImageLayout::eUndefined;
         vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eColor;
 
-        ImageResource()
+        ImageResource()  // NOLINT(modernize-use-equals-default)
         {}
 
         ImageResource(Resource & resource, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo)
@@ -202,7 +202,7 @@ struct Resource final : utils::OnlyMoveable
             }
         }
 
-        vk::ImageSubresourceRange getImageSubresourceRange() const
+        [[nodiscard]] vk::ImageSubresourceRange getImageSubresourceRange() const
         {
             vk::ImageSubresourceRange imageSubresourceRange;
             imageSubresourceRange.setAspectMask(aspect);
@@ -234,37 +234,37 @@ struct Resource final : utils::OnlyMoveable
 
     ~Resource();
 
-    VmaAllocator getAllocator() const;
-    VmaAllocatorInfo getAllocatorInfo() const;
-    const vk::BufferCreateInfo & getBufferCreateInfo() const;
-    const vk::ImageCreateInfo & getImageCreateInfo() const;
-    const VmaAllocationCreateInfo & getAllocationCreateInfo() const;
-    VmaAllocation getAllocation() const;
-    const VmaAllocationInfo & getAllocationInfo() const;
-    vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
+    [[nodiscard]] VmaAllocator getAllocator() const;
+    [[nodiscard]] VmaAllocatorInfo getAllocatorInfo() const;
+    [[nodiscard]] const vk::BufferCreateInfo & getBufferCreateInfo() const;
+    [[nodiscard]] const vk::ImageCreateInfo & getImageCreateInfo() const;
+    [[nodiscard]] const VmaAllocationCreateInfo & getAllocationCreateInfo() const;
+    [[nodiscard]] VmaAllocation getAllocation() const;
+    [[nodiscard]] const VmaAllocationInfo & getAllocationInfo() const;
+    [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
-    ResourceDeleter makeResourceDestroy() const
+    [[nodiscard]] ResourceDeleter makeResourceDestroy() const
     {
         ASSERT(memoryAllocator);
         return {getAllocatorInfo().device, memoryAllocator->library.allocationCallbacks, memoryAllocator->library.dispatcher};
     }
 
-    BufferResource & getBufferResource()
+    [[nodiscard]] BufferResource & getBufferResource()
     {
         return std::get<BufferResource>(resource);
     }
 
-    const BufferResource & getBufferResource() const
+    [[nodiscard]] const BufferResource & getBufferResource() const
     {
         return std::get<BufferResource>(resource);
     }
 
-    ImageResource & getImageResource()
+    [[nodiscard]] ImageResource & getImageResource()
     {
         return std::get<ImageResource>(resource);
     }
 
-    const ImageResource & getImageResource() const
+    [[nodiscard]] const ImageResource & getImageResource() const
     {
         return std::get<ImageResource>(resource);
     }
@@ -566,9 +566,9 @@ void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> 
 void MemoryAllocator::Impl::init()
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.instance = vk::Instance::NativeType(instance.instance);
-    allocatorInfo.physicalDevice = vk::PhysicalDevice::NativeType(physicalDevice.physicalDevice);
-    allocatorInfo.device = vk::Device::NativeType(device.device);
+    allocatorInfo.instance = utils::safeCast<vk::Instance::NativeType>(instance.instance);
+    allocatorInfo.physicalDevice = utils::safeCast<vk::PhysicalDevice::NativeType>(physicalDevice.physicalDevice);
+    allocatorInfo.device = utils::safeCast<vk::Device::NativeType>(device.device);
     allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
 
     if (library.allocationCallbacks) {
@@ -586,36 +586,37 @@ void MemoryAllocator::Impl::init()
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
     }
 
-    VmaVulkanFunctions vulkanFunctions = {};
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #define DISPATCH(f) library.dispatcher.f
 #else
 #define DISPATCH(f) f
 #endif
-    vulkanFunctions.vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties);
-    vulkanFunctions.vkAllocateMemory = DISPATCH(vkAllocateMemory);
-    vulkanFunctions.vkFreeMemory = DISPATCH(vkFreeMemory);
-    vulkanFunctions.vkMapMemory = DISPATCH(vkMapMemory);
-    vulkanFunctions.vkUnmapMemory = DISPATCH(vkUnmapMemory);
-    vulkanFunctions.vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges);
-    vulkanFunctions.vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges);
-    vulkanFunctions.vkBindBufferMemory = DISPATCH(vkBindBufferMemory);
-    vulkanFunctions.vkBindImageMemory = DISPATCH(vkBindImageMemory);
-    vulkanFunctions.vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements);
-    vulkanFunctions.vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements);
-    vulkanFunctions.vkCreateBuffer = DISPATCH(vkCreateBuffer);
-    vulkanFunctions.vkDestroyBuffer = DISPATCH(vkDestroyBuffer);
-    vulkanFunctions.vkCreateImage = DISPATCH(vkCreateImage);
-    vulkanFunctions.vkDestroyImage = DISPATCH(vkDestroyImage);
-    vulkanFunctions.vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer);
-    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2);
-    vulkanFunctions.vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2);
-    vulkanFunctions.vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2);
-    vulkanFunctions.vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2);
-    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2);
-    vulkanFunctions.vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements);
-    vulkanFunctions.vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements);
+    VmaVulkanFunctions vulkanFunctions = {
+        .vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties),
+        .vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties),
+        .vkAllocateMemory = DISPATCH(vkAllocateMemory),
+        .vkFreeMemory = DISPATCH(vkFreeMemory),
+        .vkMapMemory = DISPATCH(vkMapMemory),
+        .vkUnmapMemory = DISPATCH(vkUnmapMemory),
+        .vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges),
+        .vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges),
+        .vkBindBufferMemory = DISPATCH(vkBindBufferMemory),
+        .vkBindImageMemory = DISPATCH(vkBindImageMemory),
+        .vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements),
+        .vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements),
+        .vkCreateBuffer = DISPATCH(vkCreateBuffer),
+        .vkDestroyBuffer = DISPATCH(vkDestroyBuffer),
+        .vkCreateImage = DISPATCH(vkCreateImage),
+        .vkDestroyImage = DISPATCH(vkDestroyImage),
+        .vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer),
+        .vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2),
+        .vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2),
+        .vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2),
+        .vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2),
+        .vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2),
+        .vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements),
+        .vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements),
+    };
 #undef DISPATCH
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
@@ -795,7 +796,7 @@ auto Buffer::operator=(Buffer &&) noexcept -> Buffer & = default;
 
 Buffer::~Buffer() = default;
 
-vk::Buffer Buffer::getBuffer() const
+Buffer::operator vk::Buffer() const &
 {
     return *impl_->getBufferResource().buffer;
 }
@@ -815,7 +816,7 @@ vk::DeviceAddress Buffer::getDeviceAddress() const
     auto bufferUsage = impl_->getBufferCreateInfo().usage;
     INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain eShaderDeviceAddress", bufferUsage);
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo;
-    bufferDeviceAddressInfo.setBuffer(getBuffer());
+    bufferDeviceAddressInfo.setBuffer(operator vk::Buffer());
     return impl_->memoryAllocator->device.device.getBufferAddress(bufferDeviceAddressInfo, impl_->memoryAllocator->library.dispatcher);
 }
 
@@ -830,7 +831,7 @@ auto Image::operator=(Image &&) noexcept -> Image & = default;
 
 Image::~Image() = default;
 
-vk::Image Image::getImage() const
+Image::operator vk::Image() const &
 {
     return *impl_->getImageResource().image;
 }

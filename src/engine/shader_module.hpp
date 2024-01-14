@@ -125,7 +125,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
 
-    void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::string_view entryPoint);
+    void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     // TODO: descriptor update template

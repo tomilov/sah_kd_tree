@@ -5,11 +5,6 @@
 
 #include <cstdlib>
 
-#define INVARIANT(condition)            \
-    do {                                \
-        if (!(condition)) std::abort(); \
-    } while (false)
-
 namespace fuzzer
 {
 using U = unsigned int;
