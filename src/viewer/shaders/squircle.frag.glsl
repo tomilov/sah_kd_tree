@@ -9,15 +9,9 @@
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 fragColor;
 
-layout(push_constant, scalar) uniform PushConstants
-{
-    mat3x4 viewTransform;
-    layout(offset = 48) float x;
-} pushConstants;
-
 void main()
 {
-    float t = uniformBuffer.t + pushConstants.x;
+    float t = uniformBuffer.t;
     if (t < 0.0f) {
         fragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         return;

@@ -472,19 +472,33 @@ void ShaderModuleReflection::reflect()
     reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPoint.c_str(), &pushConstantBlockCount, std::data(pushConstantBlocks));
     INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
 
-    if (pushConstantBlockCount > 0) {
-        auto & [stageFlags, offset, size] = pushConstantRange.emplace();
-        stageFlags = shaderStage;
-        offset = pushConstantBlocks.front()->offset;
-        size = pushConstantBlocks.front()->size;
-        for (uint32_t index = 1; index < pushConstantBlockCount; ++index) {
-            const auto reflectPushConstantBlock = pushConstantBlocks.at(index);
-            INVARIANT(reflectPushConstantBlock, "");
-            if (offset > reflectPushConstantBlock->offset) {
-                offset = reflectPushConstantBlock->offset;
+    for (uint32_t index = 0; index < pushConstantBlockCount; ++index) {
+        const auto reflectPushConstantBlock = pushConstantBlocks.at(index);
+        INVARIANT(reflectPushConstantBlock, "");
+
+        auto members = reflectPushConstantBlock->members;
+        size_t memberCount = utils::autoCast(reflectPushConstantBlock->member_count);
+        for (const SpvReflectBlockVariable & member : std::span<const SpvReflectBlockVariable>(members, memberCount)) {
+            if ((member.flags & SPV_REFLECT_VARIABLE_FLAGS_UNUSED) != 0) {
+                auto memberName = member.name ? member.name : "<unknown>";
+                auto blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";
+                SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPoint, shaderStage, shaderModule.name);
+                continue;
             }
-            if (offset + size < reflectPushConstantBlock->offset + reflectPushConstantBlock->size) {
-                size = reflectPushConstantBlock->offset - offset + reflectPushConstantBlock->size;
+
+            bool isInitialized = pushConstantRange.has_value();
+            auto & [stageFlags, offset, size] = isInitialized ? pushConstantRange.value() : pushConstantRange.emplace();
+            if (isInitialized) {
+                if (offset > member.offset) {
+                    offset = member.offset;
+                }
+                if (offset + size < member.offset + member.size) {
+                    size = member.offset - offset + member.size;
+                }
+            } else {
+                stageFlags = shaderStage;
+                offset = member.offset;
+                size = member.size;
             }
         }
     }

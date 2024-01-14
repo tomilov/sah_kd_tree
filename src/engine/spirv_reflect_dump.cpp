@@ -329,7 +329,7 @@ struct Nullable
 {
     T * value;
 
-    Nullable(T * value) : value{value}
+    explicit Nullable(T * value) : value{value}
     {}
 };
 
@@ -652,6 +652,7 @@ struct nlohmann::adl_serializer<SpvReflectTypeDescription>
         j.emplace("type_flags", engine::Flags<SpvReflectTypeFlagBits>{typeDescription.type_flags});
         j.emplace("decoration_flags", engine::Flags<SpvReflectDecorationFlagBits>{typeDescription.decoration_flags});
         j.emplace("traits", json::object({{"numeric", typeDescription.traits.numeric}, {"image", typeDescription.traits.image}, {"array", typeDescription.traits.array}}));
+        j.emplace("copied", typeDescription.copied);
         j.emplace("member_count", typeDescription.member_count);
         j.emplace("members", engine::List(typeDescription.members, typeDescription.member_count));
     }
@@ -823,7 +824,7 @@ namespace engine
 
 void dump(const spv_reflect::ShaderModule & shaderModule)
 {
-    if ((true)) {
+    if ((false)) {
         nlohmann::json j = shaderModule.GetShaderModule();
         SPDLOG_INFO("ShaderModule: {}", JsonStreamedFmt{j});
     }

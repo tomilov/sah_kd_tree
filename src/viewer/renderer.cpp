@@ -260,8 +260,11 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, kDynamicOffsets, library.dispatcher);
     }
 
-    for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
-        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, &pushConstants, library.dispatcher);
+    {
+        for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
+            const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
+            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, library.dispatcher);
+        }
     }
 
     constexpr uint32_t kFirstViewport = 0;
