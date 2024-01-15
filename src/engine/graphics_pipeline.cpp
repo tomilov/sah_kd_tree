@@ -49,7 +49,7 @@ void GraphicsPipelineLayout::init()
 {
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
-    pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
+    pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleList);
 
     pipelineViewportStateCreateInfo.flags = {};
     pipelineViewportStateCreateInfo.setViewportCount(1);
