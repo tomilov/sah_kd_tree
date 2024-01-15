@@ -293,14 +293,18 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    // TODO: Scene::kUseDrawIndexedIndirect
-    vk::Buffer indexBuffer = descriptors->indexBuffer;
-    constexpr vk::DeviceSize kBufferDeviceOffset = 0;
-    auto indexType = std::cbegin(descriptors->indexTypes);
-    for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
-        INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
-        commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
-        commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
+    if ((false)) {
+        // TODO: Scene::kUseDrawIndexedIndirect
+        vk::Buffer indexBuffer = descriptors->indexBuffer;
+        constexpr vk::DeviceSize kBufferDeviceOffset = 0;
+        auto indexType = std::cbegin(descriptors->indexTypes);
+        for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
+            INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
+            commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
+            commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
+        }
+    } else {
+        commandBuffer.draw(4, 1, 0, 0, library.dispatcher);
     }
 }
 

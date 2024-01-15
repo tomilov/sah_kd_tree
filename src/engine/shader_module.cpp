@@ -6,6 +6,7 @@
 #include <engine/physical_device.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
+#include <engine/push_constant_ranges.hpp>
 #include <format/vulkan.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
@@ -598,6 +599,8 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
             device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
         }
     }
+
+    pushConstantRanges = mergePushConstantRanges(pushConstantRanges);
 }
 
 }  // namespace engine
