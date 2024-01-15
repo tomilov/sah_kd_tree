@@ -16,7 +16,7 @@ layout(push_constant, scalar) uniform PushConstants
 
 void main()
 {
-    float t = uniformBuffer.t + pushConstants.x;
+    float t = uniformBuffer.t + pushConstants.x * 1E-10;
     if (t < 0.0f) {
         fragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         return;

@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/library.hpp>
 #include <engine/shader_module.hpp>
@@ -13,8 +13,8 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass)
+    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}
 {
     init();
 }
@@ -126,7 +126,7 @@ void GraphicsPipelineLayout::init()
     device.setDebugUtilsObjectName(pipelineLayout, name);
 }
 
-GraphicsPipelines::GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, pipelineCache{pipelineCache}
+GraphicsPipelines::GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache) : context{context}, library{context.getLibrary()}, device{context.getDevice()}, pipelineCache{pipelineCache}
 {}
 
 void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer)

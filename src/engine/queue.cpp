@@ -1,7 +1,7 @@
 #include <engine/command_buffer.hpp>
 #include <engine/command_pool.hpp>
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/queue.hpp>
@@ -11,7 +11,8 @@
 namespace engine
 {
 
-Queue::Queue(const Engine & engine, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools) : engine{engine}, library{engine.getLibrary()}, queueCreateInfo{queueCreateInfo}, device{engine.getDevice()}, commandPools{commandPools}
+Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools)
+    : context{context}, library{context.getLibrary()}, queueCreateInfo{queueCreateInfo}, device{context.getDevice()}, commandPools{commandPools}
 {
     init();
 }
@@ -64,7 +65,7 @@ CommandBuffers Queue::allocateCommandBuffers(std::string_view name, uint32_t cou
         .level = level,
         .commandBufferCount = count,
     };
-    return {name, engine, commandBufferAllocateInfo};
+    return {name, context, commandBufferAllocateInfo};
 }
 
 CommandBuffers Queue::allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level) const
@@ -72,12 +73,12 @@ CommandBuffers Queue::allocateCommandBuffer(std::string_view name, vk::CommandBu
     return allocateCommandBuffers(name, 1, level);
 }
 
-Queues::Queues(const Engine & engine, const CommandPools & commandPools)
-    : externalGraphics{engine, engine.getDevice().physicalDevice.externalGraphicsQueueCreateInfo, commandPools}
-    , graphics{engine, engine.getDevice().physicalDevice.graphicsQueueCreateInfo, commandPools}
-    , compute{engine, engine.getDevice().physicalDevice.computeQueueCreateInfo, commandPools}
-    , transferHostToDevice{engine, engine.getDevice().physicalDevice.transferHostToDeviceQueueCreateInfo, commandPools}
-    , transferDeviceToHost{engine, engine.getDevice().physicalDevice.transferDeviceToHostQueueCreateInfo, commandPools}
+Queues::Queues(const Context & context, const CommandPools & commandPools)
+    : externalGraphics{context, context.getDevice().physicalDevice.externalGraphicsQueueCreateInfo, commandPools}
+    , graphics{context, context.getDevice().physicalDevice.graphicsQueueCreateInfo, commandPools}
+    , compute{context, context.getDevice().physicalDevice.computeQueueCreateInfo, commandPools}
+    , transferHostToDevice{context, context.getDevice().physicalDevice.transferHostToDeviceQueueCreateInfo, commandPools}
+    , transferDeviceToHost{context, context.getDevice().physicalDevice.transferDeviceToHostQueueCreateInfo, commandPools}
 {}
 
 void Queues::waitIdle() const

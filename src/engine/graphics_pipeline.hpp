@@ -23,7 +23,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
     const ShaderStages & shaderStages;
@@ -44,7 +44,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     vk::UniquePipelineLayout pipelineLayoutHolder;
     vk::PipelineLayout pipelineLayout;
 
-    GraphicsPipelineLayout(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, vk::RenderPass renderPass);
+    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
 
 private:
     friend GraphicsPipelines;
@@ -55,7 +55,7 @@ private:
 
 struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
 {
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
     const vk::PipelineCache pipelineCache;
@@ -66,7 +66,7 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
 
-    GraphicsPipelines(const Engine & engine, vk::PipelineCache pipelineCache);
+    GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache);
 
     void add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer);
     void create();

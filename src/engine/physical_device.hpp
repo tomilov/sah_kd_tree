@@ -34,7 +34,7 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Instance & instance;
 
@@ -137,7 +137,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
 
-    PhysicalDevice(const Engine & engine, vk::PhysicalDevice physicalDevice);
+    PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice);
 
     [[nodiscard]] std::string getDeviceName() const;
     [[nodiscard]] std::string getPipelineCacheUUID() const;
@@ -154,13 +154,13 @@ private:
 
 struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 {
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Instance & instance;
 
     std::list<PhysicalDevice> physicalDevices;
 
-    PhysicalDevices(const Engine & engine);
+    PhysicalDevices(const Context & context);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 

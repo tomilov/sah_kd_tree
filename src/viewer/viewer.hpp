@@ -51,7 +51,7 @@ Q_SIGNALS:
     void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
     void linearSpeedChanged(qreal linearSpeed);
 
-    void engineChanged(viewer::Engine * engine);
+    void engineChanged(Engine * engine);
 
     void scenePathChanged(QUrl scenePath);
     void tChanged(qreal t);

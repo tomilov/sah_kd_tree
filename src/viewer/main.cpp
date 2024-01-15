@@ -1,5 +1,5 @@
 #include <common/version.hpp>
-#include <engine/engine.hpp>
+#include <engine/context.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
@@ -86,7 +86,7 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
     const auto saveSettings = [&engine]
     {
         auto rootObjects = engine.rootObjects();
-        INVARIANT(std::size(rootObjects) == 1, "Expected single object");
+        INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
         auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         QSettings{}.setValue("window/geometry", applicationWindow->geometry());
@@ -278,11 +278,11 @@ int main(int argc, char * argv[])
     QVulkanInstance vulkanInstance;
     if (kUseEngine) {
         vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
-        auto & requiredInstanceExtensions = engine.getEngine().requiredInstanceExtensions;
+        auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.getEngine().createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(engine.getEngine().getVulkanInstance());
+        engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion);
+        vulkanInstance.setVkInstance(engine.getContext().getVulkanInstance());
     } else {
         {
             QVersionNumber apiVersion(1, 3);
@@ -345,13 +345,14 @@ int main(int argc, char * argv[])
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
-            auto & requiredDeviceExtensions = engine.getEngine().requiredDeviceExtensions;
+            auto & context = engine.getContext();
+            auto & requiredDeviceExtensions = context.requiredDeviceExtensions;
             requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-            engine.getEngine().createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = engine.getEngine().getVulkanPhysicalDevice();
-            vk::Device device = engine.getEngine().getVulkanDevice();
-            uint32_t queueFamilyIndex = engine.getEngine().getVulkanGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = engine.getEngine().getVulkanGraphicsQueueIndex();
+            context.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
+            vk::PhysicalDevice physicalDevice = context.getVulkanPhysicalDevice();
+            vk::Device device = context.getVulkanDevice();
+            uint32_t queueFamilyIndex = context.getVulkanGraphicsQueueFamilyIndex();
+            uint32_t queueIndex = context.getVulkanGraphicsQueueIndex();
             INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);

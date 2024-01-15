@@ -14,7 +14,7 @@
 namespace engine
 {
 
-class Engine;
+class Context;
 
 }  // namespace engine
 
@@ -32,7 +32,7 @@ public:
     explicit Engine(QObject * parent = nullptr);
     ~Engine() override;
 
-    engine::Engine & getEngine();
+    engine::Context & getContext();
     const SceneManager & getSceneManager();
 
     QStringList getSupportedSceneFileExtensions() const;

@@ -116,12 +116,12 @@ public:
         engine::GraphicsPipelineLayout pipelineLayout;
         engine::GraphicsPipelines pipelines;
 
-        GraphicsPipeline(std::string_view name, const engine::Engine & engine, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer);
+        GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer);
     };
 
     [[nodiscard]] const std::shared_ptr<const SceneDesignator> & getSceneDesignator() const;
 
-    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator,
+    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator,
                                                      std::shared_ptr<const scene::Scene> && sceneData);
 
     [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors() const;
@@ -135,14 +135,14 @@ public:
 private:
     struct Shader
     {
-        Shader(const engine::Engine & engine, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, engine, fileIo}, shaderReflection{shader, entryPoint}
+        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, context, fileIo}, shaderReflection{shader, entryPoint}
         {}
 
         engine::ShaderModule shader;
         engine::ShaderModuleReflection shaderReflection;
     };
 
-    const engine::Engine & engine;
+    const engine::Context & context;
     const FileIo & fileIo;
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::shared_ptr<const SceneDesignator> sceneDesignator;
@@ -154,7 +154,7 @@ private:
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
 
-    Scene(const engine::Engine & engine, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData);
+    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData);
 
     void init();
 
@@ -176,12 +176,12 @@ private:
 class SceneManager
 {
 public:
-    explicit SceneManager(const engine::Engine & engine);
+    explicit SceneManager(const engine::Context & context);
 
     [[nodiscard]] std::shared_ptr<const Scene> getOrCreateScene(SceneDesignator && sceneDesignator) const;
 
 private:
-    const engine::Engine & engine;
+    const engine::Context & context;
     const FileIo fileIo{u"shaders:"_s};
     const scene_loader::SceneLoader sceneLoader = {};
 

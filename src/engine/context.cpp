@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -21,7 +21,7 @@
 namespace engine
 {
 
-struct Engine::DebugUtilsMessageMuteGuard::Impl
+struct Context::DebugUtilsMessageMuteGuard::Impl
 {
     enum class Action
     {
@@ -41,13 +41,13 @@ struct Engine::DebugUtilsMessageMuteGuard::Impl
     void unmute() noexcept(false);
 };
 
-Engine::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() noexcept(false) = default;
+Context::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() noexcept(false) = default;
 
 template<typename... Args>
-Engine::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
+Context::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
 {}
 
-Engine::DebugUtilsMessageMuteGuard::Impl::~Impl() noexcept(false)
+Context::DebugUtilsMessageMuteGuard::Impl::~Impl() noexcept(false)
 {
     switch (action) {
     case Action::kMute: {
@@ -61,7 +61,7 @@ Engine::DebugUtilsMessageMuteGuard::Impl::~Impl() noexcept(false)
     }
 }
 
-Engine::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers)
+Context::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers)
     : mutex{mutex}, mutedMessageIdNumbers{mutedMessageIdNumbers}, action{action}, messageIdNumbers{messageIdNumbers}
 {
     switch (action) {
@@ -76,7 +76,7 @@ Engine::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordere
     }
 }
 
-void Engine::DebugUtilsMessageMuteGuard::Impl::mute() noexcept(false)
+void Context::DebugUtilsMessageMuteGuard::Impl::mute() noexcept(false)
 {
     if (std::empty(messageIdNumbers)) {
         return;
@@ -85,7 +85,7 @@ void Engine::DebugUtilsMessageMuteGuard::Impl::mute() noexcept(false)
     mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
 }
 
-void Engine::DebugUtilsMessageMuteGuard::Impl::unmute() noexcept(false)
+void Context::DebugUtilsMessageMuteGuard::Impl::unmute() noexcept(false)
 {
     if (std::empty(messageIdNumbers)) {
         return;
@@ -98,87 +98,87 @@ void Engine::DebugUtilsMessageMuteGuard::Impl::unmute() noexcept(false)
     }
 }
 
-Engine::Engine(std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+Context::Context(std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute) : debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
 {}
 
-Engine::~Engine() = default;
+Context::~Context() = default;
 
-auto Engine::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Context::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kMute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
 
-auto Engine::unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Context::unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kUnmute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
 
-bool Engine::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
+bool Context::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
 {
     std::lock_guard<std::mutex> lock{mutex};
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-void Engine::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
+void Context::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks, *this);
     instance = std::make_unique<Instance>(applicationName, applicationVersion, *this, *library);
     physicalDevices = std::make_unique<PhysicalDevices>(*this);
 }
 
-vk::Instance Engine::getVulkanInstance() const
+vk::Instance Context::getVulkanInstance() const
 {
     return instance->instance;
 }
 
-void Engine::createDevice(vk::SurfaceKHR surface)
+void Context::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
     device = std::make_unique<Device>(physicalDevice.getDeviceName(), *this, *library, physicalDevice);
     vma = std::make_unique<MemoryAllocator>(*this);
 }
 
-vk::PhysicalDevice Engine::getVulkanPhysicalDevice() const
+vk::PhysicalDevice Context::getVulkanPhysicalDevice() const
 {
     return device->physicalDevice.physicalDevice;
 }
 
-vk::Device Engine::getVulkanDevice() const
+vk::Device Context::getVulkanDevice() const
 {
     return device->device;
 }
 
-uint32_t Engine::getVulkanGraphicsQueueFamilyIndex() const
+uint32_t Context::getVulkanGraphicsQueueFamilyIndex() const
 {
     return device->physicalDevice.externalGraphicsQueueCreateInfo.familyIndex;
 }
 
-uint32_t Engine::getVulkanGraphicsQueueIndex() const
+uint32_t Context::getVulkanGraphicsQueueIndex() const
 {
     return device->physicalDevice.externalGraphicsQueueCreateInfo.index;
 }
 
-const Library & Engine::getLibrary() const
+const Library & Context::getLibrary() const
 {
     return *library;
 }
 
-const Instance & Engine::getInstance() const
+const Instance & Context::getInstance() const
 {
     return *instance;
 }
 
-const PhysicalDevices & Engine::getPhysicalDevices() const
+const PhysicalDevices & Context::getPhysicalDevices() const
 {
     return *physicalDevices;
 }
 
-const Device & Engine::getDevice() const
+const Device & Context::getDevice() const
 {
     return *device;
 }
 
-const MemoryAllocator & Engine::getMemoryAllocator() const
+const MemoryAllocator & Context::getMemoryAllocator() const
 {
     return *vma;
 }

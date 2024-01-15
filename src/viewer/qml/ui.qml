@@ -30,7 +30,7 @@ ApplicationWindow {
         onActivated: root.close()
     }
 
-    SahKdTreeViewer {
+    /*SahKdTreeViewer {
         anchors.fill: parent
 
         focus: true
@@ -39,7 +39,7 @@ ApplicationWindow {
         objectName: "Main"
 
         engine: SahKdTreeEngine
-    }
+    }*/
 
     Shortcut {
         sequences: [StandardKey.Open]
@@ -133,7 +133,6 @@ ApplicationWindow {
         standardButtons: Dialog.Close
     }
 
-    /*
     Component {
         id: sahKdTreeViewer
 
@@ -358,7 +357,6 @@ ApplicationWindow {
         color: "green"
         opacity: 0.4
     }
-    */
 
     Settings {
         property alias openDilaogFolderFolder: sceneOpenDialog.folder

@@ -1,6 +1,6 @@
 #include <engine/command_buffer.hpp>
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/library.hpp>
 #include <format/vulkan.hpp>
 
@@ -11,8 +11,8 @@
 namespace engine
 {
 
-CommandBuffers::CommandBuffers(std::string_view name, const Engine & engine, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, commandBufferAllocateInfo{commandBufferAllocateInfo}
+CommandBuffers::CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
+    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, commandBufferAllocateInfo{commandBufferAllocateInfo}
 {
     create();
 }

@@ -1,12 +1,12 @@
 #include <codegen/vulkan_utils.hpp>
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/file_io.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/push_constant_ranges.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
-#include <engine/push_constant_ranges.hpp>
 #include <format/vulkan.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
@@ -327,7 +327,7 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(std::string_view name, const Engine & engine, const FileIo & fileIo) : name{name}, engine{engine}, fileIo{fileIo}, library{engine.getLibrary()}, device{engine.getDevice()}
+ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}, library{context.getLibrary()}, device{context.getDevice()}
 {
     load();
 }
@@ -505,7 +505,7 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-ShaderStages::ShaderStages(const Engine & engine, uint32_t vertexBufferBinding) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, vertexBufferBinding{vertexBufferBinding}
+ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding) : context{context}, library{context.getLibrary()}, device{context.getDevice()}, vertexBufferBinding{vertexBufferBinding}
 {}
 
 void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)

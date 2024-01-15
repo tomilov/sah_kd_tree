@@ -2,7 +2,7 @@
 
 namespace engine
 {
-class Engine;
+class Context;
 class FileIo;
 struct Library;
 struct Instance;

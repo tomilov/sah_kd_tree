@@ -22,7 +22,7 @@ struct ENGINE_EXPORT DescriptorPool final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
 
@@ -34,7 +34,7 @@ struct ENGINE_EXPORT DescriptorPool final : utils::NonCopyable
     vk::UniqueDescriptorPool descriptorPoolHolder;
     vk::DescriptorPool descriptorPool;
 
-    DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, const ShaderStages & shaderStages);
+    DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages);
 
 private:
     void init();
@@ -44,7 +44,7 @@ struct ENGINE_EXPORT DescriptorSets final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
     const ShaderStages & shaderStages;
@@ -55,7 +55,7 @@ struct ENGINE_EXPORT DescriptorSets final : utils::NonCopyable
     std::vector<vk::UniqueDescriptorSet> descriptorSetHolders;  // indexed in the same way as shaderStages.setBindings and shaderStages.descriptorSetLayouts
     std::vector<vk::DescriptorSet> descriptorSets;
 
-    DescriptorSets(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool);
+    DescriptorSets(std::string_view name, const Context & context, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool);
 
 private:
     void init();

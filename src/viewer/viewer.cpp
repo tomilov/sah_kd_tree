@@ -1,5 +1,5 @@
-﻿#include <engine/device.hpp>
-#include <engine/engine.hpp>
+﻿#include <engine/context.hpp>
+#include <engine/device.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
@@ -173,7 +173,7 @@ void Viewer::frameStart()
         checkEngine();
         auto token = objectName();
         INVARIANT(!token.isEmpty(), "Viewer objectName should not be empty");
-        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo, engine->getEngine(), engine->getSceneManager());
+        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo, engine->getContext(), engine->getSceneManager());
     }
 
     if (boundingRect().isEmpty()) {
@@ -208,7 +208,7 @@ void Viewer::beforeRenderPassRecording()
         vk::RenderPass * renderPass = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
         Q_CHECK_PTR(renderPass);
 
-        auto & device = engine->getEngine().getDevice();
+        auto & device = engine->getContext().getDevice();
         device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
@@ -280,24 +280,24 @@ void Viewer::checkEngine() const
 #undef GET_INSTANCE_PROC_ADDR
     PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
-    const auto & e = engine->getEngine();
-    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == e.getVulkanInstance(), "Should match");
-    INVARIANT(*vulkanPhysicalDevice == e.getVulkanPhysicalDevice(), "Should match");
-    INVARIANT(*vulkanDevice == e.getVulkanDevice(), "Should match");
-    INVARIANT(*queueFamilyIndex == e.getVulkanGraphicsQueueFamilyIndex(), "Should match");
-    INVARIANT(*queueIndex == e.getVulkanGraphicsQueueIndex(), "Should match");
+    const auto & context = engine->getContext();
+    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == context.getVulkanInstance(), "Should match");
+    INVARIANT(*vulkanPhysicalDevice == context.getVulkanPhysicalDevice(), "Should match");
+    INVARIANT(*vulkanDevice == context.getVulkanDevice(), "Should match");
+    INVARIANT(*queueFamilyIndex == context.getVulkanGraphicsQueueFamilyIndex(), "Should match");
+    INVARIANT(*queueIndex == context.getVulkanGraphicsQueueIndex(), "Should match");
     {
         VkQueue queue = VK_NULL_HANDLE;
         vkGetDeviceQueue(*vulkanDevice, *queueFamilyIndex, *queueIndex, &queue);
         INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
     }
 
-    e.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
+    context.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
 }
 
 void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
 {
-    auto key = Qt::Key(event->key());
+    Qt::Key key = utils::autoCast(event->key());
     switch (key) {
     case Qt::Key_W:
     case Qt::Key_A:

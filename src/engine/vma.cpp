@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/exception.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
@@ -47,7 +47,7 @@ struct MemoryAllocator::Impl final : utils::NonCopyable
 
     VmaAllocator allocator = VK_NULL_HANDLE;
 
-    Impl(const Engine & engine);  // NOLINT(google-explicit-constructor)
+    Impl(const Context & context);  // NOLINT(google-explicit-constructor)
     ~Impl();
 
     void defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer commandBuffer)> submit, uint32_t queueFamilyIndex);
@@ -56,12 +56,12 @@ private:
     void init();
 };
 
-MemoryAllocator::MemoryAllocator(const Engine & engine) : impl_{engine}
+MemoryAllocator::MemoryAllocator(const Context & context) : impl_{context}
 {}
 
 MemoryAllocator::~MemoryAllocator() = default;
 
-MemoryAllocator::Impl::Impl(const Engine & engine) : library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
+MemoryAllocator::Impl::Impl(const Context & context) : library{context.getLibrary()}, instance{context.getInstance()}, physicalDevice{context.getDevice().physicalDevice}, device{context.getDevice()}
 {
     init();
 }

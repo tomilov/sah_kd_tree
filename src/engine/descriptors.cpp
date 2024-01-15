@@ -1,6 +1,6 @@
+#include <engine/context.hpp>
 #include <engine/descriptors.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/library.hpp>
 #include <engine/shader_module.hpp>
 
@@ -15,8 +15,8 @@
 namespace engine
 {
 
-DescriptorPool::DescriptorPool(std::string_view name, const Engine & engine, uint32_t framesInFlight, const ShaderStages & shaderStages)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
+DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages)
+    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
 {
     init();
 }
@@ -38,8 +38,8 @@ void DescriptorPool::init()
     device.setDebugUtilsObjectName(descriptorPool, name);
 }
 
-DescriptorSets::DescriptorSets(std::string_view name, const Engine & engine, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, shaderStages{shaderStages}, descriptorPool{descriptorPool}
+DescriptorSets::DescriptorSets(std::string_view name, const Context & context, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool)
+    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, shaderStages{shaderStages}, descriptorPool{descriptorPool}
 {
     init();
 }

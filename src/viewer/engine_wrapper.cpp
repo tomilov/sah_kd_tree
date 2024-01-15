@@ -1,5 +1,5 @@
 #include <common/version.hpp>
-#include <engine/engine.hpp>
+#include <engine/context.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
@@ -45,8 +45,8 @@ QString toCamelCase(const QString & s, bool startFromFirstWord = false)
 
 struct Engine::Impl final : utils::NonCopyable
 {
-    engine::Engine engine{kMutedMessageIdNumbers};
-    SceneManager sceneManager{engine};
+    engine::Context context{kMutedMessageIdNumbers};
+    SceneManager sceneManager{context};
 };
 
 Engine::Engine(QObject * parent) : QObject{parent}
@@ -58,9 +58,9 @@ Engine::Engine(QObject * parent) : QObject{parent}
 
 Engine::~Engine() = default;
 
-engine::Engine & Engine::getEngine()
+engine::Context & Engine::getContext()
 {
-    return impl_->engine;
+    return impl_->context;
 }
 
 const SceneManager & Engine::getSceneManager()

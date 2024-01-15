@@ -18,8 +18,8 @@ target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
         "${PROJECT_NAME}_export.h"
-        "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp"
+        "context.hpp"
+        "context.cpp"
         "fwd.hpp"
         "vma.hpp"
         "vma.cpp"

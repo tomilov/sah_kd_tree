@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/file_io.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -51,8 +51,8 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Engine & engine, const FileIo & fileIo)
-    : name{name}, engine{engine}, fileIo{fileIo}, library{engine.getLibrary()}, physicalDevice{engine.getDevice().physicalDevice}, device{engine.getDevice()}
+PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo)
+    : name{name}, context{context}, fileIo{fileIo}, library{context.getLibrary()}, physicalDevice{context.getDevice().physicalDevice}, device{context.getDevice()}
 {
     load();
 }

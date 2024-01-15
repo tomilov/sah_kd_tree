@@ -24,7 +24,7 @@ class SceneManager;
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager);
+    Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager);
     ~Renderer();
 
     void setT(float t);
@@ -33,7 +33,7 @@ public:
     void setViewportRect(const QRectF & viewportRect);
     void setViewTransform(const glm::dmat3 & viewTransform);
 
-    const std::filesystem::path & getScenePath() const;
+    [[nodiscard]] const std::filesystem::path & getScenePath() const;
 
     void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);

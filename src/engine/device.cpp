@@ -1,6 +1,6 @@
 #include <common/config.hpp>
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/fence.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
@@ -15,7 +15,7 @@
 namespace engine
 {
 
-Device::Device(std::string_view name, const Engine & engine, Library & library, PhysicalDevice & physicalDevice) : name{name}, engine{engine}, library{library}, instance{engine.getInstance()}, physicalDevice{physicalDevice}
+Device::Device(std::string_view name, const Context & context, Library & library, PhysicalDevice & physicalDevice) : name{name}, context{context}, library{library}, instance{context.getInstance()}, physicalDevice{physicalDevice}
 {
     create();
 }
@@ -49,7 +49,7 @@ void Device::create()
             INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
         }
     }
-    for (const char * requiredExtension : engine.requiredDeviceExtensions) {
+    for (const char * requiredExtension : context.requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
         }
@@ -79,7 +79,7 @@ void Device::create()
 
 Fences Device::createFences(std::string_view name, size_t count, vk::FenceCreateFlags fenceCreateFlags)
 {
-    return {name, engine, count, fenceCreateFlags};
+    return {name, context, count, fenceCreateFlags};
 }
 
 void Device::setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const

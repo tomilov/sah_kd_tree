@@ -1,5 +1,5 @@
 #include <common/config.hpp>
-#include <engine/engine.hpp>
+#include <engine/context.hpp>
 #include <engine/exception.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
@@ -22,7 +22,7 @@
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(const Engine & engine, vk::PhysicalDevice physicalDevice) : engine{engine}, library{engine.getLibrary()}, instance{engine.getInstance()}, physicalDevice{physicalDevice}
+PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice) : context{context}, library{context.getLibrary()}, instance{context.getInstance()}, physicalDevice{physicalDevice}
 {
     init();
 }
@@ -156,7 +156,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         return false;
     }
 
-    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(engine.requiredDeviceExtensions);
+    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(context.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
         SPDLOG_WARN("External extensions cannot be enabled: {}", fmt::join(externalExtensionsCannotBeEnabled, ", "));
         return false;
@@ -307,7 +307,7 @@ void PhysicalDevice::init()
     queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
 }
 
-PhysicalDevices::PhysicalDevices(const Engine & engine) : engine{engine}, library{engine.getLibrary()}, instance{engine.getInstance()}
+PhysicalDevices::PhysicalDevices(const Context & context) : context{context}, library{context.getLibrary()}, instance{context.getInstance()}
 {
     init();
 }
@@ -342,7 +342,7 @@ void PhysicalDevices::init()
     size_t i = 0;
     for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
         SPDLOG_INFO("Create physical device #{}", i++);
-        physicalDevices.emplace_back(engine, physicalDevice);
+        physicalDevices.emplace_back(context, physicalDevice);
     }
 }
 

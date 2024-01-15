@@ -1,5 +1,5 @@
 #include <common/version.hpp>
-#include <engine/engine.hpp>
+#include <engine/context.hpp>
 #include <engine/exception.hpp>
 #include <engine/file_io.hpp>
 #include <engine/memory.hpp>
@@ -24,7 +24,7 @@ class FileIo final : public engine::FileIo
 public:
     using engine::FileIo::FileIo;
 
-    std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override
+    [[nodiscard]] std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override
     {
         std::filesystem::path cacheFilePath{pipelineCacheName};
         cacheFilePath += ".bin";
@@ -45,14 +45,14 @@ public:
         std::vector<uint8_t> data;
         data.resize(size_t(utils::autoCast(size)) / sizeof *std::data(data));
         using RawDataType = std::ifstream::char_type *;
-        cacheFile.read(RawDataType(std::data(data)), size);
+        cacheFile.read(utils::safeCast<RawDataType>(std::data(data)), size);
 
         SPDLOG_INFO("Pipeline cache loaded from file {}", cacheFilePath);
 
         return data;
     }
 
-    bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override
+    [[nodiscard]] bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override
     {
         std::filesystem::path cacheFilePath{pipelineCacheName};
         cacheFilePath += ".bin";
@@ -63,17 +63,17 @@ public:
             return false;
         }
 
-        auto size = std::streamsize(std::size(data));
+        std::streamsize size = utils::autoCast(std::size(data));
 
-        using RawDataType = std::ifstream::char_type *;
-        cacheFile.write(RawDataType(std::data(data)), size);
+        using RawDataType = const std::ifstream::char_type *;
+        cacheFile.write(utils::safeCast<RawDataType>(std::data(data)), size);
 
         SPDLOG_INFO("Pipeline cache saved to file {}", cacheFilePath);
 
         return true;
     }
 
-    std::vector<uint32_t> loadShader(std::string_view shaderName) const override
+    [[nodiscard]] std::vector<uint32_t> loadShader(std::string_view shaderName) const override
     {
         std::filesystem::path shaderFilePath{shaderName};
         shaderFilePath += ".spv";
@@ -92,7 +92,7 @@ public:
         }
         spirv.resize(size_t(utils::autoCast(size)) / sizeof *std::data(spirv));
         using RawDataType = std::ifstream::char_type *;
-        shaderFile.read(RawDataType(std::data(spirv)), size);
+        shaderFile.read(utils::safeCast<RawDataType>(std::data(spirv)), size);
         if (shaderFile.tellg() != size) {
             throw engine::RuntimeError(fmt::format("Failed to read whole shader file {}", shaderFilePath));
         }
@@ -106,7 +106,7 @@ public:
 int main(int /*argc*/, char * /*argv*/[])
 {
     auto fileIo = std::make_unique<FileIo>();
-    engine::Engine engine;
+    engine::Context context;
     constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     engine::AllocationCallbacks allocationCallbacks;
     {
@@ -115,6 +115,6 @@ int main(int /*argc*/, char * /*argv*/[])
         std::vector<int, A> v{a};
         v.push_back(1);
     }
-    engine.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
-    engine.createDevice();
+    context.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
+    context.createDevice();
 }

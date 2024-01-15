@@ -35,7 +35,7 @@ public:
         VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
     };
 
-    explicit MemoryAllocator(const Engine & engine);
+    explicit MemoryAllocator(const Context & context);
     ~MemoryAllocator();
 
     [[nodiscard]] vk::PhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties() const;

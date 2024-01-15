@@ -25,7 +25,7 @@ struct ENGINE_EXPORT CommandPool final
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
 
@@ -33,7 +33,7 @@ struct ENGINE_EXPORT CommandPool final
     vk::UniqueCommandPool commandPoolHolder;
     vk::CommandPool commandPool;
 
-    CommandPool(std::string_view name, const Engine & engine);
+    CommandPool(std::string_view name, const Context & context);
 
     CommandPool(CommandPool &&) noexcept = default;
     CommandPool & operator=(CommandPool &&) = delete;
@@ -43,7 +43,7 @@ struct ENGINE_EXPORT CommandPool final
 
 struct CommandPools : utils::NonCopyable
 {
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
 
@@ -60,7 +60,7 @@ struct CommandPools : utils::NonCopyable
     mutable std::mutex commandPoolsMutex;
     mutable CommandPoolsType commandPools;
 
-    explicit CommandPools(const Engine & engine);
+    explicit CommandPools(const Context & context);
 
     [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 };

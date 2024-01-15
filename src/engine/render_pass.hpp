@@ -18,7 +18,7 @@ struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
 
@@ -30,7 +30,7 @@ struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    RenderPass(std::string_view name, const Engine & engine);
+    RenderPass(std::string_view name, const Context & context);
 
 private:
     void init();

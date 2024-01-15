@@ -36,7 +36,7 @@ struct ENGINE_EXPORT ShaderModule final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const FileIo & fileIo;
     const Library & library;
     const Device & device;
@@ -47,7 +47,7 @@ struct ENGINE_EXPORT ShaderModule final : utils::NonCopyable
     vk::UniqueShaderModule shaderModuleHolder;
     vk::ShaderModule shaderModule;
 
-    ShaderModule(std::string_view name, const Engine & engine, const FileIo & fileIo);
+    ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo);
 
 private:
     void load();
@@ -104,7 +104,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
         }
     };
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
 
@@ -123,7 +123,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered in the same way as setBindings: descriptorSetLayouts[descriptorSetLayouts[set].setIndex]
 
-    ShaderStages(const Engine & engine, uint32_t vertexBufferBinding);
+    ShaderStages(const Context & context, uint32_t vertexBufferBinding);
 
     void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);

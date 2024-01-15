@@ -24,7 +24,7 @@
 namespace engine
 {
 
-class ENGINE_EXPORT Engine final : utils::NonCopyable
+class ENGINE_EXPORT Context final : utils::NonCopyable
 {
 public:
     class DebugUtilsMessageMuteGuard final : utils::NonCopyable
@@ -33,7 +33,7 @@ public:
         ~DebugUtilsMessageMuteGuard() noexcept(false);
 
     private:
-        friend Engine;
+        friend Context;
 
         struct Impl;
 
@@ -45,8 +45,8 @@ public:
         DebugUtilsMessageMuteGuard(Args &&... args);
     };
 
-    Engine(std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
-    ~Engine();
+    Context(std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
+    ~Context();
 
     [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
     [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;

@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/library.hpp>
 #include <engine/render_pass.hpp>
 #include <engine/shader_module.hpp>
@@ -12,7 +12,7 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view name, const Engine & engine) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
+RenderPass::RenderPass(std::string_view name, const Context & context) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}
 {
     init();
 }

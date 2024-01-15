@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/framebuffer.hpp>
 #include <engine/library.hpp>
 #include <engine/render_pass.hpp>
@@ -13,8 +13,8 @@
 namespace engine
 {
 
-Framebuffer::Framebuffer(std::string_view name, const Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
-    : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
+Framebuffer::Framebuffer(std::string_view name, const Context & context, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
+    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
 {
     init();
 }

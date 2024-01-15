@@ -1,5 +1,5 @@
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/fence.hpp>
 #include <engine/library.hpp>
 
@@ -32,7 +32,7 @@ void Fences::create(size_t count)
     }
 }
 
-Fences::Fences(std::string_view name, const Engine & engine, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}, fenceCreateFlags{fenceCreateFlags}
+Fences::Fences(std::string_view name, const Context & context, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, fenceCreateFlags{fenceCreateFlags}
 {
     create(count);
 }

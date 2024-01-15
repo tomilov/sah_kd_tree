@@ -1,6 +1,6 @@
 #include <common/config.hpp>
 #include <common/version.hpp>
-#include <engine/engine.hpp>
+#include <engine/context.hpp>
 #include <engine/instance.hpp>
 #include <format/vulkan.hpp>
 #include <utils/auto_cast.hpp>
@@ -43,7 +43,7 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
 
 }  // namespace
 
-Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, const Engine & engine, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, engine{engine}, library{library}
+Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, const Context & context, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, context{context}, library{library}
 {
     init();
 }
@@ -87,7 +87,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
 
 vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    if (engine.shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
+    if (context.shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
         return VK_FALSE;
     }
     return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
@@ -202,7 +202,7 @@ void Instance::init()
             SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : engine.requiredInstanceExtensions) {
+    for (const char * requiredExtension : context.requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
         }
@@ -240,7 +240,7 @@ void Instance::init()
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto mute0x822806FA = engine.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        auto mute0x822806FA = context.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
         instance = *instanceHolder;
     }

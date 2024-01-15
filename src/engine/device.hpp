@@ -23,7 +23,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     Library & library;
     const Instance & instance;
     PhysicalDevice & physicalDevice;
@@ -35,7 +35,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
     vk::UniqueDevice deviceHolder;
     vk::Device device;
 
-    Device(std::string_view name, const Engine & engine, Library & library, PhysicalDevice & physicalDevice);
+    Device(std::string_view name, const Context & context, Library & library, PhysicalDevice & physicalDevice);
 
     void create();
 

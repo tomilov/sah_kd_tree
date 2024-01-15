@@ -21,7 +21,7 @@ struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
 {
     const std::string name;
 
-    const Engine & engine;
+    const Context & context;
     const Library & library;
     const Device & device;
     const RenderPass & renderPass;
@@ -35,7 +35,7 @@ struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
     std::vector<vk::UniqueFramebuffer> framebufferHolders = {};
     std::vector<vk::Framebuffer> framebuffers = {};
 
-    Framebuffer(std::string_view name, const Engine & engine, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews);
+    Framebuffer(std::string_view name, const Context & context, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews);
 
 private:
     void init();

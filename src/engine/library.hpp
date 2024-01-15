@@ -20,7 +20,7 @@ struct ENGINE_EXPORT Library final : utils::NonCopyable
     const std::optional<std::string> libraryName;
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 
-    const Engine & engine;
+    const Context & context;
 
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     std::optional<vk::DynamicLoader> dl;
@@ -31,7 +31,7 @@ struct ENGINE_EXPORT Library final : utils::NonCopyable
     static VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher;
 #endif
 
-    Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const Engine & engine);
+    Library(std::optional<std::string_view> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const Context & context);
 
 private:
     void init();

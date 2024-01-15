@@ -1,7 +1,7 @@
 #include <common/version.hpp>
+#include <engine/context.hpp>
 #include <engine/debug_utils.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
@@ -53,25 +53,23 @@ struct Renderer::Impl
 {
     const std::string token;
     const std::filesystem::path scenePath;
-    const engine::Engine & engine;
+    const engine::Context & context;
     const SceneManager & sceneManager;
 
-    const engine::Library & library = engine.getLibrary();
-    const engine::Instance & instance = engine.getInstance();
-    const engine::Device & device = engine.getDevice();
+    const engine::Library & library = context.getLibrary();
+    const engine::Instance & instance = context.getInstance();
+    const engine::Device & device = context.getDevice();
 
     std::shared_ptr<const Scene> scene;
     std::unique_ptr<const Scene::Descriptors> descriptors;
     std::unique_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
-
-    // TODO: descriptor allocator + descriptor layout cache
 
     UniformBuffer uniformBuffer;
     vk::Viewport viewport;
     vk::Rect2D scissor;
     PushConstants pushConstants;
 
-    Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, engine{engine}, sceneManager{sceneManager}
+    Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
     {
         init();
     }
@@ -135,7 +133,7 @@ struct Renderer::Impl
     }
 };
 
-Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Engine & engine, const SceneManager & sceneManager) : impl_{token, scenePath, engine, sceneManager}
+Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : impl_{token, scenePath, context, sceneManager}
 {}
 
 Renderer::~Renderer() = default;
@@ -177,7 +175,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 
 void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
 {
-    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
+    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
     uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     bool dirty = false;
@@ -217,7 +215,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         0x5C0EC5D6,
         0xE4D96472,
     };
-    auto unmuteMessageGuard = engine.unmuteDebugUtilsMessages(unmutedMessageIdNumbers);
+    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(unmutedMessageIdNumbers);
 
     engine::LabelColor labelColor = {0.0f, 1.0f, 0.0f, 1.0f};
     auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);

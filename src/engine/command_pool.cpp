@@ -1,7 +1,7 @@
 #include <engine/command_buffer.hpp>
 #include <engine/command_pool.hpp>
+#include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/engine.hpp>
 #include <engine/library.hpp>
 
 #include <fmt/std.h>
@@ -17,7 +17,7 @@
 namespace engine
 {
 
-CommandPool::CommandPool(std::string_view name, const Engine & engine) : name{name}, engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
+CommandPool::CommandPool(std::string_view name, const Context & context) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}
 {}
 
 void CommandPool::create()
@@ -35,7 +35,7 @@ size_t CommandPools::CommandPoolHash::operator()(const CommandPoolInfo & command
     return hash;
 }
 
-CommandPools::CommandPools(const Engine & engine) : engine{engine}, library{engine.getLibrary()}, device{engine.getDevice()}
+CommandPools::CommandPools(const Context & context) : context{context}, library{context.getLibrary()}, device{context.getDevice()}
 {}
 
 vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level) const
@@ -46,7 +46,7 @@ vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t que
     auto & perThreadCommandPools = commandPools[threadId];
     auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
     if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
-        CommandPool commandPool{name, engine};
+        CommandPool commandPool{name, context};
         commandPool.commandPoolCreateInfo = {
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
             .queueFamilyIndex = queueFamilyIndex,
