@@ -329,7 +329,7 @@ void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
 
 void Viewer::releaseResources()
 {
-    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::BeforeSynchronizingStage);
+    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
 }
 
 void Viewer::wheelEvent(QWheelEvent * event)

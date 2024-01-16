@@ -79,6 +79,9 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
     auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
+    if (messageIdNumber == 0x6bdce5fd) {
+        asm volatile ("nop;");
+    }
     spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
                 std::move(queues), std::move(buffers), */
                 messageIdNumber, callbackData.pMessage);

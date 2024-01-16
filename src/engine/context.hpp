@@ -42,7 +42,7 @@ public:
         utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
         template<typename... Args>
-        DebugUtilsMessageMuteGuard(Args &&... args);
+        DebugUtilsMessageMuteGuard(Args &&... args);  // NOLINT(google-explicit-constructor, modernize-use-equals-delete)
     };
 
     Context(std::initializer_list<uint32_t> mutedMessageIdNumbers = {}, bool mute = true);
