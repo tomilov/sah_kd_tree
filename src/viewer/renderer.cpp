@@ -187,9 +187,9 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
         }
     }
     if (dirty) {
-        graphicsPipeline = nullptr;
-        descriptors = nullptr;
-        scene = nullptr;
+        graphicsPipeline.reset();
+        descriptors.reset();
+        scene.reset();
     }
     if (!scene) {
         SceneDesignator sceneDesignator = {
@@ -299,6 +299,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
         commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
         commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
+        SPDLOG_DEBUG("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 }
 

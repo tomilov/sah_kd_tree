@@ -2,6 +2,8 @@
 
 #extension GL_EXT_scalar_block_layout : enable
 
+#extension GL_EXT_debug_printf : enable
+
 //layout(location = 0) in vec2 vertices;
 layout(location = 0) out vec2 uv;
 
@@ -34,5 +36,6 @@ void main()
     }
     }
     gl_Position = vec4(vec3(uv, 0.0f) * mat3(pushConstants.viewTransform), 1.0f);
+    debugPrintfEXT("%i\n", gl_VertexIndex);
 }
 

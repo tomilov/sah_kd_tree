@@ -14,7 +14,7 @@ cmake_policy(SET CMP0054 NEW)
 cmake_policy(SET CMP0127 NEW)
 include(CMakeDependentOption)
 
-cmake_policy(SET CMP0105 NEW) # link options for device link step
+cmake_policy(SET CMP0105 NEW) # link options for CUDA device link step
 
 cmake_policy(SET CMP0077 NEW)
 

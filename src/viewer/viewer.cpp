@@ -180,7 +180,8 @@ void Viewer::frameStart()
         return;
     }
 
-    renderer->frameStart(window()->graphicsStateInfo());
+    auto graphicsStateInfo = window()->graphicsStateInfo();
+    renderer->frameStart(graphicsStateInfo);
 }
 
 void Viewer::beforeRenderPassRecording()

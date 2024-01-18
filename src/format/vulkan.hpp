@@ -140,3 +140,14 @@ struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_LUID_SIZE>> : fmt::formatte
         return fmt::format_to(ctx.out(), "{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 8, ""));
     }
 };
+
+template<>
+struct fmt::formatter<vk::DrawIndexedIndirectCommand> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::DrawIndexedIndirectCommand & drawIndexedIndirectCommand, FormatContext & ctx) const
+    {
+        const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] = drawIndexedIndirectCommand;
+        return fmt::format_to(ctx.out(), "{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+};

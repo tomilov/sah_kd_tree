@@ -660,8 +660,13 @@ Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared
 
 void Scene::init()
 {
-    if (kUseDescriptorBuffer) {
-        useDescriptorBuffer = context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+    uint32_t maxPushConstantsSize = context.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
+
+    if (useDescriptorBuffer) {
+        if (!context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)) {
+            INVARIANT(false, "");
+        }
     }
 
     useIndexTypeUint8 = context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);

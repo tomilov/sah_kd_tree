@@ -385,7 +385,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clang-format-config",
         required=True,
-        help="Filepath of .clang-format config file",
+        help="Filepath of _clang-format config file",
     )
     parser.add_argument(
         "--fail-on-format-mismatch",

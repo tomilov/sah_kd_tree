@@ -28,7 +28,7 @@ macro(add_codegen_library name dependency command_arg)
                 "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
                 --source-dir="${CMAKE_CURRENT_SOURCE_DIR}"
                 --clang-format-executable="${clang_format_executable}"
-                --clang-format-config="${CMAKE_SOURCE_DIR}/.clang-format"
+                --clang-format-config="${CMAKE_SOURCE_DIR}/_clang-format"
                 "${name}"
                 "${command_arg}"
         COMMAND

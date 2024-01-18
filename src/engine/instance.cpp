@@ -80,7 +80,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
     auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
     if (messageIdNumber == 0x6bdce5fd) {
-        asm volatile ("nop;");
+        asm volatile("nop;");
     }
     spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
                 std::move(queues), std::move(buffers), */
@@ -190,10 +190,10 @@ void Instance::init()
             auto & validationFeatures = instanceCreateInfoChain.get<vk::ValidationFeaturesEXT>();
 
             // both branches has bad interference with VK_EXT_descriptor_buffer
-            if ((true)) {
+            if ((false)) {
                 enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eGpuAssisted, vk::ValidationFeatureEnableEXT::eGpuAssistedReserveBindingSlot});
             } else {
-                // enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
+                //enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
             }
             enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eBestPractices, vk::ValidationFeatureEnableEXT::eSynchronizationValidation});
             validationFeatures.setEnabledValidationFeatures(enableValidationFeatures);

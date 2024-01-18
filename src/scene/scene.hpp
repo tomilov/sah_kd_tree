@@ -72,10 +72,10 @@ struct SCENE_EXPORT Scene
 
     void resizeVertices(size_t newVertexCount);
 
-    size_t instanceCount(size_t rootNodeIndex = 0) const;
+    [[nodiscard]] size_t instanceCount(size_t rootNodeIndex = 0) const;
 
-    Triangles makeTriangles() const;
-    Triangles makeTriangles(size_t rootNodeIndex) const;
+    [[nodiscard]] Triangles makeTriangles() const;
+    [[nodiscard]] Triangles makeTriangles(size_t rootNodeIndex) const;
 };
 
 }  // namespace scene

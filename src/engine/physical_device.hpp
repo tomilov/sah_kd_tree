@@ -119,6 +119,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         // VK_EXT_MESH_SHADER_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME,
+        VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
     };
 
     vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo;
@@ -160,7 +161,7 @@ struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 
     std::list<PhysicalDevice> physicalDevices;
 
-    PhysicalDevices(const Context & context);
+    explicit PhysicalDevices(const Context & context);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 
