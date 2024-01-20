@@ -89,8 +89,6 @@ class Scene
     , public std::enable_shared_from_this<Scene>
 {
 public:
-    static constexpr bool kUseDrawIndexedIndirect = false;
-
     struct Descriptors : utils::NonCopyable
     {
         std::vector<engine::Buffer> uniformBuffers;
@@ -147,7 +145,9 @@ private:
     const std::shared_ptr<const SceneDesignator> sceneDesignator;
     const std::shared_ptr<const scene::Scene> sceneData;
 
-    bool useDescriptorBuffer = false;  // set in constructor
+    // TODO: set in constructor
+    bool useDrawIndexedIndirect = false;
+    bool useDescriptorBuffer = true;
     bool useIndexTypeUint8 = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;

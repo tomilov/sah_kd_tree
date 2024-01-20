@@ -1,6 +1,24 @@
 project("viewer")
 
-qt6_add_library("lib${PROJECT_NAME}" SHARED) # cannot be STATIC because of QML module
+qt6_add_library("lib${PROJECT_NAME}") # cannot be STATIC because of QML module
+qt6_add_qml_module(
+    "${PROJECT_NAME}_item"
+    URI
+        SahKdTree
+    VERSION
+        1.0
+    PLUGIN_TARGET
+        "lib${PROJECT_NAME}"
+    RESOURCE_PREFIX
+        "/${CMAKE_PROJECT_NAME}/imports"
+    DEPENDENCIES
+        QtCore
+        QtQuick
+        QtQuick.Controls
+        QtQuick.Window
+        QtQuick.Layouts
+        QtQuick.Dialogs
+        Qt.labs.folderlistmodel)
 set_target_properties(
     "lib${PROJECT_NAME}"
     PROPERTIES
@@ -15,38 +33,13 @@ if(NOT BUILD_SHARED_LIBS)
             ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
 endif()
 
-target_link_libraries(
-    "lib${PROJECT_NAME}"
-    PRIVATE
-        Qt6::Gui
-        Qt6::Qml
-        Qt6::Quick
-        Qt6::Widgets
-        "libformat"
-        "libengine"
-        "libscene"
-        "libscene_loader"
-        "gli"
-    PUBLIC
-        "libutils")
+set_target_properties("lib${PROJECT_NAME}" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
+set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
+set(QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree" CACHE STRING "" FORCE)
 
-qt6_add_qml_module(
-    "lib${PROJECT_NAME}"
-    URI
-        SahKdTree
-    VERSION
-        1.0
-    DEPENDENCIES
-        QtQuick
-        QtQuick.Controls
-        QtQuick.Window
-        QtQuick.Layouts
-        QtQuick.Dialogs
-        Qt.labs.settings
-        Qt.labs.folderlistmodel
-    RESOURCE_PREFIX
-        "/${CMAKE_PROJECT_NAME}/imports"
-    SOURCES
+target_sources(
+    "${PROJECT_NAME}_item"
+    PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
@@ -59,6 +52,21 @@ qt6_add_qml_module(
         "renderer.hpp"
         "renderer.cpp"
         "shaders/uniform_buffer.glsl")
+target_link_libraries(
+    "${PROJECT_NAME}_item"
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::Widgets
+        "libformat"
+        "libengine"
+        "libscene"
+        "libscene_loader"
+        "gli"
+    PUBLIC
+        "libutils")
 
 compile_stage_shaders(
     compiled_shader_files_debug
@@ -84,7 +92,7 @@ foreach(compiled_shader_file_debug compiled_shader_file_release IN ZIP_LISTS com
         PROPERTIES
             QT_RESOURCE_ALIAS "${resource_alias}")
     qt6_target_qml_sources(
-        "lib${PROJECT_NAME}"
+        "${PROJECT_NAME}_item"
         RESOURCES
             "${compiled_shader_file}")
 endforeach()
@@ -97,7 +105,7 @@ target_sources(
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
-        "lib${PROJECT_NAME}"
+        "${PROJECT_NAME}_item"
         "libutils"
         "libcommon"
         "libformat"

@@ -291,7 +291,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    // TODO: Scene::kUseDrawIndexedIndirect
+    // TODO: Scene::useDrawIndexedIndirect
     vk::Buffer indexBuffer = descriptors->indexBuffer;
     constexpr vk::DeviceSize kBufferDeviceOffset = 0;
     auto indexType = std::cbegin(descriptors->indexTypes);
@@ -299,7 +299,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
         commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
         commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
-        SPDLOG_DEBUG("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        //SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 }
 

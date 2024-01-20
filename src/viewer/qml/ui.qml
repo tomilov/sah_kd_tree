@@ -1,13 +1,13 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Dialogs as Dialogs
 
-import Qt.labs.settings
 import Qt.labs.folderlistmodel
 
-import SahKdTree
+import SahKdTree 1.0
 
 ApplicationWindow {
     id: root
@@ -264,8 +264,30 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                scale: 0.2
-                rotation: -5.0
+                SequentialAnimation on rotation {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        from: 0.0
+                        to: 360.0
+                        duration: 3333
+                    }
+                }
+                SequentialAnimation on scale {
+                    loops: Animation.Infinite
+                    running: true
+
+                    NumberAnimation {
+                        from: 0.2
+                        to: 1.2
+                        duration: 2000
+                    }
+                    NumberAnimation {
+                        from: 1.2
+                        to: 0.2
+                        duration: 2000
+                    }
+                }
 
                 focus: StackLayout.isCurrentItem
             }

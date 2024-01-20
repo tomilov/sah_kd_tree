@@ -272,7 +272,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 if (indexType == vk::IndexType::eNoneKHR) {
                     continue;
                 }
-                if (kUseDrawIndexedIndirect) {
+                if (useDrawIndexedIndirect) {
                     indexType = maxIndexType;
                 }
                 vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
@@ -562,8 +562,8 @@ void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuf
         auto setDescriptors = mappedDescriptorSetBuffer.begin();
         const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.getSize() / framesInFlight;
         for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
-            uint32_t b = 0;
-            for (const auto & binding : bindings.bindings) {
+            for (uint32_t b = 0; b < std::size(bindings.bindings); ++b) {
+                const auto & binding = bindings.bindings.at(b);
                 vk::DescriptorGetInfoEXT descriptorGetInfo;
                 descriptorGetInfo.type = binding.descriptorType;
                 vk::DescriptorAddressInfoEXT descriptorAddressInfo;
@@ -592,7 +592,6 @@ void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuf
                 vk::DeviceSize bindingOffset = device.device.getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
                 ASSERT(setDescriptors + bindingOffset + descriptorSize <= mappedDescriptorSetBuffer.end());
                 device.device.getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
-                ++b;
             }
             setDescriptors += descriptorSetBufferPerFrameSize;
         }

@@ -32,10 +32,10 @@ public:
     explicit Engine(QObject * parent = nullptr);
     ~Engine() override;
 
-    engine::Context & getContext();
-    const SceneManager & getSceneManager();
+    [[nodiscard]] engine::Context & getContext();
+    [[nodiscard]] const SceneManager & getSceneManager();
 
-    QStringList getSupportedSceneFileExtensions() const;
+    [[nodiscard]] QStringList getSupportedSceneFileExtensions() const;
 
 private:
     struct Impl;
@@ -55,7 +55,7 @@ class EngineSingletonForeign
 public:
     static void setEngine(Engine * engine) VIEWER_EXPORT;
 
-    static Engine * create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngine);
+    [[nodiscard]] static Engine * create(QQmlEngine * qmlEngine, QJSEngine * jsEngine);
 
 private:
     inline static utils::CheckedPtr<Engine> engine = nullptr;

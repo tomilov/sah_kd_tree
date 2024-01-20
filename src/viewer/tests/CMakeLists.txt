@@ -10,7 +10,7 @@ target_sources(
 target_link_libraries(
     "${PROJECT_NAME}_tests"
     PRIVATE
-        "lib${PROJECT_NAME}"
+        "${PROJECT_NAME}_item"
         GTest::GTest
         GTest::Main)
 
