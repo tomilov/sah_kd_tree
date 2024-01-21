@@ -71,7 +71,7 @@ namespace viewer
 struct UniformBuffer
 {
     float alpha = 0.0f;
-
+    glm::mat3 orientation;
     float t = 0.0f;
 };
 #pragma pack(pop)

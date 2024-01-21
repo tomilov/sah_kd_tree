@@ -1,7 +1,6 @@
 #version 460 core
 
 #extension GL_GOOGLE_include_directive : enable
-#extension GL_EXT_fragment_shader_barycentric : enable
 #extension GL_EXT_scalar_block_layout : enable
 
 #include "uniform_buffer.glsl"

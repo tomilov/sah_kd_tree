@@ -264,6 +264,7 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
+                /*
                 SequentialAnimation on rotation {
                     loops: Animation.Infinite
                     running: true
@@ -286,6 +287,21 @@ ApplicationWindow {
                         from: 1.2
                         to: 0.2
                         duration: 2000
+                    }
+                }
+                */
+                SequentialAnimation on t {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        to: 1.0
+                        duration: 1000
+                        easing.type: Easing.InQuad
+                    }
+                    NumberAnimation {
+                        to: 0.0
+                        duration: 1000
+                        easing.type: Easing.OutQuad
                     }
                 }
 

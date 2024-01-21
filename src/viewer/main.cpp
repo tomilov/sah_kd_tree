@@ -248,7 +248,14 @@ int main(int argc, char * argv[])
     if ((true)) {
         QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
         while (resources.hasNext()) {
-            qCDebug(viewerMainCategory) << resources.next();
+            auto filePath = resources.next();
+            if (filePath.startsWith(u":/qt-project.org"_s)) {
+                continue;
+            }
+            if (filePath.startsWith(u":/qpdf"_s)) {
+                continue;
+            }
+            qCDebug(viewerMainCategory).noquote() << filePath;
         }
     }
     auto resourcesBasePath = QUrl{u"qrc:///%1/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
@@ -328,7 +335,7 @@ int main(int argc, char * argv[])
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
     // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
 
-    if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::QueuedConnection)) {
+    if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");
     }
 

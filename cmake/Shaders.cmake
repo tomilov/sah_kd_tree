@@ -26,64 +26,58 @@ set(stage_shader_regex "\.(${stage_shader_regex})\.glsl")
 
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
-function(compile_stage_shaders compiled_shader_files_debug_list_name compiled_shader_files_release_list_name)
-    list(SUBLIST ARGV 2 -1 stage_shader_files)
-    foreach(stage_shader_file IN LISTS stage_shader_files)
-        if(NOT stage_shader_file MATCHES "${stage_shader_regex}")
-            message(FATAL_ERROR "${stage_shader_file} is not shader stage file")
+function(target_shaders target)
+    cmake_parse_arguments(PARSE_ARGV 1 target_shaders "" "OUTPUT_VARIABLE" "SHADERS")
+    foreach(shader_file IN LISTS target_shaders_SHADERS)
+        target_sources(
+            "${target}"
+            PRIVATE
+                "${shader_file}")
+
+        if(NOT shader_file MATCHES "${stage_shader_regex}")
+            message(STATUS "Shader ${shader_file} is not stage file. Will not be compiled.")
+            continue()
         endif()
+        string(REGEX MATCH "${stage_shader_regex}" _ "${shader_file}")
+        set(stage "${CMAKE_MATCH_1}")
 
         cmake_path(
             REPLACE_EXTENSION
-                stage_shader_file
-            LAST_ONLY
-            ".debug.spv"
-            OUTPUT_VARIABLE
-                debug_output_file)
-        add_custom_command(
-            MAIN_DEPENDENCY
-                "${stage_shader_file}"
-            VERBATIM
-            WORKING_DIRECTORY
-                "${CMAKE_CURRENT_SOURCE_DIR}"
-            COMMAND
-                Vulkan::glslangValidator
-                ARGS
-                    -gVS -g
-                    --target-env vulkan1.3
-                    --spirv-val
-                    "${stage_shader_file}"
-                    -o "${debug_output_file}"
-            OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${debug_output_file}") # full path is required because on Qt's side logic tied to full path
-        list(APPEND compiled_shader_files_debug "${debug_output_file}")
-
-        cmake_path(
-            REPLACE_EXTENSION
-                stage_shader_file
+                shader_file
             LAST_ONLY
             ".spv"
             OUTPUT_VARIABLE
-                release_output_file)
+                output_file)
         add_custom_command(
+            COMMENT
+                "Build shader file ${shader_file} for stage ${stage}"
             MAIN_DEPENDENCY
-                "${stage_shader_file}"
+                "${shader_file}"
             VERBATIM
             WORKING_DIRECTORY
                 "${CMAKE_CURRENT_SOURCE_DIR}"
+            DEPFILE  # sadly not works
+                "${output_file}.d"
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
-                    -gVS -g0
+                    -gVS $<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-g,-g0>
                     --target-env vulkan1.3
                     --spirv-val
-                    "${stage_shader_file}"
-                    -o "${release_output_file}"
+                    "${shader_file}"
+                    --depfile "${output_file}.d"
+                    -o "${output_file}"
             OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${release_output_file}") # full path is required because on Qt's side logic tied to full path
-        list(APPEND compiled_shader_files_release "${release_output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}") # full path is required because on Qt's side logic tied to full path
+        target_sources(
+            "${target}"
+            PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}")
+        if(DEFINED target_shaders_OUTPUT_VARIABLE)
+            list(APPEND "${target_shaders_OUTPUT_VARIABLE}" "${output_file}")
+        endif()
     endforeach()
-
-    set("${compiled_shader_files_debug_list_name}" "${compiled_shader_files_debug}" PARENT_SCOPE)
-    set("${compiled_shader_files_release_list_name}" "${compiled_shader_files_release}" PARENT_SCOPE)
+    if(DEFINED target_shaders_OUTPUT_VARIABLE)
+        set("${target_shaders_OUTPUT_VARIABLE}" "${${target_shaders_OUTPUT_VARIABLE}}" PARENT_SCOPE)
+    endif()
 endfunction()

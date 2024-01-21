@@ -5,6 +5,7 @@
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
+#include <glm/ext/quaternion_float.hpp>
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan.hpp>
 
@@ -27,6 +28,7 @@ public:
     Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager);
     ~Renderer();
 
+    void setOrientation(glm::quat orientation);
     void setT(float t);
     void setAlpha(qreal alpha);
 
@@ -41,7 +43,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 248;
+    static constexpr size_t kSize = 280;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

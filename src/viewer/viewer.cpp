@@ -7,6 +7,7 @@
 #include <viewer/viewer.hpp>
 
 #include <fmt/std.h>
+#include <glm/ext/quaternion_float.hpp>
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -72,6 +73,16 @@ Viewer::Viewer()
     doubleClickTimer->setInterval(qApp->doubleClickInterval());
     doubleClickTimer->setSingleShot(true);
     connect(doubleClickTimer, &QTimer::timeout, this, [this] { setCursor(Qt::CursorShape::BlankCursor); });
+
+    if ((false)) {
+        const auto onEulerAnglesChanged = [](QVector3D euelerAngles)
+        {
+            QString str;
+            QDebug(&str) << euelerAngles;
+            qDebug().noquote() << u"%1"_s.arg(str);
+        };
+        connect(this, &Viewer::eulerAnglesChanged, onEulerAnglesChanged);
+    }
 }
 
 void Viewer::rotate(QVector3D tiltPanRoll)
@@ -100,10 +111,10 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
     INVARIANT(w->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
 
-    connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::DirectConnection);
-    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::DirectConnection);
-    connect(w, &QQuickWindow::beforeRendering, this, &Viewer::frameStart, Qt::DirectConnection);
-    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::DirectConnection);
+    connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::beforeRendering, this, &Viewer::frameStart, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
 }
 
 void Viewer::sync()
@@ -112,34 +123,34 @@ void Viewer::sync()
         return;
     }
 
-    if (boundingRect().isEmpty()) {
-        return;
-    }
-
+    glm::quat orientation{glm::vec3{eulerAngles.x(), eulerAngles.y(), eulerAngles.z()}};
+    renderer->setOrientation(orientation);
     renderer->setT(t);
 
-    auto alpha = opacity();
-    auto scaleFactor = scale();
-    auto angle = rotation();
+    if (!boundingRect().isEmpty()) {
+        auto alpha = opacity();
+        auto scaleFactor = scale();
+        auto angle = rotation();
 
-    for (auto p = parentItem(); p; p = p->parentItem()) {
-        alpha *= p->opacity();
-        scaleFactor *= p->scale();
-        angle += p->rotation();
+        for (auto p = parentItem(); p; p = p->parentItem()) {
+            alpha *= p->opacity();
+            scaleFactor *= p->scale();
+            angle += p->rotation();
+        }
+
+        renderer->setAlpha(alpha);
+
+        auto viewportRect = mapRectToScene(boundingRect());
+        auto devicePixelRatio = window()->effectiveDevicePixelRatio();
+        renderer->setViewportRect({viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio});
+
+        glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{scaleFactor});
+        viewTransform = glm::scale(viewTransform, glm::dvec2{viewportRect.height() / viewportRect.width(), 1.0});
+        viewTransform = glm::rotate(viewTransform, glm::radians(angle));
+        viewTransform = glm::scale(viewTransform, glm::dvec2{width(), height()} / viewportRect.height());
+        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(viewTransform)));
+        renderer->setViewTransform(viewTransform);
     }
-
-    renderer->setAlpha(alpha);
-
-    auto viewportRect = mapRectToScene(boundingRect());
-    auto devicePixelRatio = window()->effectiveDevicePixelRatio();
-    renderer->setViewportRect({viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio});
-
-    glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{scaleFactor});
-    viewTransform = glm::scale(viewTransform, glm::dvec2{viewportRect.height() / viewportRect.width(), 1.0});
-    viewTransform = glm::rotate(viewTransform, glm::radians(angle));
-    viewTransform = glm::scale(viewTransform, glm::dvec2{width() / viewportRect.height(), height() / viewportRect.height()});
-    // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(viewTransform)));
-    renderer->setViewTransform(viewTransform);
 }
 
 void Viewer::cleanup()

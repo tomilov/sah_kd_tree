@@ -13,6 +13,7 @@
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/std.h>
+#include <glm/gtx/quaternion.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
@@ -72,6 +73,11 @@ struct Renderer::Impl
     Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
     {
         init();
+    }
+
+    void setOrientation(glm::quat orientation)
+    {
+        uniformBuffer.orientation = glm::toMat3(orientation);
     }
 
     void setT(float t)
@@ -135,6 +141,11 @@ struct Renderer::Impl
 
 Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : impl_{token, scenePath, context, sceneManager}
 {}
+
+void Renderer::setOrientation(glm::quat orientation)
+{
+    return impl_->setOrientation(orientation);
+}
 
 Renderer::~Renderer() = default;
 
@@ -299,7 +310,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
         commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
         commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
-        //SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 }
 
