@@ -119,7 +119,6 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         // VK_EXT_MESH_SHADER_EXTENSION_NAME,
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME,
-        VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
     };
 
     vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo;
