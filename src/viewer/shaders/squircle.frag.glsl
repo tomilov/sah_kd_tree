@@ -10,7 +10,7 @@ layout(location = 0) out vec4 fragColor;
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    layout(offset = 48) float x;
+    layout(offset = 36) float x;
 } pushConstants;
 
 void main()

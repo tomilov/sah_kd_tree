@@ -216,7 +216,7 @@ ApplicationWindow {
         color: "black"
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
-        text: "The quick brown fox jumped over the lazy dog's back 1234567890"
+        text: "THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG'S BACK 1234567890"
         anchors.right: parent.right
         anchors.left: parent.left
         anchors.bottom: parent.bottom
@@ -295,14 +295,23 @@ ApplicationWindow {
                     running: true
                     NumberAnimation {
                         to: 1.0
-                        duration: 1000
+                        duration: 200
                         easing.type: Easing.InQuad
                     }
                     NumberAnimation {
                         to: 0.0
-                        duration: 1000
+                        duration: 200
                         easing.type: Easing.OutQuad
                     }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -4
+
+                    border.color: parent.activeFocus ? "red" : "green"
+                    border.width: 3
+
+                    color: "transparent"
                 }
 
                 focus: StackLayout.isCurrentItem

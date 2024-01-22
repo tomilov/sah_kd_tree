@@ -127,25 +127,27 @@ void Viewer::sync()
     renderer->setOrientation(orientation);
     renderer->setT(t);
 
+    auto alpha = opacity();
+    for (auto p = parentItem(); p; p = p->parentItem()) {
+        alpha *= p->opacity();
+    }
+    renderer->setAlpha(alpha);
+
     if (!boundingRect().isEmpty()) {
-        auto alpha = opacity();
         auto scaleFactor = scale();
         auto angle = rotation();
 
         for (auto p = parentItem(); p; p = p->parentItem()) {
-            alpha *= p->opacity();
             scaleFactor *= p->scale();
             angle += p->rotation();
         }
-
-        renderer->setAlpha(alpha);
 
         auto viewportRect = mapRectToScene(boundingRect());
         auto devicePixelRatio = window()->effectiveDevicePixelRatio();
         renderer->setViewportRect({viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio});
 
-        glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{scaleFactor});
-        viewTransform = glm::scale(viewTransform, glm::dvec2{viewportRect.height() / viewportRect.width(), 1.0});
+        auto aspectRatio = viewportRect.height() / viewportRect.width();
+        glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 0.0});
         viewTransform = glm::rotate(viewTransform, glm::radians(angle));
         viewTransform = glm::scale(viewTransform, glm::dvec2{width(), height()} / viewportRect.height());
         // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(viewTransform)));

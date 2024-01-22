@@ -8,7 +8,7 @@ out gl_PerVertex { vec4 gl_Position; };
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    mat3x4 viewTransform;
+    mat3 viewTransform;
 } pushConstants;
 
 layout(std140, set = 0, binding = 1) readonly buffer TransformBuffer
@@ -19,7 +19,7 @@ layout(std140, set = 0, binding = 1) readonly buffer TransformBuffer
 void main()
 {
     vec4 worldVertexPosition = transformBuffer.transforms[gl_InstanceIndex] * vec4(vertexPosition, 1.0f);
-    gl_Position.xyz = mat3(pushConstants.viewTransform) * worldVertexPosition.xyz;
+    gl_Position.xyz = pushConstants.viewTransform * worldVertexPosition.xyz;
     gl_Position.w = worldVertexPosition.w;
 }
 

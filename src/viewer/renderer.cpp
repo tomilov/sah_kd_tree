@@ -120,7 +120,7 @@ struct Renderer::Impl
     void setViewTransform(const glm::dmat3 & viewTransform)
     {
         pushConstants = {
-            .viewTransform = glm::mat3x4{glm::mat3{viewTransform}},  // double to float conversion and mat3x3 to mat3x4 conversion
+            .viewTransform = glm::mat3{viewTransform},
         };
     }
 
