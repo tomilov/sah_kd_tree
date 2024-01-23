@@ -72,7 +72,7 @@ struct UniformBuffer
 {
     float t = 0.0f;
     float alpha = 0.0f;
-    glm::mat4 projection{1.0f};
+    glm::mat4 mvp{1.0f};
 };
 #pragma pack(pop)
 

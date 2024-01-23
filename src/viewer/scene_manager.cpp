@@ -697,7 +697,7 @@ void Scene::init()
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
             auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
             auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
             INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
             INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
@@ -717,18 +717,29 @@ void Scene::init()
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kTransformBuferSet), "");
             auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kTransformBuferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
-            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
-            INVARIANT(descriptorSetLayoutBindingReflection.binding == 1, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eStorageBuffer, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 2, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eStorageBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            }
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            }
 
-            INVARIANT(vertexShaderReflection.pushConstantRange, "");
-            const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-            INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
-            INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
+            if ((false)) {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+            }
         }
         shaderStages.append(vertexShader, vertexShaderReflection);
 
@@ -737,7 +748,7 @@ void Scene::init()
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
             auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "");
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
             auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
             INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
             INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");

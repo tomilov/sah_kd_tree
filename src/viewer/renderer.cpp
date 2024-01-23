@@ -14,6 +14,7 @@
 
 #include <fmt/std.h>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -73,6 +74,10 @@ struct Renderer::Impl
     vk::Viewport viewport;
     vk::Rect2D scissor;
     glm::mat3 viewTransform{1.0f};
+    float fov = 90.0f;
+    float zNear = 1E-3f;
+    float zFar = 1E3f;
+    glm::vec3 scale{1.0f};
 
     Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
     {
@@ -133,14 +138,17 @@ struct Renderer::Impl
 
     void fillUniformBuffer(UniformBuffer & uniformBuffer) const
     {
+        INVARIANT(viewport.height > 0.0f, "{}x{}", viewport.width, viewport.height);
+        auto view = glm::scale(glm::translate(glm::toMat4(orientation), position), scale);
+        auto projection = glm::perspective(glm::radians(fov), viewport.width / viewport.height, zNear, zFar);
         uniformBuffer = {
             .t = t,
             .alpha = alpha,
-            .projection = glm::mat4{1.0f},
+            .mvp = glm::mat4{viewTransform} * projection * view,
         };
     }
 
-    PushConstants getPushConstants() const
+    [[nodiscard]] PushConstants getPushConstants() const
     {
         return {
             .viewTransform = viewTransform,
@@ -244,9 +252,6 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
 
         descriptors = scene->makeDescriptors();
     }
-
-    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    fillUniformBuffer(*descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data());
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -264,6 +269,10 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         return;
     }
     ASSERT(descriptors);
+
+    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
+    fillUniformBuffer(*descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data());
+
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline.reset();
         graphicsPipeline = scene->createGraphicsPipeline(renderPass);
@@ -277,7 +286,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
 
     constexpr uint32_t kFirstSet = 0;
-    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
     if (scene->isDescriptorBufferUsed()) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {

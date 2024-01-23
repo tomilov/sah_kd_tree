@@ -1,6 +1,9 @@
 #version 460 core
 
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_scalar_block_layout : enable
+
+#include "uniform_buffer.glsl"
 
 layout(location = 0) in vec3 vertexPosition;
 
@@ -11,7 +14,7 @@ layout(push_constant, scalar) uniform PushConstants
     mat3 viewTransform;
 } pushConstants;
 
-layout(std140, set = 0, binding = 1) readonly buffer TransformBuffer
+layout(std140, set = 0, binding = 1) restrict readonly buffer TransformBuffer
 {
     mat4 transforms[];
 } transformBuffer;
@@ -19,7 +22,6 @@ layout(std140, set = 0, binding = 1) readonly buffer TransformBuffer
 void main()
 {
     vec4 worldVertexPosition = transformBuffer.transforms[gl_InstanceIndex] * vec4(vertexPosition, 1.0f);
-    gl_Position.xyz = pushConstants.viewTransform * worldVertexPosition.xyz;
-    gl_Position.w = worldVertexPosition.w;
+    gl_Position = uniformBuffer.mvp * worldVertexPosition;
 }
 

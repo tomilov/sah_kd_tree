@@ -119,7 +119,7 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
 void Viewer::sync()
 {
-    if (!renderer) {
+    if (!renderer) {  // TODO: should not depend on renderer.has_value()
         return;
     }
 

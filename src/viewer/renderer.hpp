@@ -44,7 +44,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 256;
+    static constexpr size_t kSize = 280;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
