@@ -70,9 +70,9 @@ namespace viewer
 #pragma pack(push, 1)
 struct UniformBuffer
 {
-    float alpha = 0.0f;
-    glm::mat3 orientation;
     float t = 0.0f;
+    float alpha = 0.0f;
+    glm::mat4 projection{1.0f};
 };
 #pragma pack(pop)
 

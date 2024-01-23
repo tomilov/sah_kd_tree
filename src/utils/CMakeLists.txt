@@ -38,5 +38,9 @@ target_sources(
         "checked_ptr.hpp"
         "checked_ptr.cpp"
         "random.hpp"
-        "random.cpp")
+        "random.cpp"
+        "scope_guard.hpp"
+        "scope_guard.cpp")
+
+add_subdirectory("tests")
 

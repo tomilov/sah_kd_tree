@@ -2,7 +2,7 @@
 
 layout(std140, set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    float alpha;
-    mat3 orientation;
     float t;
+    float alpha;
+    mat4 projection;
 } uniformBuffer;

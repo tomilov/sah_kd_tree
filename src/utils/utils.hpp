@@ -10,6 +10,7 @@
 #include <utils/overloaded.hpp>
 #include <utils/pp.hpp>
 #include <utils/random.hpp>
+#include <utils/scope_guard.hpp>
 
 namespace utils
 {

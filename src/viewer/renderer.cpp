@@ -13,6 +13,7 @@
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/std.h>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -65,29 +66,37 @@ struct Renderer::Impl
     std::unique_ptr<const Scene::Descriptors> descriptors;
     std::unique_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
 
-    UniformBuffer uniformBuffer;
+    glm::vec3 position{0.0f};
+    glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
+    float t = 0.0f;
+    float alpha = 1.0f;
     vk::Viewport viewport;
     vk::Rect2D scissor;
-    PushConstants pushConstants;
+    glm::mat3 viewTransform{1.0f};
 
     Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
     {
         init();
     }
 
-    void setOrientation(glm::quat orientation)
+    void setPosition(const glm::vec3 & position)
     {
-        uniformBuffer.orientation = glm::toMat3(orientation);
+        this->position = position;
+    }
+
+    void setOrientation(const glm::quat & orientation)
+    {
+        this->orientation = orientation;
     }
 
     void setT(float t)
     {
-        uniformBuffer.t = t;
+        this->t = t;
     }
 
     void setAlpha(qreal alpha)
     {
-        uniformBuffer.alpha = utils::autoCast(alpha);
+        this->alpha = utils::autoCast(alpha);
     }
 
     void setViewportRect(const QRectF & viewportRect)
@@ -119,8 +128,23 @@ struct Renderer::Impl
 
     void setViewTransform(const glm::dmat3 & viewTransform)
     {
-        pushConstants = {
-            .viewTransform = glm::mat3{viewTransform},
+        this->viewTransform = glm::mat3{viewTransform};
+    }
+
+    void fillUniformBuffer(UniformBuffer & uniformBuffer) const
+    {
+        uniformBuffer = {
+            .t = t,
+            .alpha = alpha,
+            .projection = glm::mat4{1.0f},
+        };
+    }
+
+    PushConstants getPushConstants() const
+    {
+        return {
+            .viewTransform = viewTransform,
+            .x = 0.0f,
         };
     }
 
@@ -142,7 +166,12 @@ struct Renderer::Impl
 Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : impl_{token, scenePath, context, sceneManager}
 {}
 
-void Renderer::setOrientation(glm::quat orientation)
+void Renderer::setPosition(const glm::vec3 & position)
+{
+    return impl_->setPosition(position);
+}
+
+void Renderer::setOrientation(const glm::quat & orientation)
 {
     return impl_->setOrientation(orientation);
 }
@@ -217,7 +246,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     }
 
     uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    *descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data() = uniformBuffer;
+    fillUniformBuffer(*descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data());
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
@@ -270,6 +299,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 
     {
+        PushConstants pushConstants = getPushConstants();
         for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
             const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
             commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, library.dispatcher);

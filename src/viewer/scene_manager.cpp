@@ -679,7 +679,7 @@ void Scene::init()
         return it->second;
     };
 
-    if ((true)) {
+    if ((false)) {
         const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
         {
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
