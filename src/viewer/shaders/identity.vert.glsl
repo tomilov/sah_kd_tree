@@ -11,7 +11,7 @@ out gl_PerVertex { vec4 gl_Position; };
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    mat3 viewTransform;
+    mat3 transform2D;
 } pushConstants;
 
 layout(std140, set = 0, binding = 1) restrict readonly buffer TransformBuffer

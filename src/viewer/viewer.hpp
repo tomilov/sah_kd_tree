@@ -16,6 +16,7 @@
 namespace viewer
 {
 class Engine;
+struct FrameSettings;
 class Renderer;
 
 class Viewer : public QQuickItem
@@ -87,6 +88,7 @@ private:
     QUrl scenePath;
     float t = 0.0;
 
+    std::unique_ptr<FrameSettings> frameSettings;
     std::unique_ptr<Renderer> renderer;
 
     void checkEngine() const;

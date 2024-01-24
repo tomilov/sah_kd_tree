@@ -687,8 +687,8 @@ void Scene::init()
             INVARIANT(vertexShaderReflection.pushConstantRange, "");
             const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
             INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
-            INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, transform2D), "");
+            INVARIANT(pushConstantRange.size == sizeof(PushConstants::transform2D), "");
         }
         shaderStages.append(vertexShader, vertexShaderReflection);
 
@@ -737,8 +737,8 @@ void Scene::init()
             if ((false)) {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, viewTransform), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::viewTransform), "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, transform2D), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::transform2D), "");
             }
         }
         shaderStages.append(vertexShader, vertexShaderReflection);

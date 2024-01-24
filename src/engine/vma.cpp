@@ -750,7 +750,7 @@ void MappedMemory<void>::init()
     }
 }
 
-void * MappedMemory<void>::get() const
+void * MappedMemory<void>::get() const &
 {
     if (mappedData) {
         return std::next(static_cast<std::byte *>(mappedData), offset);
@@ -811,7 +811,7 @@ vk::DeviceSize Buffer::getSize() const
     return impl_->getBufferCreateInfo().size;
 }
 
-vk::DeviceAddress Buffer::getDeviceAddress() const
+vk::DeviceAddress Buffer::getDeviceAddress() const &
 {
     auto bufferUsage = impl_->getBufferCreateInfo().usage;
     INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain eShaderDeviceAddress", bufferUsage);

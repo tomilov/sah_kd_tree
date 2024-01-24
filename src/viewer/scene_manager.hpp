@@ -79,7 +79,7 @@ struct UniformBuffer
 #pragma pack(push, 1)
 struct PushConstants
 {
-    glm::mat3 viewTransform{1.0f};
+    glm::mat3 transform2D{1.0f};
     float x = 1E-5f;
 };
 #pragma pack(pop)

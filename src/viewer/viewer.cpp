@@ -119,39 +119,63 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
 void Viewer::sync()
 {
-    if (!renderer) {  // TODO: should not depend on renderer.has_value()
-        return;
+    if (!frameSettings) {  // TODO: should not depend on renderer.has_value()
+        frameSettings = std::make_unique<FrameSettings>();
     }
 
     glm::quat orientation{glm::vec3{eulerAngles.x(), eulerAngles.y(), eulerAngles.z()}};
-    renderer->setOrientation(orientation);
-    renderer->setT(t);
+    frameSettings->orientation = orientation;
+    frameSettings->t = t;
 
     auto alpha = opacity();
     for (auto p = parentItem(); p; p = p->parentItem()) {
         alpha *= p->opacity();
     }
-    renderer->setAlpha(alpha);
+    frameSettings->alpha = utils::autoCast(alpha);
 
     if (!boundingRect().isEmpty()) {
         auto scaleFactor = scale();
         auto angle = rotation();
-
         for (auto p = parentItem(); p; p = p->parentItem()) {
             scaleFactor *= p->scale();
             angle += p->rotation();
         }
 
-        auto viewportRect = mapRectToScene(boundingRect());
+        auto mappedBoundingRect = mapRectToScene(boundingRect());
         auto devicePixelRatio = window()->effectiveDevicePixelRatio();
-        renderer->setViewportRect({viewportRect.topLeft() * devicePixelRatio, viewportRect.size() * devicePixelRatio});
+        QRectF viewportRect{mappedBoundingRect.topLeft() * devicePixelRatio, mappedBoundingRect.size() * devicePixelRatio};
+        {
+            auto x = std::ceil(viewportRect.x());
+            auto y = std::ceil(viewportRect.y());
+            auto width = std::floor(viewportRect.width());
+            auto height = std::floor(viewportRect.height());
 
-        auto aspectRatio = viewportRect.height() / viewportRect.width();
-        glm::dmat3 viewTransform = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 0.0});
-        viewTransform = glm::rotate(viewTransform, glm::radians(angle));
-        viewTransform = glm::scale(viewTransform, glm::dvec2{width(), height()} / viewportRect.height());
-        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(viewTransform)));
-        renderer->setViewTransform(viewTransform);
+            frameSettings->viewport = vk::Viewport{
+                .x = utils::autoCast(x),
+                .y = utils::autoCast(y),
+                .width = utils::autoCast(width),
+                .height = utils::autoCast(height),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            };
+            frameSettings->scissor = vk::Rect2D{
+                .offset = {
+                    .x = utils::autoCast(x),
+                    .y = utils::autoCast(y),
+                },
+                .extent = {
+                    .width = utils::autoCast(width),
+                    .height = utils::autoCast(height),
+                },
+            };
+        }
+
+        qreal aspectRatio = viewportRect.height() / viewportRect.width();
+        glm::dmat3 transform2D = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 0.0});
+        transform2D = glm::rotate(transform2D, glm::radians(angle));
+        transform2D = glm::scale(transform2D, glm::dvec2{width(), height()} / viewportRect.height());
+        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(transform2D)));
+        frameSettings->transform2D = glm::mat3{transform2D};
     }
 }
 
@@ -194,11 +218,14 @@ void Viewer::frameStart()
     }
 
     auto graphicsStateInfo = window()->graphicsStateInfo();
-    renderer->frameStart(graphicsStateInfo);
+    renderer->frameStart(utils::autoCast(graphicsStateInfo.framesInFlight));
 }
 
 void Viewer::beforeRenderPassRecording()
 {
+    if (!frameSettings) {
+        return;
+    }
     if (!renderer) {
         return;
     }
@@ -226,7 +253,8 @@ void Viewer::beforeRenderPassRecording()
         device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
-        renderer->render(*commandBuffer, *renderPass, w->graphicsStateInfo());
+        auto [currentFrameSlot, framesInFlight] = w->graphicsStateInfo();
+        renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot), utils::autoCast(framesInFlight), *frameSettings);
     }
     w->endExternalCommands();
 }

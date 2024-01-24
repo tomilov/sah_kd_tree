@@ -96,7 +96,7 @@ class ENGINE_EXPORT MappedMemory<void> final : utils::NonCopyable
 public:
     ~MappedMemory() noexcept(false);
 
-    [[nodiscard]] void * get() const;
+    [[nodiscard]] void * get() const &;
     [[nodiscard]] vk::DeviceSize getSize() const;
 
 private:
@@ -120,7 +120,7 @@ template<typename T>
 class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
 {
 public:
-    [[nodiscard]] T * data() const
+    [[nodiscard]] T * data() const &
     {
         return static_cast<T *>(mappedMemory.get());
     }
@@ -131,12 +131,12 @@ public:
         return mappedMemory.getSize() / sizeof(T);
     }
 
-    [[nodiscard]] T * begin() const
+    [[nodiscard]] T * begin() const &
     {
         return data();
     }
 
-    [[nodiscard]] T * end() const
+    [[nodiscard]] T * end() const &
     {
         return std::next(begin(), getSize());
     }
@@ -165,13 +165,13 @@ public:
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     template<typename T>
-    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const
+    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const &
     {
         return {*impl_, offset, size};
     }
 
     [[nodiscard]] vk::DeviceSize getSize() const;
-    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const;
+    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &;
 
 private:
     friend class MappedMemory<void>;

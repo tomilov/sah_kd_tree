@@ -11,12 +11,12 @@ out gl_PerVertex { vec4 gl_Position; };
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    mat3 viewTransform;
+    mat3 transform2D;
 } pushConstants;
 
 void main()
 {
-    //gl_Position = vec4(pushConstants.viewTransform * vec3(vertices, 0.0f), 1.0f);
+    //gl_Position = vec4(pushConstants.transform2D * vec3(vertices, 0.0f), 1.0f);
     switch (gl_VertexIndex % 4) {
     case 0: {
         uv = vec2(-1.0f, -1.0f);
@@ -35,7 +35,7 @@ void main()
         break;
     }
     }
-    gl_Position = vec4(pushConstants.viewTransform * vec3(uv, 0.0f), 1.0f);
+    gl_Position = vec4(pushConstants.transform2D * vec3(uv, 0.0f), 1.0f);
     //debugPrintfEXT("%i\n", gl_VertexIndex);
 }
 

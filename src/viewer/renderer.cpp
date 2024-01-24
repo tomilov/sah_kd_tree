@@ -13,9 +13,8 @@
 #include <viewer/scene_manager.hpp>
 
 #include <fmt/std.h>
-#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
@@ -50,6 +49,28 @@ namespace
 [[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
 Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
 // clang-format on
+
+void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
+{
+    INVARIANT(frameSettings.viewport.height > 0.0f, "{}x{}", frameSettings.viewport.width, frameSettings.viewport.height);
+    auto view = glm::scale(glm::translate(glm::toMat4(frameSettings.orientation), frameSettings.position), frameSettings.scale);
+    auto projection = glm::perspective(glm::radians(frameSettings.fov), frameSettings.viewport.width / frameSettings.viewport.height, frameSettings.zNear, frameSettings.zFar);
+    auto mvp = glm::mat4{frameSettings.transform2D};  // * projection * view;// TODO: continue from here
+    uniformBuffer = {
+        .t = frameSettings.t,
+        .alpha = frameSettings.alpha,
+        .mvp = mvp,
+    };
+}
+
+[[nodiscard]] PushConstants getPushConstants(const FrameSettings & frameSettings)
+{
+    return {
+        .transform2D = frameSettings.transform2D,
+        .x = 0.0f,
+    };
+}
+
 }  // namespace
 
 struct Renderer::Impl
@@ -67,93 +88,9 @@ struct Renderer::Impl
     std::unique_ptr<const Scene::Descriptors> descriptors;
     std::unique_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
 
-    glm::vec3 position{0.0f};
-    glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
-    float t = 0.0f;
-    float alpha = 1.0f;
-    vk::Viewport viewport;
-    vk::Rect2D scissor;
-    glm::mat3 viewTransform{1.0f};
-    float fov = 90.0f;
-    float zNear = 1E-3f;
-    float zFar = 1E3f;
-    glm::vec3 scale{1.0f};
-
     Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
     {
         init();
-    }
-
-    void setPosition(const glm::vec3 & position)
-    {
-        this->position = position;
-    }
-
-    void setOrientation(const glm::quat & orientation)
-    {
-        this->orientation = orientation;
-    }
-
-    void setT(float t)
-    {
-        this->t = t;
-    }
-
-    void setAlpha(qreal alpha)
-    {
-        this->alpha = utils::autoCast(alpha);
-    }
-
-    void setViewportRect(const QRectF & viewportRect)
-    {
-        auto x = std::ceil(viewportRect.x());
-        auto y = std::ceil(viewportRect.y());
-        auto width = std::floor(viewportRect.width());
-        auto height = std::floor(viewportRect.height());
-
-        viewport = vk::Viewport{
-            .x = utils::autoCast(x),
-            .y = utils::autoCast(y),
-            .width = utils::autoCast(width),
-            .height = utils::autoCast(height),
-            .minDepth = 0.0f,
-            .maxDepth = 1.0f,
-        };
-        scissor = vk::Rect2D{
-            .offset = {
-                .x = utils::autoCast(x),
-                .y = utils::autoCast(y),
-            },
-            .extent = {
-                .width = utils::autoCast(width),
-                .height = utils::autoCast(height),
-            },
-        };
-    }
-
-    void setViewTransform(const glm::dmat3 & viewTransform)
-    {
-        this->viewTransform = glm::mat3{viewTransform};
-    }
-
-    void fillUniformBuffer(UniformBuffer & uniformBuffer) const
-    {
-        INVARIANT(viewport.height > 0.0f, "{}x{}", viewport.width, viewport.height);
-        auto view = glm::scale(glm::translate(glm::toMat4(orientation), position), scale);
-        auto projection = glm::perspective(glm::radians(fov), viewport.width / viewport.height, zNear, zFar);
-        uniformBuffer = {
-            .t = t,
-            .alpha = alpha,
-            .mvp = glm::mat4{viewTransform} * projection * view,
-        };
-    }
-
-    [[nodiscard]] PushConstants getPushConstants() const
-    {
-        return {
-            .viewTransform = viewTransform,
-            .x = 0.0f,
-        };
     }
 
     [[nodiscard]] const std::filesystem::path & getScenePath() const
@@ -161,8 +98,8 @@ struct Renderer::Impl
         return scenePath;
     }
 
-    void frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo);
+    void frameStart(uint32_t framesInFlight);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings);
 
     void init()
     {
@@ -174,58 +111,27 @@ struct Renderer::Impl
 Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : impl_{token, scenePath, context, sceneManager}
 {}
 
-void Renderer::setPosition(const glm::vec3 & position)
-{
-    return impl_->setPosition(position);
-}
-
-void Renderer::setOrientation(const glm::quat & orientation)
-{
-    return impl_->setOrientation(orientation);
-}
-
 Renderer::~Renderer() = default;
-
-void Renderer::setT(float t)
-{
-    return impl_->setT(t);
-}
-
-void Renderer::setAlpha(qreal t)
-{
-    return impl_->setAlpha(t);
-}
-
-void Renderer::setViewportRect(const QRectF & viewportRect)
-{
-    return impl_->setViewportRect(viewportRect);
-}
-
-void Renderer::setViewTransform(const glm::dmat3 & viewTransform)
-{
-    return impl_->setViewTransform(viewTransform);
-}
 
 const std::filesystem::path & Renderer::getScenePath() const
 {
     return impl_->getScenePath();
 }
 
-void Renderer::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::frameStart(uint32_t framesInFlight)
 {
-    return impl_->frameStart(graphicsStateInfo);
+    return impl_->frameStart(framesInFlight);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings)
 {
-    return impl_->render(commandBuffer, renderPass, graphicsStateInfo);
+    return impl_->render(commandBuffer, renderPass, currentFrameSlot, framesInFlight, frameSettings);
 }
 
-void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::Impl::frameStart(uint32_t framesInFlight)
 {
     auto unmuteMessageGuard = context.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 
-    uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
     bool dirty = false;
     if (scene) {
         const auto & old = *scene->getSceneDesignator();
@@ -254,7 +160,7 @@ void Renderer::Impl::frameStart(const QQuickWindow::GraphicsStateInfo & graphics
     }
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const QQuickWindow::GraphicsStateInfo & graphicsStateInfo)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings)
 {
     std::initializer_list<uint32_t> unmutedMessageIdNumbers = {
         0x5C0EC5D6,
@@ -270,8 +176,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
     ASSERT(descriptors);
 
-    uint32_t currentFrameSlot = utils::autoCast(graphicsStateInfo.currentFrameSlot);
-    fillUniformBuffer(*descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>().data());
+    auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
+    fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
 
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline.reset();
@@ -294,7 +200,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
             std::vector<vk::DeviceSize> offsets;
             offsets.reserve(std::size(descriptorSetBuffers));
-            uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
             INVARIANT(framesInFlight > 0, "");
             for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
                 offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
@@ -307,7 +212,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 
     {
-        PushConstants pushConstants = getPushConstants();
+        PushConstants pushConstants = getPushConstants(frameSettings);
         for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
             const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
             commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, library.dispatcher);
@@ -316,13 +221,13 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t kFirstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
-        viewport,
+        frameSettings.viewport,
     };
     commandBuffer.setViewport(kFirstViewport, viewports, library.dispatcher);
 
     constexpr uint32_t kFirstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
-        scissor,
+        frameSettings.scissor,
     };
     commandBuffer.setScissor(kFirstScissor, scissors, library.dispatcher);
 
