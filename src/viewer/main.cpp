@@ -286,7 +286,7 @@ int main(int argc, char * argv[])
     if (kUseEngine) {
         vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
-        requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME});
+        requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion);
         vulkanInstance.setVkInstance(engine.getContext().getVulkanInstance());
@@ -334,6 +334,9 @@ int main(int argc, char * argv[])
     QQmlApplicationEngine qmlApplicationEngine;
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
     // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
+
+    const auto rootContext = qmlApplicationEngine.rootContext();
+    rootContext->setContextProperty("qApp", qApp);
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");

@@ -575,7 +575,7 @@ void MemoryAllocator::Impl::init()
         allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*library.allocationCallbacks);
     }
 
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;  // ?
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
@@ -587,41 +587,44 @@ void MemoryAllocator::Impl::init()
     }
 
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
-#define DISPATCH(f) library.dispatcher.f
+#define FUNCTION(f) .f = library.dispatcher.f
+#define FUNCTION_KHR(f) .f##KHR = library.dispatcher.f
 #else
-#define DISPATCH(f) f
+#define FUNCTION(f) .f = f
+#define FUNCTION_KHR(f) .f##KHR = f
 #endif
     VmaVulkanFunctions vulkanFunctions = {
-        .vkGetPhysicalDeviceProperties = DISPATCH(vkGetPhysicalDeviceProperties),
-        .vkGetPhysicalDeviceMemoryProperties = DISPATCH(vkGetPhysicalDeviceMemoryProperties),
-        .vkAllocateMemory = DISPATCH(vkAllocateMemory),
-        .vkFreeMemory = DISPATCH(vkFreeMemory),
-        .vkMapMemory = DISPATCH(vkMapMemory),
-        .vkUnmapMemory = DISPATCH(vkUnmapMemory),
-        .vkFlushMappedMemoryRanges = DISPATCH(vkFlushMappedMemoryRanges),
-        .vkInvalidateMappedMemoryRanges = DISPATCH(vkInvalidateMappedMemoryRanges),
-        .vkBindBufferMemory = DISPATCH(vkBindBufferMemory),
-        .vkBindImageMemory = DISPATCH(vkBindImageMemory),
-        .vkGetBufferMemoryRequirements = DISPATCH(vkGetBufferMemoryRequirements),
-        .vkGetImageMemoryRequirements = DISPATCH(vkGetImageMemoryRequirements),
-        .vkCreateBuffer = DISPATCH(vkCreateBuffer),
-        .vkDestroyBuffer = DISPATCH(vkDestroyBuffer),
-        .vkCreateImage = DISPATCH(vkCreateImage),
-        .vkDestroyImage = DISPATCH(vkDestroyImage),
-        .vkCmdCopyBuffer = DISPATCH(vkCmdCopyBuffer),
-        .vkGetBufferMemoryRequirements2KHR = DISPATCH(vkGetBufferMemoryRequirements2),
-        .vkGetImageMemoryRequirements2KHR = DISPATCH(vkGetImageMemoryRequirements2),
-        .vkBindBufferMemory2KHR = DISPATCH(vkBindBufferMemory2),
-        .vkBindImageMemory2KHR = DISPATCH(vkBindImageMemory2),
-        .vkGetPhysicalDeviceMemoryProperties2KHR = DISPATCH(vkGetPhysicalDeviceMemoryProperties2),
-        .vkGetDeviceBufferMemoryRequirements = DISPATCH(vkGetDeviceBufferMemoryRequirements),
-        .vkGetDeviceImageMemoryRequirements = DISPATCH(vkGetDeviceImageMemoryRequirements),
+        FUNCTION(vkGetPhysicalDeviceProperties),
+        FUNCTION(vkGetPhysicalDeviceMemoryProperties),
+        FUNCTION(vkAllocateMemory),
+        FUNCTION(vkFreeMemory),
+        FUNCTION(vkMapMemory),
+        FUNCTION(vkUnmapMemory),
+        FUNCTION(vkFlushMappedMemoryRanges),
+        FUNCTION(vkInvalidateMappedMemoryRanges),
+        FUNCTION(vkBindBufferMemory),
+        FUNCTION(vkBindImageMemory),
+        FUNCTION(vkGetBufferMemoryRequirements),
+        FUNCTION(vkGetImageMemoryRequirements),
+        FUNCTION(vkCreateBuffer),
+        FUNCTION(vkDestroyBuffer),
+        FUNCTION(vkCreateImage),
+        FUNCTION(vkDestroyImage),
+        FUNCTION(vkCmdCopyBuffer),
+        FUNCTION_KHR(vkGetBufferMemoryRequirements2),
+        FUNCTION_KHR(vkGetImageMemoryRequirements2),
+        FUNCTION_KHR(vkBindBufferMemory2),
+        FUNCTION_KHR(vkBindImageMemory2),
+        FUNCTION_KHR(vkGetPhysicalDeviceMemoryProperties2),
+        FUNCTION(vkGetDeviceBufferMemoryRequirements),
+        FUNCTION(vkGetDeviceImageMemoryRequirements),
     };
-#undef DISPATCH
+#undef FUNCTION_KHR
+#undef FUNCTION
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 
-    auto result = vk::Result{vmaCreateAllocator(&allocatorInfo, &allocator)};
+    vk::Result result = utils::autoCast(vmaCreateAllocator(&allocatorInfo, &allocator));
     INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
 }
 

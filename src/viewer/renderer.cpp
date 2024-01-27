@@ -48,14 +48,19 @@ namespace
 // clang-format off
 [[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
 Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
-// clang-format on
+    // clang-format on
 
-void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
+    void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
-    INVARIANT(frameSettings.viewport.height > 0.0f, "{}x{}", frameSettings.viewport.width, frameSettings.viewport.height);
-    auto view = glm::scale(glm::translate(glm::toMat4(frameSettings.orientation), frameSettings.position), frameSettings.scale);
-    auto projection = glm::perspective(glm::radians(frameSettings.fov), frameSettings.viewport.width / frameSettings.viewport.height, frameSettings.zNear, frameSettings.zFar);
-    auto mvp = glm::mat4{frameSettings.transform2D};  // * projection * view;// TODO: continue from here
+    const auto & viewport = frameSettings.viewport;
+    INVARIANT(viewport.height > 0.0f, "{}x{}", viewport.width, viewport.height);
+    auto rotate = glm::toMat4(glm::conjugate(frameSettings.orientation));
+    auto translate = glm::translate(glm::identity<glm::mat4>(), -frameSettings.position);
+    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale});
+    auto view = translate * rotate * scale;
+    auto projection = glm::perspective(glm::radians(frameSettings.fov), viewport.width / viewport.height, frameSettings.zNear, frameSettings.zFar);
+    glm::mat4 transform2D{frameSettings.transform2D};
+    auto mvp = transform2D * projection * view;
     uniformBuffer = {
         .t = frameSettings.t,
         .alpha = frameSettings.alpha,
@@ -98,7 +103,7 @@ struct Renderer::Impl
         return scenePath;
     }
 
-    void frameStart(uint32_t framesInFlight);
+    void advance(uint32_t framesInFlight);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings);
 
     void init()
@@ -118,9 +123,9 @@ const std::filesystem::path & Renderer::getScenePath() const
     return impl_->getScenePath();
 }
 
-void Renderer::frameStart(uint32_t framesInFlight)
+void Renderer::advance(uint32_t framesInFlight)
 {
-    return impl_->frameStart(framesInFlight);
+    return impl_->advance(framesInFlight);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings)
@@ -128,7 +133,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
     return impl_->render(commandBuffer, renderPass, currentFrameSlot, framesInFlight, frameSettings);
 }
 
-void Renderer::Impl::frameStart(uint32_t framesInFlight)
+void Renderer::Impl::advance(uint32_t framesInFlight)
 {
     auto unmuteMessageGuard = context.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
 

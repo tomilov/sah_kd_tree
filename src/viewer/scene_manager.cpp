@@ -222,7 +222,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
     const auto collectNodeInfos = [this, &instances, &transforms](const auto & collectNodeInfos, const scene::Node & sceneNode, glm::mat4 transform) -> void
     {
-        transform *= sceneNode.transform;
+        transform *= sceneNode.transform;  // should transform be multiplied from the left by sceneNode.transform?
         for (size_t m : sceneNode.meshes) {
             ++instances.at(m).instanceCount;
             transforms.at(m).push_back(transform);

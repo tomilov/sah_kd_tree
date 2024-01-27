@@ -27,6 +27,8 @@ class Viewer : public QQuickItem
     Q_PROPERTY(QVector3D eulerAngles MEMBER eulerAngles WRITE setEulerAngles NOTIFY eulerAnglesChanged)
     Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition NOTIFY cameraPositionChanged)
     Q_PROPERTY(qreal fieldOfView MEMBER fieldOfView NOTIFY fieldOfViewChanged)
+
+    Q_PROPERTY(qreal dt MEMBER dt NOTIFY dtChanged)
     Q_PROPERTY(qreal mouseLookSpeed MEMBER mouseLookSpeed NOTIFY mouseLookSpeedChanged)
     Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
     Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
@@ -42,12 +44,14 @@ public:
 
     Q_INVOKABLE void rotate(QVector3D tiltPanRoll);
     Q_INVOKABLE void rotate(QVector2D tiltPan);
-    Q_INVOKABLE void rotate(qreal tilt /*pitch*/, qreal pan /*yaw*/, qreal roll = 0.0f);
+    Q_INVOKABLE void rotate(qreal tilt /*pitch*/, qreal pan /*yaw*/, qreal roll = 0.0);
 
 Q_SIGNALS:
     void eulerAnglesChanged(QVector3D euelerAngles);
     void cameraPositionChanged(QVector3D cameraPosition);
     void fieldOfViewChanged(qreal fieldOfView);
+
+    void dtChanged(qreal dt);
     void mouseLookSpeedChanged(qreal mouseLookSpeed);
     void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
     void linearSpeedChanged(qreal linearSpeed);
@@ -61,11 +65,11 @@ public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
 
 private Q_SLOTS:
-    void onWindowChanged(QQuickWindow * window);
+    void onWindowChanged(QQuickWindow * w);
 
     void sync();
     void cleanup();
-    void frameStart();
+    void beforeRendering();
     void beforeRenderPassRecording();
 
 private:
@@ -74,6 +78,8 @@ private:
     QVector3D eulerAngles;
     QVector3D cameraPosition;
     qreal fieldOfView = kDefaultFov;
+
+    qreal dt = 1.0 / 60.0;
     qreal mouseLookSpeed = 60.0;
     qreal keyboardLookSpeed = 20.0;
     qreal linearSpeed = 1.0;
@@ -82,6 +88,7 @@ private:
     QPoint startPos;
     Qt::KeyboardModifiers keyboardModifiers = Qt::NoModifier;
     QSet<Qt::Key> pressedKeys;
+    QTimer * const handleInputTimer = new QTimer{this};
 
     Engine * engine = nullptr;
 
@@ -94,6 +101,7 @@ private:
     void checkEngine() const;
 
     void handleKeyEvent(QKeyEvent * event, bool isPressed);
+    void handleInput();
 
     void releaseResources() override;
 

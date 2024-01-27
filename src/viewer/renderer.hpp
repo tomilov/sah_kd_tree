@@ -30,10 +30,10 @@ struct FrameSettings
     vk::Viewport viewport;
     vk::Rect2D scissor;
     glm::mat3 transform2D{1.0f};
-    float fov = 90.0f;
-    float zNear = 1E-3f;
-    float zFar = 1E3f;
-    glm::vec3 scale{1.0f};
+    const float fov = 90.0f;
+    const float zNear = 1E-3f;
+    const float zFar = 1E3f;
+    const float scale = 1.0f;
 };
 
 class Renderer : utils::NonCopyable
@@ -44,7 +44,7 @@ public:
 
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
 
-    void frameStart(uint32_t framesInFlight);
+    void advance(uint32_t framesInFlight);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings);
 
 private:

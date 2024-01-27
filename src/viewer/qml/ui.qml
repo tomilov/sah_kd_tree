@@ -17,6 +17,37 @@ ApplicationWindow {
     visible: true
     visibility: Window.AutomaticVisibility
 
+    title: {
+        qsTr("%1 (dt %2ms) (screen refresh rate %3)")
+        .arg(Qt.application.displayName)
+        .arg((mainSahKdTreeViewer.dt * 1000.0).toFixed(3))
+        .arg(qApp.primaryScreen.refreshRate.toFixed(3))
+    }
+
+    CenteredDialog {
+        id: confirmationDialog
+
+        title: qsTr("Close application")
+
+        Label {
+            anchors.fill: parent
+
+            text: qsTr("Are you sure?")
+        }
+
+        standardButtons: Dialog.Yes | Dialog.No
+
+        onAccepted: root.close()
+    }
+
+    onClosing: (close) => {
+        if (visibility === Window.FullScreen) {
+            show()
+            confirmationDialog.open()
+            close.accepted = false
+        }
+    }
+
     onActiveFocusItemChanged: {
         if (activeFocusItem instanceof SahKdTreeViewer) {
             print("activeFocusItem", activeFocusItem)
@@ -27,7 +58,18 @@ ApplicationWindow {
         sequences: [StandardKey.Cancel] // "Escape"
         context: Qt.WindowShortcut
         autoRepeat: false
-        onActivated: root.close()
+        onActivated: confirmationDialog.open()
+    }
+
+    Menu {
+        id: contextMenu
+
+        Action {
+            text: qsTr("Open")
+            onTriggered: {
+                sceneOpenDialog.open()
+            }
+        }
     }
 
     /*SahKdTreeViewer {
@@ -189,15 +231,46 @@ ApplicationWindow {
                 color: parent.activeFocus ? "red" : "green"
             }
 
+            MouseArea {
+                anchors.fill: parent
+
+                acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                onClicked: (mouse) => {
+                    parent.forceActiveFocus()
+                    switch (mouse.button) {
+                    case Qt.LeftButton: {
+                        mouse.accepted = true
+                        break
+                    }
+                    case Qt.RightButton: {
+                        mouse.accepted = true
+
+                        sceneOpenDialog.item = parent
+                        contextMenu.x = mouse.x
+                        contextMenu.y = mouse.y
+                        contextMenu.popup()
+                        break
+                    }
+                    }
+                }
+            }
+
             Component.onCompleted: console.log("created")
             Component.onDestruction: console.log("destroyed")
         }
     }
 
-    header: Rectangle {
+    header: RowLayout {
         height: 128
-        color: "blue"
-        opacity: 0.4
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            color: "blue"
+            opacity: 0.4
+        }
     }
 
     Rectangle {
@@ -264,30 +337,30 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                SequentialAnimation on rotation {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        from: 0.0
-                        to: 360.0
-                        duration: 3333
-                    }
-                }
-                SequentialAnimation on scale {
-                    loops: Animation.Infinite
-                    running: true
-
-                    NumberAnimation {
-                        from: 0.2
-                        to: 1.2
-                        duration: 2000
-                    }
-                    NumberAnimation {
-                        from: 1.2
-                        to: 0.2
-                        duration: 2000
-                    }
-                }
+                //SequentialAnimation on rotation {
+                //    loops: Animation.Infinite
+                //    running: true
+                //    NumberAnimation {
+                //        from: 0.0
+                //        to: 360.0
+                //        duration: 3333
+                //    }
+                //}
+                //SequentialAnimation on scale {
+                //    loops: Animation.Infinite
+                //    running: true
+//
+                //    NumberAnimation {
+                //        from: 0.2
+                //        to: 1.2
+                //        duration: 2000
+                //    }
+                //    NumberAnimation {
+                //        from: 1.2
+                //        to: 0.2
+                //        duration: 2000
+                //    }
+                //}
                 SequentialAnimation on t {
                     loops: Animation.Infinite
                     running: true
@@ -397,10 +470,27 @@ ApplicationWindow {
         }
     }
 
-    footer: Rectangle {
+    footer: RowLayout {
         height: 128
-        color: "green"
-        opacity: 0.4
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            color: "green"
+            opacity: 0.4
+        }
+        Label {
+            width: implicitWidth
+            Layout.fillHeight: true
+            text: {
+                var pos = mainSahKdTreeViewer.cameraPosition;
+                var dir = mainSahKdTreeViewer.eulerAngles;
+                qsTr("pos(%1, %2, %3) dir(%4, %5, %6)")
+                .arg(pos.x).arg(pos.y).arg(pos.z)
+                .arg(dir.x).arg(dir.y).arg(dir.z)
+            }
+        }
     }
 
     Settings {
