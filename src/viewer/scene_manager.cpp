@@ -4,8 +4,10 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
+#include <engine/utils.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
+#include <scene/scene.hpp>
 #include <utils/assert.hpp>
 #include <viewer/scene_manager.hpp>
 
@@ -15,8 +17,10 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan_format_traits.hpp>
 
+#include <QFileInfo>
+#include <QStandardPaths>
+
 #include <algorithm>
-#include <bit>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -43,13 +47,6 @@ constexpr uint32_t kUniformBufferSet = 0;
 constexpr uint32_t kTransformBuferSet = 0;
 const std::string kUniformBufferName = "uniformBuffer";     // clazy:exclude=non-pod-global-static
 const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
-
-[[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
-{
-    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
-    --alignment;
-    return (size + alignment) & ~alignment;
-}
 
 vk::Format indexTypeToFormat(vk::IndexType indexType)
 {
@@ -95,28 +92,6 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 }
 
 }  // namespace
-
-bool SceneDesignator::operator==(const SceneDesignator & rhs) const noexcept
-{
-    return std::tie(token, path, framesInFlight) == std::tie(rhs.token, rhs.path, rhs.framesInFlight);
-}
-
-bool SceneDesignator::isValid() const noexcept
-{
-    if (std::empty(token)) {
-        SPDLOG_WARN("token is empty");
-        return false;
-    }
-    if (std::empty(path)) {
-        SPDLOG_WARN("path is empty");
-        return false;
-    }
-    if (framesInFlight < 1) {
-        SPDLOG_WARN("framesInFlight is 0");
-        return false;
-    }
-    return true;
-}
 
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 {
@@ -195,13 +170,6 @@ size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
 }
 
-uint32_t Scene::getFramesInFlight() const
-{
-    uint32_t framesInFlight = getSceneDesignator()->framesInFlight;
-    INVARIANT(framesInFlight > 0, "");
-    return framesInFlight;
-}
-
 vk::DeviceSize Scene::getMinAlignment() const
 {
     const auto & device = context.getDevice();
@@ -214,7 +182,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
 
-    size_t sceneMeshCount = std::size(sceneData->meshes);
+    size_t sceneMeshCount = std::size(scene->meshes);
 
     std::vector<std::vector<glm::mat4>> transforms;  // [Scene::meshes index][instance index]
     transforms.resize(sceneMeshCount);
@@ -228,18 +196,18 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             transforms.at(m).push_back(transform);
         }
         for (size_t sceneNodeChild : sceneNode.children) {
-            collectNodeInfos(collectNodeInfos, sceneData->nodes.at(sceneNodeChild), transform);
+            collectNodeInfos(collectNodeInfos, scene->nodes.at(sceneNodeChild), transform);
         }
     };
-    collectNodeInfos(collectNodeInfos, sceneData->nodes.front(), glm::identity<glm::mat4>());
+    collectNodeInfos(collectNodeInfos, scene->nodes.front(), glm::identity<glm::mat4>());
 
-    auto sceneIndices = sceneData->indices.get();
+    auto sceneIndices = scene->indices.get();
 
     vk::DeviceSize indexBufferSize = 0;
     {
         vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
         for (size_t m = 0; m < sceneMeshCount; ++m) {
-            const scene::Mesh & sceneMesh = sceneData->meshes.at(m);
+            const scene::Mesh & sceneMesh = scene->meshes.at(m);
             auto & instance = instances.at(m);
 
             instance.vertexOffset = utils::autoCast(sceneMesh.vertexOffset);
@@ -276,7 +244,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                     indexType = maxIndexType;
                 }
                 vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
-                indexBufferSize = alignedSize(indexBufferSize, formatSize);
+                indexBufferSize = engine::alignedSize(indexBufferSize, formatSize);
                 auto & instance = instances.at(m);
                 instance.firstIndex = utils::autoCast(indexBufferSize / formatSize);
                 indexBufferSize += instance.indexCount * formatSize;
@@ -304,7 +272,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
-                uint32_t sceneIndexOffset = sceneData->meshes.at(m).indexOffset;
+                uint32_t sceneIndexOffset = scene->meshes.at(m).indexOffset;
                 const auto convertCopy = [&instance, sceneIndices, sceneIndexOffset](auto indices)
                 {
                     auto indexIn = std::next(sceneIndices, sceneIndexOffset);
@@ -380,7 +348,7 @@ void Scene::createVertexBuffer(engine::Buffer & vertexBuffer) const
         INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
 
         vk::BufferCreateInfo vertexBufferCreateInfo;
-        vertexBufferCreateInfo.size = sceneData->vertexCount * vertexSize;
+        vertexBufferCreateInfo.size = scene->vertexCount * vertexSize;
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
         vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices");
 
@@ -389,16 +357,15 @@ void Scene::createVertexBuffer(engine::Buffer & vertexBuffer) const
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
         auto mappedVertexBuffer = vertexBuffer.map<scene::VertexAttributes>();
-        ASSERT(sceneData->vertexCount == mappedVertexBuffer.getSize());
-        if (std::copy_n(sceneData->vertices.get(), sceneData->vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+        ASSERT(scene->vertexCount == mappedVertexBuffer.getSize());
+        if (std::copy_n(scene->vertices.get(), scene->vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
             INVARIANT(false, "");
         }
     }
 }
 
-void Scene::createUniformBuffers(std::vector<engine::Buffer> & uniformBuffers) const
+void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & uniformBuffers) const
 {
-    const uint32_t framesInFlight = getFramesInFlight();
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
 
@@ -419,19 +386,16 @@ void Scene::createUniformBuffers(std::vector<engine::Buffer> & uniformBuffers) c
     }
 }
 
-void Scene::createDescriptorSets(std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::deque<engine::DescriptorSets> & descriptorSets) const
+void Scene::createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::vector<engine::DescriptorSets> & descriptorSets) const
 {
-    const uint32_t framesInFlight = getFramesInFlight();
-
     descriptorPool = std::make_unique<engine::DescriptorPool>(kRasterization, context, framesInFlight, shaderStages);
     for (uint32_t i = 0; i < framesInFlight; ++i) {
         descriptorSets.emplace_back(kRasterization, context, shaderStages, *descriptorPool);
     }
 }
 
-void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::deque<engine::DescriptorSets> & descriptorSets) const
+void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, const std::vector<engine::DescriptorSets> & descriptorSets) const
 {
-    const uint32_t framesInFlight = getFramesInFlight();
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
 
@@ -498,9 +462,8 @@ void Scene::fillDescriptorSets(const std::vector<engine::Buffer> & uniformBuffer
     device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
-void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
+void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
 {
-    const uint32_t framesInFlight = getFramesInFlight();
     const auto minAlignment = getMinAlignment();
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
@@ -514,7 +477,7 @@ void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetB
         vk::BufferCreateInfo descriptorBufferCreateInfo;
         descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
         auto alignment = std::max(descriptorBufferOffsetAlignment, minAlignment);
-        descriptorBufferCreateInfo.size = alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), alignment) * framesInFlight;
+        descriptorBufferCreateInfo.size = engine::alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), alignment) * framesInFlight;
         INVARIANT(set != std::cend(shaderStages.setBindings), "");
         for (const auto & binding : set->second.bindings) {
             switch (binding.descriptorType) {
@@ -548,9 +511,8 @@ void Scene::createDescriptorBuffers(std::vector<engine::Buffer> & descriptorSetB
     }
 }
 
-void Scene::fillDescriptorBuffers(const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
+void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
 {
-    const uint32_t framesInFlight = getFramesInFlight();
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
 
@@ -606,22 +568,26 @@ Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::C
     pipelines.create();
 }
 
-const std::shared_ptr<const SceneDesignator> & Scene::getSceneDesignator() const
+const std::filesystem::path & Scene::getScenePath() const
 {
-    ASSERT(sceneDesignator);
-    return sceneDesignator;
+    return scenePath;
 }
 
-std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, SceneDesignatorPtr && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData)
+std::shared_ptr<const scene::Scene> Scene::getScene() const
 {
-    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(sceneDesignator), std::move(sceneData)}};
+    return scene;
 }
 
-auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
+std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
+{
+    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
+}
+
+auto Scene::makeDescriptors(uint32_t framesInFlight) const -> std::unique_ptr<const Descriptors>
 {
     auto descriptors = std::make_unique<Descriptors>();
 
-    createUniformBuffers(descriptors->uniformBuffers);
+    createUniformBuffers(framesInFlight, descriptors->uniformBuffers);
     createInstances(descriptors->indexTypes, descriptors->instances, descriptors->indexBuffer, descriptors->transformBuffer);
     createVertexBuffer(descriptors->vertexBuffer);
 
@@ -630,17 +596,17 @@ auto Scene::makeDescriptors() const -> std::unique_ptr<const Descriptors>
     }
 
     if (useDescriptorBuffer) {
-        createDescriptorBuffers(descriptors->descriptorSetBuffers, descriptors->descriptorBufferBindingInfos);
+        createDescriptorBuffers(framesInFlight, descriptors->descriptorSetBuffers, descriptors->descriptorBufferBindingInfos);
     } else {
-        createDescriptorSets(descriptors->descriptorPool, descriptors->descriptorSets);
+        createDescriptorSets(framesInFlight, descriptors->descriptorPool, descriptors->descriptorSets);
     }
 
     descriptors->pushConstantRanges = shaderStages.pushConstantRanges;
 
     if (useDescriptorBuffer) {
-        fillDescriptorBuffers(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
+        fillDescriptorBuffers(framesInFlight, descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
     } else {
-        fillDescriptorSets(descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSets);
+        fillDescriptorSets(framesInFlight, descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSets);
     }
 
     return descriptors;
@@ -651,8 +617,8 @@ auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::uniq
     return std::make_unique<GraphicsPipeline>(kRasterization, context, pipelineCache->pipelineCache, shaderStages, renderPass, useDescriptorBuffer);
 }
 
-Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::shared_ptr<const SceneDesignator> && sceneDesignator, std::shared_ptr<const scene::Scene> && sceneData)
-    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, sceneDesignator{std::move(sceneDesignator)}, sceneData{std::move(sceneData)}, shaderStages{context, vertexBufferBinding}
+Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
+    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::make_shared<scene::Scene>(std::move(scene))}, shaderStages{context, vertexBufferBinding}
 {
     init();
 }
@@ -670,7 +636,7 @@ void Scene::init()
 
     useIndexTypeUint8 = context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);
 
-    ASSERT(sceneDesignator);
+    ASSERT(!std::empty(scenePath));
 
     const auto addShader = [this](std::string_view shaderName, std::string_view entryPoint = "main") -> const Shader &
     {
@@ -770,21 +736,30 @@ void Scene::init()
 SceneManager::SceneManager(const engine::Context & context) : context{context}
 {}
 
-std::shared_ptr<const Scene> SceneManager::getOrCreateScene(SceneDesignator && sceneDesignator) const
+std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::path scenePath) const
 {
-    ASSERT(sceneDesignator.isValid());
+    ASSERT(!std::empty(scenePath));
     std::lock_guard<std::mutex> lock{mutex};
 
-    auto key = std::make_shared<SceneDesignator>(std::move(sceneDesignator));
-    auto & w = scenes[key];
+    auto & w = scenes[scenePath];
     auto p = w.lock();
     if (p) {
-        SPDLOG_DEBUG("Old scene {} reused", sceneDesignator);
+        SPDLOG_DEBUG("Old scene {} reused", scenePath);
     } else {
-        const auto & path = key->path;
-        p = Scene::make(context, fileIo, getOrCreatePipelineCache(), std::move(key), getOrCreateSceneData(path));
+        scene::Scene scene;
+        if ((false)) {
+            auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+            if (!sceneLoader.cachingLoad(scene, QFileInfo{scenePath}, cacheLocation)) {
+                return nullptr;
+            }
+        } else {
+            if (!sceneLoader.load(scene, QFileInfo{scenePath})) {
+                return nullptr;
+            }
+        }
+        p = Scene::make(context, fileIo, getOrCreatePipelineCache(), std::move(scenePath), std::move(scene));
         w = p;
-        SPDLOG_DEBUG("New scene {} created", *p->getSceneDesignator());
+        SPDLOG_DEBUG("New scene {} created", p->getScenePath());
     }
     return p;
 }
@@ -802,32 +777,4 @@ std::shared_ptr<const engine::PipelineCache> SceneManager::getOrCreatePipelineCa
     return p;
 }
 
-std::shared_ptr<const scene::Scene> SceneManager::getOrCreateSceneData(const std::filesystem::path & path) const
-{
-    auto & w = sceneData[path];
-    auto p = w.lock();
-    if (p) {
-        SPDLOG_DEBUG("Old scene data {} reused", path);
-    } else {
-        auto mutableSceneData = std::make_shared<scene::Scene>();
-        if (!sceneLoader.load(*mutableSceneData, QFileInfo{path})) {
-            return {};
-        }
-        p = std::move(mutableSceneData);
-        w = p;
-        SPDLOG_DEBUG("New scene data {} created", path);
-    }
-    return p;
-}
-
 }  // namespace viewer
-
-size_t std::hash<viewer::SceneDesignatorPtr>::operator()(const viewer::SceneDesignatorPtr & sceneDesignator) const noexcept
-{
-    ASSERT(sceneDesignator);
-    size_t hash = 0;
-    hash ^= std::hash<std::string>{}(sceneDesignator->token);
-    hash ^= std::hash<std::filesystem::path>{}(sceneDesignator->path);
-    hash ^= std::hash<uint32_t>{}(sceneDesignator->framesInFlight);
-    return hash;
-}

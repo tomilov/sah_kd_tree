@@ -15,14 +15,11 @@
 namespace engine
 {
 
-DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages)
-    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, framesInFlight{framesInFlight}, shaderStages{shaderStages}
+DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages) : name{name}
 {
-    init();
-}
+    const Library & library = context.getLibrary();
+    const Device & device = context.getDevice();
 
-void DescriptorPool::init()
-{
     descriptorPoolSizes.reserve(std::size(shaderStages.descriptorCounts));
     for (const auto & [descriptorType, descriptorCount] : shaderStages.descriptorCounts) {
         descriptorPoolSizes.push_back({descriptorType, descriptorCount * framesInFlight});
@@ -38,16 +35,14 @@ void DescriptorPool::init()
     device.setDebugUtilsObjectName(descriptorPool, name);
 }
 
-DescriptorSets::DescriptorSets(std::string_view name, const Context & context, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool)
-    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, shaderStages{shaderStages}, descriptorPool{descriptorPool}
+DescriptorSets::DescriptorSets(std::string_view name, const Context & context, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool) : name{name}
 {
-    init();
-}
+    const Library & library = context.getLibrary();
+    const Device & device = context.getDevice();
 
-void DescriptorSets::init()
-{
     auto bindings = std::cbegin(shaderStages.setBindings);
 
+    vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
     descriptorSetAllocateInfo.descriptorPool = descriptorPool.descriptorPool;
     descriptorSetAllocateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
     descriptorSetHolders = device.device.allocateDescriptorSetsUnique(descriptorSetAllocateInfo, library.dispatcher);

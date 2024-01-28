@@ -10,6 +10,7 @@
 #include <assimp/quaternion.h>
 #include <assimp/scene.h>
 #include <assimp/vector3.h>
+#include <glm/common.hpp>
 #include <glm/ext/quaternion_double.hpp>
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/ext/vector_double3.hpp>
@@ -307,6 +308,7 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
         scene.resizeVertices(vertexCount);
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
+            auto & [meshAABBMin, meshAABBMax] = scene.meshes.at(meshUsage.meshIndex).aabb;
 
             {
                 auto vertex = std::next(scene.vertices.get(), mesh.vertexOffset);
@@ -315,6 +317,8 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
                 for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
                     auto & vertexAttributes = *vertex++;
                     vertexAttributes.position = assimpToGlmVector(assimpVertices[v]);
+                    meshAABBMin = glm::min(meshAABBMin, vertexAttributes.position);
+                    meshAABBMax = glm::max(meshAABBMax, vertexAttributes.position);
                     // another vertex attributes: mNormals, mTangents, mBitangents, mColors, mTextureCoords+mNumUVComponents
                 }
                 ASSERT(vertex == vertexEnd);
@@ -359,6 +363,20 @@ bool SceneLoader::load(scene::Scene & scene, QFileInfo sceneFileInfo) const
             }
         }
     }
+    {
+        auto & [sceneAABBMin, sceneAABBMax] = scene.aabb;
+        for (scene::Node & node : scene.nodes) {
+            auto & [nodeAABBMin, nodeAABBMax] = node.aabb;
+            for (size_t meshIndex : node.meshes) {
+                const scene::Mesh & mesh = scene.meshes.at(meshIndex);
+                nodeAABBMin = glm::min(nodeAABBMin, mesh.aabb.min);
+                nodeAABBMax = glm::max(nodeAABBMax, mesh.aabb.max);
+            }
+            sceneAABBMin = glm::min(sceneAABBMin, nodeAABBMin);
+            sceneAABBMax = glm::max(sceneAABBMax, nodeAABBMax);
+        }
+    }
+
     importer.FreeScene();
 
     return true;

@@ -20,7 +20,7 @@
 
 namespace viewer
 {
-class SceneManager;
+class Scene;
 
 struct FrameSettings
 {
@@ -40,18 +40,19 @@ struct FrameSettings
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager);
+    Renderer(const engine::Context & context, uint32_t framesInFlight);
     ~Renderer();
 
-    [[nodiscard]] const std::filesystem::path & getScenePath() const;
+    void setScene(std::shared_ptr<const Scene> scene);
+    void advance();
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
 
-    void advance(uint32_t framesInFlight);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings);
+    [[nodiscard]] std::shared_ptr<const Scene> getScene() const;
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 144;
+    static constexpr size_t kSize = 88;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

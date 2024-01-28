@@ -6,6 +6,7 @@
 #include <glm/vec3.hpp>
 
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #include <cstddef>
@@ -16,6 +17,7 @@ namespace scene
 {
 
 using Position = glm::vec3;
+static_assert(std::is_trivially_copyable_v<Position>);
 
 #pragma pack(push, 1)
 
@@ -25,6 +27,7 @@ struct Triangle
 };
 
 #pragma pack(pop)
+static_assert(std::is_trivially_copyable_v<Triangle>);
 
 struct SCENE_EXPORT Triangles
 {
@@ -42,6 +45,18 @@ struct VertexAttributes
 };
 
 #pragma pack(pop)
+static_assert(std::is_trivially_copyable_v<VertexAttributes>);
+
+#pragma pack(push, 1)
+
+struct AABB
+{
+    glm::vec3 min{std::numeric_limits<float>::max()};
+    glm::vec3 max{std::numeric_limits<float>::min()};
+};
+
+#pragma pack(pop)
+static_assert(std::is_trivially_copyable_v<AABB>);
 
 struct SCENE_EXPORT Node
 {
@@ -49,18 +64,21 @@ struct SCENE_EXPORT Node
     glm::mat4 transform{1.0f};
     std::vector<size_t> meshes = {};    // indices in Scene::meshes
     std::vector<size_t> children = {};  // indices in Scene::nodes
+    AABB aabb;
 };
 
 struct SCENE_EXPORT Mesh
 {
     uint32_t indexOffset = 0, indexCount = 0;    // indices in Scene::indices
     uint32_t vertexOffset = 0, vertexCount = 0;  // indices in Scene::vertices
+    AABB aabb;
 };
 
 struct SCENE_EXPORT Scene
 {
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
+    AABB aabb;
 
     size_t indexCount = 0;
     std::unique_ptr<uint32_t[]> indices;
@@ -77,5 +95,7 @@ struct SCENE_EXPORT Scene
     [[nodiscard]] Triangles makeTriangles() const;
     [[nodiscard]] Triangles makeTriangles(size_t rootNodeIndex) const;
 };
+
+static_assert(std::is_nothrow_move_constructible_v<Scene>);
 
 }  // namespace scene

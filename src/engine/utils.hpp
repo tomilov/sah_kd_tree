@@ -4,6 +4,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <bit>
 #include <deque>
 #include <functional>
 #include <iterator>
@@ -115,7 +116,7 @@ template<typename Head, typename... Tail>
 class StructureChains
 {
 public:
-    size_t size() const
+    [[nodicard]] size_t size() const
     {
         size_t s = std::size(heads);
         ASSERT_MSG(s == std::size(tails), "!");
@@ -139,18 +140,18 @@ public:
         relink(size() - 1);
     }
 
-    const std::vector<Head> & ref() const noexcept
+    [[nodicard]] const std::vector<Head> & ref() const noexcept
     {
         return heads;
     }
 
-    std::vector<Head> & ref() noexcept
+    [[nodicard]] std::vector<Head> & ref() noexcept
     {
         return heads;
     }
 
     template<typename T>
-    T & get(size_t i)
+    [[nodicard]] T & get(size_t i)
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(i);
@@ -160,7 +161,7 @@ public:
     }
 
     template<typename T>
-    const T & get(size_t i) const
+    [[nodicard]] const T & get(size_t i) const
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(i);
@@ -170,7 +171,7 @@ public:
     }
 
     template<typename T>
-    T & back()
+    [[nodicard]] T & back()
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(size() - 1);
@@ -180,7 +181,7 @@ public:
     }
 
     template<typename T>
-    const T & back() const
+    [[nodicard]] const T & back() const
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(size() - 1);
@@ -280,7 +281,7 @@ template<typename Head>
 class StructureChains<Head>
 {
 public:
-    size_t size() const
+    [[nodiscard]] size_t size() const
     {
         return std::size(heads);
     }
@@ -295,39 +296,39 @@ public:
         heads.emplace_back();
     }
 
-    const std::vector<Head> & ref() const noexcept
+    [[nodiscard]] const std::vector<Head> & ref() const noexcept
     {
         return heads;
     }
 
-    std::vector<Head> & ref() noexcept
+    [[nodiscard]] std::vector<Head> & ref() noexcept
     {
         return heads;
     }
 
     template<typename T>
-    Head & get(size_t i)
+    [[nodiscard]] Head & get(size_t i)
     {
         static_assert(std::is_same_v<T, Head>);
         return heads.at(i);
     }
 
     template<typename T>
-    const Head & get(size_t i) const
+    [[nodiscard]] const Head & get(size_t i) const
     {
         static_assert(std::is_same_v<T, Head>);
         return heads.at(i);
     }
 
     template<typename T>
-    Head & back()
+    [[nodiscard]] Head & back()
     {
         static_assert(std::is_same_v<T, Head>);
         return heads.at(size() - 1);
     }
 
     template<typename T>
-    const Head & back() const
+    [[nodiscard]] const Head & back() const
     {
         static_assert(std::is_same_v<T, Head>);
         return heads.at(size() - 1);
@@ -346,5 +347,12 @@ public:
 private:
     std::vector<Head> heads;
 };
+
+[[nodiscard]] inline vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
+{
+    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
+    --alignment;
+    return (size + alignment) & ~alignment;
+}
 
 }  // namespace engine

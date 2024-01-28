@@ -56,6 +56,12 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
     }
 
     template<typename Object>
+    void setDebugUtilsObjectName(Object object, std::string_view objectName) const
+    {
+        return setDebugUtilsObjectName(object, std::string{objectName});
+    }
+
+    template<typename Object>
     void setDebugUtilsObjectTag(Object object, uint64_t tagName, uint32_t tagSize, const void * tag) const
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;

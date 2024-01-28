@@ -36,15 +36,20 @@ namespace viewer
 namespace
 {
 
+constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
+    0x5C0EC5D6,
+    0xE4D96472,
+};
+
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
     const auto & viewport = frameSettings.viewport;
-    INVARIANT((viewport.width > 0.0f) || (viewport.height > 0.0f), "{}x{}", viewport.width, viewport.height);
+    INVARIANT((viewport.width > 0.0f) || (viewport.height < 0.0f), "{}x{}", viewport.width, -viewport.height);
     auto rotate = glm::toMat4(glm::conjugate(frameSettings.orientation));
     auto translate = glm::translate(glm::identity<glm::mat4>(), -frameSettings.position);
     auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale, frameSettings.scale, frameSettings.scale});
     auto view = scale * rotate * translate;
-    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, viewport.width, viewport.height, frameSettings.zNear, frameSettings.zFar);
+    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, viewport.width, -viewport.height, frameSettings.zNear, frameSettings.zFar);
     glm::mat4 transform2D{frameSettings.transform2D};
     auto mvp = transform2D * projection * view;
     uniformBuffer = {
@@ -66,109 +71,98 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 struct Renderer::Impl
 {
-    const std::string token;
-    const std::filesystem::path scenePath;
     const engine::Context & context;
-    const SceneManager & sceneManager;
+    const uint32_t framesInFlight;
 
     const engine::Library & library = context.getLibrary();
     const engine::Instance & instance = context.getInstance();
     const engine::Device & device = context.getDevice();
 
     std::shared_ptr<const Scene> scene;
-    std::unique_ptr<const Scene::Descriptors> descriptors;
-    std::unique_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
+    std::shared_ptr<const Scene::Descriptors> descriptors;
+    std::shared_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
 
-    Impl(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : token{token}, scenePath{scenePath}, context{context}, sceneManager{sceneManager}
+    Impl(const engine::Context & context, uint32_t framesInFlight) : context{context}, framesInFlight{framesInFlight}
+    {}
+
+    void setScene(std::shared_ptr<const Scene> scene);
+    void advance();
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
+
+    [[nodiscard]] std::shared_ptr<const Scene> getScene() const
     {
-        init();
-    }
-
-    [[nodiscard]] const std::filesystem::path & getScenePath() const
-    {
-        return scenePath;
-    }
-
-    void advance(uint32_t framesInFlight);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings);
-
-    void init()
-    {
-        INVARIANT(!std::empty(token), "token should not be empty");
-        INVARIANT(!std::empty(scenePath), "scenePath should not be empty");
+        return scene;
     }
 };
 
-Renderer::Renderer(std::string_view token, const std::filesystem::path & scenePath, const engine::Context & context, const SceneManager & sceneManager) : impl_{token, scenePath, context, sceneManager}
+Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
 {}
 
 Renderer::~Renderer() = default;
 
-const std::filesystem::path & Renderer::getScenePath() const
+void Renderer::setScene(std::shared_ptr<const Scene> scene)
 {
-    return impl_->getScenePath();
+    return impl_->setScene(std::move(scene));
 }
 
-void Renderer::advance(uint32_t framesInFlight)
+void Renderer::advance()
 {
-    return impl_->advance(framesInFlight);
+    return impl_->advance();
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
 {
-    return impl_->render(commandBuffer, renderPass, currentFrameSlot, framesInFlight, frameSettings);
+    return impl_->render(commandBuffer, renderPass, currentFrameSlot, frameSettings);
 }
 
-void Renderer::Impl::advance(uint32_t framesInFlight)
+std::shared_ptr<const Scene> Renderer::getScene() const
 {
-    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages({0x5C0EC5D6, 0xE4D96472});
+    return impl_->getScene();
+}
 
-    bool dirty = false;
+void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
+{
+    ASSERT(this->scene != scene);
+
+    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+
+    graphicsPipeline.reset();
+
+    descriptors.reset();
     if (scene) {
-        const auto & old = *scene->getSceneDesignator();
-        if (old.framesInFlight != framesInFlight) {
-            dirty = true;
-            SPDLOG_INFO("framesInFlight changed: {} -> {}", old.framesInFlight, framesInFlight);
-        }
+        descriptors = scene->makeDescriptors(framesInFlight);
     }
-    if (dirty) {
-        graphicsPipeline.reset();
-        descriptors.reset();
-        scene.reset();
-    }
-    if (!scene) {
-        SceneDesignator sceneDesignator = {
-            .token = token,
-            .path = scenePath,
-            .framesInFlight = framesInFlight,
-        };
-        scene = sceneManager.getOrCreateScene(std::move(sceneDesignator));
-        if (!scene) {
-            return;
-        }
 
-        descriptors = scene->makeDescriptors();
-    }
+    this->scene = std::move(scene);
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, uint32_t framesInFlight, const FrameSettings & frameSettings)
+void Renderer::Impl::advance()
 {
-    std::initializer_list<uint32_t> unmutedMessageIdNumbers = {
-        0x5C0EC5D6,
-        0xE4D96472,
-    };
-    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(unmutedMessageIdNumbers);
+    if (!scene) {
+        return;
+    }
+
+    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+}
+
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
+{
+    ASSERT(currentFrameSlot < framesInFlight);
+    if (!scene) {
+        return;
+    }
+
+    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     engine::LabelColor labelColor = {0.0f, 1.0f, 0.0f, 1.0f};
     auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);
 
-    if (!scene) {
-        return;
-    }
     ASSERT(descriptors);
 
-    auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
-    fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
+    {
+        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
+        fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
+    }
 
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline.reset();
@@ -211,13 +205,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 
     constexpr uint32_t kFirstViewport = 0;
-    std::vector<vk::Viewport> viewports = {
+    std::initializer_list<vk::Viewport> viewports = {
         frameSettings.viewport,
     };
-    for (vk::Viewport & viewport : viewports) {
-        viewport.y += viewport.height;
-        viewport.height = -viewport.height;
-    }
     commandBuffer.setViewport(kFirstViewport, viewports, library.dispatcher);
 
     constexpr uint32_t kFirstScissor = 0;

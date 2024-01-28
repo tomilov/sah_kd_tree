@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utils/fast_pimpl.hpp>
+
 #include <QtCore/QHash>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -16,6 +18,7 @@
 namespace viewer
 {
 class Engine;
+class Scene;
 struct FrameSettings;
 class Renderer;
 
@@ -65,6 +68,7 @@ public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
     void setCameraPosition(QVector3D cameraPosition);
     void setFieldOfView(qreal fieldOfView);
+
     void setDt(qreal dt);
 
 private Q_SLOTS:
@@ -98,7 +102,12 @@ private:
     QUrl scenePath;
     float t = 0.0;
 
-    std::unique_ptr<FrameSettings> frameSettings;
+    QUrl currentScenePath;
+    std::shared_ptr<const Scene> scene;
+
+    static constexpr size_t kFrameSettingsSize = 128;
+    static constexpr size_t kFrameSettingsAlignment = 128;
+    utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
     std::unique_ptr<Renderer> renderer;
 
     void checkEngine() const;

@@ -1,9 +1,11 @@
 ﻿#include <engine/context.hpp>
 #include <engine/device.hpp>
+#include <scene/scene.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/renderer.hpp>
+#include <viewer/scene_manager.hpp>
 #include <viewer/viewer.hpp>
 
 #include <fmt/std.h>
@@ -159,8 +161,30 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
 void Viewer::sync()
 {
-    if (!frameSettings) {
-        frameSettings = std::make_unique<FrameSettings>();
+    if (currentScenePath != scenePath) {
+        currentScenePath = scenePath;
+
+        scene.reset();
+
+        if (scenePath.isEmpty()) {
+            return;
+        }
+        if (!scenePath.isLocalFile()) {
+            SPDLOG_WARN("scenePath URL is not local file", scenePath.toString().toStdString());
+            return;
+        }
+        auto filesystemScenePath = QFileInfo{scenePath.toLocalFile()}.filesystemFilePath();
+
+        const auto & sceneManager = engine->getSceneManager();
+        scene = sceneManager.getOrCreateScene(filesystemScenePath);
+        if (!scene) {
+            return;
+        }
+
+        const scene::AABB & aabb = scene->getScene()->aabb;
+        if (!setProperty("linearSpeed", utils::safeCast<qreal>(glm::length(aabb.max - aabb.min) / 5.0f))) {
+            qFatal("unreachable");
+        }
     }
 
     frameSettings->position = glm::vec3{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
@@ -175,13 +199,6 @@ void Viewer::sync()
     frameSettings->alpha = utils::autoCast(alpha);
 
     if (!boundingRect().isEmpty()) {
-        qreal scaleFactor = scale();
-        qreal angle = rotation();
-        for (auto p = parentItem(); p; p = p->parentItem()) {
-            scaleFactor *= p->scale();
-            angle += p->rotation();
-        }
-
         auto mappedBoundingRect = mapRectToScene(boundingRect());
         qreal devicePixelRatio = window()->effectiveDevicePixelRatio();
         QRectF viewportRect{mappedBoundingRect.topLeft() * devicePixelRatio, mappedBoundingRect.size() * devicePixelRatio};
@@ -191,14 +208,6 @@ void Viewer::sync()
             qreal width = std::floor(viewportRect.width());
             qreal height = std::floor(viewportRect.height());
 
-            frameSettings->viewport = vk::Viewport{
-                .x = utils::autoCast(x),
-                .y = utils::autoCast(y),
-                .width = utils::autoCast(width),
-                .height = utils::autoCast(height),
-                .minDepth = 0.0f,
-                .maxDepth = 1.0f,
-            };
             frameSettings->scissor = vk::Rect2D{
                 .offset = {
                     .x = utils::autoCast(x),
@@ -209,6 +218,25 @@ void Viewer::sync()
                     .height = utils::autoCast(height),
                 },
             };
+
+            y += height;
+            height = -height;
+
+            frameSettings->viewport = vk::Viewport{
+                .x = utils::autoCast(x),
+                .y = utils::autoCast(y),
+                .width = utils::autoCast(width),
+                .height = utils::autoCast(height),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f,
+            };
+        }
+
+        qreal scaleFactor = scale();
+        qreal angle = rotation();
+        for (auto p = parentItem(); p; p = p->parentItem()) {
+            scaleFactor *= p->scale();
+            angle += p->rotation();
         }
 
         qreal aspectRatio = viewportRect.height() / viewportRect.width();
@@ -224,7 +252,7 @@ void Viewer::sync()
 
 void Viewer::cleanup()
 {
-    renderer.reset();
+    releaseResources();
 }
 
 void Viewer::beforeRendering()
@@ -233,42 +261,24 @@ void Viewer::beforeRendering()
         return;
     }
 
-    if (scenePath.isEmpty()) {
-        renderer.reset();
-        return;
-    }
-
-    if (!scenePath.isLocalFile()) {
-        renderer.reset();
-        SPDLOG_WARN("scenePath URL is not local file", scenePath.toString().toStdString());
-        return;
-    }
-
-    auto sceneFileInfo = QFileInfo{scenePath.toLocalFile()}.filesystemFilePath();
-    if (renderer && (renderer->getScenePath() != sceneFileInfo)) {
-        renderer.reset();
-    }
-
     if (!renderer) {
         checkEngine();
-        auto token = objectName();
-        INVARIANT(!token.isEmpty(), "Viewer objectName should not be empty");
-        renderer = std::make_unique<Renderer>(token.toStdString(), sceneFileInfo, engine->getContext(), engine->getSceneManager());
+        uint32_t framesInFlight = utils::autoCast(window()->graphicsStateInfo().framesInFlight);
+        renderer = std::make_unique<Renderer>(engine->getContext(), framesInFlight);
+    }
+
+    if (renderer->getScene() != scene) {
+        renderer->setScene(scene);
     }
 
     if (boundingRect().isEmpty()) {
         return;
     }
-
-    auto graphicsStateInfo = window()->graphicsStateInfo();
-    renderer->advance(utils::autoCast(graphicsStateInfo.framesInFlight));
+    renderer->advance();
 }
 
 void Viewer::beforeRenderPassRecording()
 {
-    if (!frameSettings) {
-        return;
-    }
     if (!renderer) {
         return;
     }
@@ -297,14 +307,33 @@ void Viewer::beforeRenderPassRecording()
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
         auto [currentFrameSlot, framesInFlight] = w->graphicsStateInfo();
-        renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot), utils::autoCast(framesInFlight), *frameSettings);
+        renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot), *frameSettings);
     }
     w->endExternalCommands();
 }
 
 void Viewer::setEulerAngles(QVector3D eulerAngles)
 {
+    float & pitch = eulerAngles[0];
+    float & yaw = eulerAngles[1];
     float & roll = eulerAngles[2];
+
+    while (pitch > 180.0f) {
+        pitch -= 360.0f;
+    }
+    while (pitch < -180.0f) {
+        pitch += 360.0f;
+    }
+    if (pitch > 90.0f) {
+        pitch = 180.0f - pitch;
+        yaw += 180.0;
+        roll += 180.0;
+    } else if (pitch < -90.0f) {
+        pitch = -180.0f - pitch;
+        yaw -= 180.0;
+        roll -= 180.0;
+    }
+
     while (roll > 180.0f) {
         roll -= 360.0f;
     }
@@ -312,22 +341,12 @@ void Viewer::setEulerAngles(QVector3D eulerAngles)
         roll += 360.0f;
     }
 
-    float & yaw = eulerAngles[1];
     while (yaw > 180.0f) {
         yaw -= 360.0f;
     }
     while (yaw < -180.0f) {
         yaw += 360.0f;
     }
-
-    float & pitch = eulerAngles[0];
-    if (pitch > 90.0f) {
-        pitch -= 180.0f;
-    } else if (pitch < -90.0f) {
-        pitch += 180.0f;
-    }
-    constexpr float kPitchMax = 89.9f;
-    pitch = qBound<float>(-kPitchMax, pitch, kPitchMax);
 
     if (qFuzzyCompare(this->eulerAngles, eulerAngles)) {
         return;
@@ -574,6 +593,7 @@ void Viewer::handleInput()
 
 void Viewer::releaseResources()
 {
+    scene.reset();
     window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
 }
 
