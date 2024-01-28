@@ -486,9 +486,11 @@ ApplicationWindow {
             text: {
                 var pos = mainSahKdTreeViewer.cameraPosition;
                 var dir = mainSahKdTreeViewer.eulerAngles;
-                qsTr("pos(%1, %2, %3) dir(%4, %5, %6)")
+                var fov = mainSahKdTreeViewer.fieldOfView
+                qsTr("pos(%1, %2, %3) dir(%4, %5, %6) fov(%7)")
                 .arg(pos.x).arg(pos.y).arg(pos.z)
                 .arg(dir.x).arg(dir.y).arg(dir.z)
+                .arg(fov)
             }
         }
     }

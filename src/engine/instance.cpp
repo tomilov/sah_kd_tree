@@ -98,7 +98,7 @@ vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverity
 
 void Instance::init()
 {
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     if (library.dispatcher.vkEnumerateInstanceVersion) {
         apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
     }
@@ -247,7 +247,7 @@ void Instance::init()
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
         instance = *instanceHolder;
     }
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     library.dispatcher.init(instance);
 #endif
 

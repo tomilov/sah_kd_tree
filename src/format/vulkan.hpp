@@ -47,7 +47,7 @@ struct fmt::formatter<T, char, std::void_t<decltype(vk::to_string(std::declval<c
 };
 
 template<typename FlagBitsType>
-struct fmt::formatter<vk::Flags<FlagBitsType>, char> : fmt::formatter<fmt::string_view>
+struct fmt::formatter<vk::Flags<FlagBitsType>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
     auto format(const vk::Flags<FlagBitsType> & flags, FormatContext & ctx) const

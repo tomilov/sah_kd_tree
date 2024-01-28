@@ -1,7 +1,7 @@
 #pragma once
 
+#include <QtCore/QHash>
 #include <QtCore/QObject>
-#include <QtCore/QSet>
 #include <QtCore/QTimer>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
@@ -25,10 +25,10 @@ class Viewer : public QQuickItem
     QML_NAMED_ELEMENT(SahKdTreeViewer)
 
     Q_PROPERTY(QVector3D eulerAngles MEMBER eulerAngles WRITE setEulerAngles NOTIFY eulerAnglesChanged)
-    Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition NOTIFY cameraPositionChanged)
-    Q_PROPERTY(qreal fieldOfView MEMBER fieldOfView NOTIFY fieldOfViewChanged)
+    Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition WRITE setCameraPosition NOTIFY cameraPositionChanged)
+    Q_PROPERTY(qreal fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY fieldOfViewChanged)
 
-    Q_PROPERTY(qreal dt MEMBER dt NOTIFY dtChanged)
+    Q_PROPERTY(qreal dt MEMBER dt WRITE setDt NOTIFY dtChanged)
     Q_PROPERTY(qreal mouseLookSpeed MEMBER mouseLookSpeed NOTIFY mouseLookSpeedChanged)
     Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
     Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
@@ -63,6 +63,9 @@ Q_SIGNALS:
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
+    void setCameraPosition(QVector3D cameraPosition);
+    void setFieldOfView(qreal fieldOfView);
+    void setDt(qreal dt);
 
 private Q_SLOTS:
     void onWindowChanged(QQuickWindow * w);
@@ -87,7 +90,7 @@ private:
     QTimer * const doubleClickTimer = new QTimer{this};
     QPoint startPos;
     Qt::KeyboardModifiers keyboardModifiers = Qt::NoModifier;
-    QSet<Qt::Key> pressedKeys;
+    QHash<Qt::Key, int> pressedKeys;
     QTimer * const handleInputTimer = new QTimer{this};
 
     Engine * engine = nullptr;
@@ -100,7 +103,7 @@ private:
 
     void checkEngine() const;
 
-    void handleKeyEvent(QKeyEvent * event, bool isPressed);
+    void onKeyEvent(QKeyEvent * event, bool isPressed);
     void handleInput();
 
     void releaseResources() override;

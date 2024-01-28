@@ -586,7 +586,7 @@ void MemoryAllocator::Impl::init()
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
     }
 
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
 #define FUNCTION(f) .f = library.dispatcher.f
 #define FUNCTION_KHR(f) .f##KHR = library.dispatcher.f
 #else

@@ -71,7 +71,7 @@ void Device::create()
 
     deviceHolder = physicalDevice.physicalDevice.createDeviceUnique(deviceCreateInfo, library.allocationCallbacks, library.dispatcher);
     device = *deviceHolder;
-#if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     library.dispatcher.init(device);
 #endif
     setDebugUtilsObjectName(device, name);

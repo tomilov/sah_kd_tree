@@ -6,6 +6,7 @@
 #include <utils/noncopyable.hpp>
 
 #include <glm/ext/quaternion_float.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
@@ -30,7 +31,7 @@ struct FrameSettings
     vk::Viewport viewport;
     vk::Rect2D scissor;
     glm::mat3 transform2D{1.0f};
-    const float fov = 90.0f;
+    float fov = glm::half_pi<float>();
     const float zNear = 1E-3f;
     const float zFar = 1E3f;
     const float scale = 1.0f;

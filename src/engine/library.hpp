@@ -22,10 +22,10 @@ struct ENGINE_EXPORT Library final : utils::NonCopyable
 
     const Context & context;
 
-#if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
+#if defined(VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL)
     std::optional<vk::DynamicLoader> dl;
 #endif
-#if VULKAN_HPP_NO_DEFAULT_DISPATCHER
+#if defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 #else
     static VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher;

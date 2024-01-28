@@ -22,6 +22,9 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QObject>
 #include <QtCore/QRunnable>
+#include <QtCore/QtMath>
+#include <QtCore/QtMinMax>
+#include <QtCore/QtNumeric>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
@@ -35,6 +38,32 @@
 #include <cstdint>
 
 using namespace Qt::StringLiterals;
+
+namespace viewer
+{
+namespace
+{
+
+template<typename Type>
+QString toString(const Type & value)
+{
+    QString string;
+    QDebug{&string}.noquote().nospace() << value;
+    return string;
+}
+
+}  // namespace
+}  // namespace viewer
+
+template<>
+struct fmt::formatter<Qt::Key> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(Qt::Key key, FormatContext & ctx) const
+    {
+        return fmt::formatter<fmt::string_view>::format(viewer::toString(key).toStdString(), ctx);
+    }
+};
 
 namespace viewer
 {
@@ -67,7 +96,6 @@ Viewer::Viewer()
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
-    // setFocus(true);
 
     Q_CHECK_PTR(doubleClickTimer);
     doubleClickTimer->setInterval(qApp->doubleClickInterval());
@@ -75,19 +103,20 @@ Viewer::Viewer()
     connect(doubleClickTimer, &QTimer::timeout, this, [this] { setCursor(Qt::CursorShape::BlankCursor); });
 
     Q_CHECK_PTR(handleInputTimer);
-    connect(handleInputTimer, &QTimer::timeout, this, &Viewer::handleInput);
     if (auto primaryScreen = qApp->primaryScreen()) {
         const auto onRefrashRateChaned = [this](qreal refreshRate)
         {
             Q_ASSERT(refreshRate > 0.0);
-            dt = 1.0 / refreshRate;
-            Q_EMIT dtChanged(dt);
+            setDt(1.0 / refreshRate);
 
             constexpr qreal kMsPerS = 1000.0;
-            handleInputTimer->start(utils::safeCast<int>(kMsPerS * dt));
+            handleInputTimer->setInterval(utils::safeCast<int>(kMsPerS * dt));
         };
         onRefrashRateChaned(primaryScreen->refreshRate());
-        connect(primaryScreen, &QScreen::refreshRateChanged, handleInputTimer, onRefrashRateChaned);
+        connect(primaryScreen, &QScreen::refreshRateChanged, this, onRefrashRateChaned);
+
+        connect(handleInputTimer, &QTimer::timeout, this, &Viewer::handleInput);
+        handleInputTimer->start();
     }
 
     connect(this, &Viewer::eulerAnglesChanged, this, &QQuickItem::update);
@@ -189,6 +218,8 @@ void Viewer::sync()
         // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(transform2D)));
         frameSettings->transform2D = glm::mat3{transform2D};
     }
+
+    frameSettings->fov = utils::autoCast(qDegreesToRadians(fieldOfView));
 }
 
 void Viewer::cleanup()
@@ -271,36 +302,67 @@ void Viewer::beforeRenderPassRecording()
     w->endExternalCommands();
 }
 
-void Viewer::setEulerAngles(QVector3D newEulerAngles)
+void Viewer::setEulerAngles(QVector3D eulerAngles)
 {
-    float & roll = newEulerAngles[2];
-    if (roll > 180.0f) {
+    float & roll = eulerAngles[2];
+    while (roll > 180.0f) {
         roll -= 360.0f;
-    } else if (roll < -180.0f) {
+    }
+    while (roll < -180.0f) {
         roll += 360.0f;
     }
 
-    float & pitch = newEulerAngles[0];
-    constexpr float kPitchMax = 89.9f;
-    if (pitch > kPitchMax) {
-        pitch = kPitchMax;
-    } else if (pitch < -kPitchMax) {
-        pitch = -kPitchMax;
-    }
-
-    float & yaw = newEulerAngles[1];
-    if (yaw > 180.0f) {
+    float & yaw = eulerAngles[1];
+    while (yaw > 180.0f) {
         yaw -= 360.0f;
-    } else if (yaw < -180.0f) {
+    }
+    while (yaw < -180.0f) {
         yaw += 360.0f;
     }
 
-    if (qFuzzyCompare(newEulerAngles, eulerAngles)) {
+    float & pitch = eulerAngles[0];
+    if (pitch > 90.0f) {
+        pitch -= 180.0f;
+    } else if (pitch < -90.0f) {
+        pitch += 180.0f;
+    }
+    constexpr float kPitchMax = 89.9f;
+    pitch = qBound<float>(-kPitchMax, pitch, kPitchMax);
+
+    if (qFuzzyCompare(this->eulerAngles, eulerAngles)) {
         return;
     }
-
-    eulerAngles = newEulerAngles;
+    this->eulerAngles = eulerAngles;
     Q_EMIT eulerAnglesChanged(eulerAngles);
+}
+
+void Viewer::setCameraPosition(QVector3D cameraPosition)
+{
+    if (qFuzzyCompare(this->cameraPosition, cameraPosition)) {
+        return;
+    }
+    this->cameraPosition = cameraPosition;
+    Q_EMIT cameraPositionChanged(cameraPosition);
+}
+
+void Viewer::setFieldOfView(qreal fieldOfView)
+{
+    fieldOfView = qBound<qreal>(5.0, fieldOfView, 175.0);
+
+    if (qFuzzyCompare(this->fieldOfView, fieldOfView)) {
+        return;
+    }
+    this->fieldOfView = fieldOfView;
+    Q_EMIT fieldOfViewChanged(fieldOfView);
+}
+
+void Viewer::setDt(qreal dt)
+{
+    if (qFuzzyCompare(this->dt, dt)) {
+        return;
+    }
+    this->dt = dt;
+    Q_EMIT dtChanged(dt);
 }
 
 void Viewer::checkEngine() const
@@ -349,8 +411,9 @@ void Viewer::checkEngine() const
     context.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
 }
 
-void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
+void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
 {
+    keyboardModifiers = event->modifiers();
     Qt::Key key = utils::autoCast(event->key());
     switch (key) {
     case Qt::Key_W:
@@ -363,7 +426,10 @@ void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
     case Qt::Key_Right:
     case Qt::Key_Up:
     case Qt::Key_Down:
-    case Qt::Key_Space: {
+    case Qt::Key_Space:
+    case Qt::Key_Z:
+    case Qt::Key_R:
+    case Qt::Key_X: {
         if (event->isAutoRepeat()) {
             break;
         }
@@ -371,7 +437,7 @@ void Viewer::handleKeyEvent(QKeyEvent * event, bool isPressed)
             if (pressedKeys.contains(key)) {
                 qCWarning(viewerCategory) << u"Key is already pressed:"_s << key;
             } else {
-                pressedKeys.insert(key);
+                pressedKeys.insert(key, 0);
             }
         } else {
             if (!pressedKeys.remove(key)) {
@@ -394,27 +460,29 @@ void Viewer::handleInput()
         return;
     }
     if (pressedKeys.contains(Qt::Key_Space)) {
-        eulerAngles = QVector3D{0.0f, 0.0f, 0.0f};
-        Q_EMIT eulerAnglesChanged(eulerAngles);
-
-        cameraPosition = QVector3D{0.0f, 0.0f, 0.0f};
-        Q_EMIT cameraPositionChanged(cameraPosition);
-
-        fieldOfView = kDefaultFov;
-        Q_EMIT fieldOfViewChanged(fieldOfView);
+        setEulerAngles({});
+        setCameraPosition({});
+        setFieldOfView(kDefaultFov);
         return;
     }
     QVector3D direction;
     float pan = 0.0f;
     float tilt = 0.0f;
-    for (Qt::Key key : std::as_const(pressedKeys)) {
+    QMutableHashIterator<Qt::Key, int> it{pressedKeys};
+    while (it.hasNext()) {
+        auto curr = it.next();
+        Qt::Key key = curr.key();
         switch (key) {
         case Qt::Key_W:
         case Qt::Key_A:
         case Qt::Key_S:
         case Qt::Key_D:
         case Qt::Key_Q:
-        case Qt::Key_E: {
+        case Qt::Key_E:
+        case Qt::Key_Z: {
+            if (pressedKeys.contains(Qt::Key_Z)) {
+                break;
+            }
             switch (key) {
             case Qt::Key_W:
                 direction[2] += 1.0f;
@@ -435,39 +503,72 @@ void Viewer::handleInput()
                 direction[1] += 1.0f;
                 break;
             default:
-                Q_ASSERT(false);
+                INVARIANT(false, "{}", key);
             }
             break;
         }
         case Qt::Key_Left:
-            pan -= 1.0f;
-            break;
         case Qt::Key_Right:
-            pan += 1.0f;
-            break;
         case Qt::Key_Down:
-            tilt -= 1.0f;
-            break;
         case Qt::Key_Up:
-            tilt += 1.0f;
+        case Qt::Key_R:
+        case Qt::Key_X: {
+            if (pressedKeys.contains(Qt::Key_R)) {
+                break;
+            }
+            if (pressedKeys.contains(Qt::Key_X)) {
+                break;
+            }
+            switch (key) {
+            case Qt::Key_Left:
+                tilt -= 1.0f;
+                break;
+            case Qt::Key_Right:
+                tilt += 1.0f;
+                break;
+            case Qt::Key_Down:
+                pan -= 1.0f;
+                break;
+            case Qt::Key_Up:
+                pan += 1.0f;
+                break;
+            default:
+                INVARIANT(false, "{}", key);
+            }
             break;
-        default: {
-            Q_ASSERT(false);
         }
+        default:
+            INVARIANT(false, "{}", key);
         }
     }
-    auto rotation = QQuaternion::fromEulerAngles(eulerAngles);
     qreal speedModifier = (keyboardModifiers & Qt::ShiftModifier) ? 0.05 : 1.0;
-    {
+    if (pressedKeys.contains(Qt::Key_Z)) {
+        if (0 == pressedKeys[Qt::Key_Z]++) {
+            setCameraPosition({});
+        }
+    } else {
         direction.normalize();
         auto velocity = speedModifier * linearSpeed;
-        cameraPosition += rotation.rotatedVector(direction) * (velocity * dt);
-        Q_EMIT cameraPositionChanged(cameraPosition);
+        auto rotation = QQuaternion::fromEulerAngles(eulerAngles);
+        auto newCameraPosition = cameraPosition + rotation.rotatedVector(direction) * (velocity * dt);
+        setCameraPosition(newCameraPosition);
     }
-    {
+    if (pressedKeys.contains(Qt::Key_R)) {
+        if (0 == pressedKeys[Qt::Key_R]++) {
+            setEulerAngles({-eulerAngles.x(), eulerAngles.y() + 180.0f, -eulerAngles.z()});
+        }
+    } else if (pressedKeys.contains(Qt::Key_X)) {
+        if (0 == pressedKeys[Qt::Key_X]++) {
+            constexpr auto roundToStraightAngle = [](float angle) -> float
+            {
+                return qRound(angle / 90.0f) * 90.0f;
+            };
+            setEulerAngles({roundToStraightAngle(eulerAngles.x()), roundToStraightAngle(eulerAngles.y()), roundToStraightAngle(eulerAngles.z())});
+        }
+    } else {
         qreal angularSpeed = speedModifier * keyboardLookSpeed;
-        qreal roll = qDegreesToRadians(eulerAngles.z());
-        rotate(angularSpeed * (tilt * qSin(roll) + pan * qCos(roll)) * dt, angularSpeed * (tilt * qCos(roll) - pan * qSin(roll)) * dt);
+        qreal roll = -qDegreesToRadians(eulerAngles.z());
+        rotate(angularSpeed * (tilt * qSin(roll) - pan * qCos(roll)) * dt, angularSpeed * (tilt * qCos(roll) + pan * qSin(roll)) * dt);
     }
 }
 
@@ -483,12 +584,9 @@ void Viewer::wheelEvent(QWheelEvent * event)
     if ((keyboardModifiers & Qt::KeyboardModifier::ShiftModifier)) {
         rotate(0.0f, numDegrees.x(), numDegrees.y());
     } else {
-        auto newFieldOfView = qBound<qreal>(5.0, fieldOfView * numDegrees.y() / 3.0, 175.0);
-        fieldOfView = newFieldOfView;
-        Q_EMIT fieldOfViewChanged(fieldOfView);
+        setFieldOfView(fieldOfView + numDegrees.y() / 3.0);
     }
     event->accept();
-    update();
 }
 
 void Viewer::mouseUngrabEvent()
@@ -526,11 +624,12 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             doubleClickTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                auto roll = eulerAngles.z();
                 qreal angularSpeed = mouseLookSpeed / qMax(1.0, qMin(width(), height()));
                 QPointF tiltPan = posDelta;
-                // tiltPan = QTransform{}.rotate(-roll).map(angularSpeed * tiltPan);
-                rotate(-tiltPan.y(), tiltPan.x());
+                tiltPan *= angularSpeed;
+                auto roll = -eulerAngles.z();
+                tiltPan = QTransform{}.rotate(roll).map(tiltPan);
+                rotate(tiltPan.y(), tiltPan.x());
             }
         }
         QCursor::setPos(startPos);
@@ -598,7 +697,7 @@ void Viewer::focusOutEvent(QFocusEvent * event)
 
 void Viewer::keyPressEvent(QKeyEvent * event)
 {
-    handleKeyEvent(event, true);
+    onKeyEvent(event, true);
     if (event->isAccepted()) {
         update();
     } else {
@@ -608,7 +707,7 @@ void Viewer::keyPressEvent(QKeyEvent * event)
 
 void Viewer::keyReleaseEvent(QKeyEvent * event)
 {
-    handleKeyEvent(event, false);
+    onKeyEvent(event, false);
     if (event->isAccepted()) {
         update();
     } else {

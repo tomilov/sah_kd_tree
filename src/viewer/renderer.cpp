@@ -18,16 +18,6 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
-#include <QtCore/QByteArray>
-#include <QtCore/QDebug>
-#include <QtCore/QFile>
-#include <QtCore/QIODevice>
-#include <QtCore/QLoggingCategory>
-#include <QtCore/QRunnable>
-#include <QtCore/QString>
-#include <QtGui/QVulkanInstance>
-#include <QtQuick/QSGRendererInterface>
-
 #include <algorithm>
 #include <filesystem>
 #include <initializer_list>
@@ -45,20 +35,16 @@ namespace viewer
 {
 namespace
 {
-// clang-format off
-[[maybe_unused]] Q_DECLARE_LOGGING_CATEGORY(viewerRendererCategory)
-Q_LOGGING_CATEGORY(viewerRendererCategory, "viewer.renderer")
-    // clang-format on
 
-    void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
+void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
     const auto & viewport = frameSettings.viewport;
-    INVARIANT(viewport.height > 0.0f, "{}x{}", viewport.width, viewport.height);
+    INVARIANT((viewport.width > 0.0f) || (viewport.height > 0.0f), "{}x{}", viewport.width, viewport.height);
     auto rotate = glm::toMat4(glm::conjugate(frameSettings.orientation));
     auto translate = glm::translate(glm::identity<glm::mat4>(), -frameSettings.position);
-    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale});
-    auto view = translate * rotate * scale;
-    auto projection = glm::perspective(glm::radians(frameSettings.fov), viewport.width / viewport.height, frameSettings.zNear, frameSettings.zFar);
+    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale, frameSettings.scale, frameSettings.scale});
+    auto view = scale * rotate * translate;
+    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, viewport.width, viewport.height, frameSettings.zNear, frameSettings.zFar);
     glm::mat4 transform2D{frameSettings.transform2D};
     auto mvp = transform2D * projection * view;
     uniformBuffer = {
@@ -225,9 +211,13 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 
     constexpr uint32_t kFirstViewport = 0;
-    std::initializer_list<vk::Viewport> viewports = {
+    std::vector<vk::Viewport> viewports = {
         frameSettings.viewport,
     };
+    for (vk::Viewport & viewport : viewports) {
+        viewport.y += viewport.height;
+        viewport.height = -viewport.height;
+    }
     commandBuffer.setViewport(kFirstViewport, viewports, library.dispatcher);
 
     constexpr uint32_t kFirstScissor = 0;
