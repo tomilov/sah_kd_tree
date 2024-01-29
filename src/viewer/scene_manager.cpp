@@ -747,7 +747,7 @@ std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::pat
         SPDLOG_DEBUG("Old scene {} reused", scenePath);
     } else {
         scene::Scene scene;
-        if ((false)) {
+        if ((true)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
             if (!sceneLoader.cachingLoad(scene, QFileInfo{scenePath}, cacheLocation)) {
                 return nullptr;

@@ -73,6 +73,7 @@ struct SCENE_EXPORT Mesh
     uint32_t vertexOffset = 0, vertexCount = 0;  // indices in Scene::vertices
     AABB aabb;
 };
+static_assert(std::is_trivially_copyable_v<Mesh>);
 
 struct SCENE_EXPORT Scene
 {

@@ -75,9 +75,9 @@ private Q_SLOTS:
     void onWindowChanged(QQuickWindow * w);
 
     void sync();
-    void cleanup();
     void beforeRendering();
     void beforeRenderPassRecording();
+    void cleanup();
 
 private:
     static constexpr qreal kDefaultFov = 90.0f;
@@ -126,9 +126,6 @@ private:
     void mouseReleaseEvent(QMouseEvent * event) override;
 
     void mouseDoubleClickEvent(QMouseEvent * event) override;
-
-    void focusInEvent(QFocusEvent * event) override;
-    void focusOutEvent(QFocusEvent * event) override;
 
     void keyPressEvent(QKeyEvent * event) override;
     void keyReleaseEvent(QKeyEvent * event) override;

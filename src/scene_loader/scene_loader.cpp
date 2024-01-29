@@ -27,6 +27,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QLocale>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QSaveFile>
 #include <QtCore/QString>
@@ -34,6 +35,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
@@ -59,6 +61,12 @@ QString toString(const Type & value)
     QString string;
     QDebug{&string}.noquote().nospace() << value;
     return string;
+}
+
+template<typename T>
+QString formattedDataSize(const T & value, int precision = 3)
+{
+    return QLocale::c().formattedDataSize(utils::autoCast(value), precision);
 }
 
 bool checkDataStreamStatus(QDataStream & dataStream, QString description)
@@ -424,14 +432,25 @@ bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) c
     const auto loadDataFromCache = [&dataStream, &cacheFile](auto * data, size_t count, QString dataName) -> bool
     {
         static_assert(std::is_standard_layout_v<std::remove_reference_t<decltype(*data)>>, "!");
-        int size = utils::autoCast(count * sizeof *data);
-        int readSize = dataStream.readRawData(utils::autoCast(data), size);
-        if (size != readSize) {
-            qCInfo(sceneLoaderLog).noquote() << u"unable to read %1 array from scene cache file %2: need %3 bytes, read %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(readSize);
-            return {};
-        }
-        if (!checkDataStreamStatus(dataStream, u"unable to read %1 array from scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
-            return {};
+        auto d = utils::safeCast<char *>(data);
+        size_t dataSize = count * sizeof *data;
+        qCDebug(sceneLoaderLog).noquote() << u"loadDataFromCache %1\t\t%2"_s.arg(dataSize).arg(dataName);
+        while (dataSize > 0) {
+            int size = std::numeric_limits<int>::max();
+            if (utils::safeCast<size_t>(size) > dataSize) {
+                size = utils::safeCast<int>(dataSize);
+            }
+            int readSize = dataStream.readRawData(d, size);
+            if (size != readSize) {
+                qCInfo(sceneLoaderLog).noquote() << u"unable to read %1 array from scene cache file %2: need %3 bytes, read %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(readSize);
+                return {};
+            }
+            if (!checkDataStreamStatus(dataStream, u"unable to read %1 array from scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
+                return {};
+            }
+            INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
+            dataSize -= size;
+            d += size;
         }
         return true;
     };
@@ -441,6 +460,7 @@ bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) c
         if (!checkDataStreamStatus(dataStream >> arrayLength, u"unable to read size of array of %1 from scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
+        qCDebug(sceneLoaderLog).noquote() << u"loadVectorFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         vector.resize(utils::autoCast(arrayLength));
         if (!loadDataFromCache(std::data(vector), std::size(vector), arrayName)) {
             return {};
@@ -453,7 +473,9 @@ bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) c
         if (!checkDataStreamStatus(dataStream >> arrayLength, u"unable to read size of array of %1 from scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
+        qCDebug(sceneLoaderLog).noquote() << u"loadArrayFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         arraySize = utils::autoCast(arrayLength);
+        array.reset();
         array = std::make_unique<T[]>(arraySize);
         if (!loadDataFromCache(array.get(), arraySize, arrayName)) {
             return {};
@@ -465,21 +487,26 @@ bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) c
     if (!checkDataStreamStatus(dataStream >> sceneNodeCount, u"unable to read number of nodes from scene cache file %1"_s.arg(cacheFile.fileName()))) {
         return {};
     }
+    qCDebug(sceneLoaderLog).noquote() << u"nodeCount %1"_s.arg(sceneNodeCount);
     scene.nodes.resize(utils::autoCast(sceneNodeCount));
     for (scene::Node & node : scene.nodes) {
-        float transform[4 * 4];
-        if (!loadDataFromCache(&transform, sizeof transform, "node.transform")) {
+        if (!loadDataFromCache(&node.transform, 1, "node.transform")) {
             return {};
         }
-        node.transform = glm::make_mat4x4(transform);
         if (!loadVectorFromCache(node.meshes, "node.meshes")) {
             return {};
         }
         if (!loadVectorFromCache(node.children, "node.children")) {
             return {};
         }
+        if (!loadDataFromCache(&node.aabb, 1, "node.aabb")) {
+            return {};
+        }
     }
     if (!loadVectorFromCache(scene.meshes, "meshes")) {
+        return {};
+    }
+    if (!loadDataFromCache(&scene.aabb, 1, "scene.aabb")) {
         return {};
     }
     if (!loadArrayFromCache(scene.indices, scene.indexCount, "indices")) {
@@ -492,7 +519,7 @@ bool SceneLoader::loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo) c
         qCWarning(sceneLoaderLog).noquote() << u"scene cache file %1 contain extra data at the end"_s.arg(cacheFile.fileName());
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 in %2 ms"_s.arg(cacheFile.fileName()).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indexCount).arg(scene.vertexCount);
     return true;
 }
@@ -518,20 +545,32 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
     const auto saveDataToCache = [&dataStream, &cacheFile](const auto * data, size_t count, QString dataName) -> bool
     {
         static_assert(std::is_standard_layout_v<std::remove_reference_t<decltype(*data)>>, "!");
-        int size = utils::autoCast(count * sizeof *data);
-        int writeSize = dataStream.writeRawData(utils::autoCast(data), size);
-        if (size != writeSize) {
-            qCInfo(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
-            return {};
-        }
-        if (!checkDataStreamStatus(dataStream, u"unable to write array %1 to scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
-            return {};
+        auto d = utils::safeCast<const char *>(data);
+        size_t dataSize = count * sizeof *data;
+        qCDebug(sceneLoaderLog).noquote() << u"saveDataToCache %1\t\t%2"_s.arg(dataSize).arg(dataName);
+        while (dataSize > 0) {
+            int size = std::numeric_limits<int>::max();
+            if (utils::safeCast<size_t>(size) > dataSize) {
+                size = utils::safeCast<int>(dataSize);
+            }
+            int writeSize = dataStream.writeRawData(d, size);
+            if (size != writeSize) {
+                qCInfo(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
+                return {};
+            }
+            if (!checkDataStreamStatus(dataStream, u"unable to write array %1 to scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
+                return {};
+            }
+            INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
+            dataSize -= size;
+            d += size;
         }
         return true;
     };
     const auto saveVectorToCache = [&dataStream, &cacheFile, &saveDataToCache](const auto & vector, QString arrayName) -> bool
     {
         qint32 arrayLength = utils::autoCast(std::size(vector));
+        qCDebug(sceneLoaderLog).noquote() << u"saveVectorToCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         if (!checkDataStreamStatus(dataStream << arrayLength, u"unable to write size of array of %1 to scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
@@ -540,9 +579,10 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
         }
         return true;
     };
-    const auto saveArrayToCache = [&dataStream, &cacheFile, &saveDataToCache](const auto & array, size_t arraySize, QString arrayName) -> bool
+    const auto saveArrayToCache = [&dataStream, &cacheFile, &saveDataToCache]<typename T>(const std::unique_ptr<T[]> & array, size_t arraySize, QString arrayName) -> bool
     {
         qint32 arrayLength = utils::autoCast(arraySize);
+        qCDebug(sceneLoaderLog).noquote() << u"saveArrayToCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         if (!checkDataStreamStatus(dataStream << arrayLength, u"unable to write size of array of %1 to scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
@@ -552,11 +592,13 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
         return true;
     };
 
-    if (!checkDataStreamStatus(dataStream << utils::safeCast<quint64>(std::size(scene.nodes)), u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
+    quint64 sceneNodeCount = utils::autoCast(std::size(scene.nodes));
+    qCDebug(sceneLoaderLog).noquote() << u"nodeCount %1"_s.arg(sceneNodeCount);
+    if (!checkDataStreamStatus(dataStream << sceneNodeCount, u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
         return {};
     }
     for (const scene::Node & node : scene.nodes) {
-        if (!saveDataToCache(glm::value_ptr(node.transform), sizeof(float) * 4 * 4, "node.transform")) {
+        if (!saveDataToCache(&node.transform, 1, "node.transform")) {
             return {};
         }
         if (!saveVectorToCache(node.meshes, "node.meshes")) {
@@ -565,8 +607,14 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
         if (!saveVectorToCache(node.children, "node.children")) {
             return {};
         }
+        if (!saveDataToCache(&node.aabb, 1, "node.aabb")) {
+            return {};
+        }
     }
     if (!saveVectorToCache(scene.meshes, "scene.meshes")) {
+        return {};
+    }
+    if (!saveDataToCache(&scene.aabb, 1, "scene.aabb")) {
         return {};
     }
     if (!saveArrayToCache(scene.indices, scene.indexCount, "scene.indices")) {
@@ -581,7 +629,7 @@ bool SceneLoader::storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo) co
         return {};
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 in %2 ms"_s.arg(cacheFile.fileName()).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indexCount).arg(scene.vertexCount);
     return true;
 }

@@ -116,7 +116,7 @@ template<typename Head, typename... Tail>
 class StructureChains
 {
 public:
-    [[nodicard]] size_t size() const
+    [[nodiscard]] size_t size() const
     {
         size_t s = std::size(heads);
         ASSERT_MSG(s == std::size(tails), "!");
@@ -140,18 +140,18 @@ public:
         relink(size() - 1);
     }
 
-    [[nodicard]] const std::vector<Head> & ref() const noexcept
+    [[nodiscard]] const std::vector<Head> & ref() const noexcept
     {
         return heads;
     }
 
-    [[nodicard]] std::vector<Head> & ref() noexcept
+    [[nodiscard]] std::vector<Head> & ref() noexcept
     {
         return heads;
     }
 
     template<typename T>
-    [[nodicard]] T & get(size_t i)
+    [[nodiscard]] T & get(size_t i)
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(i);
@@ -161,7 +161,7 @@ public:
     }
 
     template<typename T>
-    [[nodicard]] const T & get(size_t i) const
+    [[nodiscard]] const T & get(size_t i) const
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(i);
@@ -171,7 +171,7 @@ public:
     }
 
     template<typename T>
-    [[nodicard]] T & back()
+    [[nodiscard]] T & back()
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(size() - 1);
@@ -181,7 +181,7 @@ public:
     }
 
     template<typename T>
-    [[nodicard]] const T & back() const
+    [[nodiscard]] const T & back() const
     {
         if constexpr (std::is_same_v<T, Head>) {
             return heads.at(size() - 1);

@@ -126,6 +126,8 @@ Viewer::Viewer()
     connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
 }
 
+Viewer::~Viewer() = default;
+
 void Viewer::rotate(QVector3D tiltPanRoll)
 {
     setEulerAngles(eulerAngles + tiltPanRoll);
@@ -142,7 +144,77 @@ void Viewer::rotate(qreal tilt, qreal pan, qreal roll)
     setEulerAngles(eulerAngles + tiltPanRoll);
 }
 
-Viewer::~Viewer() = default;
+void Viewer::setEulerAngles(QVector3D eulerAngles)
+{
+    float & pitch = eulerAngles[0];
+    float & yaw = eulerAngles[1];
+    float & roll = eulerAngles[2];
+
+    while (pitch > 180.0f) {
+        pitch -= 360.0f;
+    }
+    while (pitch < -180.0f) {
+        pitch += 360.0f;
+    }
+    if (pitch > 90.0f) {
+        pitch = 180.0f - pitch;
+        yaw += 180.0;
+        roll += 180.0;
+    } else if (pitch < -90.0f) {
+        pitch = -180.0f - pitch;
+        yaw -= 180.0;
+        roll -= 180.0;
+    }
+
+    while (roll > 180.0f) {
+        roll -= 360.0f;
+    }
+    while (roll < -180.0f) {
+        roll += 360.0f;
+    }
+
+    while (yaw > 180.0f) {
+        yaw -= 360.0f;
+    }
+    while (yaw < -180.0f) {
+        yaw += 360.0f;
+    }
+
+    if (qFuzzyCompare(this->eulerAngles, eulerAngles)) {
+        return;
+    }
+    this->eulerAngles = eulerAngles;
+    Q_EMIT eulerAnglesChanged(eulerAngles);
+}
+
+void Viewer::setCameraPosition(QVector3D cameraPosition)
+{
+    if (qFuzzyCompare(this->cameraPosition, cameraPosition)) {
+        return;
+    }
+    this->cameraPosition = cameraPosition;
+    Q_EMIT cameraPositionChanged(cameraPosition);
+}
+
+void Viewer::setFieldOfView(qreal fieldOfView)
+{
+    fieldOfView = qBound<qreal>(5.0, fieldOfView, 175.0);
+
+    if (qFuzzyCompare(this->fieldOfView, fieldOfView)) {
+        return;
+    }
+    this->fieldOfView = fieldOfView;
+    Q_EMIT fieldOfViewChanged(fieldOfView);
+}
+
+void Viewer::setDt(qreal dt)
+{
+    if (qFuzzyCompare(this->dt, dt)) {
+        return;
+    }
+    this->dt = dt;
+    Q_EMIT dtChanged(dt);
+}
 
 void Viewer::onWindowChanged(QQuickWindow * w)
 {
@@ -250,11 +322,6 @@ void Viewer::sync()
     frameSettings->fov = utils::autoCast(qDegreesToRadians(fieldOfView));
 }
 
-void Viewer::cleanup()
-{
-    releaseResources();
-}
-
 void Viewer::beforeRendering()
 {
     if (!engine) {
@@ -312,76 +379,9 @@ void Viewer::beforeRenderPassRecording()
     w->endExternalCommands();
 }
 
-void Viewer::setEulerAngles(QVector3D eulerAngles)
+void Viewer::cleanup()
 {
-    float & pitch = eulerAngles[0];
-    float & yaw = eulerAngles[1];
-    float & roll = eulerAngles[2];
-
-    while (pitch > 180.0f) {
-        pitch -= 360.0f;
-    }
-    while (pitch < -180.0f) {
-        pitch += 360.0f;
-    }
-    if (pitch > 90.0f) {
-        pitch = 180.0f - pitch;
-        yaw += 180.0;
-        roll += 180.0;
-    } else if (pitch < -90.0f) {
-        pitch = -180.0f - pitch;
-        yaw -= 180.0;
-        roll -= 180.0;
-    }
-
-    while (roll > 180.0f) {
-        roll -= 360.0f;
-    }
-    while (roll < -180.0f) {
-        roll += 360.0f;
-    }
-
-    while (yaw > 180.0f) {
-        yaw -= 360.0f;
-    }
-    while (yaw < -180.0f) {
-        yaw += 360.0f;
-    }
-
-    if (qFuzzyCompare(this->eulerAngles, eulerAngles)) {
-        return;
-    }
-    this->eulerAngles = eulerAngles;
-    Q_EMIT eulerAnglesChanged(eulerAngles);
-}
-
-void Viewer::setCameraPosition(QVector3D cameraPosition)
-{
-    if (qFuzzyCompare(this->cameraPosition, cameraPosition)) {
-        return;
-    }
-    this->cameraPosition = cameraPosition;
-    Q_EMIT cameraPositionChanged(cameraPosition);
-}
-
-void Viewer::setFieldOfView(qreal fieldOfView)
-{
-    fieldOfView = qBound<qreal>(5.0, fieldOfView, 175.0);
-
-    if (qFuzzyCompare(this->fieldOfView, fieldOfView)) {
-        return;
-    }
-    this->fieldOfView = fieldOfView;
-    Q_EMIT fieldOfViewChanged(fieldOfView);
-}
-
-void Viewer::setDt(qreal dt)
-{
-    if (qFuzzyCompare(this->dt, dt)) {
-        return;
-    }
-    this->dt = dt;
-    Q_EMIT dtChanged(dt);
+    releaseResources();
 }
 
 void Viewer::checkEngine() const
@@ -703,16 +703,6 @@ void Viewer::mouseDoubleClickEvent(QMouseEvent * event)
     } else {
         return QQuickItem::mouseReleaseEvent(event);
     }
-}
-
-void Viewer::focusInEvent(QFocusEvent * event)
-{
-    qCDebug(viewerCategory) << event;
-}
-
-void Viewer::focusOutEvent(QFocusEvent * event)
-{
-    qCDebug(viewerCategory) << event;
 }
 
 void Viewer::keyPressEvent(QKeyEvent * event)
