@@ -173,12 +173,18 @@ ApplicationWindow {
         }
 
         standardButtons: Dialog.Close
+
+        Settings {
+            property alias sceneOpenDialogFolder: sceneOpenDialog.folder
+        }
     }
 
     Component {
-        id: sahKdTreeViewer
+        id: sahKdTreeViewerComponent
 
         SahKdTreeViewer {
+            id: sahKdTreeViewer
+
             engine: SahKdTreeEngine
 
             scale: 0.8
@@ -236,13 +242,24 @@ ApplicationWindow {
 
                 acceptedButtons: Qt.RightButton | Qt.LeftButton
 
-                onClicked: (mouse) => {
+                cursorShape: parent.cursor
+
+                onPressed: (mouse) => {
                     parent.forceActiveFocus()
                     switch (mouse.button) {
                     case Qt.LeftButton: {
+                        mouse.accepted = false
+                        break
+                    }
+                    case Qt.RightButton: {
                         mouse.accepted = true
                         break
                     }
+                    }
+                }
+
+                onClicked: (mouse) => {
+                    switch (mouse.button) {
                     case Qt.RightButton: {
                         mouse.accepted = true
 
@@ -254,6 +271,14 @@ ApplicationWindow {
                     }
                     }
                 }
+            }
+
+            Settings {
+                category: "%1".arg(sahKdTreeViewer.objectName)
+                property alias scenePath: sahKdTreeViewer.scenePath
+                property alias cameraPosition: sahKdTreeViewer.cameraPosition;
+                property alias eulerAngles: sahKdTreeViewer.eulerAngles;
+                property alias fieldOfView: sahKdTreeViewer.fieldOfView
             }
 
             Component.onCompleted: console.log("created")
@@ -386,6 +411,14 @@ ApplicationWindow {
                 }
 
                 focus: StackLayout.isCurrentItem
+
+                Settings {
+                    category: "%1".arg(mainSahKdTreeViewer.objectName)
+                    property alias scenePath: mainSahKdTreeViewer.scenePath
+                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition;
+                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles;
+                    property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
+                }
             }
 
             ColumnLayout {
@@ -406,7 +439,7 @@ ApplicationWindow {
                             rotation: -5.0
                             scale: 0.9
 
-                            sourceComponent: sahKdTreeViewer
+                            sourceComponent: sahKdTreeViewerComponent
 
                             activeFocusOnTab: true
                             onActiveFocusChanged: {
@@ -455,7 +488,7 @@ ApplicationWindow {
                             //KeyNavigation.priority: KeyNavigation.BeforeItem
                             //KeyNavigation.up: print(index, gridLayout.columns)//repeater.itemAt((index + count - gridLayout.columns) % count)
 
-                            sourceComponent: sahKdTreeViewer
+                            sourceComponent: sahKdTreeViewerComponent
 
                             activeFocusOnTab: true
                             onActiveFocusChanged: {
@@ -488,15 +521,10 @@ ApplicationWindow {
                 var dir = mainSahKdTreeViewer.eulerAngles;
                 var fov = mainSahKdTreeViewer.fieldOfView
                 qsTr("pos(%1, %2, %3) dir(%4, %5, %6) fov(%7)")
-                .arg(pos.x).arg(pos.y).arg(pos.z)
-                .arg(dir.x).arg(dir.y).arg(dir.z)
-                .arg(fov)
+                .arg(pos.x.toFixed(3)).arg(pos.y.toFixed(3)).arg(pos.z.toFixed(3))
+                .arg(dir.x.toFixed(3)).arg(dir.y.toFixed(3)).arg(dir.z.toFixed(3))
+                .arg(fov.toFixed(3))
             }
         }
-    }
-
-    Settings {
-        property alias openDilaogFolderFolder: sceneOpenDialog.folder
-        property alias mainSahKdTreeViewerScenePath: mainSahKdTreeViewer.scenePath
     }
 }

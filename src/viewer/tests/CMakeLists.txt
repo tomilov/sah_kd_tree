@@ -17,6 +17,6 @@ target_link_libraries(
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"
     WORKING_DIRECTORY
-        "${CMAKE_SOURCE_DIR}/data/scenes"
+        "${CMAKE_SOURCE_DIR}/data"
     PROPERTIES
         TIMEOUT 10)
