@@ -28,8 +28,10 @@ struct FrameSettings
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     float t = 0.0f;
     float alpha = 1.0f;
-    vk::Viewport viewport;
-    vk::Rect2D scissor;
+    vk::Viewport viewport = {};
+    vk::Rect2D scissor = {};
+    float width = 0.0f;
+    float height = 0.0f;
     glm::mat3 transform2D{1.0f};
     float fov = glm::half_pi<float>();
     const float zNear = 1E-3f;

@@ -43,13 +43,12 @@ constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
 
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
-    const auto & viewport = frameSettings.viewport;
-    INVARIANT((viewport.width > 0.0f) || (viewport.height < 0.0f), "{}x{}", viewport.width, -viewport.height);
+    INVARIANT((frameSettings.width > 0.0f) || (frameSettings.height > 0.0f), "{}x{}", frameSettings.width, frameSettings.height);
     auto rotate = glm::toMat4(glm::conjugate(frameSettings.orientation));
     auto translate = glm::translate(glm::identity<glm::mat4>(), -frameSettings.position);
-    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale, frameSettings.scale, frameSettings.scale});
+    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale});
     auto view = scale * rotate * translate;
-    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, viewport.width, -viewport.height, frameSettings.zNear, frameSettings.zFar);
+    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     glm::mat4 transform2D{frameSettings.transform2D};
     auto mvp = transform2D * projection * view;
     uniformBuffer = {

@@ -277,8 +277,8 @@ void Viewer::sync()
         {
             qreal x = std::ceil(viewportRect.x());
             qreal y = std::ceil(viewportRect.y());
-            qreal width = std::floor(viewportRect.width());
-            qreal height = std::floor(viewportRect.height());
+            qreal w = std::floor(viewportRect.width());
+            qreal h = std::floor(viewportRect.height());
 
             frameSettings->scissor = vk::Rect2D{
                 .offset = {
@@ -286,34 +286,37 @@ void Viewer::sync()
                     .y = utils::autoCast(y),
                 },
                 .extent = {
-                    .width = utils::autoCast(width),
-                    .height = utils::autoCast(height),
+                    .width = utils::autoCast(w),
+                    .height = utils::autoCast(h),
                 },
             };
 
-            y += height;
-            height = -height;
+            frameSettings->width = width();
+            frameSettings->height = height();
+
+            y += h;
+            h = -h;
 
             frameSettings->viewport = vk::Viewport{
                 .x = utils::autoCast(x),
                 .y = utils::autoCast(y),
-                .width = utils::autoCast(width),
-                .height = utils::autoCast(height),
+                .width = utils::autoCast(w),
+                .height = utils::autoCast(h),
                 .minDepth = 0.0f,
                 .maxDepth = 1.0f,
             };
         }
 
         qreal scaleFactor = scale();
-        qreal angle = rotation();
+        qreal rotationAngle = rotation();
         for (auto p = parentItem(); p; p = p->parentItem()) {
             scaleFactor *= p->scale();
-            angle += p->rotation();
+            rotationAngle += p->rotation();
         }
 
         qreal aspectRatio = viewportRect.height() / viewportRect.width();
-        glm::dmat3 transform2D = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 0.0});
-        transform2D = glm::rotate(transform2D, glm::radians(angle));
+        glm::dmat3 transform2D = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 1.0});
+        transform2D = glm::rotate(transform2D, glm::radians(-rotationAngle));
         transform2D = glm::scale(transform2D, glm::dvec2{width(), height()} / viewportRect.height());
         // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(transform2D)));
         frameSettings->transform2D = glm::mat3{transform2D};

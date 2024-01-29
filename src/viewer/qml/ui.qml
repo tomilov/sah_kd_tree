@@ -192,15 +192,15 @@ ApplicationWindow {
 
             //transformOrigin: Item.BottomRight
 
-            //SequentialAnimation on rotation {
-            //    loops: Animation.Infinite
-            //    running: true
-            //    NumberAnimation {
-            //        from: 0.0
-            //        to: 360.0
-            //        duration: 3333
-            //    }
-            //}
+            SequentialAnimation on rotation {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.0
+                    to: 360.0
+                    duration: 3333
+                }
+            }
 
             SequentialAnimation on t {
                 loops: Animation.Infinite
@@ -362,30 +362,34 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                //SequentialAnimation on rotation {
-                //    loops: Animation.Infinite
-                //    running: true
-                //    NumberAnimation {
-                //        from: 0.0
-                //        to: 360.0
-                //        duration: 3333
-                //    }
-                //}
-                //SequentialAnimation on scale {
-                //    loops: Animation.Infinite
-                //    running: true
-//
-                //    NumberAnimation {
-                //        from: 0.2
-                //        to: 1.2
-                //        duration: 2000
-                //    }
-                //    NumberAnimation {
-                //        from: 1.2
-                //        to: 0.2
-                //        duration: 2000
-                //    }
-                //}
+                rotation: 30.0
+                scale: 0.5
+
+                //*
+                SequentialAnimation on rotation {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        from: 0.0
+                        to: 360.0
+                        duration: 3333
+                    }
+                }
+                SequentialAnimation on scale {
+                    loops: Animation.Infinite
+                    running: true
+                    NumberAnimation {
+                        from: 0.2
+                        to: 1.2
+                        duration: 2000
+                    }
+                    NumberAnimation {
+                        from: 1.2
+                        to: 0.2
+                        duration: 2000
+                    }
+                }
+                //*/
                 SequentialAnimation on t {
                     loops: Animation.Infinite
                     running: true

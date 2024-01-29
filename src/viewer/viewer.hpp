@@ -105,8 +105,8 @@ private:
     QUrl currentScenePath;
     std::shared_ptr<const Scene> scene;
 
-    static constexpr size_t kFrameSettingsSize = 128;
-    static constexpr size_t kFrameSettingsAlignment = 128;
+    static constexpr size_t kFrameSettingsSize = 136;
+    static constexpr size_t kFrameSettingsAlignment = 8;
     utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
     std::unique_ptr<Renderer> renderer;
 
