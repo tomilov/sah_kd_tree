@@ -7,7 +7,9 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
-out gl_PerVertex { vec4 gl_Position; };
+out gl_PerVertex {
+    vec4 gl_Position;
+};
 
 layout(push_constant, scalar) uniform PushConstants
 {

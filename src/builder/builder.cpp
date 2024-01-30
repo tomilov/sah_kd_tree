@@ -24,10 +24,9 @@ Q_LOGGING_CATEGORY(builderLog, "builder")
 
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    scene_loader::SceneLoader sceneLoader;
     scene::Scene scene;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!sceneLoader.load(scene, sceneFileInfo)) {
+    if (!scene_loader::load(scene, sceneFileInfo)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
@@ -39,10 +38,9 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
 
 bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    scene_loader::SceneLoader sceneLoader;
     scene::Scene scene;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!sceneLoader.cachingLoad(scene, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+    if (!scene_loader::cachingLoad(scene, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }

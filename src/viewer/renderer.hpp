@@ -34,9 +34,8 @@ struct FrameSettings
     float height = 0.0f;
     glm::mat3 transform2D{1.0f};
     float fov = glm::half_pi<float>();
-    const float zNear = 1E-3f;
-    const float zFar = 1E3f;
-    const float scale = 1.0f;
+    float zNear = 1E-3f;
+    float zFar = 1E3f;
 };
 
 class Renderer : utils::NonCopyable
@@ -46,7 +45,7 @@ public:
     ~Renderer();
 
     void setScene(std::shared_ptr<const Scene> scene);
-    void advance();
+    void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
 
     [[nodiscard]] std::shared_ptr<const Scene> getScene() const;

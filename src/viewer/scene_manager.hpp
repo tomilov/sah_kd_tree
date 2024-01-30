@@ -41,6 +41,9 @@ struct UniformBuffer
     float t = 0.0f;
     float alpha = 0.0f;
     glm::mat4 mvp{1.0f};
+    float zNear = 1E-2f;
+    float zFar = 1E4;
+    glm::vec3 pos{0.0f};
 };
 #pragma pack(pop)
 static_assert(std::is_trivially_copyable_v<UniformBuffer>);
@@ -157,7 +160,6 @@ public:
 private:
     const engine::Context & context;
     const FileIo fileIo{u"shaders:"_s};
-    const scene_loader::SceneLoader sceneLoader = {};
 
     mutable std::mutex mutex;
     mutable std::weak_ptr<const engine::PipelineCache> pipelineCache;

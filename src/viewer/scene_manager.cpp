@@ -709,7 +709,11 @@ void Scene::init()
         }
         shaderStages.append(vertexShader, vertexShaderReflection);
 
+#if 0
+        const auto & [fragmentShader, fragmentShaderReflection] = addShader("wireframe.frag");
+#else
         const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
+#endif
         {
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
@@ -749,11 +753,11 @@ std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::pat
         scene::Scene scene;
         if ((true)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-            if (!sceneLoader.cachingLoad(scene, QFileInfo{scenePath}, cacheLocation)) {
+            if (!scene_loader::cachingLoad(scene, QFileInfo{scenePath}, cacheLocation)) {
                 return nullptr;
             }
         } else {
-            if (!sceneLoader.load(scene, QFileInfo{scenePath})) {
+            if (!scene_loader::load(scene, QFileInfo{scenePath})) {
                 return nullptr;
             }
         }

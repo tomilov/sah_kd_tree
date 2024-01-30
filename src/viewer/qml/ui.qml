@@ -18,10 +18,11 @@ ApplicationWindow {
     visibility: Window.AutomaticVisibility
 
     title: {
-        qsTr("%1 (dt %2ms) (screen refresh rate %3)")
+        qsTr("%1 (dt %2ms) (screen refresh rate %3) - %4")
         .arg(Qt.application.displayName)
         .arg((mainSahKdTreeViewer.dt * 1000.0).toFixed(3))
         .arg(qApp.primaryScreen.refreshRate.toFixed(3))
+        .arg(mainSahKdTreeViewer.scenePath)
     }
 
     CenteredDialog {
@@ -153,7 +154,7 @@ ApplicationWindow {
 
                     MouseArea {
                         anchors.fill: parent
-                        onDoubleClicked: {
+                        onDoubleClicked: (mouse) => {
                             if (fileIsDir) {
                                 sceneOpenDialog.folder = fileURL
                             } else {
@@ -192,15 +193,15 @@ ApplicationWindow {
 
             //transformOrigin: Item.BottomRight
 
-            SequentialAnimation on rotation {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 0.0
-                    to: 360.0
-                    duration: 3333
-                }
-            }
+            //SequentialAnimation on rotation {
+            //    loops: Animation.Infinite
+            //    running: true
+            //    NumberAnimation {
+            //        from: 0.0
+            //        to: 360.0
+            //        duration: 3333
+            //    }
+            //}
 
             SequentialAnimation on t {
                 loops: Animation.Infinite
@@ -276,8 +277,8 @@ ApplicationWindow {
             Settings {
                 category: "%1".arg(sahKdTreeViewer.objectName)
                 property alias scenePath: sahKdTreeViewer.scenePath
-                property alias cameraPosition: sahKdTreeViewer.cameraPosition;
-                property alias eulerAngles: sahKdTreeViewer.eulerAngles;
+                property alias cameraPosition: sahKdTreeViewer.cameraPosition
+                property alias eulerAngles: sahKdTreeViewer.eulerAngles
                 property alias fieldOfView: sahKdTreeViewer.fieldOfView
             }
 
@@ -362,10 +363,10 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                rotation: 30.0
-                scale: 0.5
+                //rotation: 30.0
+                //scale: 0.7
 
-                //*
+                /*
                 SequentialAnimation on rotation {
                     loops: Animation.Infinite
                     running: true
@@ -419,8 +420,8 @@ ApplicationWindow {
                 Settings {
                     category: "%1".arg(mainSahKdTreeViewer.objectName)
                     property alias scenePath: mainSahKdTreeViewer.scenePath
-                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition;
-                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles;
+                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
+                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
                     property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
                 }
             }
@@ -521,8 +522,8 @@ ApplicationWindow {
             width: implicitWidth
             Layout.fillHeight: true
             text: {
-                var pos = mainSahKdTreeViewer.cameraPosition;
-                var dir = mainSahKdTreeViewer.eulerAngles;
+                var pos = mainSahKdTreeViewer.cameraPosition
+                var dir = mainSahKdTreeViewer.eulerAngles
                 var fov = mainSahKdTreeViewer.fieldOfView
                 qsTr("pos(%1, %2, %3) dir(%4, %5, %6) fov(%7)")
                 .arg(pos.x.toFixed(3)).arg(pos.y.toFixed(3)).arg(pos.z.toFixed(3))

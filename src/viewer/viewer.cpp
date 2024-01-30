@@ -254,7 +254,8 @@ void Viewer::sync()
         }
 
         const scene::AABB & aabb = scene->getScene()->aabb;
-        if (!setProperty("linearSpeed", utils::safeCast<qreal>(glm::length(aabb.max - aabb.min) / 5.0f))) {
+        characteristicSize = glm::length(aabb.max - aabb.min);
+        if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 5.0f))) {
             qFatal("unreachable");
         }
     }
@@ -269,6 +270,12 @@ void Viewer::sync()
         alpha *= p->opacity();
     }
     frameSettings->alpha = utils::autoCast(alpha);
+
+    frameSettings->width = width();
+    frameSettings->height = height();
+
+    frameSettings->zNear = 1E-4f * characteristicSize;
+    frameSettings->zFar = characteristicSize;
 
     if (!boundingRect().isEmpty()) {
         auto mappedBoundingRect = mapRectToScene(boundingRect());
@@ -290,9 +297,6 @@ void Viewer::sync()
                     .height = utils::autoCast(h),
                 },
             };
-
-            frameSettings->width = width();
-            frameSettings->height = height();
 
             y += h;
             h = -h;
@@ -331,10 +335,11 @@ void Viewer::beforeRendering()
         return;
     }
 
+    auto graphicsStateInfo = window()->graphicsStateInfo();
+
     if (!renderer) {
         checkEngine();
-        uint32_t framesInFlight = utils::autoCast(window()->graphicsStateInfo().framesInFlight);
-        renderer = std::make_unique<Renderer>(engine->getContext(), framesInFlight);
+        renderer = std::make_unique<Renderer>(engine->getContext(), utils::autoCast(graphicsStateInfo.framesInFlight));
     }
 
     if (renderer->getScene() != scene) {
@@ -344,7 +349,7 @@ void Viewer::beforeRendering()
     if (boundingRect().isEmpty()) {
         return;
     }
-    renderer->advance();
+    renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
 }
 
 void Viewer::beforeRenderPassRecording()
@@ -563,7 +568,12 @@ void Viewer::handleInput()
             INVARIANT(false, "{}", key);
         }
     }
-    qreal speedModifier = (keyboardModifiers & Qt::ShiftModifier) ? 0.05 : 1.0;
+    qreal speedModifier = 1.0;
+    if (keyboardModifiers == Qt::KeyboardModifier::ShiftModifier) {
+        speedModifier = 0.05;
+    } else if (keyboardModifiers == Qt::KeyboardModifier::ControlModifier) {
+        speedModifier = 5.0;
+    }
     if (pressedKeys.contains(Qt::Key_Z)) {
         if (0 == pressedKeys[Qt::Key_Z]++) {
             setCameraPosition({});
@@ -604,10 +614,15 @@ void Viewer::wheelEvent(QWheelEvent * event)
 {
     constexpr qreal kUnitsPerDegree = 8.0;
     auto numDegrees = QPointF(event->angleDelta()) / kUnitsPerDegree;
-    if ((keyboardModifiers & Qt::KeyboardModifier::ShiftModifier)) {
+    if (keyboardModifiers & Qt::KeyboardModifier::ShiftModifier) {
         rotate(0.0f, numDegrees.x(), numDegrees.y());
     } else {
-        setFieldOfView(fieldOfView + numDegrees.y() / 3.0);
+        constexpr qreal kUnitsPerStep = 15.0;
+        qreal degreesPerStep = 5.0;
+        if (keyboardModifiers & Qt::KeyboardModifier::ControlModifier) {
+            degreesPerStep = 1.0;
+        }
+        setFieldOfView(fieldOfView + numDegrees.y() / (kUnitsPerStep / degreesPerStep));
     }
     event->accept();
 }

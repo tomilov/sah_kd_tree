@@ -19,7 +19,6 @@ endif()
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"

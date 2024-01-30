@@ -70,7 +70,7 @@ const SceneManager & Engine::getSceneManager()
 
 QStringList Engine::getSupportedSceneFileExtensions() const
 {
-    return scene_loader::SceneLoader::getSupportedExtensions();
+    return scene_loader::getSupportedExtensions();
 }
 
 void EngineSingletonForeign::setEngine(Engine * engine)

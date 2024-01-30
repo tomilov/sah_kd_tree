@@ -44,10 +44,7 @@ constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
     INVARIANT((frameSettings.width > 0.0f) || (frameSettings.height > 0.0f), "{}x{}", frameSettings.width, frameSettings.height);
-    auto rotate = glm::toMat4(glm::conjugate(frameSettings.orientation));
-    auto translate = glm::translate(glm::identity<glm::mat4>(), -frameSettings.position);
-    auto scale = glm::scale(glm::identity<glm::mat4>(), glm::vec3{frameSettings.scale});
-    auto view = scale * rotate * translate;
+    auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
     auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     glm::mat4 transform2D{frameSettings.transform2D};
     auto mvp = transform2D * projection * view;
@@ -55,6 +52,9 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .t = frameSettings.t,
         .alpha = frameSettings.alpha,
         .mvp = mvp,
+        .zNear = frameSettings.zNear,
+        .zFar = frameSettings.zFar,
+        .pos = frameSettings.position,
     };
 }
 
@@ -85,7 +85,7 @@ struct Renderer::Impl
     {}
 
     void setScene(std::shared_ptr<const Scene> scene);
-    void advance();
+    void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
 
     [[nodiscard]] std::shared_ptr<const Scene> getScene() const
@@ -104,9 +104,9 @@ void Renderer::setScene(std::shared_ptr<const Scene> scene)
     return impl_->setScene(std::move(scene));
 }
 
-void Renderer::advance()
+void Renderer::advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings)
 {
-    return impl_->advance();
+    return impl_->advance(currentFrameSlot, frameSettings);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
@@ -135,13 +135,20 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::advance()
+void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings)
 {
+    ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
     if (!scene) {
         return;
     }
 
     auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+
+    ASSERT(descriptors);
+    {
+        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
+        fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
+    }
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
@@ -157,11 +164,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);
 
     ASSERT(descriptors);
-
-    {
-        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
-        fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
-    }
 
     if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
         graphicsPipeline.reset();

@@ -92,8 +92,8 @@ void GraphicsPipelineLayout::init()
 
     pipelineDepthStencilStateCreateInfo = {
         .flags = {},
-        .depthTestEnable = VK_FALSE,
-        .depthWriteEnable = VK_FALSE,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
         .depthCompareOp = vk::CompareOp::eLess,
         .depthBoundsTestEnable = VK_FALSE,
         .stencilTestEnable = VK_FALSE,
