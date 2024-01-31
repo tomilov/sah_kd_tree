@@ -10,7 +10,7 @@ namespace engine
 template<typename Object>
 void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color)
 {
-    INVARIANT(object, "Expected valid object");
+    ASSERT_MSG(object, "Expected valid object");
 
     vk::DebugUtilsLabelEXT debugUtilsLabel;
     debugUtilsLabel.setPLabelName(labelName);
@@ -49,7 +49,7 @@ ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 template<typename Object>
 auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color) -> ScopedDebugUtilsLabel
 {
-    INVARIANT(object, "Expected valid object");
+    ASSERT_MSG(object, "Expected valid object");
 
     vk::DebugUtilsLabelEXT debugUtilsLabel;
     debugUtilsLabel.setPLabelName(labelName);

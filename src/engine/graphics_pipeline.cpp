@@ -29,7 +29,9 @@ void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreate
     }
 
     graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
-    graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.pipelineVertexInputStateCreateInfo;
+    if (shaderStages.vertexInputState) {
+        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.value().pipelineVertexInputStateCreateInfo;
+    }
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;
     graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;

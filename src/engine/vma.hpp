@@ -150,14 +150,13 @@ private:
     {}
 };
 
-class ENGINE_EXPORT Buffer final : utils::OnlyMoveable  // TODO(tomilov): make buffer suballocator
+class ENGINE_EXPORT Buffer final : utils::OneTime  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer();
     Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment);
 
     Buffer(Buffer &&) noexcept;
-    Buffer & operator=(Buffer &&) noexcept;
 
     ~Buffer();
 
@@ -181,20 +180,15 @@ private:
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
-static_assert(std::is_default_constructible_v<Buffer>);
-static_assert(!std::is_copy_constructible_v<Buffer>);
-static_assert(!std::is_copy_assignable_v<Buffer>);
-static_assert(std::is_nothrow_move_constructible_v<Buffer>);
-static_assert(std::is_nothrow_move_assignable_v<Buffer>);
+static_assert(utils::kIsOneTime<Buffer>);
 
-class ENGINE_EXPORT Image final : utils::OnlyMoveable
+class ENGINE_EXPORT Image final : utils::OneTime
 {
 public:
     Image();
     Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Image(Image &&) noexcept;
-    Image & operator=(Image &&) noexcept;
 
     ~Image();
 
@@ -211,10 +205,6 @@ private:
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
-static_assert(std::is_default_constructible_v<Image>);
-static_assert(!std::is_copy_constructible_v<Image>);
-static_assert(!std::is_copy_assignable_v<Image>);
-static_assert(std::is_nothrow_move_constructible_v<Image>);
-static_assert(std::is_nothrow_move_assignable_v<Image>);
+static_assert(utils::kIsOneTime<Image>);
 
 }  // namespace engine

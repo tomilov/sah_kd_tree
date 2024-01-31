@@ -177,12 +177,12 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, engine::Buffer & indexBuffer, engine::Buffer & transformBuffer) const
+void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
 
-    size_t sceneMeshCount = std::size(scene->meshes);
+    size_t sceneMeshCount = std::size(scene.meshes);
 
     std::vector<std::vector<glm::mat4>> transforms;  // [Scene::meshes index][instance index]
     transforms.resize(sceneMeshCount);
@@ -196,18 +196,18 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             transforms.at(m).push_back(transform);
         }
         for (size_t sceneNodeChild : sceneNode.children) {
-            collectNodeInfos(collectNodeInfos, scene->nodes.at(sceneNodeChild), transform);
+            collectNodeInfos(collectNodeInfos, scene.nodes.at(sceneNodeChild), transform);
         }
     };
-    collectNodeInfos(collectNodeInfos, scene->nodes.front(), glm::identity<glm::mat4>());
+    collectNodeInfos(collectNodeInfos, scene.nodes.front(), glm::identity<glm::mat4>());
 
-    auto sceneIndices = scene->indices.get();
+    auto sceneIndices = scene.indices.get();
 
     vk::DeviceSize indexBufferSize = 0;
     {
         vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
         for (size_t m = 0; m < sceneMeshCount; ++m) {
-            const scene::Mesh & sceneMesh = scene->meshes.at(m);
+            const scene::Mesh & sceneMesh = scene.meshes.at(m);
             auto & instance = instances.at(m);
 
             instance.vertexOffset = utils::autoCast(sceneMesh.vertexOffset);
@@ -257,22 +257,22 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             vk::BufferCreateInfo indexBufferCreateInfo;
             indexBufferCreateInfo.size = indexBufferSize;
             indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
-            indexBuffer = vma.createStagingBuffer(indexBufferCreateInfo, minAlignment, "Indices");
+            indexBuffer.emplace(vma.createStagingBuffer(indexBufferCreateInfo, minAlignment, "Indices"));
 
             constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-            auto memoryPropertyFlags = indexBuffer.getMemoryPropertyFlags();
+            auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
             INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
         }
 
         {
-            auto mappedIndexBuffer = indexBuffer.map<void>();
+            auto mappedIndexBuffer = indexBuffer.value().map<void>();
             auto indices = mappedIndexBuffer.get();
             for (size_t m = 0; m < sceneMeshCount; ++m) {
                 auto & instance = instances.at(m);
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
-                uint32_t sceneIndexOffset = scene->meshes.at(m).indexOffset;
+                uint32_t sceneIndexOffset = scene.meshes.at(m).indexOffset;
                 const auto convertCopy = [&instance, sceneIndices, sceneIndexOffset](auto indices)
                 {
                     auto indexIn = std::next(sceneIndices, sceneIndexOffset);
@@ -316,15 +316,15 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         if (useDescriptorBuffer) {
             transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
-        transformBuffer = vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Transformations");
+        transformBuffer.emplace(vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Transformations"));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = transformBuffer.getMemoryPropertyFlags();
+        auto memoryPropertyFlags = transformBuffer.value().getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
     }
 
     {
-        auto mappedTransformBuffer = transformBuffer.map<glm::mat4>();
+        auto mappedTransformBuffer = transformBuffer.value().map<glm::mat4>();
         auto t = mappedTransformBuffer.begin();
         for (const auto & instanceTransforms : transforms) {
             ASSERT(mappedTransformBuffer.end() != t);
@@ -334,32 +334,34 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 }
 
-void Scene::createVertexBuffer(engine::Buffer & vertexBuffer) const
+void Scene::createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
 
     vk::DeviceSize vertexSize = 0;
-    for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.vertexInputAttributeDescriptions) {
-        vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
+    if (shaderStages.vertexInputState) {
+        for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.value().vertexInputAttributeDescriptions) {
+            vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
+        }
     }
 
     if (vertexSize > 0) {
         INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
 
         vk::BufferCreateInfo vertexBufferCreateInfo;
-        vertexBufferCreateInfo.size = scene->vertexCount * vertexSize;
+        vertexBufferCreateInfo.size = scene.vertexCount * vertexSize;
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBuffer = vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices");
+        vertexBuffer.emplace(vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices"));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = vertexBuffer.getMemoryPropertyFlags();
+        auto memoryPropertyFlags = vertexBuffer.value().getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
-        auto mappedVertexBuffer = vertexBuffer.map<scene::VertexAttributes>();
-        ASSERT(scene->vertexCount == mappedVertexBuffer.getSize());
-        if (std::copy_n(scene->vertices.get(), scene->vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
-            INVARIANT(false, "");
+        auto mappedVertexBuffer = vertexBuffer.value().map<scene::VertexAttributes>();
+        ASSERT(scene.vertexCount == mappedVertexBuffer.getSize());
+        if (std::copy_n(scene.vertices.get(), scene.vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+            ASSERT(false);
         }
     }
 }
@@ -394,7 +396,7 @@ void Scene::createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine
     }
 }
 
-void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, const std::vector<engine::DescriptorSets> & descriptorSets) const
+void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, const std::vector<engine::DescriptorSets> & descriptorSets) const
 {
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
@@ -412,7 +414,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
                 ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-                descriptorBufferInfos.emplace_back() = vk::DescriptorBufferInfo{
+                descriptorBufferInfos.emplace_back() = {
                     .buffer = uniformBuffers.at(i),
                     .offset = 0,
                     .range = uniformBuffers.at(i).getSize(),
@@ -433,6 +435,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
     }
 
     {
+        ASSERT(transformBuffer);
         auto setBindings = shaderStages.setBindings.find(kTransformBuferSet);
         INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
         if (const auto * transformBufferBinding = setBindings->second.getBinding(kTransformBuferName)) {
@@ -440,10 +443,10 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
 
             ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
             auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
-            descriptorBufferInfo = vk::DescriptorBufferInfo{
-                .buffer = transformBuffer,
+            descriptorBufferInfo = {
+                .buffer = transformBuffer.value(),
                 .offset = 0,
-                .range = transformBuffer.getSize(),
+                .range = transformBuffer.value().getSize(),
             };
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
@@ -511,8 +514,10 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
     }
 }
 
-void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const engine::Buffer & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
+void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
 {
+    ASSERT(transformBuffer);
+
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
 
@@ -542,8 +547,8 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
                 } else if (bindingName == kTransformBuferName) {
                     ASSERT(binding.descriptorType == vk::DescriptorType::eStorageBuffer);
                     descriptorAddressInfo = {
-                        .address = transformBuffer.getDeviceAddress(),
-                        .range = transformBuffer.getSize(),
+                        .address = transformBuffer.value().getDeviceAddress(),
+                        .range = transformBuffer.value().getSize(),
                         .format = vk::Format::eUndefined,
                     };
                     descriptorGetInfo.data.pStorageBuffer = &descriptorAddressInfo;
@@ -573,7 +578,7 @@ const std::filesystem::path & Scene::getScenePath() const
     return scenePath;
 }
 
-std::shared_ptr<const scene::Scene> Scene::getScene() const
+const scene::Scene & Scene::getScene() const
 {
     return scene;
 }
@@ -618,7 +623,7 @@ auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::uniq
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
-    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::make_shared<scene::Scene>(std::move(scene))}, shaderStages{context, vertexBufferBinding}
+    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::move(scene)}, shaderStages{context, vertexBufferBinding}
 {
     init();
 }

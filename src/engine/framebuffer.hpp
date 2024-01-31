@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,26 +20,12 @@ namespace engine
 
 struct ENGINE_EXPORT Framebuffer final : utils::NonCopyable
 {
-    const std::string name;
+    std::string name;
 
-    const Context & context;
-    const Library & library;
-    const Device & device;
-    const RenderPass & renderPass;
+    std::vector<vk::UniqueFramebuffer> framebufferHolders;
+    std::vector<vk::Framebuffer> framebuffers;
 
-    const uint32_t width;
-    const uint32_t height;
-    const uint32_t layers;
-    const std::vector<vk::ImageView> imageViews;
-
-    vk::FramebufferCreateInfo framebufferCreateInfo = {};
-    std::vector<vk::UniqueFramebuffer> framebufferHolders = {};
-    std::vector<vk::Framebuffer> framebuffers = {};
-
-    Framebuffer(std::string_view name, const Context & context, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews);
-
-private:
-    void init();
+    Framebuffer(std::string_view name, const Context & context, vk::RenderPass renderPass, uint32_t width, uint32_t height, uint32_t layers, std::span<const vk::ImageView> imageViews);
 };
 
 }  // namespace engine

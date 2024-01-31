@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 namespace utils
 {
 
@@ -12,13 +14,16 @@ struct NonCopyable
     NonCopyable & operator=(NonCopyable &&) = delete;
 };
 
-struct OnlyMoveable
+struct OneTime
 {
-    OnlyMoveable() = default;
-    OnlyMoveable(const OnlyMoveable &) = delete;
-    OnlyMoveable & operator=(const OnlyMoveable &) = delete;
-    OnlyMoveable(OnlyMoveable &&) noexcept = default;
-    OnlyMoveable & operator=(OnlyMoveable &&) noexcept = default;
+    OneTime() = default;
+    OneTime(const OneTime &) = delete;
+    OneTime & operator=(const OneTime &) = delete;
+    OneTime(OneTime &&) noexcept = default;
+    OneTime & operator=(OneTime &&) noexcept = delete;
 };
+
+template<typename T>
+inline constexpr bool kIsOneTime = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T> && std::is_nothrow_move_constructible_v<T> && !std::is_nothrow_move_assignable_v<T>;
 
 }  // namespace utils

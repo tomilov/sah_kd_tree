@@ -6,6 +6,7 @@
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scene_manager.hpp>
+#include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
 
 #include <fmt/std.h>
@@ -13,6 +14,7 @@
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/mat2x2.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
@@ -40,32 +42,6 @@
 #include <cstdint>
 
 using namespace Qt::StringLiterals;
-
-namespace viewer
-{
-namespace
-{
-
-template<typename Type>
-QString toString(const Type & value)
-{
-    QString string;
-    QDebug{&string}.noquote().nospace() << value;
-    return string;
-}
-
-}  // namespace
-}  // namespace viewer
-
-template<>
-struct fmt::formatter<Qt::Key> : fmt::formatter<fmt::string_view>
-{
-    template<typename FormatContext>
-    auto format(Qt::Key key, FormatContext & ctx) const
-    {
-        return fmt::formatter<fmt::string_view>::format(viewer::toString(key).toStdString(), ctx);
-    }
-};
 
 namespace viewer
 {
@@ -253,8 +229,8 @@ void Viewer::sync()
             return;
         }
 
-        const scene::AABB & aabb = scene->getScene()->aabb;
-        characteristicSize = glm::length(aabb.max - aabb.min);
+        const auto & [aabbMin, aabbMax] = scene->getScene().aabb;
+        characteristicSize = glm::length(aabbMax - aabbMin);
         if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 5.0f))) {
             qFatal("unreachable");
         }
@@ -274,7 +250,7 @@ void Viewer::sync()
     frameSettings->width = width();
     frameSettings->height = height();
 
-    frameSettings->zNear = 1E-4f * characteristicSize;
+    frameSettings->zNear = std::sqrt(std::numeric_limits<float>::epsilon()) * characteristicSize;
     frameSettings->zFar = characteristicSize;
 
     if (!boundingRect().isEmpty()) {
@@ -287,7 +263,7 @@ void Viewer::sync()
             qreal w = std::floor(viewportRect.width());
             qreal h = std::floor(viewportRect.height());
 
-            frameSettings->scissor = vk::Rect2D{
+            frameSettings->scissor = {
                 .offset = {
                     .x = utils::autoCast(x),
                     .y = utils::autoCast(y),
@@ -301,12 +277,17 @@ void Viewer::sync()
             y += h;
             h = -h;
 
-            frameSettings->viewport = vk::Viewport{
+#if GLM_FORCE_DEPTH_ZERO_TO_ONE
+            float minDepth = 0.0f;
+#else
+            float minDepth = -1.0f;
+#endif
+            frameSettings->viewport = {
                 .x = utils::autoCast(x),
                 .y = utils::autoCast(y),
                 .width = utils::autoCast(w),
                 .height = utils::autoCast(h),
-                .minDepth = 0.0f,
+                .minDepth = minDepth,
                 .maxDepth = 1.0f,
             };
         }
@@ -370,7 +351,7 @@ void Viewer::beforeRenderPassRecording()
 
     w->beginExternalCommands();
     {
-        INVARIANT(engine, "");
+        ASSERT(engine);
         auto ri = w->rendererInterface();
         vk::CommandBuffer * commandBuffer = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
         Q_CHECK_PTR(commandBuffer);
@@ -381,8 +362,8 @@ void Viewer::beforeRenderPassRecording()
         device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
-        auto [currentFrameSlot, framesInFlight] = w->graphicsStateInfo();
-        renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot), *frameSettings);
+        auto graphicsStateInfo = w->graphicsStateInfo();
+        renderer->render(*commandBuffer, *renderPass, utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
     }
     w->endExternalCommands();
 }
@@ -530,7 +511,7 @@ void Viewer::handleInput()
                 direction[1] += 1.0f;
                 break;
             default:
-                INVARIANT(false, "{}", key);
+                ASSERT_MSG(false, "{}", key);
             }
             break;
         }
@@ -560,12 +541,12 @@ void Viewer::handleInput()
                 pan += 1.0f;
                 break;
             default:
-                INVARIANT(false, "{}", key);
+                ASSERT_MSG(false, "{}", key);
             }
             break;
         }
         default:
-            INVARIANT(false, "{}", key);
+            ASSERT_MSG(false, "{}", key);
         }
     }
     qreal speedModifier = 1.0;

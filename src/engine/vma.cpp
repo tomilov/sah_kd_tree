@@ -71,11 +71,11 @@ MemoryAllocator::Impl::~Impl()
     vmaDestroyAllocator(allocator);
 }
 
-struct Resource final : utils::OnlyMoveable
+struct Resource final : utils::OneTime
 {
     using ResourceDeleter = vk::ObjectDestroy<vk::Device, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>;
 
-    struct BufferResource final : utils::OnlyMoveable
+    struct BufferResource final
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::BufferCreateInfo bufferCreateInfo;
@@ -140,7 +140,7 @@ struct Resource final : utils::OnlyMoveable
     static_assert(std::is_nothrow_move_constructible_v<BufferResource>);
     static_assert(std::is_nothrow_move_assignable_v<BufferResource>);
 
-    struct ImageResource final : utils::OnlyMoveable
+    struct ImageResource final
     {
         VmaAllocator allocator = VK_NULL_HANDLE;
         vk::ImageCreateInfo imageCreateInfo;
@@ -230,7 +230,6 @@ struct Resource final : utils::OnlyMoveable
     Resource(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Resource(Resource &&) noexcept = default;
-    Resource & operator=(Resource &&) noexcept = default;
 
     ~Resource();
 
@@ -277,7 +276,7 @@ static_assert(std::is_default_constructible_v<Resource>);
 static_assert(!std::is_copy_constructible_v<Resource>);
 static_assert(!std::is_copy_assignable_v<Resource>);
 static_assert(std::is_nothrow_move_constructible_v<Resource>);
-static_assert(std::is_nothrow_move_assignable_v<Resource>);
+static_assert(!std::is_nothrow_move_assignable_v<Resource>);
 
 void MemoryAllocator::Impl::defragment(std::function<vk::UniqueCommandBuffer()> allocateCommandBuffer, std::function<void(vk::UniqueCommandBuffer)> submit, uint32_t queueFamilyIndex)
 {
@@ -795,8 +794,6 @@ Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateIn
 
 Buffer::Buffer(Buffer &&) noexcept = default;
 
-auto Buffer::operator=(Buffer &&) noexcept -> Buffer & = default;
-
 Buffer::~Buffer() = default;
 
 Buffer::operator vk::Buffer() const &
@@ -829,8 +826,6 @@ Image::Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo 
 {}
 
 Image::Image(Image &&) noexcept = default;
-
-auto Image::operator=(Image &&) noexcept -> Image & = default;
 
 Image::~Image() = default;
 

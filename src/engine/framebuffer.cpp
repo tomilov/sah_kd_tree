@@ -13,16 +13,13 @@
 namespace engine
 {
 
-Framebuffer::Framebuffer(std::string_view name, const Context & context, RenderPass & renderPass, uint32_t width, uint32_t height, uint32_t layers, const std::vector<vk::ImageView> & imageViews)
-    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, renderPass{renderPass}, width{width}, height{height}, layers{layers}, imageViews{imageViews}
+Framebuffer::Framebuffer(std::string_view name, const Context & context, vk::RenderPass renderPass, uint32_t width, uint32_t height, uint32_t layers, std::span<const vk::ImageView> imageViews) : name{name}
 {
-    init();
-}
+    const auto & library = context.getLibrary();
+    const auto & device = context.getDevice();
 
-void Framebuffer::init()
-{
-    framebufferCreateInfo = vk::FramebufferCreateInfo{
-        .renderPass = renderPass.renderPass,
+    vk::FramebufferCreateInfo framebufferCreateInfo = {
+        .renderPass = renderPass,
         .width = width,
         .height = height,
         .layers = layers,

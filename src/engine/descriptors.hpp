@@ -19,7 +19,7 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT DescriptorPool final : utils::OnlyMoveable
+struct ENGINE_EXPORT DescriptorPool final : utils::OneTime
 {
     std::string name;
 
@@ -34,9 +34,9 @@ struct ENGINE_EXPORT DescriptorPool final : utils::OnlyMoveable
 static_assert(!std::is_copy_constructible_v<DescriptorPool>);
 static_assert(std::is_nothrow_move_constructible_v<DescriptorPool>);
 static_assert(!std::is_copy_assignable_v<DescriptorPool>);
-static_assert(std::is_nothrow_move_assignable_v<DescriptorPool>);
+static_assert(!std::is_nothrow_move_assignable_v<DescriptorPool>);
 
-struct ENGINE_EXPORT DescriptorSets final : utils::OnlyMoveable
+struct ENGINE_EXPORT DescriptorSets final : utils::OneTime
 {
     std::string name;
 
@@ -49,6 +49,6 @@ struct ENGINE_EXPORT DescriptorSets final : utils::OnlyMoveable
 static_assert(!std::is_copy_constructible_v<DescriptorSets>);
 static_assert(std::is_nothrow_move_constructible_v<DescriptorSets>);
 static_assert(!std::is_copy_assignable_v<DescriptorSets>);
-static_assert(std::is_nothrow_move_assignable_v<DescriptorSets>);
+static_assert(!std::is_nothrow_move_assignable_v<DescriptorSets>);
 
 }  // namespace engine

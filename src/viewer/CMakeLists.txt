@@ -35,7 +35,9 @@ target_sources(
         "engine_wrapper.hpp"
         "engine_wrapper.cpp"
         "renderer.hpp"
-        "renderer.cpp")
+        "renderer.cpp"
+        "utils.hpp"
+        "utils.cpp")
 target_link_libraries(
     "${PROJECT_NAME}_item"
     PRIVATE

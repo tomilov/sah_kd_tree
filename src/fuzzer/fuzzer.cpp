@@ -66,12 +66,12 @@ void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
         const int pow = uniformInt(utils::defaultRandom(), UniformIntDistributionParam{1, kFloatDigits});
         auto fuzz = genFloat();
         fuzz += fuzz;
-        fuzz -= F(1);  // lost 1 bit of mantissa's randomness
+        fuzz -= static_cast<F>(1);  // lost 1 bit of mantissa's randomness
         f += std::scalbn(fuzz, -pow);
-        if (f < F(min)) {
-            f += F(max - min);
-        } else if (F(max) < f) {
-            f += F(min - max);
+        if (f < static_cast<F>(min)) {
+            f += static_cast<F>(max - min);
+        } else if (static_cast<F>(max) < f) {
+            f += static_cast<F>(min - max);
         }
     }
 }
@@ -237,13 +237,13 @@ struct TestInput
         data += sizeof params;
         size -= sizeof params;
 
-        if (std::isnan(params.emptinessFactor) || (params.emptinessFactor < F(0)) || (params.emptinessFactor > F(1))) {
+        if (std::isnan(params.emptinessFactor) || (params.emptinessFactor < static_cast<F>(0)) || (params.emptinessFactor > static_cast<F>(1))) {
             return false;
         }
-        if (std::isnan(params.traversalCost) || (params.traversalCost < F(0))) {
+        if (std::isnan(params.traversalCost) || (params.traversalCost < static_cast<F>(0))) {
             return false;
         }
-        if (std::isnan(params.intersectionCost) || (params.intersectionCost < F(0))) {
+        if (std::isnan(params.intersectionCost) || (params.intersectionCost < static_cast<F>(0))) {
             return false;
         }
         assert(params.maxDepth == std::numeric_limits<U>::max());
@@ -331,7 +331,7 @@ struct TestInput
         const auto getTriangle = [this]
         {
             assert(!std::empty(triangles));
-            return std::next(std::begin(triangles), uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, int(std::size(triangles) - 1)}));
+            return std::next(std::begin(triangles), uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, utils::safeCast<int>(std::size(triangles) - 1)}));
         };
         const auto mutateTriangle = [&](auto t)
         {
@@ -381,11 +381,11 @@ struct TestInput
             selector >>= 1;
 
             Vertex * vertices[] = {&t->a, &t->b, &t->c};
-            std::rotate(std::begin(vertices), std::next(std::begin(vertices), ptrdiff_t(selector % 3)), std::end(vertices));
+            std::rotate(std::begin(vertices), std::next(std::begin(vertices), utils::safeCast<ptrdiff_t>(selector % 3)), std::end(vertices));
             selector /= 3;
 
             F Vertex::*components[] = {&Vertex::x, &Vertex::y, &Vertex::z};
-            std::rotate(std::begin(components), std::next(std::begin(components), ptrdiff_t(selector % 3)), std::end(components));
+            std::rotate(std::begin(components), std::next(std::begin(components), utils::safeCast<ptrdiff_t>(selector % 3)), std::end(components));
             // selector /= 3;
 
             const auto [a, b, c] = vertices;
@@ -463,7 +463,8 @@ struct TestInput
         {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
-            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(utils::defaultRandom(), UniformIntDistributionParam{0, int(std::size(triangles) / kBoxTriangleCount - 1)}));
+            UniformIntDistributionParam distributionParam{0, utils::safeCast<int>(std::size(triangles) / kBoxTriangleCount - 1)};
+            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(utils::defaultRandom(), distributionParam));
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
         {

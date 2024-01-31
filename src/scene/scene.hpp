@@ -17,7 +17,7 @@ namespace scene
 {
 
 using Position = glm::vec3;
-static_assert(std::is_trivially_copyable_v<Position>);
+static_assert(std::is_standard_layout_v<Position>);
 
 #pragma pack(push, 1)
 
@@ -27,7 +27,7 @@ struct Triangle
 };
 
 #pragma pack(pop)
-static_assert(std::is_trivially_copyable_v<Triangle>);
+static_assert(std::is_standard_layout_v<Triangle>);
 
 struct SCENE_EXPORT Triangles
 {
@@ -45,7 +45,7 @@ struct VertexAttributes
 };
 
 #pragma pack(pop)
-static_assert(std::is_trivially_copyable_v<VertexAttributes>);
+static_assert(std::is_standard_layout_v<VertexAttributes>);
 
 #pragma pack(push, 1)
 
@@ -56,7 +56,7 @@ struct AABB
 };
 
 #pragma pack(pop)
-static_assert(std::is_trivially_copyable_v<AABB>);
+static_assert(std::is_standard_layout_v<AABB>);
 
 struct SCENE_EXPORT Node
 {
@@ -73,7 +73,7 @@ struct SCENE_EXPORT Mesh
     uint32_t vertexOffset = 0, vertexCount = 0;  // indices in Scene::vertices
     AABB aabb;
 };
-static_assert(std::is_trivially_copyable_v<Mesh>);
+static_assert(std::is_standard_layout_v<Mesh>);
 
 struct SCENE_EXPORT Scene
 {

@@ -529,7 +529,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
 
     if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {
-        vertexInputState = shaderModuleReflection.getVertexInputState(vertexBufferBinding);
+        vertexInputState.emplace(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
     }
 
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {

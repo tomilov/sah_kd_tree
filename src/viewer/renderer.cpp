@@ -43,9 +43,8 @@ constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
 
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
-    INVARIANT((frameSettings.width > 0.0f) || (frameSettings.height > 0.0f), "{}x{}", frameSettings.width, frameSettings.height);
     auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
-    auto projection = glm::perspectiveFovLH_ZO(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
+    auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     glm::mat4 transform2D{frameSettings.transform2D};
     auto mvp = transform2D * projection * view;
     uniformBuffer = {
@@ -160,8 +159,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-    engine::LabelColor labelColor = {0.0f, 1.0f, 0.0f, 1.0f};
-    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", labelColor);
+    constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
+    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", kGreenColor);
 
     ASSERT(descriptors);
 
@@ -186,7 +185,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
             std::vector<vk::DeviceSize> offsets;
             offsets.reserve(std::size(descriptorSetBuffers));
-            INVARIANT(framesInFlight > 0, "");
+            ASSERT(framesInFlight > 0);
             for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
                 offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
             }
@@ -218,13 +217,14 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.setScissor(kFirstScissor, scissors, library.dispatcher);
 
     constexpr uint32_t kFirstBinding = 0;
-    std::initializer_list<vk::Buffer> vertexBuffers = {
-        descriptors->vertexBuffer,
-    };
+    std::vector<vk::Buffer> vertexBuffers;
+    if (descriptors->vertexBuffer) {
+        vertexBuffers.push_back(descriptors->vertexBuffer.value());
+    }
     if (sah_kd_tree::kIsDebugBuild) {
         for (const auto & vertexBuffer : vertexBuffers) {
             if (!vertexBuffer) {
-                ASSERT(device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
+                INVARIANT(device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
             }
         }
     }
@@ -232,11 +232,14 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
     // TODO: Scene::useDrawIndexedIndirect
-    vk::Buffer indexBuffer = descriptors->indexBuffer;
+    vk::Buffer indexBuffer;
+    if (descriptors->indexBuffer) {
+        indexBuffer = descriptors->indexBuffer.value();
+    }
     constexpr vk::DeviceSize kBufferDeviceOffset = 0;
     auto indexType = std::cbegin(descriptors->indexTypes);
     for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
-        INVARIANT(indexType != std::cend(descriptors->indexTypes), "");
+        ASSERT(indexType != std::cend(descriptors->indexTypes));
         commandBuffer.bindIndexBuffer(indexBuffer, kBufferDeviceOffset, *indexType++, library.dispatcher);
         commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
         // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
