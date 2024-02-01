@@ -5,10 +5,28 @@
 
 #include "uniform_buffer.glsl"
 
+layout(location = 0) in float y;
+
 layout(location = 0) out vec4 fragColor;
+
+float wireFrame(in float thickness)
+{
+    vec3 baryCoord = gl_BaryCoordEXT;
+
+    vec3 dBaryCoordX = dFdxFine(baryCoord);
+    vec3 dBaryCoordY = dFdyFine(baryCoord);
+    vec3 dBaryCoord  = sqrt(dBaryCoordX * dBaryCoordX + dBaryCoordY * dBaryCoordY);
+
+    vec3 dThickness = dBaryCoord * thickness;
+
+    vec3 remap = step(dThickness, baryCoord);
+    float closestEdge = min(min(remap.x, remap.y), remap.z);
+
+    return closestEdge;
+}
 
 void main()
 {
-    fragColor.rgb = gl_BaryCoordEXT.xyz;
+    fragColor.rgb = 0.0f < y ? gl_BaryCoordEXT.xyz : wireFrame(1.0f).xxx;
     fragColor.a = uniformBuffer.alpha;
 }

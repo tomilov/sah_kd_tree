@@ -1,22 +1,18 @@
 #version 460 core
 
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_scalar_block_layout : enable
 
 #extension GL_EXT_debug_printf : enable
 
-//layout(location = 0) in vec2 vertices;
+#include "uniform_buffer.glsl"
+
 layout(location = 0) out vec2 uv;
 
 out gl_PerVertex { vec4 gl_Position; };
 
-layout(push_constant, scalar) uniform PushConstants
-{
-    mat3 transform2D;
-} pushConstants;
-
 void main()
 {
-    //gl_Position = vec4(pushConstants.transform2D * vec3(vertices, 0.0f), 1.0f);
     switch (gl_VertexIndex % 4) {
     case 0: {
         uv = vec2(-1.0f, -1.0f);
@@ -35,7 +31,7 @@ void main()
         break;
     }
     }
-    gl_Position = vec4(pushConstants.transform2D * vec3(uv, 0.0f), 1.0f);
+    gl_Position = vec4(uniformBuffer.transform2D * uv, 0.0f, 1.0f);
     //debugPrintfEXT("%i\n", gl_VertexIndex);
 }
 

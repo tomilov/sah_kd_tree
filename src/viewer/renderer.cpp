@@ -43,24 +43,24 @@ constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
 
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
 {
-    auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
-    auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
-    glm::mat4 transform2D{frameSettings.transform2D};
-    auto mvp = transform2D * projection * view;
     uniformBuffer = {
-        .t = frameSettings.t,
+        .transform2D = frameSettings.transform2D,
         .alpha = frameSettings.alpha,
-        .mvp = mvp,
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
         .pos = frameSettings.position,
+        .t = frameSettings.t,
     };
 }
 
 [[nodiscard]] PushConstants getPushConstants(const FrameSettings & frameSettings)
 {
+    auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
+    auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
+    glm::mat4 transform2D{frameSettings.transform2D};  // 2D to 4D unit matrix extension
+    auto mvp = transform2D * projection * view;
     return {
-        .transform2D = frameSettings.transform2D,
+        .mvp = mvp,
         .x = 0.0f,
     };
 }

@@ -32,7 +32,7 @@ struct FrameSettings
     vk::Rect2D scissor = {};
     float width = 0.0f;
     float height = 0.0f;
-    glm::mat3 transform2D{1.0f};
+    glm::mat2 transform2D{1.0f};
     float fov = glm::half_pi<float>();
     float zNear = 1E-3f;
     float zFar = 1E3f;

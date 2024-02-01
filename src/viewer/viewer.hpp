@@ -106,7 +106,7 @@ private:
     std::shared_ptr<const Scene> scene;
     float characteristicSize = 0.0f;
 
-    static constexpr size_t kFrameSettingsSize = 132;
+    static constexpr size_t kFrameSettingsSize = 112;
     static constexpr size_t kFrameSettingsAlignment = 8;
     utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
     std::unique_ptr<Renderer> renderer;

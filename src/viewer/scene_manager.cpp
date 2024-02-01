@@ -653,13 +653,25 @@ void Scene::init()
     if ((false)) {
         const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
         {
-            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 0, "");
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+            }
 
-            INVARIANT(vertexShaderReflection.pushConstantRange, "");
-            const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-            INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, transform2D), "");
-            INVARIANT(pushConstantRange.size == sizeof(PushConstants::transform2D), "");
+            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
+            if ((false)) {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+            }
         }
         shaderStages.append(vertexShader, vertexShaderReflection);
 
@@ -669,11 +681,13 @@ void Scene::init()
             INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
             auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
             INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-            INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+            }
 
             INVARIANT(fragmentShaderReflection.pushConstantRange, "");
             const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
@@ -688,7 +702,7 @@ void Scene::init()
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kTransformBuferSet), "");
             auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kTransformBuferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 2, "{}", std::size(descriptorSetLayoutBindings));
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
             {
                 auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
                 INVARIANT(descriptorSetLayoutBindingReflection.binding == 1, "");
@@ -696,7 +710,7 @@ void Scene::init()
                 INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
             }
-            {
+            if ((false)) {
                 auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
                 INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
@@ -704,21 +718,17 @@ void Scene::init()
                 INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
             }
 
-            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
-            if ((false)) {
+            INVARIANT(vertexShaderReflection.pushConstantRange, "");
+            {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, transform2D), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::transform2D), "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
             }
         }
         shaderStages.append(vertexShader, vertexShaderReflection);
 
-#if 0
-        const auto & [fragmentShader, fragmentShaderReflection] = addShader("wireframe.frag");
-#else
         const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
-#endif
         {
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");

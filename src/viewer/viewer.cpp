@@ -278,16 +278,16 @@ void Viewer::sync()
             h = -h;
 
 #if GLM_FORCE_DEPTH_ZERO_TO_ONE
-            float minDepth = 0.0f;
+            constexpr float kMinDepth = 0.0f;
 #else
-            float minDepth = -1.0f;
+            constexpr float kMinDepth = -1.0f;
 #endif
             frameSettings->viewport = {
                 .x = utils::autoCast(x),
                 .y = utils::autoCast(y),
                 .width = utils::autoCast(w),
                 .height = utils::autoCast(h),
-                .minDepth = minDepth,
+                .minDepth = kMinDepth,
                 .maxDepth = 1.0f,
             };
         }
@@ -300,11 +300,11 @@ void Viewer::sync()
         }
 
         qreal aspectRatio = viewportRect.height() / viewportRect.width();
-        glm::dmat3 transform2D = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 1.0});
-        transform2D = glm::rotate(transform2D, glm::radians(-rotationAngle));
-        transform2D = glm::scale(transform2D, glm::dvec2{width(), height()} / viewportRect.height());
-        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(transform2D)));
-        frameSettings->transform2D = glm::mat3{transform2D};
+        glm::dmat3 equilized = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 1.0});
+        glm::dmat3 rotatedEquilized = glm::rotate(equilized, glm::radians(-rotationAngle));
+        glm::dmat3 scaledRotatedEquilized = glm::scale(rotatedEquilized, glm::dvec2{width(), height()} / viewportRect.height());
+        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(scaledRotatedEquilized)));
+        frameSettings->transform2D = glm::mat2{glm::mat3{scaledRotatedEquilized}};
     }
 
     frameSettings->fov = utils::autoCast(qDegreesToRadians(fieldOfView));

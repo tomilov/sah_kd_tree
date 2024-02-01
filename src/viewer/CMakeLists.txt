@@ -58,7 +58,6 @@ target_shaders(
     "${PROJECT_NAME}_item"
     SHADERS
         "shaders/uniform_buffer.glsl"
-        "shaders/wireframe.frag.glsl"
         "shaders/barycentric_color.frag.glsl"
         "shaders/fullscreen_rect.vert.glsl"
         "shaders/identity.vert.glsl"

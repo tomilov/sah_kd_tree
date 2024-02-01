@@ -38,12 +38,12 @@ namespace viewer
 #pragma pack(push, 1)
 struct UniformBuffer
 {
-    float t = 0.0f;
+    glm::mat2 transform2D{1.0f};
     float alpha = 0.0f;
-    glm::mat4 mvp{1.0f};
     float zNear = 1E-2f;
     float zFar = 1E4;
     glm::vec3 pos{0.0f};
+    float t = 0.0f;
 };
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<UniformBuffer>);
@@ -51,7 +51,7 @@ static_assert(std::is_standard_layout_v<UniformBuffer>);
 #pragma pack(push, 1)
 struct PushConstants
 {
-    glm::mat3 transform2D{1.0f};
+    glm::mat4 mvp{1.0f};
     float x = 1E-5f;
 };
 #pragma pack(pop)
