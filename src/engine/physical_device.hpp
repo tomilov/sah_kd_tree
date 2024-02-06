@@ -71,7 +71,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     {
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {
             //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
-            &vk::PhysicalDeviceFeatures::shaderClipDistance,
+            &vk::PhysicalDeviceFeatures::multiDrawIndirect,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> physicalDeviceVulkan11Features = {};
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> physicalDeviceVulkan12Features = {

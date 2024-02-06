@@ -50,6 +50,7 @@ namespace
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
+// https://bugreports.qt.io/browse/QTBUG-121137
 class CleanupJob : public QRunnable
 {
 public:

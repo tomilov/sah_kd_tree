@@ -47,6 +47,7 @@ public:
     [[nodiscard]] Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
     [[nodiscard]] Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
     [[nodiscard]] Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
 
     [[nodiscard]] Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
     [[nodiscard]] Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
@@ -72,6 +73,7 @@ struct ENGINE_EXPORT AllocationCreateInfo
         kDescriptors,
         kStaging,
         kReadback,
+        kIndirect,
     };
 
     enum class DefragmentationMoveOperation

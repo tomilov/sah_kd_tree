@@ -720,6 +720,11 @@ VmaAllocationCreateInfo Resource::makeAllocationCreateInfo(const AllocationCreat
         allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;  // TODO: consider VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
         break;
     }
+    case AllocationCreateInfo::AllocationType::kIndirect: {
+        allocationCreateInfoNative.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocationCreateInfoNative.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        break;
+    }
     }
     return allocationCreateInfoNative;
 }
@@ -913,6 +918,14 @@ auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCr
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
+    allocationCreateInfo.name = name;
+    return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
+}
+
+auto MemoryAllocator::createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+{
+    AllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kIndirect;
     allocationCreateInfo.name = name;
     return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }

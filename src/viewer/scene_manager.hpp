@@ -68,6 +68,7 @@ public:
 
         std::vector<vk::IndexType> indexTypes;
         std::vector<vk::DrawIndexedIndirectCommand> instances;
+        std::optional<engine::Buffer> instanceBuffer;
         std::optional<engine::Buffer> transformBuffer;
         std::optional<engine::Buffer> indexBuffer;
         std::optional<engine::Buffer> vertexBuffer;
@@ -122,7 +123,7 @@ private:
     scene::Scene scene;
 
     // TODO: set in constructor
-    bool useDrawIndexedIndirect = false;
+    bool useDrawIndexedIndirect = true;
     bool useDescriptorBuffer = true;
     bool useIndexTypeUint8 = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
@@ -136,7 +137,8 @@ private:
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const;
+    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & instanceBuffer, std::optional<engine::Buffer> & indexBuffer,
+                         std::optional<engine::Buffer> & transformBuffer) const;
     void createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) const;
     void createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & uniformBuffers) const;
 

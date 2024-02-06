@@ -24,6 +24,7 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
+#include <QtCore/QDirIterator>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -643,6 +644,17 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
 
 bool cachingLoad(scene::Scene & scene, QFileInfo sceneFileInfo, QDir cacheDir)
 {
+    if ((true)) {
+        QStringList nameFilters;
+        nameFilters << "*.triangle";
+        QDirIterator cachedScenes{cacheDir.path(), nameFilters, QDir::Filter::Files};
+        qint64 size = 0;
+        while (cachedScenes.hasNext()) {
+            auto fileInfo = cachedScenes.nextFileInfo();
+            size += fileInfo.size();
+        }
+        qCDebug(sceneLoaderLog).noquote() << u"Cache size %1"_s.arg(formattedDataSize(size));
+    }
     if (!sceneFileInfo.exists()) {
         qCCritical(sceneLoaderLog).noquote() << u"file %1 does not exist"_s.arg(sceneFileInfo.fileName());
         return {};

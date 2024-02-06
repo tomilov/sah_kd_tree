@@ -177,7 +177,8 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const
+void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & instanceBuffer, std::optional<engine::Buffer> & indexBuffer,
+                            std::optional<engine::Buffer> & transformBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -190,7 +191,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
     const auto collectNodeInfos = [this, &instances, &transforms](const auto & collectNodeInfos, const scene::Node & sceneNode, glm::mat4 transform) -> void
     {
-        transform *= sceneNode.transform;  // should transform be multiplied from the left by sceneNode.transform?
+        transform *= sceneNode.transform;
         for (size_t m : sceneNode.meshes) {
             ++instances.at(m).instanceCount;
             transforms.at(m).push_back(transform);
@@ -268,7 +269,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             auto mappedIndexBuffer = indexBuffer.value().map<void>();
             auto indices = mappedIndexBuffer.get();
             for (size_t m = 0; m < sceneMeshCount; ++m) {
-                auto & instance = instances.at(m);
+                const auto & instance = instances.at(m);
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
@@ -307,6 +308,18 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     for (auto & instance : instances) {
         instance.firstInstance = totalInstanceCount;
         totalInstanceCount += instance.instanceCount;
+    }
+
+    if (useDrawIndexedIndirect) {
+        vk::BufferCreateInfo instanceBufferCreateInfo;
+        constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
+        instanceBufferCreateInfo.size = std::size(instances) * kSize;
+        instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
+        instanceBuffer.emplace(vma.createIndirectBuffer(instanceBufferCreateInfo, minAlignment, "Instances"));
+
+        auto mappedInstanceBuffer = instanceBuffer.value().map<vk::DrawIndexedIndirectCommand>();
+        auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
+        INVARIANT(end == mappedInstanceBuffer.end(), "");
     }
 
     {
@@ -593,7 +606,7 @@ auto Scene::makeDescriptors(uint32_t framesInFlight) const -> std::unique_ptr<co
     auto descriptors = std::make_unique<Descriptors>();
 
     createUniformBuffers(framesInFlight, descriptors->uniformBuffers);
-    createInstances(descriptors->indexTypes, descriptors->instances, descriptors->indexBuffer, descriptors->transformBuffer);
+    createInstances(descriptors->indexTypes, descriptors->instances, descriptors->instanceBuffer, descriptors->indexBuffer, descriptors->transformBuffer);
     createVertexBuffer(descriptors->vertexBuffer);
 
     for (const auto & [set, bindings] : shaderStages.setBindings) {
