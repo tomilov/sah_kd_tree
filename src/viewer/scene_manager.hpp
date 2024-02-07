@@ -68,6 +68,8 @@ public:
 
         std::vector<vk::IndexType> indexTypes;
         std::vector<vk::DrawIndexedIndirectCommand> instances;
+        uint32_t drawCount = 0;
+        std::optional<engine::Buffer> drawCountBuffer;
         std::optional<engine::Buffer> instanceBuffer;
         std::optional<engine::Buffer> transformBuffer;
         std::optional<engine::Buffer> indexBuffer;
@@ -97,7 +99,7 @@ public:
 
     [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
 
-    [[nodiscard]] std::unique_ptr<const Descriptors> makeDescriptors(uint32_t framesInFlight) const;
+    [[nodiscard]] Descriptors makeDescriptors(uint32_t framesInFlight) const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
     [[nodiscard]] bool isDescriptorBufferUsed() const
@@ -122,10 +124,11 @@ private:
 
     scene::Scene scene;
 
-    // TODO: set in constructor
-    bool useDrawIndexedIndirect = true;
-    bool useDescriptorBuffer = true;
-    bool useIndexTypeUint8 = true;
+    // TODO: put in Settings and set in constructor
+    const bool useIndexTypeUint8 = true;
+    const bool useDescriptorBuffer = true;
+    const bool useDrawIndexedIndirect = true;
+    const bool useDrawIndexedIndirectCount = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
@@ -137,8 +140,8 @@ private:
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & instanceBuffer, std::optional<engine::Buffer> & indexBuffer,
-                         std::optional<engine::Buffer> & transformBuffer) const;
+    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer> & drawCountBuffer, std::optional<engine::Buffer> & instanceBuffer,
+                         std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const;
     void createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) const;
     void createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & uniformBuffers) const;
 

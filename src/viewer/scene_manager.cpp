@@ -177,8 +177,8 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, std::optional<engine::Buffer> & instanceBuffer, std::optional<engine::Buffer> & indexBuffer,
-                            std::optional<engine::Buffer> & transformBuffer) const
+void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer> & drawCountBuffer, std::optional<engine::Buffer> & instanceBuffer,
+                            std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -311,15 +311,29 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 
     if (useDrawIndexedIndirect) {
-        vk::BufferCreateInfo instanceBufferCreateInfo;
-        constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
-        instanceBufferCreateInfo.size = std::size(instances) * kSize;
-        instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-        instanceBuffer.emplace(vma.createIndirectBuffer(instanceBufferCreateInfo, minAlignment, "Instances"));
+        drawCount = std::size(instances);
 
-        auto mappedInstanceBuffer = instanceBuffer.value().map<vk::DrawIndexedIndirectCommand>();
-        auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
-        INVARIANT(end == mappedInstanceBuffer.end(), "");
+        if (useDrawIndexedIndirectCount) {
+            vk::BufferCreateInfo drawCountBufferCreateInfo;
+            drawCountBufferCreateInfo.size = sizeof(uint32_t);
+            drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
+            drawCountBuffer.emplace(vma.createIndirectBuffer(drawCountBufferCreateInfo, minAlignment, "DrawCount"));
+
+            auto mappedDrawCountBuffer = drawCountBuffer.value().map<uint32_t>();
+            *mappedDrawCountBuffer.data() = drawCount;
+        }
+
+        {
+            vk::BufferCreateInfo instanceBufferCreateInfo;
+            constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
+            instanceBufferCreateInfo.size = drawCount * kSize;
+            instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
+            instanceBuffer.emplace(vma.createIndirectBuffer(instanceBufferCreateInfo, minAlignment, "Instances"));
+
+            auto mappedInstanceBuffer = instanceBuffer.value().map<vk::DrawIndexedIndirectCommand>();
+            auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
+            INVARIANT(end == mappedInstanceBuffer.end(), "");
+        }
     }
 
     {
@@ -601,30 +615,30 @@ std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo
     return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
 }
 
-auto Scene::makeDescriptors(uint32_t framesInFlight) const -> std::unique_ptr<const Descriptors>
+auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
 {
-    auto descriptors = std::make_unique<Descriptors>();
+    Descriptors descriptors;
 
-    createUniformBuffers(framesInFlight, descriptors->uniformBuffers);
-    createInstances(descriptors->indexTypes, descriptors->instances, descriptors->instanceBuffer, descriptors->indexBuffer, descriptors->transformBuffer);
-    createVertexBuffer(descriptors->vertexBuffer);
+    createUniformBuffers(framesInFlight, descriptors.uniformBuffers);
+    createInstances(descriptors.indexTypes, descriptors.instances, descriptors.drawCount, descriptors.drawCountBuffer, descriptors.instanceBuffer, descriptors.indexBuffer, descriptors.transformBuffer);
+    createVertexBuffer(descriptors.vertexBuffer);
 
     for (const auto & [set, bindings] : shaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
 
     if (useDescriptorBuffer) {
-        createDescriptorBuffers(framesInFlight, descriptors->descriptorSetBuffers, descriptors->descriptorBufferBindingInfos);
+        createDescriptorBuffers(framesInFlight, descriptors.descriptorSetBuffers, descriptors.descriptorBufferBindingInfos);
     } else {
-        createDescriptorSets(framesInFlight, descriptors->descriptorPool, descriptors->descriptorSets);
+        createDescriptorSets(framesInFlight, descriptors.descriptorPool, descriptors.descriptorSets);
     }
 
-    descriptors->pushConstantRanges = shaderStages.pushConstantRanges;
+    descriptors.pushConstantRanges = shaderStages.pushConstantRanges;
 
     if (useDescriptorBuffer) {
-        fillDescriptorBuffers(framesInFlight, descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSetBuffers);
+        fillDescriptorBuffers(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSetBuffers);
     } else {
-        fillDescriptorSets(framesInFlight, descriptors->uniformBuffers, descriptors->transformBuffer, descriptors->descriptorSets);
+        fillDescriptorSets(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSets);
     }
 
     return descriptors;
@@ -646,13 +660,26 @@ void Scene::init()
     uint32_t maxPushConstantsSize = context.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
+    if (useIndexTypeUint8) {
+        if (!context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+            INVARIANT(false, "");
+        }
+    }
     if (useDescriptorBuffer) {
         if (!context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)) {
             INVARIANT(false, "");
         }
     }
-
-    useIndexTypeUint8 = context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME);
+    if (useDrawIndexedIndirect) {
+        if (context.getDevice().physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (useDrawIndexedIndirectCount) {
+        if (context.getDevice().physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
 
     ASSERT(!std::empty(scenePath));
 

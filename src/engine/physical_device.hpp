@@ -80,6 +80,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
             //&vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
             &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
             &vk::PhysicalDeviceVulkan12Features::descriptorIndexing,
+            &vk::PhysicalDeviceVulkan12Features::drawIndirectCount,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan13Features::*> physicalDeviceVulkan13Features = {
             &vk::PhysicalDeviceVulkan13Features::synchronization2,

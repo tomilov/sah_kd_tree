@@ -128,7 +128,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
     descriptors.reset();
     if (scene) {
-        descriptors = scene->makeDescriptors(framesInFlight);
+        descriptors = std::make_shared<Scene::Descriptors>(scene->makeDescriptors(framesInFlight));
     }
 
     this->scene = std::move(scene);
@@ -238,7 +238,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
-    // TODO: Scene::useDrawIndexedIndirect
     vk::Buffer indexBuffer;
     if (descriptors->indexBuffer) {
         indexBuffer = descriptors->indexBuffer.value();
@@ -248,10 +247,16 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, descriptors->indexTypes.at(0), library.dispatcher);
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
-        uint32_t drawCount = descriptors->instanceBuffer->getSize() / kStride;
+        uint32_t drawCount = descriptors->drawCount;
         const auto & physicalDeviceLimits = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
-        commandBuffer.drawIndexedIndirect(descriptors->instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, library.dispatcher);
+        if (descriptors->drawCountBuffer) {
+            constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
+            uint32_t maxDrawCount = drawCount;
+            commandBuffer.drawIndexedIndirectCount(descriptors->instanceBuffer.value(), kInstanceBufferOffset, descriptors->drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, library.dispatcher);
+        } else {
+            commandBuffer.drawIndexedIndirect(descriptors->instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, library.dispatcher);
+        }
     } else {
         auto indexType = std::cbegin(descriptors->indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
