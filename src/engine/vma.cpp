@@ -134,11 +134,14 @@ struct Resource final : utils::OneTime
         }
     };
 
-    static_assert(std::is_default_constructible_v<BufferResource>);
-    static_assert(!std::is_copy_constructible_v<BufferResource>);
-    static_assert(!std::is_copy_assignable_v<BufferResource>);
-    static_assert(std::is_nothrow_move_constructible_v<BufferResource>);
-    static_assert(std::is_nothrow_move_assignable_v<BufferResource>);
+    static constexpr void checkTraitsForBufferResource()
+    {
+        static_assert(std::is_default_constructible_v<BufferResource>);
+        static_assert(!std::is_copy_constructible_v<BufferResource>);
+        static_assert(!std::is_copy_assignable_v<BufferResource>);
+        static_assert(std::is_nothrow_move_constructible_v<BufferResource>);
+        static_assert(std::is_nothrow_move_assignable_v<BufferResource>);
+    }
 
     struct ImageResource final
     {
@@ -214,11 +217,14 @@ struct Resource final : utils::OneTime
         }
     };
 
-    static_assert(std::is_default_constructible_v<ImageResource>);
-    static_assert(!std::is_copy_constructible_v<ImageResource>);
-    static_assert(!std::is_copy_assignable_v<ImageResource>);
-    static_assert(std::is_nothrow_move_constructible_v<ImageResource>);
-    static_assert(std::is_nothrow_move_assignable_v<ImageResource>);
+    static constexpr void checkTraitsForImageResource()
+    {
+        static_assert(std::is_default_constructible_v<ImageResource>);
+        static_assert(!std::is_copy_constructible_v<ImageResource>);
+        static_assert(!std::is_copy_assignable_v<ImageResource>);
+        static_assert(std::is_nothrow_move_constructible_v<ImageResource>);
+        static_assert(std::is_nothrow_move_assignable_v<ImageResource>);
+    }
 
     const MemoryAllocator::Impl * memoryAllocator = nullptr;
     AllocationCreateInfo::DefragmentationMoveOperation defragmentationMoveOperation = AllocationCreateInfo::DefragmentationMoveOperation::kCopy;
@@ -776,7 +782,7 @@ vk::DeviceSize MappedMemory<void>::getSize() const
     return size;
 }
 
-MappedMemory<void>::~MappedMemory() noexcept(false)
+MappedMemory<void>::~MappedMemory()
 {
     auto allocator = resource.getAllocator();
     auto allocation = resource.getAllocation();
@@ -791,32 +797,32 @@ MappedMemory<void>::~MappedMemory() noexcept(false)
     }
 }
 
-Buffer::Buffer() = default;
+Buffer<void>::Buffer() = default;
 
-Buffer::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
+Buffer<void>::Buffer(const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo, vk::DeviceSize minAlignment)
     : impl_{memoryAllocator, bufferCreateInfo, allocationCreateInfo, minAlignment}
 {}
 
-Buffer::Buffer(Buffer &&) noexcept = default;
+Buffer<void>::Buffer(Buffer &&) noexcept = default;
 
-Buffer::~Buffer() = default;
+Buffer<void>::~Buffer() = default;
 
-Buffer::operator vk::Buffer() const &
+Buffer<void>::operator vk::Buffer() const &
 {
     return *impl_->getBufferResource().buffer;
 }
 
-vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const
+vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
 {
     return impl_->getMemoryPropertyFlags();
 }
 
-vk::DeviceSize Buffer::getSize() const
+vk::DeviceSize Buffer<void>::getSize() const
 {
     return impl_->getBufferCreateInfo().size;
 }
 
-vk::DeviceAddress Buffer::getDeviceAddress() const &
+vk::DeviceAddress Buffer<void>::getDeviceAddress() const &
 {
     auto bufferUsage = impl_->getBufferCreateInfo().usage;
     INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain eShaderDeviceAddress", bufferUsage);
@@ -890,7 +896,7 @@ void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
     vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
 }
 
-auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer<void>
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kAuto;
@@ -898,7 +904,7 @@ auto MemoryAllocator::createBuffer(const vk::BufferCreateInfo & bufferCreateInfo
     return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer<void>
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kDescriptors;
@@ -906,7 +912,7 @@ auto MemoryAllocator::createDescriptorBuffer(const vk::BufferCreateInfo & buffer
     return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer<void>
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kStaging;
@@ -914,7 +920,7 @@ auto MemoryAllocator::createStagingBuffer(const vk::BufferCreateInfo & bufferCre
     return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer<void>
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kReadback;
@@ -922,7 +928,7 @@ auto MemoryAllocator::createReadbackBuffer(const vk::BufferCreateInfo & bufferCr
     return {*this, bufferCreateInfo, allocationCreateInfo, minAlignment};
 }
 
-auto MemoryAllocator::createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer
+auto MemoryAllocator::createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const -> Buffer<void>
 {
     AllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.type = AllocationCreateInfo::AllocationType::kIndirect;

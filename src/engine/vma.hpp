@@ -10,6 +10,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -24,6 +25,7 @@ namespace engine
 
 struct AllocationCreateInfo;
 struct Resource;
+template<typename T>
 class Buffer;
 class Image;
 
@@ -43,11 +45,11 @@ public:
 
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
-    [[nodiscard]] Buffer createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    [[nodiscard]] Buffer createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    [[nodiscard]] Buffer createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    [[nodiscard]] Buffer createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
-    [[nodiscard]] Buffer createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer<void> createBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer<void> createDescriptorBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer<void> createStagingBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer<void> createReadbackBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
+    [[nodiscard]] Buffer<void> createIndirectBuffer(const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, std::string_view name) const;
 
     [[nodiscard]] Image createImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
     [[nodiscard]] Image createStagingImage(const vk::ImageCreateInfo & imageCreateInfo, std::string_view name) const;
@@ -96,13 +98,13 @@ template<>
 class ENGINE_EXPORT MappedMemory<void> final : utils::NonCopyable
 {
 public:
-    ~MappedMemory() noexcept(false);
+    ~MappedMemory();
 
     [[nodiscard]] void * get() const &;
     [[nodiscard]] vk::DeviceSize getSize() const;
 
 private:
-    friend Buffer;
+    friend Buffer<void>;
 
     template<typename>
     friend class MappedMemory;
@@ -144,7 +146,7 @@ public:
     }
 
 private:
-    friend Buffer;
+    friend Buffer<void>;
 
     const MappedMemory<void> mappedMemory;
 
@@ -152,7 +154,8 @@ private:
     {}
 };
 
-class ENGINE_EXPORT Buffer final : utils::OneTime  // TODO(tomilov): make buffer suballocator
+template<>
+class ENGINE_EXPORT Buffer<void> final : utils::OneTime  // TODO(tomilov): make buffer suballocator
 {
 public:
     Buffer();
@@ -182,7 +185,51 @@ private:
     utils::FastPimpl<Resource, kSize, kAlignment> impl_;
 };
 
-static_assert(utils::kIsOneTime<Buffer>);
+static_assert(utils::kIsOneTime<Buffer<void>>);
+
+template<typename T>
+class Buffer final : utils::OneTime
+{
+public:
+    explicit Buffer(Buffer<void> && buffer) : buffer{std::move(buffer)}
+    {}
+
+    Buffer(Buffer &&) noexcept = default;
+
+    operator vk::Buffer() const &  // NOLINT(google-explicit-constructor)
+    {
+        return buffer;
+    }
+
+    [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const
+    {
+        return buffer.getMemoryPropertyFlags();
+    }
+
+    [[nodiscard]] MappedMemory<T> map(uint32_t offset = 0, std::optional<uint32_t> size = std::nullopt) const &
+    {
+        if (size) {
+            return buffer.template map<T>(sizeof(T) * offset, sizeof(T) * size.value());
+        } else {
+            return buffer.template map<T>(sizeof(T) * offset);
+        }
+    }
+
+    [[nodiscard]] vk::DeviceSize getSize() const
+    {
+        return buffer.getSize();
+    }
+
+    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &
+    {
+        return buffer.getDeviceAddress();
+    }
+
+private:
+    Buffer<void> buffer;
+};
+
+static_assert(utils::kIsOneTime<Buffer<char>>);
 
 class ENGINE_EXPORT Image final : utils::OneTime
 {

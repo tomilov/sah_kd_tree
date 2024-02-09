@@ -52,7 +52,7 @@ static_assert(std::is_standard_layout_v<VertexAttributes>);
 struct AABB
 {
     glm::vec3 min{std::numeric_limits<float>::max()};
-    glm::vec3 max{std::numeric_limits<float>::min()};
+    glm::vec3 max{std::numeric_limits<float>::lowest()};
 };
 
 #pragma pack(pop)
@@ -92,6 +92,8 @@ struct SCENE_EXPORT Scene
     void resizeVertices(size_t newVertexCount);
 
     [[nodiscard]] size_t instanceCount(size_t rootNodeIndex = 0) const;
+
+    void updateAABBs();
 
     [[nodiscard]] Triangles makeTriangles() const;
     [[nodiscard]] Triangles makeTriangles(size_t rootNodeIndex) const;

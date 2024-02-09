@@ -40,7 +40,9 @@ target_sources(
         "random.hpp"
         "random.cpp"
         "scope_guard.hpp"
-        "scope_guard.cpp")
+        "scope_guard.cpp"
+        "memarray.hpp"
+        "memarray.cpp")
 
 add_subdirectory("tests")
 

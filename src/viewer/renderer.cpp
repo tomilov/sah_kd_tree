@@ -145,7 +145,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     ASSERT(descriptors);
     {
-        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map<UniformBuffer>();
+        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map();
         fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
     }
 }

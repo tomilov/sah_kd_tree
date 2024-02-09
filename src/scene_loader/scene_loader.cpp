@@ -57,7 +57,7 @@ Q_LOGGING_CATEGORY(sceneLoaderLog, "scene_loader")
 static constexpr qint32 kCurrentCacheFormatVersion = 1;
 
 template<typename Type>
-QString toString(const Type & value)
+[[nodiscard]] QString toString(const Type & value)
 {
     QString string;
     QDebug{&string}.noquote().nospace() << value;
@@ -65,12 +65,12 @@ QString toString(const Type & value)
 }
 
 template<typename T>
-QString formattedDataSize(const T & value, int precision = 3)
+[[nodiscard]] QString formattedDataSize(const T & value, int precision = 3)
 {
     return QLocale::c().formattedDataSize(utils::autoCast(value), precision);
 }
 
-bool checkDataStreamStatus(QDataStream & dataStream, QString description)
+[[nodiscard]] bool checkDataStreamStatus(QDataStream & dataStream, QString description)
 {
     auto status = dataStream.status();
     if (status != QDataStream::Ok) {
@@ -80,17 +80,17 @@ bool checkDataStreamStatus(QDataStream & dataStream, QString description)
     return true;
 }
 
-constexpr glm::vec3 assimpToGlmVector [[maybe_unused]] (const aiVector3D & v)
+[[nodiscard]] constexpr glm::vec3 assimpToGlmVector [[maybe_unused]] (const aiVector3D & v)
 {
     return glm::vec3{glm::tvec3<ai_real>{v.x, v.y, v.z}};
 }
 
-constexpr glm::quat assimpToGlmQuaternion [[maybe_unused]] (const aiQuaternion & q)
+[[nodiscard]] constexpr glm::quat assimpToGlmQuaternion [[maybe_unused]] (const aiQuaternion & q)
 {
     return glm::quat{glm::tquat<ai_real>{q.w, q.x, q.y, q.z}};
 }
 
-constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)
+[[nodiscard]] constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)
 {
     using SrcCol = glm::tvec3<ai_real>;
     using DstCol = glm::mat3::col_type;
@@ -101,7 +101,7 @@ constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)
     };
 }
 
-constexpr glm::mat4 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix4x4 & m)
+[[nodiscard]] constexpr glm::mat4 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix4x4 & m)
 {
     using SrcCol = glm::tvec4<ai_real>;
     using DstCol = glm::mat4::col_type;
@@ -113,7 +113,7 @@ constexpr glm::mat4 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix4x4 & m)
     };
 }
 
-QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
+[[nodiscard]] QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
 {
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
@@ -129,7 +129,7 @@ QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
     return cacheFileInfo;
 }
 
-bool loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo)
 {
     QFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::ReadOnly)) {
@@ -247,7 +247,7 @@ bool loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo)
     return true;
 }
 
-bool storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo)
 {
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::OpenModeFlag::WriteOnly)) {
@@ -568,7 +568,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
         scene.resizeVertices(vertexCount);
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
-            auto & [meshAABBMin, meshAABBMax] = scene.meshes.at(meshUsage.meshIndex).aabb;
+            auto & aabb = scene.meshes.at(meshUsage.meshIndex).aabb;
 
             {
                 auto vertex = std::next(scene.vertices.get(), mesh.vertexOffset);
@@ -577,8 +577,8 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
                 for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
                     auto & vertexAttributes = *vertex++;
                     vertexAttributes.position = assimpToGlmVector(assimpVertices[v]);
-                    meshAABBMin = glm::min(meshAABBMin, vertexAttributes.position);
-                    meshAABBMax = glm::max(meshAABBMax, vertexAttributes.position);
+                    aabb.min = glm::min(aabb.min, vertexAttributes.position);
+                    aabb.max = glm::max(aabb.max, vertexAttributes.position);
                     // another vertex attributes: mNormals, mTangents, mBitangents, mColors, mTextureCoords+mNumUVComponents
                 }
                 ASSERT(vertex == vertexEnd);
@@ -623,19 +623,8 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
             }
         }
     }
-    {
-        auto & [sceneAABBMin, sceneAABBMax] = scene.aabb;
-        for (scene::Node & node : scene.nodes) {
-            auto & [nodeAABBMin, nodeAABBMax] = node.aabb;
-            for (size_t meshIndex : node.meshes) {
-                const scene::Mesh & mesh = scene.meshes.at(meshIndex);
-                nodeAABBMin = glm::min(nodeAABBMin, mesh.aabb.min);
-                nodeAABBMax = glm::max(nodeAABBMax, mesh.aabb.max);
-            }
-            sceneAABBMin = glm::min(sceneAABBMin, nodeAABBMin);
-            sceneAABBMax = glm::max(sceneAABBMax, nodeAABBMax);
-        }
-    }
+
+    scene.updateAABBs();
 
     importer.FreeScene();
 

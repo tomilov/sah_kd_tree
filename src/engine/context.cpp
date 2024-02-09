@@ -35,19 +35,19 @@ struct Context::DebugUtilsMessageMuteGuard::Impl
     const std::vector<uint32_t> messageIdNumbers;
 
     Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers);
-    ~Impl() noexcept(false);
+    ~Impl();
 
-    void mute() noexcept(false);
-    void unmute() noexcept(false);
+    void mute();
+    void unmute();
 };
 
-Context::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() noexcept(false) = default;
+Context::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() = default;
 
 template<typename... Args>
 Context::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
 {}
 
-Context::DebugUtilsMessageMuteGuard::Impl::~Impl() noexcept(false)
+Context::DebugUtilsMessageMuteGuard::Impl::~Impl()
 {
     switch (action) {
     case Action::kMute: {
@@ -76,7 +76,7 @@ Context::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unorder
     }
 }
 
-void Context::DebugUtilsMessageMuteGuard::Impl::mute() noexcept(false)
+void Context::DebugUtilsMessageMuteGuard::Impl::mute()
 {
     if (std::empty(messageIdNumbers)) {
         return;
@@ -85,7 +85,7 @@ void Context::DebugUtilsMessageMuteGuard::Impl::mute() noexcept(false)
     mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
 }
 
-void Context::DebugUtilsMessageMuteGuard::Impl::unmute() noexcept(false)
+void Context::DebugUtilsMessageMuteGuard::Impl::unmute()
 {
     if (std::empty(messageIdNumbers)) {
         return;

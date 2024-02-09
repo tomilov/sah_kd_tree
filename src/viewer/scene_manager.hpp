@@ -64,27 +64,30 @@ class Scene
 public:
     struct Descriptors : utils::OneTime
     {
-        std::vector<engine::Buffer> uniformBuffers;
+        std::vector<engine::Buffer<UniformBuffer>> uniformBuffers;
 
         std::vector<vk::IndexType> indexTypes;
         std::vector<vk::DrawIndexedIndirectCommand> instances;
         uint32_t drawCount = 0;
-        std::optional<engine::Buffer> drawCountBuffer;
-        std::optional<engine::Buffer> instanceBuffer;
-        std::optional<engine::Buffer> transformBuffer;
-        std::optional<engine::Buffer> indexBuffer;
-        std::optional<engine::Buffer> vertexBuffer;
+        std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
+        std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
+        std::optional<engine::Buffer<glm::mat4>> transformBuffer;
+        std::optional<engine::Buffer<void>> indexBuffer;
+        std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
 
         std::unique_ptr<engine::DescriptorPool> descriptorPool;
         std::vector<engine::DescriptorSets> descriptorSets;
 
-        std::vector<engine::Buffer> descriptorSetBuffers;
+        std::vector<engine::Buffer<void>> descriptorSetBuffers;
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
-    };
 
-    static_assert(utils::kIsOneTime<Descriptors>);
+        static constexpr void checkTraits()
+        {
+            static_assert(utils::kIsOneTime<Descriptors>);
+        }
+    };
 
     struct GraphicsPipeline : utils::NonCopyable
     {
@@ -140,16 +143,18 @@ private:
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer> & drawCountBuffer, std::optional<engine::Buffer> & instanceBuffer,
-                         std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const;
-    void createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) const;
-    void createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & uniformBuffers) const;
+    void createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer<uint32_t>> & drawCountBuffer,
+                         std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> & instanceBuffer, std::optional<engine::Buffer<void>> & indexBuffer, std::optional<engine::Buffer<glm::mat4>> & transformBuffer) const;
+    void createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttributes>> & vertexBuffer) const;
+    void createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers) const;
 
     void createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::vector<engine::DescriptorSets> & descriptorSets) const;
-    void fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, const std::vector<engine::DescriptorSets> & descriptorSets) const;
+    void fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
+                            const std::vector<engine::DescriptorSets> & descriptorSets) const;
 
-    void createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
-    void fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const;
+    void createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<void>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
+    void fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
+                               std::vector<engine::Buffer<void>> & descriptorSetBuffers) const;
 };
 
 class SceneManager

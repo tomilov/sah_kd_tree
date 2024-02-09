@@ -11,7 +11,7 @@ namespace scene_loader
 {
 struct AssimpLoggerGuard
 {
-    AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity = Assimp::Logger::LogSeverity::NORMAL);
+    explicit AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity = Assimp::Logger::LogSeverity::NORMAL);
     ~AssimpLoggerGuard();
 };
 
@@ -19,7 +19,7 @@ struct AssimpProgressHandler : Assimp::ProgressHandler
 {
     using Assimp::ProgressHandler::ProgressHandler;
 
-    virtual bool Update(float percentage) override;
+    [[nodiscard]] bool Update(float percentage) override;
 };
 
 struct AssimpIOSystem : Assimp::IOSystem
@@ -27,9 +27,9 @@ struct AssimpIOSystem : Assimp::IOSystem
     AssimpIOSystem();
     ~AssimpIOSystem() override;
 
-    bool Exists(const char * pFile) const override;
-    char getOsSeparator() const override;
-    Assimp::IOStream * Open(const char * pFile, const char * pMode) override;
+    [[nodiscard]] bool Exists(const char * pFile) const override;
+    [[nodiscard]] char getOsSeparator() const override;
+    [[nodiscard]] Assimp::IOStream * Open(const char * pFile, const char * pMode) override;
     void Close(Assimp::IOStream * pFile) override;
 
 private:

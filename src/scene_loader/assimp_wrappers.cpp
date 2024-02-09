@@ -1,4 +1,5 @@
 #include <scene_loader/assimp_wrappers.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <assimp/DefaultLogger.hpp>
 #include <assimp/IOStream.hpp>
@@ -34,29 +35,29 @@ struct AssimpLogger : Assimp::Logger
 {
     using Assimp::Logger::Logger;
 
-    virtual bool attachStream(Assimp::LogStream * pStream, unsigned int severity) override;
-    virtual bool detachStream(Assimp::LogStream * pStream, unsigned int severity) override;
+    [[nodiscard]] bool attachStream(Assimp::LogStream * pStream, unsigned int severity) override;
+    [[nodiscard]] bool detachStream(Assimp::LogStream * pStream, unsigned int severity) override;
 
 private:
     friend AssimpLoggerGuard;
 
-    virtual void OnVerboseDebug(const char * message) override;
-    virtual void OnDebug(const char * message) override;
-    virtual void OnInfo(const char * message) override;
-    virtual void OnWarn(const char * message) override;
-    virtual void OnError(const char * message) override;
+    void OnVerboseDebug(const char * message) override;
+    void OnDebug(const char * message) override;
+    void OnInfo(const char * message) override;
+    void OnWarn(const char * message) override;
+    void OnError(const char * message) override;
 };
 
 struct AssimpIOStream : Assimp::IOStream
 {
-    AssimpIOStream(QIODevice * device);
+    explicit AssimpIOStream(QIODevice * device);
     ~AssimpIOStream() override;
 
-    size_t Read(void * pvBuffer, size_t pSize, size_t pCount) override;
-    size_t Write(const void * pvBuffer, size_t pSize, size_t pCount) override;
-    aiReturn Seek(size_t pOffset, aiOrigin pOrigin) override;
-    size_t Tell() const override;
-    size_t FileSize() const override;
+    [[nodiscard]] size_t Read(void * pvBuffer, size_t pSize, size_t pCount) override;
+    [[nodiscard]] size_t Write(const void * pvBuffer, size_t pSize, size_t pCount) override;
+    [[nodiscard]] aiReturn Seek(size_t pOffset, aiOrigin pOrigin) override;
+    [[nodiscard]] size_t Tell() const override;
+    [[nodiscard]] size_t FileSize() const override;
     void Flush() override;
 
 private:
@@ -116,7 +117,7 @@ AssimpLoggerGuard::~AssimpLoggerGuard()
 
 bool AssimpProgressHandler::Update(float percentage)
 {
-    qCInfo(assimpWrappersLog).noquote() << u"%1 loaded"_s.arg(qreal(percentage));
+    qCInfo(assimpWrappersLog).noquote() << u"%1 loaded"_s.arg(utils::safeCast<qreal>(percentage));
     return true;
 }
 
@@ -127,25 +128,25 @@ AssimpIOStream::~AssimpIOStream() = default;
 
 size_t AssimpIOStream::Read(void * pvBuffer, size_t pSize, size_t pCount)
 {
-    auto readBytes = device->read(static_cast<char *>(pvBuffer), qint64(pSize * pCount));
+    auto readBytes = device->read(utils::autoCast(pvBuffer), utils::autoCast(pSize * pCount));
     if (readBytes < 0) {
         qCWarning(assimpWrappersLog) << "reading failed";
     }
-    return size_t(readBytes);
+    return utils::autoCast(readBytes);
 }
 
 size_t AssimpIOStream::Write(const void * pvBuffer, size_t pSize, size_t pCount)
 {
-    auto writtenBytes = device->write(static_cast<const char *>(pvBuffer), qint64(pSize * pCount));
+    auto writtenBytes = device->write(utils::autoCast(pvBuffer), utils::autoCast(pSize * pCount));
     if (writtenBytes < 0) {
         qCWarning(assimpWrappersLog) << "writing failed";
     }
-    return size_t(writtenBytes);
+    return utils::autoCast(writtenBytes);
 }
 
 aiReturn AssimpIOStream::Seek(size_t pOffset, aiOrigin pOrigin)
 {
-    auto seekPos = qint64(pOffset);
+    qint64 seekPos = utils::autoCast(pOffset);
 
     if (pOrigin == aiOrigin_CUR) {
         seekPos += device->pos();
@@ -162,12 +163,12 @@ aiReturn AssimpIOStream::Seek(size_t pOffset, aiOrigin pOrigin)
 
 size_t AssimpIOStream::Tell() const
 {
-    return size_t(device->pos());
+    return utils::autoCast(device->pos());
 }
 
 size_t AssimpIOStream::FileSize() const
 {
-    return size_t(device->size());
+    return utils::autoCast(device->size());
 }
 
 void AssimpIOStream::Flush()

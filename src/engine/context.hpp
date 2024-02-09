@@ -30,7 +30,7 @@ public:
     class DebugUtilsMessageMuteGuard final : utils::NonCopyable
     {
     public:
-        ~DebugUtilsMessageMuteGuard() noexcept(false);
+        ~DebugUtilsMessageMuteGuard();
 
     private:
         friend Context;

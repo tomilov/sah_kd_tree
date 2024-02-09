@@ -37,6 +37,19 @@ size_t Scene::instanceCount(size_t rootNodeIndex) const
     return instanceCount;
 }
 
+void Scene::updateAABBs()
+{
+    for (scene::Node & node : nodes) {
+        for (size_t meshIndex : node.meshes) {
+            const auto & mesh = meshes.at(meshIndex);
+            node.aabb.min = glm::min(node.aabb.min, mesh.aabb.min);
+            node.aabb.max = glm::max(node.aabb.max, mesh.aabb.max);
+        }
+        aabb.min = glm::min(aabb.min, node.aabb.min);
+        aabb.max = glm::max(aabb.max, node.aabb.max);
+    }
+}
+
 Triangles Scene::makeTriangles() const
 {
     size_t vertexCount = 0;

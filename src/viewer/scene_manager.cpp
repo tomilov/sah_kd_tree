@@ -177,8 +177,8 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer> & drawCountBuffer, std::optional<engine::Buffer> & instanceBuffer,
-                            std::optional<engine::Buffer> & indexBuffer, std::optional<engine::Buffer> & transformBuffer) const
+void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer<uint32_t>> & drawCountBuffer,
+                            std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> & instanceBuffer, std::optional<engine::Buffer<void>> & indexBuffer, std::optional<engine::Buffer<glm::mat4>> & transformBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -319,7 +319,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
             drawCountBuffer.emplace(vma.createIndirectBuffer(drawCountBufferCreateInfo, minAlignment, "DrawCount"));
 
-            auto mappedDrawCountBuffer = drawCountBuffer.value().map<uint32_t>();
+            auto mappedDrawCountBuffer = drawCountBuffer.value().map();
             *mappedDrawCountBuffer.data() = drawCount;
         }
 
@@ -330,7 +330,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
             instanceBuffer.emplace(vma.createIndirectBuffer(instanceBufferCreateInfo, minAlignment, "Instances"));
 
-            auto mappedInstanceBuffer = instanceBuffer.value().map<vk::DrawIndexedIndirectCommand>();
+            auto mappedInstanceBuffer = instanceBuffer.value().map();
             auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
             INVARIANT(end == mappedInstanceBuffer.end(), "");
         }
@@ -351,7 +351,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 
     {
-        auto mappedTransformBuffer = transformBuffer.value().map<glm::mat4>();
+        auto mappedTransformBuffer = transformBuffer.value().map();
         auto t = mappedTransformBuffer.begin();
         for (const auto & instanceTransforms : transforms) {
             ASSERT(mappedTransformBuffer.end() != t);
@@ -361,7 +361,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 }
 
-void Scene::createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) const
+void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttributes>> & vertexBuffer) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -385,7 +385,7 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) con
         auto memoryPropertyFlags = vertexBuffer.value().getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
-        auto mappedVertexBuffer = vertexBuffer.value().map<scene::VertexAttributes>();
+        auto mappedVertexBuffer = vertexBuffer.value().map();
         ASSERT(scene.vertexCount == mappedVertexBuffer.getSize());
         if (std::copy_n(scene.vertices.get(), scene.vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
             ASSERT(false);
@@ -393,7 +393,7 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer> & vertexBuffer) con
     }
 }
 
-void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & uniformBuffers) const
+void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -408,7 +408,7 @@ void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Bu
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     for (uint32_t i = 0; i < framesInFlight; ++i) {
         auto uniformBufferName = fmt::format("Uniform buffer (frameInFlight #{})", i);
-        uniformBuffers.push_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
+        uniformBuffers.emplace_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
 
         auto memoryPropertyFlags = uniformBuffers.back().getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
@@ -423,7 +423,8 @@ void Scene::createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine
     }
 }
 
-void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, const std::vector<engine::DescriptorSets> & descriptorSets) const
+void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
+                               const std::vector<engine::DescriptorSets> & descriptorSets) const
 {
     const auto & dispatcher = context.getLibrary().dispatcher;
     const auto & device = context.getDevice();
@@ -492,7 +493,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
     device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
-void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
+void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<void>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & dispatcher = context.getLibrary().dispatcher;
@@ -541,7 +542,8 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
     }
 }
 
-void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer> & uniformBuffers, const std::optional<engine::Buffer> & transformBuffer, std::vector<engine::Buffer> & descriptorSetBuffers) const
+void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
+                                  std::vector<engine::Buffer<void>> & descriptorSetBuffers) const
 {
     ASSERT(transformBuffer);
 
