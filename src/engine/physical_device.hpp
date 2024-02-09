@@ -51,30 +51,30 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceDescriptorIndexingProperties,
                        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
                        vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT>
-        physicalDeviceProperties2Chain;
+        properties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
                        vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
-                       vk::PhysicalDeviceRobustness2FeaturesEXT>
-        physicalDeviceFeatures2Chain;
-    vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> physicalDeviceMemoryProperties2Chain;
+                       vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR>
+        features2Chain;
+    vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
 
     struct DebugFeatures
     {
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> features = {
             &vk::PhysicalDeviceFeatures::robustBufferAccess,
         };
     };
 
     struct RequiredFeatures
     {
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> physicalDeviceFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFeatures::*> features = {
             //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
             &vk::PhysicalDeviceFeatures::multiDrawIndirect,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> physicalDeviceVulkan11Features = {};
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> physicalDeviceVulkan12Features = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan11Features::*> vulkan11Features = {};
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan12Features::*> vulkan12Features = {
             &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray,
             &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
             //&vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
@@ -82,28 +82,37 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
             &vk::PhysicalDeviceVulkan12Features::descriptorIndexing,
             &vk::PhysicalDeviceVulkan12Features::drawIndirectCount,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan13Features::*> physicalDeviceVulkan13Features = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceVulkan13Features::*> vulkan13Features = {
             &vk::PhysicalDeviceVulkan13Features::synchronization2,
             &vk::PhysicalDeviceVulkan13Features::maintenance4,
         };
         static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*> rayTracingPipelineFeatures = {
             //&vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*> physicalDeviceAccelerationStructureFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*> accelerationStructureFeatures = {
             //&vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesEXT::*> physicalDeviceMeshShaderFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMeshShaderFeaturesEXT::*> meshShaderFeatures = {
             //&vk::PhysicalDeviceMeshShaderFeaturesEXT::meshShader,
             //&vk::PhysicalDeviceMeshShaderFeaturesEXT::taskShader,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceDescriptorBufferFeaturesEXT::*> physicalDeviceDescriptorBufferFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceDescriptorBufferFeaturesEXT::*> descriptorBufferFeatures = {
             &vk::PhysicalDeviceDescriptorBufferFeaturesEXT::descriptorBuffer,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR::*> physicalDeviceFragmentShaderBarycentricFeatures = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR::*> fragmentShaderBarycentricFeatures = {
             &vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR::fragmentShaderBarycentric,
         };
-        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRobustness2FeaturesEXT::*> physicalDeviceRobustness2Features = {
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceRobustness2FeaturesEXT::*> robustness2Features = {
             &vk::PhysicalDeviceRobustness2FeaturesEXT::nullDescriptor,
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceShaderClockFeaturesKHR::*> shaderClockFeatures = {
+            //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // VK_KHR_SHADER_CLOCK_EXTENSION_NAME, shaderInt64
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceIndexTypeUint8FeaturesEXT::*> indexTypeUint8Features = {
+            &vk::PhysicalDeviceIndexTypeUint8FeaturesEXT::indexTypeUint8,
+        };
+        static constexpr std::initializer_list<vk::Bool32 vk::PhysicalDeviceMaintenance5FeaturesKHR::*> maintenance5Features = {
+            &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,
         };
     };
 
@@ -111,19 +120,20 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
         VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
+        // VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
+        VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
         // VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
         // VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
         // VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,
         // VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-        // VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
         // VK_EXT_MESH_SHADER_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
         VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME,
+        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
     };
 
-    vk::PhysicalDeviceSurfaceInfo2KHR physicalDeviceSurfaceInfo;
+    vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo;
     vk::SurfaceCapabilities2KHR surfaceCapabilities;
     using SurfaceFormatChain = vk::StructureChain<vk::SurfaceFormat2KHR, vk::ImageCompressionPropertiesEXT>;
     std::vector<SurfaceFormatChain> surfaceFormats;

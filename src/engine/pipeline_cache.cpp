@@ -35,7 +35,7 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
         SPDLOG_INFO("Pipeline cache header version mismatch '{}' != '{}'", pipelineCacheHeader.headerVersion, kPipelineCacheHeaderVersion);
         return {};
     }
-    const auto & physicalDeviceProperties = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    const auto & physicalDeviceProperties = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     if (pipelineCacheHeader.vendorID != physicalDeviceProperties.vendorID) {
         SPDLOG_INFO("Pipeline cache header vendor ID mismatch '{}' != '{}'", pipelineCacheHeader.vendorID, physicalDeviceProperties.vendorID);
         return {};

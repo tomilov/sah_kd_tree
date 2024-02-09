@@ -30,19 +30,22 @@ void Device::create()
     };
     if (sah_kd_tree::kIsDebugBuild) {
         using DebugFeatures = PhysicalDevice::DebugFeatures;
-        setFeatures(DebugFeatures::physicalDeviceFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
+        setFeatures(DebugFeatures::features, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
     }
     using RequiredFeatures = PhysicalDevice::RequiredFeatures;
-    setFeatures(RequiredFeatures::physicalDeviceFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
-    setFeatures(RequiredFeatures::physicalDeviceVulkan11Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan11Features>());
-    setFeatures(RequiredFeatures::physicalDeviceVulkan12Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>());
-    setFeatures(RequiredFeatures::physicalDeviceVulkan13Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan13Features>());
+    setFeatures(RequiredFeatures::features, deviceCreateInfoChain.get<vk::PhysicalDeviceFeatures2>().features);
+    setFeatures(RequiredFeatures::vulkan11Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan11Features>());
+    setFeatures(RequiredFeatures::vulkan12Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan12Features>());
+    setFeatures(RequiredFeatures::vulkan13Features, deviceCreateInfoChain.get<vk::PhysicalDeviceVulkan13Features>());
     setFeatures(RequiredFeatures::rayTracingPipelineFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>());
-    setFeatures(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
-    setFeatures(RequiredFeatures::physicalDeviceMeshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>());
-    setFeatures(RequiredFeatures::physicalDeviceDescriptorBufferFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>());
-    setFeatures(RequiredFeatures::physicalDeviceFragmentShaderBarycentricFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR>());
-    setFeatures(RequiredFeatures::physicalDeviceRobustness2Features, deviceCreateInfoChain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>());
+    setFeatures(RequiredFeatures::accelerationStructureFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>());
+    setFeatures(RequiredFeatures::meshShaderFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>());
+    setFeatures(RequiredFeatures::descriptorBufferFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>());
+    setFeatures(RequiredFeatures::fragmentShaderBarycentricFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR>());
+    setFeatures(RequiredFeatures::robustness2Features, deviceCreateInfoChain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>());
+    setFeatures(RequiredFeatures::shaderClockFeatures, deviceCreateInfoChain.get<vk::PhysicalDeviceShaderClockFeaturesKHR>());
+    setFeatures(RequiredFeatures::indexTypeUint8Features, deviceCreateInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>());
+    setFeatures(RequiredFeatures::maintenance5Features, deviceCreateInfoChain.get<vk::PhysicalDeviceMaintenance5FeaturesKHR>());
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {

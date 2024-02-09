@@ -95,8 +95,8 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 {
     const auto & device = context.getDevice();
-    const vk::Bool32 robustBufferAccess = device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
-    const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
+    const vk::Bool32 robustBufferAccess = device.physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
+    const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
     switch (descriptorType) {
     case vk::DescriptorType::eSampler: {
         return physicalDeviceDescriptorBufferProperties.samplerDescriptorSize;
@@ -172,7 +172,7 @@ size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 vk::DeviceSize Scene::getMinAlignment() const
 {
     const auto & device = context.getDevice();
-    const auto & physicalDeviceLimits = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    const auto & physicalDeviceLimits = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
@@ -500,7 +500,7 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
     const auto & vma = context.getMemoryAllocator();
 
     constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
-    const auto descriptorBufferOffsetAlignment = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
+    const auto descriptorBufferOffsetAlignment = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
     descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
     auto set = std::cbegin(shaderStages.setBindings);
     for (const auto & descriptorSetLayout : shaderStages.descriptorSetLayouts) {
@@ -660,7 +660,7 @@ void Scene::init()
 {
     const auto & physicalDevice = context.getDevice().physicalDevice;
 
-    uint32_t maxPushConstantsSize = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    uint32_t maxPushConstantsSize = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
     if (useIndexTypeUint8) {
@@ -674,12 +674,12 @@ void Scene::init()
         }
     }
     if (useDrawIndexedIndirect) {
-        if (physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
     if (useDrawIndexedIndirectCount) {
-        if (physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
             INVARIANT(false, "");
         }
     }

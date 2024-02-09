@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -24,7 +25,7 @@ struct ENGINE_EXPORT AllocationCallbacks
 
         allocationCallbacks.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) -> void *
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, vk::SystemAllocationScope(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, utils::autoCast(allocationScope));
         };
         allocationCallbacks.pfnReallocation = nullptr;
         allocationCallbacks.pfnFree = [](void * pUserData, void * pMemory)
@@ -33,11 +34,11 @@ struct ENGINE_EXPORT AllocationCallbacks
         };
         allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, utils::autoCast(allocationType), utils::autoCast(allocationScope));
         };
         allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, vk::InternalAllocationType(allocationType), vk::SystemAllocationScope(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, utils::autoCast(allocationType), utils::autoCast(allocationScope));
         };
 
         return allocationCallbacks;
@@ -61,11 +62,11 @@ public:
         using other = Allocator<R, systemAllocationScope>;
     };
 
-    Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacks) noexcept : allocationCallbacks{allocationCallbacks}
+    explicit Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacks) noexcept : allocationCallbacks{allocationCallbacks}
     {}
 
     template<typename R>
-    Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept : allocationCallbacks{rhs.allocationCallbacks}
+    explicit Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept : allocationCallbacks{rhs.allocationCallbacks}
     {}
 
     [[nodiscard]] T * allocate(size_t n) const
@@ -77,9 +78,9 @@ public:
             throw std::bad_array_new_length{};
         }
         if (!allocationCallbacks) {
-            return static_cast<T *>(::operator new(sizeof(T) * n, std::align_val_t(alignof(T))));
+            return static_cast<T *>(::operator new(sizeof(T) * n, utils::safeCast<std::align_val_t>(alignof(T))));
         }
-        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), VkSystemAllocationScope(systemAllocationScope));
+        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), utils::safeCast<VkSystemAllocationScope>(systemAllocationScope));
         if (!p) {
             throw std::bad_alloc{};
         }

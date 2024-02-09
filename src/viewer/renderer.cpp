@@ -231,7 +231,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     if (sah_kd_tree::kIsDebugBuild) {
         for (const auto & vertexBuffer : vertexBuffers) {
             if (!vertexBuffer) {
-                INVARIANT(device.physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                INVARIANT(device.physicalDevice.features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
             }
         }
     }
@@ -239,16 +239,18 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
 
     vk::Buffer indexBuffer;
+    vk::DeviceSize indexBufferSize = 0;
     if (descriptors->indexBuffer) {
         indexBuffer = descriptors->indexBuffer.value();
+        indexBufferSize = descriptors->indexBuffer.value().getSize();
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (descriptors->instanceBuffer) {
-        commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, descriptors->indexTypes.at(0), library.dispatcher);
+        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, descriptors->indexTypes.at(0), library.dispatcher);
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = descriptors->drawCount;
-        const auto & physicalDeviceLimits = device.physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+        const auto & physicalDeviceLimits = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
         if (descriptors->drawCountBuffer) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
@@ -261,7 +263,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         auto indexType = std::cbegin(descriptors->indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
             ASSERT(indexType != std::cend(descriptors->indexTypes));
-            commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, *indexType++, library.dispatcher);
+            commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, *indexType++, library.dispatcher);
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }

@@ -5,6 +5,7 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <format/vulkan.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -29,12 +30,12 @@ PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physi
 
 std::string PhysicalDevice::getDeviceName() const
 {
-    return physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceName;
+    return properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.deviceName;
 }
 
 std::string PhysicalDevice::getPipelineCacheUUID() const
 {
-    return fmt::to_string(physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.pipelineCacheUUID);
+    return fmt::to_string(properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.pipelineCacheUUID);
 }
 
 auto PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
@@ -73,14 +74,14 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
         }
         using MaskType = vk::QueueFlags::MaskType;
         // auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags); // TODO: change at fix
-        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(MaskType(desiredQueueFlags) ^ MaskType(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
+        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(utils::safeCast<MaskType>(desiredQueueFlags) ^ utils::safeCast<MaskType>(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
         if (!currentExtraQueueFlags) {
             bestMatchQueueFamily = queueFamilyIndex;
             bestMatchQueueFalgs = queueFlags;
             break;
         }
         using Bitset = std::bitset<std::numeric_limits<MaskType>::digits>;
-        if ((bestMatchQueueFamily == VK_QUEUE_FAMILY_IGNORED) || (Bitset(MaskType(currentExtraQueueFlags)).count() < Bitset(MaskType(bestMatchExtraQueueFlags)).count())) {
+        if ((bestMatchQueueFamily == VK_QUEUE_FAMILY_IGNORED) || (Bitset(utils::safeCast<MaskType>(currentExtraQueueFlags)).count() < Bitset(utils::safeCast<MaskType>(bestMatchExtraQueueFlags)).count())) {
             bestMatchExtraQueueFlags = currentExtraQueueFlags;
 
             bestMatchQueueFamily = queueFamilyIndex;
@@ -92,7 +93,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
 
 bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
 {
-    const auto & properties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
         SPDLOG_WARN("Expected {} physical device type got {}", requiredPhysicalDeviceType, physicalDeviceType);
@@ -116,36 +117,36 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         return true;
     };
     if (sah_kd_tree::kIsDebugBuild) {
-        if (!checkFeaturesCanBeEnabled(DebugFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
+        if (!checkFeaturesCanBeEnabled(DebugFeatures::features, features2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
             SPDLOG_WARN("");
             return false;
         }
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::features, features2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan11Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan11Features>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan11Features, features2Chain.get<vk::PhysicalDeviceVulkan11Features>())) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan12Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan12Features, features2Chain.get<vk::PhysicalDeviceVulkan12Features>())) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceVulkan13Features, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan13Features>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan13Features, features2Chain.get<vk::PhysicalDeviceVulkan13Features>())) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, features2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceAccelerationStructureFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::accelerationStructureFeatures, features2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
         SPDLOG_WARN("");
         return false;
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::physicalDeviceMeshShaderFeatures, physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>())) {
+    if (!checkFeaturesCanBeEnabled(RequiredFeatures::meshShaderFeatures, features2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>())) {
         SPDLOG_WARN("");
         return false;
     }
@@ -166,7 +167,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 
     // TODO: check physical device surface capabilities
     if (surface) {
-        physicalDeviceSurfaceInfo.surface = surface;
+        surfaceInfo.surface = surface;
         // surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
         // surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
         // presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
@@ -275,7 +276,7 @@ void PhysicalDevice::init()
         }
     }
 
-    auto & physicalDeviceProperties2 = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>();
+    auto & physicalDeviceProperties2 = properties2Chain.get<vk::PhysicalDeviceProperties2>();
     physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
 
@@ -289,7 +290,7 @@ void PhysicalDevice::init()
     SPDLOG_INFO("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
 
     {
-        auto & physicalDeviceIDProperties = physicalDeviceProperties2Chain.get<vk::PhysicalDeviceIDProperties>();
+        auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
         SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
         SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
         SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
@@ -297,10 +298,10 @@ void PhysicalDevice::init()
         SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
     }
 
-    auto & physicalDeviceFeatures2 = physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>();
+    auto & physicalDeviceFeatures2 = features2Chain.get<vk::PhysicalDeviceFeatures2>();
     physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
 
-    auto & physicalDeviceMemoryProperties2 = physicalDeviceMemoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
+    auto & physicalDeviceMemoryProperties2 = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
     physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.dispatcher);
 
     using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;

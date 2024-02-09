@@ -11,10 +11,10 @@ template<typename T>
 class CheckedPtr
 {
 public:
-    constexpr CheckedPtr(std::nullptr_t) noexcept
+    constexpr CheckedPtr(std::nullptr_t) noexcept  // NOLINT: google-explicit-constructor
     {}
 
-    constexpr CheckedPtr(T * p) : p{p}
+    constexpr CheckedPtr(T * p) : p{p}  // NOLINT: google-explicit-constructor
     {
         INVARIANT(p, "Empty CheckedPtr");
         checked = true;

@@ -30,7 +30,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
 
     vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
                        vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
-                       vk::PhysicalDeviceRobustness2FeaturesEXT>
+                       vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR>
         deviceCreateInfoChain;
     vk::UniqueDevice deviceHolder;
     vk::Device device;
@@ -91,7 +91,7 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
         debugUtilsObjectTagInfo.objectType = object.objectType;
         debugUtilsObjectTagInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
         debugUtilsObjectTagInfo.tagName = tagName;
-        debugUtilsObjectTagInfo.tagSize = uint32_t(std::size(tag));
+        debugUtilsObjectTagInfo.tagSize = utils::autoCast(std::size(tag));
         debugUtilsObjectTagInfo.pTag = std::data(tag);
         return setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
     }
