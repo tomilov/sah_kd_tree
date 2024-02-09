@@ -10,6 +10,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan_extension_inspection.hpp>
 
 #include <bitset>
 #include <iterator>
@@ -42,6 +43,16 @@ auto PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
+        INVARIANT(vk::isDeviceExtension(extensionToCheck), "{} is not device extension", extensionToCheck);
+        if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is deprecated", extensionToCheck);
+        }
+        if (vk::getPromotedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is promoted to {}", extensionToCheck, vk::getPromotedExtensions().at(extensionToCheck));
+        }
+        if (vk::getObsoletedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is obsoleted by {}", extensionToCheck, vk::getObsoletedExtensions().at(extensionToCheck));
+        }
         if (extensions.contains(extensionToCheck)) {
             continue;
         }
@@ -96,57 +107,43 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
-        SPDLOG_WARN("Expected {} physical device type got {}", requiredPhysicalDeviceType, physicalDeviceType);
+        SPDLOG_WARN("Expected {} physical device type, got {}", requiredPhysicalDeviceType, physicalDeviceType);
         return false;
     }
 
     uint32_t apiVersion = properties.apiVersion;
     if ((VK_VERSION_MAJOR(apiVersion) != 1) || (VK_VERSION_MINOR(apiVersion) != 3)) {
-        SPDLOG_WARN("Expected Vulkan device version 1.3, got version {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
+        SPDLOG_WARN("Expected Vulkan device version 1.3, got {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
         return false;
     }
 
-    const auto checkFeaturesCanBeEnabled = [](const auto & pointers, auto & features) -> bool
+    bool isAllFeaturesAvailable = true;
+    size_t i = 0;
+    auto checkFeature = [this, &i, &isAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::*feature) mutable
     {
-        for (const auto & p : pointers) {
-            if (features.*p == VK_FALSE) {
-                SPDLOG_WARN("Feature {}.#{} is not available", typeid(features).name(), &p - std::data(pointers));
-                return false;
+        ++i;
+        if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
+            if (features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature == VK_FALSE) {
+                isAllFeaturesAvailable = false;
+            }
+        } else {
+            if (features2Chain.get<Features>().*feature == VK_FALSE) {
+                isAllFeaturesAvailable = false;
             }
         }
-        return true;
-    };
-    if (sah_kd_tree::kIsDebugBuild) {
-        if (!checkFeaturesCanBeEnabled(DebugFeatures::features, features2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
-            SPDLOG_WARN("");
-            return false;
+        if (!isAllFeaturesAvailable) {
+            SPDLOG_WARN("Feature {}.#{} is not available", typeid(Features).name(), i);
         }
+    };
+    const auto checkFeatures = [&checkFeature]<auto... features>(const FeatureList<features...> *)
+    {
+        (checkFeature(features), ...);
+    };
+    checkFeatures(std::add_pointer_t<RequiredFeatures>{});
+    if (sah_kd_tree::kIsDebugBuild) {
+        checkFeatures(std::add_pointer_t<DebugFeatures>{});
     }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::features, features2Chain.get<vk::PhysicalDeviceFeatures2>().features)) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan11Features, features2Chain.get<vk::PhysicalDeviceVulkan11Features>())) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan12Features, features2Chain.get<vk::PhysicalDeviceVulkan12Features>())) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::vulkan13Features, features2Chain.get<vk::PhysicalDeviceVulkan13Features>())) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::rayTracingPipelineFeatures, features2Chain.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>())) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::accelerationStructureFeatures, features2Chain.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>())) {
-        SPDLOG_WARN("");
-        return false;
-    }
-    if (!checkFeaturesCanBeEnabled(RequiredFeatures::meshShaderFeatures, features2Chain.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>())) {
+    if (!isAllFeaturesAvailable) {
         SPDLOG_WARN("");
         return false;
     }

@@ -91,7 +91,7 @@ private:
     qreal keyboardLookSpeed = 20.0;
     qreal linearSpeed = 1.0;
 
-    QTimer * const doubleClickTimer = new QTimer{this};
+    QTimer * const mousePressAndHoldTimer = new QTimer{this};
     QPoint startPos;
     Qt::KeyboardModifiers keyboardModifiers = Qt::NoModifier;
     QHash<Qt::Key, int> pressedKeys;

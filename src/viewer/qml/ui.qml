@@ -21,7 +21,7 @@ ApplicationWindow {
         qsTr("%1 (dt %2ms) (screen refresh rate %3) - %4")
         .arg(Qt.application.displayName)
         .arg((mainSahKdTreeViewer.dt * 1000.0).toFixed(3))
-        .arg(qApp.primaryScreen.refreshRate.toFixed(3))
+        .arg(app.primaryScreen.refreshRate.toFixed(3))
         .arg(mainSahKdTreeViewer.scenePath)
     }
 
@@ -193,15 +193,16 @@ ApplicationWindow {
 
             //transformOrigin: Item.BottomRight
 
-            //SequentialAnimation on rotation {
-            //    loops: Animation.Infinite
-            //    running: true
-            //    NumberAnimation {
-            //        from: 0.0
-            //        to: 360.0
-            //        duration: 3333
-            //    }
-            //}
+            /*
+            SequentialAnimation on rotation {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.0
+                    to: 360.0
+                    duration: 3333
+                }
+            }
 
             SequentialAnimation on t {
                 loops: Animation.Infinite
@@ -217,6 +218,7 @@ ApplicationWindow {
                     easing.type: Easing.OutQuad
                 }
             }
+            //*/
 
             Rectangle {
                 anchors.fill: parent
@@ -390,7 +392,6 @@ ApplicationWindow {
                         duration: 2000
                     }
                 }
-                //*/
                 SequentialAnimation on t {
                     loops: Animation.Infinite
                     running: true
@@ -405,6 +406,7 @@ ApplicationWindow {
                         easing.type: Easing.OutQuad
                     }
                 }
+                //*/
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: -4

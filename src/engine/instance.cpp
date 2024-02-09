@@ -8,6 +8,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan_extension_inspection.hpp>
 
 #include <iterator>
 #include <utility>
@@ -52,6 +53,16 @@ StringUnorderedSet Instance::getExtensionsCannotBeEnabled(const std::vector<cons
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
+        INVARIANT(vk::isInstanceExtension(extensionToCheck), "{} is not instance extension", extensionToCheck);
+        if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is deprecated", extensionToCheck);
+        }
+        if (vk::getPromotedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is promoted to {}", extensionToCheck, vk::getPromotedExtensions().at(extensionToCheck));
+        }
+        if (vk::getObsoletedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is obsoleted by {}", extensionToCheck, vk::getObsoletedExtensions().at(extensionToCheck));
+        }
         if (extensions.contains(extensionToCheck)) {
             continue;
         }

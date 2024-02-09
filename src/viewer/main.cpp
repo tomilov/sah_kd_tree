@@ -3,6 +3,7 @@
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <viewer/application.hpp>
 #include <viewer/engine_wrapper.hpp>
 
 #include <spdlog/details/null_mutex.h>
@@ -48,14 +49,16 @@ namespace
 Q_DECLARE_LOGGING_CATEGORY(viewerMainCategory)
 Q_LOGGING_CATEGORY(viewerMainCategory, "viewer.main")
 
-std::unique_ptr<QGuiApplication> createApplication(int & argc, char * argv[])
+using AppPtr = std::unique_ptr<QGuiApplication>;
+
+AppPtr createApplication(int & argc, char * argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (qstrcmp(argv[i], "--no-widgets") == 0) {
-            return std::make_unique<QGuiApplication>(argc, argv);
+            return AppPtr{new viewer::GuiApplication{argc, argv}};
         }
     }
-    return std::make_unique<QApplication>(argc, argv);
+    return AppPtr{new viewer::Application{argc, argv}};
 }
 
 void persistRootWindowSettings(QQmlApplicationEngine & engine)
@@ -336,7 +339,7 @@ int main(int argc, char * argv[])
     // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
 
     const auto rootContext = qmlApplicationEngine.rootContext();
-    rootContext->setContextProperty("qApp", qApp);
+    rootContext->setContextProperty("app", qApp);
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");

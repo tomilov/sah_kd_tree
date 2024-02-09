@@ -664,12 +664,12 @@ void Scene::init()
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
     if (useIndexTypeUint8) {
-        if (!physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
     if (useDescriptorBuffer) {
-        if (!physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)) {
+        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
             INVARIANT(false, "");
         }
     }

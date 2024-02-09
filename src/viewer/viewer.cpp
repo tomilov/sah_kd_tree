@@ -29,12 +29,13 @@
 #include <QtCore/QtMath>
 #include <QtCore/QtMinMax>
 #include <QtCore/QtNumeric>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QStyleHints>
 #include <QtGui/QVulkanInstance>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 #include <QtQuick/QSGRendererInterface>
-#include <QtWidgets/QApplication>
 
 #include <chrono>
 #include <memory>
@@ -76,10 +77,10 @@ Viewer::Viewer()
 
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
 
-    Q_CHECK_PTR(doubleClickTimer);
-    doubleClickTimer->setInterval(qApp->doubleClickInterval());
-    doubleClickTimer->setSingleShot(true);
-    connect(doubleClickTimer, &QTimer::timeout, this, [this] { setCursor(Qt::CursorShape::BlankCursor); });
+    Q_CHECK_PTR(mousePressAndHoldTimer);
+    mousePressAndHoldTimer->setInterval(qApp->styleHints()->mousePressAndHoldInterval());
+    mousePressAndHoldTimer->setSingleShot(true);
+    connect(mousePressAndHoldTimer, &QTimer::timeout, this, [this] { setCursor(Qt::CursorShape::BlankCursor); });
 
     Q_CHECK_PTR(handleInputTimer);
     if (auto primaryScreen = qApp->primaryScreen()) {
@@ -620,7 +621,7 @@ void Viewer::mousePressEvent(QMouseEvent * event)
 {
     switch (event->button()) {
     case Qt::MouseButton::LeftButton: {
-        doubleClickTimer->start();
+        mousePressAndHoldTimer->start();
         startPos = QCursor::pos();
         event->accept();
         break;
@@ -641,7 +642,7 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
     if (event->buttons() & Qt::MouseButton::LeftButton) {
         auto posDelta = QCursor::pos() - startPos;
         if (!posDelta.isNull()) {
-            doubleClickTimer->stop();
+            mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
                 qreal angularSpeed = mouseLookSpeed / qMax(1.0, qMin(width(), height()));
@@ -667,8 +668,8 @@ void Viewer::mouseReleaseEvent(QMouseEvent * event)
 {
     switch (event->button()) {
     case Qt::MouseButton::LeftButton: {
-        if (doubleClickTimer->isActive()) {
-            doubleClickTimer->stop();
+        if (mousePressAndHoldTimer->isActive()) {
+            mousePressAndHoldTimer->stop();
         } else {
             unsetCursor();
         }
@@ -690,7 +691,7 @@ void Viewer::mouseDoubleClickEvent(QMouseEvent * event)
 {
     switch (event->button()) {
     case Qt::MouseButton::LeftButton: {
-        doubleClickTimer->stop();
+        mousePressAndHoldTimer->stop();
         event->accept();
         break;
     }
