@@ -21,7 +21,6 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -168,7 +167,6 @@ private:
     const engine::Context & context;
     const FileIo fileIo{u"shaders:"_s};
 
-    mutable std::mutex mutex;
     mutable std::weak_ptr<const engine::PipelineCache> pipelineCache;
     mutable std::unordered_map<std::filesystem::path, std::weak_ptr<const Scene>> scenes;
 

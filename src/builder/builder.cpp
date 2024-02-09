@@ -31,9 +31,7 @@ bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float trav
         return false;
     }
     auto triangles = scene.makeTriangles();
-    auto trianglesBegin = triangles.triangles.get();
-    auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
-    return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
+    return buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 
 bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
@@ -45,8 +43,6 @@ bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float e
         return false;
     }
     auto triangles = scene.makeTriangles();
-    auto trianglesBegin = triangles.triangles.get();
-    auto trianglesEnd = std::next(trianglesBegin, triangles.triangleCount);
-    return buildSceneFromTriangles(trianglesBegin, trianglesEnd, emptinessFactor, traversalCost, intersectionCost, maxDepth);
+    return buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 }  // namespace builder

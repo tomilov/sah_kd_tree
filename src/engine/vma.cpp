@@ -763,7 +763,7 @@ void MappedMemory<void>::init()
     }
 }
 
-void * MappedMemory<void>::get() const &
+void * MappedMemory<void>::get() &
 {
     if (mappedData) {
         return std::next(static_cast<std::byte *>(mappedData), offset);

@@ -95,12 +95,12 @@ template<typename T>
 class MappedMemory;
 
 template<>
-class ENGINE_EXPORT MappedMemory<void> final : utils::NonCopyable
+class ENGINE_EXPORT MappedMemory<void> final
 {
 public:
     ~MappedMemory();
 
-    [[nodiscard]] void * get() const &;
+    [[nodiscard]] void * get() &;
     [[nodiscard]] vk::DeviceSize getSize() const;
 
 private:
@@ -118,13 +118,21 @@ private:
     MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size);
 
     void init();
+
+    static constexpr void checkTraits()
+    {
+        static_assert(std::is_copy_constructible_v<MappedMemory>);
+        static_assert(!std::is_copy_assignable_v<MappedMemory>);
+        static_assert(std::is_nothrow_move_constructible_v<MappedMemory>);
+        static_assert(!std::is_nothrow_move_assignable_v<MappedMemory>);
+    }
 };
 
 template<typename T>
-class ENGINE_EXPORT MappedMemory final : utils::NonCopyable
+class ENGINE_EXPORT MappedMemory final
 {
 public:
-    [[nodiscard]] T * data() const &
+    [[nodiscard]] T * data() &
     {
         return static_cast<T *>(mappedMemory.get());
     }
@@ -135,12 +143,12 @@ public:
         return mappedMemory.getSize() / sizeof(T);
     }
 
-    [[nodiscard]] T * begin() const &
+    [[nodiscard]] T * begin() &
     {
         return data();
     }
 
-    [[nodiscard]] T * end() const &
+    [[nodiscard]] T * end() &
     {
         return std::next(begin(), getSize());
     }
@@ -148,10 +156,18 @@ public:
 private:
     friend Buffer<void>;
 
-    const MappedMemory<void> mappedMemory;
+    MappedMemory<void> mappedMemory;
 
     MappedMemory(const Resource & resource, vk::DeviceSize offset, vk::DeviceSize size) : mappedMemory{resource, offset, size}
     {}
+
+    static constexpr void checkTraits()
+    {
+        static_assert(std::is_copy_constructible_v<MappedMemory>);
+        static_assert(!std::is_copy_assignable_v<MappedMemory>);
+        static_assert(std::is_nothrow_move_constructible_v<MappedMemory>);
+        static_assert(!std::is_nothrow_move_assignable_v<MappedMemory>);
+    }
 };
 
 template<>

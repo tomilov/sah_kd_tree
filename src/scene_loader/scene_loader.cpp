@@ -190,17 +190,15 @@ template<typename T>
         }
         return true;
     };
-    const auto loadArrayFromCache = [&dataStream, &cacheFile, &loadDataFromCache]<typename T>(std::unique_ptr<T[]> & array, size_t & arraySize, QString arrayName) -> bool
+    const auto loadArrayFromCache = [&dataStream, &cacheFile, &loadDataFromCache]<typename T>(utils::MemArray<T> & array, QString arrayName) -> bool
     {
         qint32 arrayLength;
         if (!checkDataStreamStatus(dataStream >> arrayLength, u"unable to read size of array of %1 from scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
         qCDebug(sceneLoaderLog).noquote() << u"loadArrayFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
-        arraySize = utils::autoCast(arrayLength);
-        array.reset();
-        array = std::make_unique<T[]>(arraySize);
-        if (!loadDataFromCache(array.get(), arraySize, arrayName)) {
+        array = utils::MemArray<T>{utils::autoCast(arrayLength)};
+        if (!loadDataFromCache(array.begin(), array.getSize(), arrayName)) {
             return {};
         }
         return true;
@@ -232,10 +230,10 @@ template<typename T>
     if (!loadDataFromCache(&scene.aabb, 1, "scene.aabb")) {
         return {};
     }
-    if (!loadArrayFromCache(scene.indices, scene.indexCount, "scene.indices")) {
+    if (!loadArrayFromCache(scene.indices, "scene.indices")) {
         return {};
     }
-    if (!loadArrayFromCache(scene.vertices, scene.vertexCount, "scene.vertices")) {
+    if (!loadArrayFromCache(scene.vertices, "scene.vertices")) {
         return {};
     }
     if (!dataStream.atEnd()) {
@@ -243,7 +241,7 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indexCount).arg(scene.vertexCount);
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getSize()).arg(scene.vertices.getSize());
     return true;
 }
 
@@ -302,14 +300,14 @@ template<typename T>
         }
         return true;
     };
-    const auto saveArrayToCache = [&dataStream, &cacheFile, &saveDataToCache]<typename T>(const std::unique_ptr<T[]> & array, size_t arraySize, QString arrayName) -> bool
+    const auto saveArrayToCache = [&dataStream, &cacheFile, &saveDataToCache]<typename T>(const utils::MemArray<T> & array, QString arrayName) -> bool
     {
-        qint32 arrayLength = utils::autoCast(arraySize);
+        qint32 arrayLength = utils::autoCast(array.getSize());
         qCDebug(sceneLoaderLog).noquote() << u"saveArrayToCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         if (!checkDataStreamStatus(dataStream << arrayLength, u"unable to write size of array of %1 to scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
-        if (!saveDataToCache(array.get(), arraySize, arrayName)) {
+        if (!saveDataToCache(array.begin(), array.getSize(), arrayName)) {
             return {};
         }
         return true;
@@ -340,10 +338,10 @@ template<typename T>
     if (!saveDataToCache(&scene.aabb, 1, "scene.aabb")) {
         return {};
     }
-    if (!saveArrayToCache(scene.indices, scene.indexCount, "scene.indices")) {
+    if (!saveArrayToCache(scene.indices, "scene.indices")) {
         return {};
     }
-    if (!saveArrayToCache(scene.vertices, scene.vertexCount, "scene.vertices")) {
+    if (!saveArrayToCache(scene.vertices, "scene.vertices")) {
         return {};
     }
 
@@ -353,7 +351,7 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indexCount).arg(scene.vertexCount);
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getSize()).arg(scene.vertices.getSize());
     return true;
 }
 }  // namespace
@@ -564,14 +562,14 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
     qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
 
     {
-        scene.resizeIndices(indexCount);
-        scene.resizeVertices(vertexCount);
+        scene.indices = utils::MemArray<uint32_t>{indexCount};
+        scene.vertices = utils::MemArray<scene::VertexAttributes>{vertexCount};
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
             auto & aabb = scene.meshes.at(meshUsage.meshIndex).aabb;
 
             {
-                auto vertex = std::next(scene.vertices.get(), mesh.vertexOffset);
+                auto vertex = std::next(scene.vertices.begin(), mesh.vertexOffset);
                 const auto vertexEnd = std::next(vertex, mesh.vertexCount);
                 auto assimpVertices = assimpMesh->mVertices;
                 for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
@@ -584,7 +582,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
                 ASSERT(vertex == vertexEnd);
             }
 
-            auto sceneIndices = scene.indices.get();
+            auto sceneIndices = scene.indices.begin();
 
             if (mesh.indexCount == 0) {
                 INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
@@ -610,7 +608,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
 
             if ((true)) {
                 std::vector<uint32_t> vertexUseCounts(mesh.vertexCount);
-                auto index = std::next(scene.indices.get(), mesh.indexOffset);
+                auto index = std::next(scene.indices.begin(), mesh.indexOffset);
                 const auto indexEnd = std::next(index, mesh.indexCount);
                 for (uint32_t i : std::span<const uint32_t>(index, indexEnd)) {
                     ++vertexUseCounts.at(i);

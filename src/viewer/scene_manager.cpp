@@ -24,7 +24,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <string_view>
 #include <utility>
 
@@ -202,7 +201,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     };
     collectNodeInfos(collectNodeInfos, scene.nodes.front(), glm::identity<glm::mat4>());
 
-    auto sceneIndices = scene.indices.get();
+    auto sceneIndices = scene.indices.begin();
 
     vk::DeviceSize indexBufferSize = 0;
     {
@@ -377,7 +376,7 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttribu
         INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
 
         vk::BufferCreateInfo vertexBufferCreateInfo;
-        vertexBufferCreateInfo.size = scene.vertexCount * vertexSize;
+        vertexBufferCreateInfo.size = scene.vertices.getSize() * vertexSize;
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
         vertexBuffer.emplace(vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices"));
 
@@ -386,8 +385,8 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttribu
         INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
         auto mappedVertexBuffer = vertexBuffer.value().map();
-        ASSERT(scene.vertexCount == mappedVertexBuffer.getSize());
-        if (std::copy_n(scene.vertices.get(), scene.vertexCount, mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+        ASSERT(scene.vertices.getSize() == mappedVertexBuffer.getSize());
+        if (std::copy_n(scene.vertices.begin(), scene.vertices.getSize(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
             ASSERT(false);
         }
     }
@@ -659,26 +658,28 @@ Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared
 
 void Scene::init()
 {
-    uint32_t maxPushConstantsSize = context.getDevice().physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    const auto & physicalDevice = context.getDevice().physicalDevice;
+
+    uint32_t maxPushConstantsSize = physicalDevice.physicalDeviceProperties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
     if (useIndexTypeUint8) {
-        if (!context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
+        if (!physicalDevice.enabledExtensionSet.contains(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME)) {
             INVARIANT(false, "");
         }
     }
     if (useDescriptorBuffer) {
-        if (!context.getDevice().physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)) {
+        if (!physicalDevice.enabledExtensionSet.contains(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)) {
             INVARIANT(false, "");
         }
     }
     if (useDrawIndexedIndirect) {
-        if (context.getDevice().physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+        if (physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
     if (useDrawIndexedIndirectCount) {
-        if (context.getDevice().physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+        if (physicalDevice.physicalDeviceFeatures2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
@@ -800,8 +801,6 @@ SceneManager::SceneManager(const engine::Context & context) : context{context}
 std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::path scenePath) const
 {
     ASSERT(!std::empty(scenePath));
-    std::lock_guard<std::mutex> lock{mutex};
-
     auto & w = scenes[scenePath];
     auto p = w.lock();
     if (p) {
