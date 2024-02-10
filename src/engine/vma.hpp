@@ -181,7 +181,7 @@ public:
 
     ~Buffer();
 
-    operator vk::Buffer() const &;  // NOLINT: google-explicit-constructor
+    [[nodiscard]] operator vk::Buffer() const &;  // NOLINT: google-explicit-constructor
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     template<typename T>
@@ -212,7 +212,7 @@ public:
 
     Buffer(Buffer &&) noexcept = default;
 
-    operator vk::Buffer() const &  // NOLINT: google-explicit-constructor
+    [[nodiscard]] operator vk::Buffer() const &  // NOLINT: google-explicit-constructor
     {
         return buffer;
     }
@@ -251,13 +251,13 @@ class ENGINE_EXPORT Image final : utils::OneTime
 {
 public:
     Image();
-    Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & bufferCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
+    Image(const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & imageCreateInfo, const AllocationCreateInfo & allocationCreateInfo);
 
     Image(Image &&) noexcept;
 
     ~Image();
 
-    operator vk::Image() const &;  // NOLINT: google-explicit-constructor
+    [[nodiscard]] operator vk::Image() const &;  // NOLINT: google-explicit-constructor
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     [[nodiscard]] vk::ImageLayout exchangeLayout(vk::ImageLayout layout);

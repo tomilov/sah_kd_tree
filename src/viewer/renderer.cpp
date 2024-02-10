@@ -5,6 +5,8 @@
 #include <engine/graphics_pipeline.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
+#include <engine/vma.hpp>
+#include <engine/framebuffer.hpp>
 #include <engine/physical_device.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
@@ -25,6 +27,7 @@
 #include <memory>
 #include <string_view>
 #include <vector>
+#include <stack>
 
 #include <cstddef>
 #include <cstdint>
@@ -35,6 +38,24 @@ namespace viewer
 {
 namespace
 {
+
+template<typename T>
+class Stack : std::stack<T, std::vector<T>>
+{
+    using base = std::stack<T, std::vector<T>>;
+public:
+
+    using base::base;
+    using base::empty;
+    using base::push;
+    using base::pop;
+    using base::top;
+
+    void clear()
+    {
+        base::c.clear();
+    }
+};
 
 constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
     0x5C0EC5D6,
@@ -71,12 +92,21 @@ static_assert(utils::kIsOneTime<Renderer>);
 
 struct Renderer::Impl
 {
+    struct Framebuffer
+    {
+        engine::Image image;
+        vk::UniqueImageView imageView;
+        engine::Framebuffer framebuffer;
+    };
+
     const engine::Context & context;
     const uint32_t framesInFlight;
 
     std::shared_ptr<const Scene> scene;
     std::shared_ptr<const Scene::Descriptors> descriptors;
     std::shared_ptr<const Scene::GraphicsPipeline> graphicsPipeline;
+
+    Stack<Framebuffer> framebuffers;
 
     Impl(const engine::Context & context, uint32_t framesInFlight) : context{context}, framesInFlight{framesInFlight}
     {}
@@ -89,6 +119,31 @@ struct Renderer::Impl
     {
         return scene;
     }
+
+#if 0
+// TODO: continue
+    Framebuffer getFramebuffer()
+    {
+        if (std::empty(framebuffers)) {
+            vk::ImageCreateInfo imageCreateInfo = {
+
+            };
+            engine::AllocationCreateInfo allocationCreateInfo = {
+
+            };
+            Framebuffer framebuffer = {
+                .image = {context.getMemoryAllocator(), imageCreateInfo, allocationCreateInfo},
+                .imageView = {},
+                .framebuffer = {},
+            };
+            return framebuffer;
+        } else {
+            auto framebuffer = std::move(framebuffers.top());
+            framebuffers.pop();
+            return framebuffer;
+        }
+    }
+#endif
 };
 
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}

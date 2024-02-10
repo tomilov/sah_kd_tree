@@ -110,7 +110,7 @@ private:
     static constexpr size_t kFrameSettingsAlignment = 8;
     utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
 
-    static constexpr size_t kRendererSize = 72;
+    static constexpr size_t kRendererSize = 96;
     static constexpr size_t kRendererAlignment = 8;
     utils::FastPimpl<std::optional<Renderer>, kRendererSize, kRendererAlignment> renderer;
 

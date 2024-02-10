@@ -14,7 +14,7 @@ bool builder::buildSceneFromTriangles(const scene::Triangle * triangleBegin, con
         params.intersectionCost = intersectionCost;
     }
     if (maxDepth > 0) {
-        params.maxDepth = maxDepth;
+        params.maxDepth = static_cast<sah_kd_tree::U>(maxDepth);
     }
 
     sah_kd_tree::Triangle triangle;
