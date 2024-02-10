@@ -77,7 +77,7 @@ public:
         std::unique_ptr<engine::DescriptorPool> descriptorPool;
         std::vector<engine::DescriptorSets> descriptorSets;
 
-        std::vector<engine::Buffer<void>> descriptorSetBuffers;
+        std::vector<engine::Buffer<std::byte>> descriptorSetBuffers;
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
@@ -96,17 +96,27 @@ public:
         GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer);
     };
 
+    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
+
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
     [[nodiscard]] const scene::Scene & getScene() const;
-
-    [[nodiscard]] static std::shared_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
 
     [[nodiscard]] Descriptors makeDescriptors(uint32_t framesInFlight) const;
     [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
 
-    [[nodiscard]] bool isDescriptorBufferUsed() const
+    [[nodiscard]] bool isDescriptorBufferEnabled() const
     {
-        return useDescriptorBuffer;
+        return descriptorBufferEnabled;
+    }
+
+    [[nodiscard]] bool isDrawIndexedIndirectEnabled() const
+    {
+        return drawIndexedIndirectEnabled;
+    }
+
+    [[nodiscard]] bool isDrawIndexedIndirectCountEnabled() const
+    {
+        return drawIndexedIndirectCountEnabled;
     }
 
 private:
@@ -127,10 +137,10 @@ private:
     scene::Scene scene;
 
     // TODO: put in Settings and set in constructor
-    const bool useIndexTypeUint8 = true;
-    const bool useDescriptorBuffer = true;
-    const bool useDrawIndexedIndirect = true;
-    const bool useDrawIndexedIndirectCount = true;
+    const bool indexTypeUint8Enabled = true;
+    const bool descriptorBufferEnabled = true;
+    const bool drawIndexedIndirectEnabled = true;
+    const bool drawIndexedIndirectCountEnabled = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;
@@ -151,9 +161,9 @@ private:
     void fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
                             const std::vector<engine::DescriptorSets> & descriptorSets) const;
 
-    void createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<void>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
+    void createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const;
     void fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
-                               std::vector<engine::Buffer<void>> & descriptorSetBuffers) const;
+                               std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers) const;
 };
 
 class SceneManager

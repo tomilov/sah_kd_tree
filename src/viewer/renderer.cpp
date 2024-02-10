@@ -177,7 +177,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
-    if (scene->isDescriptorBufferUsed()) {
+    if (scene->isDescriptorBufferEnabled()) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
             commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, context.getDispatcher());
@@ -245,14 +245,14 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         indexBufferSize = descriptors->indexBuffer.value().getSize();
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
-    if (descriptors->instanceBuffer) {
+    if (scene->isDrawIndexedIndirectEnabled()) {
         commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, descriptors->indexTypes.at(0), context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = descriptors->drawCount;
         const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
-        if (descriptors->drawCountBuffer) {
+        if (scene->isDrawIndexedIndirectCountEnabled()) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
             commandBuffer.drawIndexedIndirectCount(descriptors->instanceBuffer.value(), kInstanceBufferOffset, descriptors->drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());

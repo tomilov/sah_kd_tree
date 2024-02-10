@@ -221,7 +221,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
             auto firstIndex = std::next(sceneIndices, sceneMesh.indexOffset);
             uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
-            if (useIndexTypeUint8 && (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
+            if (indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
                 indexType = vk::IndexType::eUint8EXT;
             } else if (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint16>>::max()) {
                 indexType = vk::IndexType::eUint16;
@@ -239,7 +239,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 if (indexType == vk::IndexType::eNoneKHR) {
                     continue;
                 }
-                if (useDrawIndexedIndirect) {
+                if (drawIndexedIndirectEnabled) {
                     indexType = maxIndexType;
                 }
                 vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
@@ -260,7 +260,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
             constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
             auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
-            INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+            INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
         }
 
         {
@@ -308,10 +308,10 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         totalInstanceCount += instance.instanceCount;
     }
 
-    if (useDrawIndexedIndirect) {
+    if (drawIndexedIndirectEnabled) {
         drawCount = std::size(instances);
 
-        if (useDrawIndexedIndirectCount) {
+        if (drawIndexedIndirectCountEnabled) {
             vk::BufferCreateInfo drawCountBufferCreateInfo;
             drawCountBufferCreateInfo.size = sizeof(uint32_t);
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
@@ -338,14 +338,14 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         vk::BufferCreateInfo transformBufferCreateInfo;
         transformBufferCreateInfo.size = totalInstanceCount * sizeof(glm::mat4);
         transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-        if (useDescriptorBuffer) {
+        if (descriptorBufferEnabled) {
             transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
         transformBuffer.emplace(vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Transformations"));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         auto memoryPropertyFlags = transformBuffer.value().getMemoryPropertyFlags();
-        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
     }
 
     {
@@ -381,7 +381,7 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttribu
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         auto memoryPropertyFlags = vertexBuffer.value().getMemoryPropertyFlags();
-        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
         auto mappedVertexBuffer = vertexBuffer.value().map();
         ASSERT(scene.vertices.getSize() == mappedVertexBuffer.getSize());
@@ -399,7 +399,7 @@ void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Bu
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = sizeof(UniformBuffer);
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
     uniformBuffers.reserve(framesInFlight);
@@ -409,7 +409,7 @@ void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Bu
         uniformBuffers.emplace_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
 
         auto memoryPropertyFlags = uniformBuffers.back().getMemoryPropertyFlags();
-        INVARIANT(memoryPropertyFlags & kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
+        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
     }
 }
 
@@ -491,7 +491,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
     device.getDevice().updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
-void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<void>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
+void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
 {
     const auto minAlignment = getMinAlignment();
 
@@ -526,7 +526,7 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
         const auto & descriptorSetBuffer = descriptorSetBuffers.emplace_back(context.getMemoryAllocator().createDescriptorBuffer(descriptorBufferCreateInfo, alignment, descriptorBufferName));
 
         auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
-        INVARIANT(memoryPropertyFlags & kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
+        INVARIANT((memoryPropertyFlags & kRequiredMemoryPropertyFlags) == kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
 
         descriptorBufferBindingInfos.emplace_back() = {
             .address = descriptorSetBuffer.getDeviceAddress(),
@@ -538,7 +538,7 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
 }
 
 void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
-                                  std::vector<engine::Buffer<void>> & descriptorSetBuffers) const
+                                  std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers) const
 {
     ASSERT(transformBuffer);
 
@@ -549,7 +549,7 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
         const auto setIndex = bindings.setIndex;
         const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setIndex);
         const auto & descriptorSetBuffer = descriptorSetBuffers.at(setIndex);
-        auto mappedDescriptorSetBuffer = descriptorSetBuffer.map<std::byte>();
+        auto mappedDescriptorSetBuffer = descriptorSetBuffer.map();
         auto setDescriptors = mappedDescriptorSetBuffer.begin();
         const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.getSize() / framesInFlight;
         for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
@@ -597,6 +597,11 @@ Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::C
     pipelines.create();
 }
 
+std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
+{
+    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
+}
+
 const std::filesystem::path & Scene::getScenePath() const
 {
     return scenePath;
@@ -605,11 +610,6 @@ const std::filesystem::path & Scene::getScenePath() const
 const scene::Scene & Scene::getScene() const
 {
     return scene;
-}
-
-std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
-{
-    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
 }
 
 auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
@@ -624,7 +624,7 @@ auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
         INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
 
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         createDescriptorBuffers(framesInFlight, descriptors.descriptorSetBuffers, descriptors.descriptorBufferBindingInfos);
     } else {
         createDescriptorSets(framesInFlight, descriptors.descriptorPool, descriptors.descriptorSets);
@@ -632,7 +632,7 @@ auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
 
     descriptors.pushConstantRanges = shaderStages.pushConstantRanges;
 
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         fillDescriptorBuffers(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSetBuffers);
     } else {
         fillDescriptorSets(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSets);
@@ -643,7 +643,7 @@ auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, shaderStages, renderPass, useDescriptorBuffer);
+    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, shaderStages, renderPass, descriptorBufferEnabled);
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
@@ -659,22 +659,22 @@ void Scene::init()
     uint32_t maxPushConstantsSize = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
-    if (useIndexTypeUint8) {
+    if (indexTypeUint8Enabled) {
         if (physicalDevice.features2Chain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         if (physicalDevice.features2Chain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
-    if (useDrawIndexedIndirect) {
+    if (drawIndexedIndirectEnabled) {
         if (physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
-    if (useDrawIndexedIndirectCount) {
+    if (drawIndexedIndirectCountEnabled) {
         if (physicalDevice.features2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
             INVARIANT(false, "");
         }
@@ -785,7 +785,7 @@ void Scene::init()
     }
 
     vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
     }
     shaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
