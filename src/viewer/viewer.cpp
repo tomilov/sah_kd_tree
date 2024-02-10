@@ -1,5 +1,7 @@
 ﻿#include <engine/context.hpp>
 #include <engine/device.hpp>
+#include <engine/instance.hpp>
+#include <engine/physical_device.hpp>
 #include <scene/scene.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
@@ -55,7 +57,7 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 class CleanupJob : public QRunnable
 {
 public:
-    explicit CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
+    explicit CleanupJob(Renderer && renderer) : renderer{std::move(renderer)}
     {}
 
     void run() override
@@ -64,7 +66,7 @@ public:
     }
 
 private:
-    std::unique_ptr<Renderer> renderer;
+    std::optional<Renderer> renderer;
 };
 
 }  // namespace
@@ -320,24 +322,24 @@ void Viewer::beforeRendering()
 
     auto graphicsStateInfo = window()->graphicsStateInfo();
 
-    if (!renderer) {
+    if (!*renderer) {
         checkEngine();
-        renderer = std::make_unique<Renderer>(engine->getContext(), utils::autoCast(graphicsStateInfo.framesInFlight));
+        renderer->emplace(engine->getContext(), utils::autoCast(graphicsStateInfo.framesInFlight));
     }
 
-    if (renderer->getScene() != scene) {
-        renderer->setScene(scene);
+    if (renderer->value().getScene() != scene) {
+        renderer->value().setScene(scene);
     }
 
     if (boundingRect().isEmpty()) {
         return;
     }
-    renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
+    renderer->value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
 }
 
 void Viewer::beforeRenderPassRecording()
 {
-    if (!renderer) {
+    if (!*renderer) {
         return;
     }
 
@@ -365,7 +367,7 @@ void Viewer::beforeRenderPassRecording()
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
         auto graphicsStateInfo = w->graphicsStateInfo();
-        renderer->render(*commandBuffer, *renderPass, utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
+        renderer->value().render(*commandBuffer, *renderPass, utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
     }
     w->endExternalCommands();
 }
@@ -407,11 +409,12 @@ void Viewer::checkEngine() const
     PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
 
     const auto & context = engine->getContext();
-    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == context.getVulkanInstance(), "Should match");
-    INVARIANT(*vulkanPhysicalDevice == context.getVulkanPhysicalDevice(), "Should match");
-    INVARIANT(*vulkanDevice == context.getVulkanDevice(), "Should match");
-    INVARIANT(*queueFamilyIndex == context.getVulkanGraphicsQueueFamilyIndex(), "Should match");
-    INVARIANT(*queueIndex == context.getVulkanGraphicsQueueIndex(), "Should match");
+    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == context.getInstance().getInstance(), "Should match");
+    INVARIANT(*vulkanPhysicalDevice == context.getPhysicalDevice().getPhysicalDevice(), "Should match");
+    INVARIANT(*vulkanDevice == context.getDevice().getDevice(), "Should match");
+    const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
+    INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
+    INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
     {
         VkQueue queue = VK_NULL_HANDLE;
         vkGetDeviceQueue(*vulkanDevice, *queueFamilyIndex, *queueIndex, &queue);
@@ -590,7 +593,10 @@ void Viewer::handleInput()
 void Viewer::releaseResources()
 {
     scene.reset();
-    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
+    if (*renderer) {
+        window()->scheduleRenderJob(new CleanupJob{std::move(*renderer).value()}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
+        renderer->reset();
+    }
 }
 
 void Viewer::wheelEvent(QWheelEvent * event)

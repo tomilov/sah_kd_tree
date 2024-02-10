@@ -115,6 +115,6 @@ int main(int /*argc*/, char * /*argv*/[])
         std::vector<int, A> v{a};
         v.push_back(1);
     }
-    context.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks);
+    context.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, {} /*mutedMessageIdNumbers*/);
     context.createDevice();
 }

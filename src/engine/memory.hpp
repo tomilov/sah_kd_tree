@@ -78,9 +78,9 @@ public:
             throw std::bad_array_new_length{};
         }
         if (!allocationCallbacks) {
-            return static_cast<T *>(::operator new(sizeof(T) * n, utils::safeCast<std::align_val_t>(alignof(T))));
+            return static_cast<T *>(::operator new(sizeof(T) * n, static_cast<std::align_val_t>(alignof(T))));
         }
-        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), utils::safeCast<VkSystemAllocationScope>(systemAllocationScope));
+        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), static_cast<VkSystemAllocationScope>(systemAllocationScope));
         if (!p) {
             throw std::bad_alloc{};
         }

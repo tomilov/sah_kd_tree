@@ -13,42 +13,10 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass)
-    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, shaderStages{shaderStages}, renderPass{renderPass}
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass) : name{name}, shaderStages{shaderStages}, renderPass{renderPass}
 {
-    init();
-}
+    ASSERT(renderPass);
 
-void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const
-{
-    name = this->name;
-
-    graphicsPipelineCreateInfo.flags = {};
-    if (useDescriptorBuffer) {
-        graphicsPipelineCreateInfo.flags = vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
-    }
-
-    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
-    if (shaderStages.vertexInputState) {
-        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.value().pipelineVertexInputStateCreateInfo;
-    }
-    graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
-    graphicsPipelineCreateInfo.pTessellationState = nullptr;
-    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
-    graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
-    graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
-    graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
-    graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
-    graphicsPipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
-    graphicsPipelineCreateInfo.layout = pipelineLayout;
-    graphicsPipelineCreateInfo.renderPass = renderPass;
-    graphicsPipelineCreateInfo.subpass = 0;
-    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
-    graphicsPipelineCreateInfo.basePipelineIndex = 0;
-}
-
-void GraphicsPipelineLayout::init()
-{
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
     pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleList);
@@ -123,12 +91,50 @@ void GraphicsPipelineLayout::init()
     pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
     pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
 
-    pipelineLayoutHolder = device.device.createPipelineLayoutUnique(pipelineLayoutCreateInfo, library.allocationCallbacks, library.dispatcher);
-    pipelineLayout = *pipelineLayoutHolder;
-    device.setDebugUtilsObjectName(pipelineLayout, name);
+    pipelineLayoutHolder = context.getDevice().getDevice().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*pipelineLayoutHolder, name);
 }
 
-GraphicsPipelines::GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache) : context{context}, library{context.getLibrary()}, device{context.getDevice()}, pipelineCache{pipelineCache}
+vk::RenderPass GraphicsPipelineLayout::getAssociatedRenderPass() const &
+{
+    return renderPass;
+}
+
+vk::PipelineLayout GraphicsPipelineLayout::getPipelineLayout() const &
+{
+    ASSERT(pipelineLayoutHolder);
+    return *pipelineLayoutHolder;
+}
+
+void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const
+{
+    name = this->name;
+
+    graphicsPipelineCreateInfo.flags = {};
+    if (useDescriptorBuffer) {
+        graphicsPipelineCreateInfo.flags = vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
+    }
+
+    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
+    if (shaderStages.vertexInputState) {
+        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.value().pipelineVertexInputStateCreateInfo;
+    }
+    graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
+    graphicsPipelineCreateInfo.pTessellationState = nullptr;
+    graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+    graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+    graphicsPipelineCreateInfo.pMultisampleState = &pipelineMultisampleStateCreateInfo;
+    graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
+    graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
+    graphicsPipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
+    graphicsPipelineCreateInfo.layout = *pipelineLayoutHolder;
+    graphicsPipelineCreateInfo.renderPass = renderPass;
+    graphicsPipelineCreateInfo.subpass = 0;
+    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+    graphicsPipelineCreateInfo.basePipelineIndex = 0;
+}
+
+GraphicsPipelines::GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache) : context{context}, pipelineCache{pipelineCache}
 {}
 
 void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer)
@@ -138,16 +144,21 @@ void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayou
 
 void GraphicsPipelines::create()
 {
-    auto result = device.device.createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfos, library.allocationCallbacks, library.dispatcher);
+    auto result = context.getDevice().getDevice().createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfos, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipelines {}", fmt::join(names, ", "));
     pipelineHolders = std::move(result.value);
     pipelines.reserve(std::size(pipelineHolders));
     size_t i = 0;
     for (const auto & pipelineHolder : pipelineHolders) {
         pipelines.push_back(*pipelineHolder);
-        device.setDebugUtilsObjectName(pipelines.back(), names.at(i));
+        context.getDevice().setDebugUtilsObjectName(pipelines.back(), names.at(i));
         ++i;
     }
+}
+
+const std::vector<vk::Pipeline> & GraphicsPipelines::getPipelines() const &
+{
+    return pipelines;
 }
 
 }  // namespace engine

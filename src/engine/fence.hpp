@@ -20,18 +20,6 @@ namespace engine
 
 struct ENGINE_EXPORT Fences final : utils::NonCopyable
 {
-    const std::string name;
-
-    const Context & context;
-    const Library & library;
-    const Device & device;
-
-    const vk::FenceCreateFlags fenceCreateFlags;
-    vk::StructureChain<vk::FenceCreateInfo> fenceCreateInfoChain;
-
-    std::vector<vk::UniqueFence> fencesHolder;
-    std::vector<vk::Fence> fences;
-
     Fences(std::string_view name, const Context & context, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
 
     [[nodiscard]] vk::Result wait(bool waitALl = true, std::chrono::nanoseconds duration = std::chrono::nanoseconds::max());
@@ -41,7 +29,15 @@ struct ENGINE_EXPORT Fences final : utils::NonCopyable
     void reset(size_t fenceIndex);
 
 private:
-    void create(size_t count);
+    std::string name;
+
+    const Context & context;
+
+    const vk::FenceCreateFlags fenceCreateFlags;
+    vk::StructureChain<vk::FenceCreateInfo> fenceCreateInfoChain;
+
+    std::vector<vk::UniqueFence> fencesHolder;
+    std::vector<vk::Fence> fences;
 };
 
 }  // namespace engine

@@ -18,7 +18,7 @@ class ScopeGuard : NonCopyable
     using Storage = std::pair<F, std::tuple<Args...>>;
 
 public:
-    ScopeGuard(F && f, Args &&... args) noexcept(std::is_nothrow_move_constructible_v<Storage>)  // NOLINT(google-explicit-constructor)
+    ScopeGuard(F && f, Args &&... args) noexcept(std::is_nothrow_move_constructible_v<Storage>)  // NOLINT: google-explicit-constructor
         : storage{std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...)}
     {}
 

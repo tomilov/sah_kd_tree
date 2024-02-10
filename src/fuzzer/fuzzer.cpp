@@ -323,7 +323,7 @@ struct TestInput
         } else {
             const auto chunkSize = std::size(triangles) * sizeof(Triangle);
             std::memcpy(data, std::data(triangles), chunkSize);
-            data += chunkSize;  // NOLINT(clang-analyzer-deadcode.DeadStores)
+            data += chunkSize;  // NOLINT: clang-analyzer-deadcode.DeadStores
             size += chunkSize;
         }
         assert(size <= maxSize);

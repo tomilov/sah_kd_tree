@@ -112,7 +112,7 @@ public:
 private:
     struct Shader
     {
-        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, context, fileIo}, shaderReflection{shader, entryPoint}
+        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, context, fileIo}, shaderReflection{context, shader, entryPoint}
         {}
 
         engine::ShaderModule shader;

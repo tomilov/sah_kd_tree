@@ -1,5 +1,4 @@
 #include <common/config.hpp>
-#include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/fence.hpp>
 #include <engine/instance.hpp>
@@ -7,6 +6,7 @@
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -15,19 +15,14 @@
 namespace engine
 {
 
-Device::Device(std::string_view name, const Context & context, Library & library, PhysicalDevice & physicalDevice) : name{name}, context{context}, library{library}, instance{context.getInstance()}, physicalDevice{physicalDevice}
+Device::Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice) : name{name}, library{library}, physicalDevice{physicalDevice}
 {
-    create();
-}
-
-void Device::create()
-{
-    const auto setFeature = [this]<typename Features>(vk::Bool32 Features::*feature)
+    const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::*feature)
     {
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
-            createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.*feature = VK_TRUE;
+            createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.*feature = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature;
         } else {
-            createInfoChain.get<Features>().*feature = VK_TRUE;
+            createInfoChain.get<Features>().*feature = features2Chain.get<Features>().*feature;
         }
     };
     const auto setFeatures = [&setFeature]<auto... features>(const PhysicalDevice::FeatureList<features...> *)
@@ -44,7 +39,7 @@ void Device::create()
             INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
         }
     }
-    for (const char * requiredExtension : context.requiredDeviceExtensions) {
+    for (const char * requiredExtension : requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
         }
@@ -61,30 +56,46 @@ void Device::create()
     }
 
     auto & deviceCreateInfo = createInfoChain.get<vk::DeviceCreateInfo>();
-    deviceCreateInfo.setQueueCreateInfos(physicalDevice.deviceQueueCreateInfos);
-    deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.enabledExtensions);
+    deviceCreateInfo.setQueueCreateInfos(physicalDevice.getDeviceQueueCreateInfos());
+    deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.getEnabledExtensions());
 
-    deviceHolder = physicalDevice.physicalDevice.createDeviceUnique(deviceCreateInfo, library.allocationCallbacks, library.dispatcher);
-    device = *deviceHolder;
+    deviceHolder = physicalDevice.getPhysicalDevice().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
-    library.dispatcher.init(device);
+    library.getDispatcher().init(*deviceHolder);
 #endif
-    setDebugUtilsObjectName(device, name);
+    setDebugUtilsObjectName(*deviceHolder, name);
 }
 
-Fences Device::createFences(std::string_view name, size_t count, vk::FenceCreateFlags fenceCreateFlags)
+const PhysicalDevice & Device::getPhysicalDevice() const &
 {
-    return {name, context, count, fenceCreateFlags};
+    return physicalDevice;
+}
+
+vk::Device Device::getDevice() const &
+{
+    ASSERT(deviceHolder);
+    return *deviceHolder;
+}
+
+Device::operator vk::Device() const &
+{
+    return getDevice();
 }
 
 void Device::setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const
 {
-    device.setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.dispatcher);
+    if (!library.getDispatcher().vkSetDebugUtilsObjectNameEXT) {
+        return;
+    }
+    deviceHolder->setDebugUtilsObjectNameEXT(debugUtilsObjectNameInfo, library.getDispatcher());
 }
 
 void Device::setDebugUtilsObjectTag(const vk::DebugUtilsObjectTagInfoEXT & debugUtilsObjectTagInfo) const
 {
-    device.setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.dispatcher);
+    if (!library.getDispatcher().vkSetDebugUtilsObjectTagEXT) {
+        return;
+    }
+    deviceHolder->setDebugUtilsObjectTagEXT(debugUtilsObjectTagInfo, library.getDispatcher());
 }
 
 }  // namespace engine

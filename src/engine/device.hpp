@@ -1,13 +1,13 @@
 #pragma once
 
 #include <engine/fwd.hpp>
-#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -19,25 +19,9 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT Device final : utils::NonCopyable
+struct ENGINE_EXPORT Device final : utils::OneTime
 {
-    const std::string name;
-
-    const Context & context;
-    Library & library;
-    const Instance & instance;
-    PhysicalDevice & physicalDevice;
-
-    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
-                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
-                       vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR>
-        createInfoChain;
-    vk::UniqueDevice deviceHolder;
-    vk::Device device;
-
-    Device(std::string_view name, const Context & context, Library & library, PhysicalDevice & physicalDevice);
-
-    void create();
+    Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice);
 
     template<typename Object>
     void setDebugUtilsObjectName(Object object, const char * objectName) const
@@ -96,11 +80,27 @@ struct ENGINE_EXPORT Device final : utils::NonCopyable
         return setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
     }
 
-    [[nodiscard]] Fences createFences(std::string_view name, size_t count = 1, vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
+    [[nodiscard]] const PhysicalDevice & getPhysicalDevice() const &;
+
+    [[nodiscard]] vk::Device getDevice() const &;
+    operator vk::Device() const &;  // NOLINT: google-explicit-constructor
 
 private:
+    std::string name;
+
+    const Library & library;
+    PhysicalDevice & physicalDevice;
+
+    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
+                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
+                       vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR>
+        createInfoChain;
+    vk::UniqueDevice deviceHolder;
+
     void setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const;
     void setDebugUtilsObjectTag(const vk::DebugUtilsObjectTagInfoEXT & debugUtilsObjectTagInfo) const;
 };
+
+static_assert(utils::kIsOneTime<Device>);
 
 }  // namespace engine

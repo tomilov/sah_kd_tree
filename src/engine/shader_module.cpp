@@ -25,6 +25,10 @@
 namespace engine
 {
 
+static_assert(utils::kIsOneTime<ShaderModule>);
+static_assert(utils::kIsOneTime<VertexInputState>);
+static_assert(utils::kIsOneTime<ShaderModule>);
+
 namespace
 {
 
@@ -327,28 +331,49 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}, library{context.getLibrary()}, device{context.getDevice()}
-{
-    load();
-}
-
-void ShaderModule::load()
+ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}
 {
     shaderStage = shaderNameToStage(name);
     spirv = fileIo.loadShader(name);
 
     vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
     shaderModuleCreateInfo.setCode(spirv);
-    shaderModuleHolder = device.device.createShaderModuleUnique(shaderModuleCreateInfo, library.allocationCallbacks, library.dispatcher);
-    shaderModule = *shaderModuleHolder;
+    shaderModuleHolder = context.getDevice().getDevice().createShaderModuleUnique(shaderModuleCreateInfo, context.getLibrary().getAllocationCallbacks(), context.getDispatcher());
 
-    device.setDebugUtilsObjectName(shaderModule, name);
+    context.getDevice().setDebugUtilsObjectName(*shaderModuleHolder, name);
 }
 
-ShaderModuleReflection::ShaderModuleReflection(const ShaderModule & shaderModule, std::string_view entryPoint) : shaderModule{shaderModule}, entryPoint{entryPoint}, reflectionModule{shaderModule.spirv, SPV_REFLECT_MODULE_FLAG_NO_COPY}
+const std::string & ShaderModule::getName() const &
+{
+    return name;
+}
+
+const std::vector<uint32_t> & ShaderModule::getSpirv() const &
+{
+    return spirv;
+}
+
+vk::ShaderStageFlagBits ShaderModule::getShaderStage() const
+{
+    return shaderStage;
+}
+
+vk::ShaderModule ShaderModule::getShaderModule() const &
+{
+    ASSERT(shaderModuleHolder);
+    return *shaderModuleHolder;
+}
+
+ShaderModule::operator vk::ShaderModule() const &
+{
+    return getShaderModule();
+}
+
+ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPoint)
+    : context{context}, shaderModule{shaderModule}, entryPoint{entryPoint}, reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
     auto reflectionResult = reflectionModule->GetResult();
-    INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModule.name);
+    INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModule.getName());
 
     dump(*reflectionModule);
 
@@ -356,6 +381,11 @@ ShaderModuleReflection::ShaderModuleReflection(const ShaderModule & shaderModule
 }
 
 ShaderModuleReflection::~ShaderModuleReflection() = default;
+
+const std::string & ShaderModuleReflection::getEntryPoint() const &
+{
+    return entryPoint;
+}
 
 VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBufferBinding) const
 {
@@ -400,7 +430,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
 
-        auto formatProperties = shaderModule.device.physicalDevice.physicalDevice.getFormatProperties(vertexInputAttributeDescription.format, shaderModule.library.dispatcher);
+        auto formatProperties = context.getPhysicalDevice().getPhysicalDevice().getFormatProperties(vertexInputAttributeDescription.format, context.getDispatcher());
         INVARIANT(formatProperties.bufferFeatures & vk::FormatFeatureFlagBits::eVertexBuffer, "");
 
         auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor);
@@ -432,8 +462,8 @@ void ShaderModuleReflection::reflect()
         }
     }
     INVARIANT(entryPointFound, "Entry point '{}' is not found", entryPoint);
-    if (!(shaderStage & shaderModule.shaderStage)) {
-        SPDLOG_WARN("Reflected flags ({}) of shader module '{}' does not contain inferred flags ({})", shaderStage, shaderModule.name, shaderModule.shaderStage);
+    if (!(shaderStage & shaderModule.getShaderStage())) {
+        SPDLOG_WARN("Reflected flags ({}) of shader module '{}' does not contain inferred flags ({})", shaderStage, shaderModule.getName(), shaderModule.getShaderStage());
     }
 
     uint32_t descriptorSetCount = 0;
@@ -483,7 +513,7 @@ void ShaderModuleReflection::reflect()
             if ((member.flags & SPV_REFLECT_VARIABLE_FLAGS_UNUSED) != 0) {
                 auto memberName = member.name ? member.name : "<unknown>";
                 auto blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";
-                SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPoint, shaderStage, shaderModule.name);
+                SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPoint, shaderStage, shaderModule.getName());
                 continue;
             }
 
@@ -505,30 +535,31 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding) : context{context}, library{context.getLibrary()}, device{context.getDevice()}, vertexBufferBinding{vertexBufferBinding}
+ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding) : context{context}, vertexBufferBinding{vertexBufferBinding}
 {}
 
 void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
 {
     shaderModuleReflections.emplace_back(shaderModuleReflection);
-    entryPoints.emplace_back(shaderModuleReflection.entryPoint);
-    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.name, shaderModuleReflection.entryPoint));
+    const auto & entryPoint = shaderModuleReflection.getEntryPoint();
+    entryPoints.emplace_back(entryPoint);
+    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getName(), entryPoint));
 
     shaderStages.emplace_back();
     auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
     pipelineShaderStageCreateInfo = {
         .flags = {},
-        .stage = shaderModule.shaderStage,
-        .module = shaderModule.shaderModule,
+        .stage = shaderModule.getShaderStage(),
+        .module = shaderModule,
         .pName = entryPoints.back().c_str(),
         .pSpecializationInfo = nullptr,
     };
     auto & debugUtilsObjectNameInfo = shaderStages.back<vk::DebugUtilsObjectNameInfoEXT>();
-    debugUtilsObjectNameInfo.objectType = shaderModule.shaderModule.objectType;
-    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.shaderModule));
+    debugUtilsObjectNameInfo.objectType = shaderModule.getShaderModule().objectType;
+    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getShaderModule()));
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
 
-    if (shaderModule.shaderStage == vk::ShaderStageFlagBits::eVertex) {
+    if (shaderModule.getShaderStage() == vk::ShaderStageFlagBits::eVertex) {
         vertexInputState.emplace(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
     }
 
@@ -572,6 +603,8 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
     descriptorSetLayoutHolders.reserve(setCount);
     descriptorSetLayouts.reserve(setCount);
 
+    const auto & device = context.getDevice();
+
     for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
         vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> descriptorSetLayoutCreateInfoChain;
         auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutCreateInfo>();
@@ -579,7 +612,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
         descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
         auto & descriptorSetLayoutBindingFlagsCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
         descriptorSetLayoutBindingFlagsCreateInfo.setBindingFlags(nullptr);  // TODO:
-        descriptorSetLayoutHolders.push_back(device.device.createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, library.allocationCallbacks, library.dispatcher));
+        descriptorSetLayoutHolders.push_back(device.getDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
         for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {

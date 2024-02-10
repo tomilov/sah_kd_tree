@@ -94,9 +94,9 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 {
-    const auto & device = context.getDevice();
-    const vk::Bool32 robustBufferAccess = device.physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
-    const auto & physicalDeviceDescriptorBufferProperties = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
+    const auto & physicalDevice = context.getPhysicalDevice();
+    const vk::Bool32 robustBufferAccess = physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
+    const auto & physicalDeviceDescriptorBufferProperties = physicalDevice.properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
     switch (descriptorType) {
     case vk::DescriptorType::eSampler: {
         return physicalDeviceDescriptorBufferProperties.samplerDescriptorSize;
@@ -171,8 +171,7 @@ size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 
 vk::DeviceSize Scene::getMinAlignment() const
 {
-    const auto & device = context.getDevice();
-    const auto & physicalDeviceLimits = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
@@ -425,7 +424,7 @@ void Scene::createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine
 void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
                                const std::vector<engine::DescriptorSets> & descriptorSets) const
 {
-    const auto & dispatcher = context.getLibrary().dispatcher;
+    const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
 
     std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
@@ -452,7 +451,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
                 ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
                 auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
 
-                writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(uniformBufferSetIndex);
+                writeDescriptorSet.dstSet = descriptorSets.at(i).getDescriptorSets().at(uniformBufferSetIndex);
                 writeDescriptorSet.dstBinding = uniformBufferBinding->binding;
                 writeDescriptorSet.dstArrayElement = 0;  // not an array
                 writeDescriptorSet.descriptorType = uniformBufferBinding->descriptorType;
@@ -480,7 +479,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
                 ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
                 auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
 
-                writeDescriptorSet.dstSet = descriptorSets.at(i).descriptorSets.at(transformBufferSetIndex);
+                writeDescriptorSet.dstSet = descriptorSets.at(i).getDescriptorSets().at(transformBufferSetIndex);
                 writeDescriptorSet.dstBinding = transformBufferBinding->binding;
                 writeDescriptorSet.dstArrayElement = 0;  // not an array
                 writeDescriptorSet.descriptorType = transformBufferBinding->descriptorType;
@@ -489,25 +488,22 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
         }
     }
 
-    device.device.updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+    device.getDevice().updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
 }
 
 void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<void>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
 {
     const auto minAlignment = getMinAlignment();
-    const auto & dispatcher = context.getLibrary().dispatcher;
-    const auto & device = context.getDevice();
-    const auto & vma = context.getMemoryAllocator();
 
     constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
-    const auto descriptorBufferOffsetAlignment = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
+    const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
     descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
     auto set = std::cbegin(shaderStages.setBindings);
     for (const auto & descriptorSetLayout : shaderStages.descriptorSetLayouts) {
         vk::BufferCreateInfo descriptorBufferCreateInfo;
         descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
         auto alignment = std::max(descriptorBufferOffsetAlignment, minAlignment);
-        descriptorBufferCreateInfo.size = engine::alignedSize(device.device.getDescriptorSetLayoutSizeEXT(descriptorSetLayout, dispatcher), alignment) * framesInFlight;
+        descriptorBufferCreateInfo.size = engine::alignedSize(context.getDevice().getDevice().getDescriptorSetLayoutSizeEXT(descriptorSetLayout, context.getDispatcher()), alignment) * framesInFlight;
         INVARIANT(set != std::cend(shaderStages.setBindings), "");
         for (const auto & binding : set->second.bindings) {
             switch (binding.descriptorType) {
@@ -527,7 +523,7 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
             }
         }
         auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set->first);
-        const auto & descriptorSetBuffer = descriptorSetBuffers.emplace_back(vma.createDescriptorBuffer(descriptorBufferCreateInfo, alignment, descriptorBufferName));
+        const auto & descriptorSetBuffer = descriptorSetBuffers.emplace_back(context.getMemoryAllocator().createDescriptorBuffer(descriptorBufferCreateInfo, alignment, descriptorBufferName));
 
         auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
         INVARIANT(memoryPropertyFlags & kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
@@ -546,7 +542,7 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
 {
     ASSERT(transformBuffer);
 
-    const auto & dispatcher = context.getLibrary().dispatcher;
+    const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
 
     for (const auto & [set, bindings] : shaderStages.setBindings) {
@@ -584,9 +580,9 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
                     INVARIANT(false, "Cannot find descriptor for binding '{}'", bindingName);
                 }
                 vk::DeviceSize descriptorSize = getDescriptorSize(binding.descriptorType);
-                vk::DeviceSize bindingOffset = device.device.getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
+                vk::DeviceSize bindingOffset = device.getDevice().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
                 ASSERT(setDescriptors + bindingOffset + descriptorSize <= mappedDescriptorSetBuffer.end());
-                device.device.getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
+                device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
             }
             setDescriptors += descriptorSetBufferPerFrameSize;
         }
@@ -647,7 +643,7 @@ auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
 {
-    return std::make_unique<GraphicsPipeline>(kRasterization, context, pipelineCache->pipelineCache, shaderStages, renderPass, useDescriptorBuffer);
+    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, shaderStages, renderPass, useDescriptorBuffer);
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
@@ -658,7 +654,7 @@ Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared
 
 void Scene::init()
 {
-    const auto & physicalDevice = context.getDevice().physicalDevice;
+    const auto & physicalDevice = context.getPhysicalDevice();
 
     uint32_t maxPushConstantsSize = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);

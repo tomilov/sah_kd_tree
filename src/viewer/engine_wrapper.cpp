@@ -35,7 +35,7 @@ const auto kUri = u"SahKdTree"_s;
 
 struct Engine::Impl final : utils::NonCopyable
 {
-    engine::Context context{kMutedMessageIdNumbers};
+    engine::Context context;
     SceneManager sceneManager{context};
 };
 
@@ -51,6 +51,11 @@ Engine::~Engine() = default;
 engine::Context & Engine::getContext()
 {
     return impl_->context;
+}
+
+std::initializer_list<uint32_t> Engine::getMutedMessageIdNumbers()
+{
+    return kMutedMessageIdNumbers;
 }
 
 const SceneManager & Engine::getSceneManager()

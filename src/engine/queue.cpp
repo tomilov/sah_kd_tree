@@ -11,21 +11,16 @@
 namespace engine
 {
 
-Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools)
-    : context{context}, library{context.getLibrary()}, queueCreateInfo{queueCreateInfo}, device{context.getDevice()}, commandPools{commandPools}
+Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool) : context{context}, commandPool{commandPool}
 {
-    init();
+    const auto & device = context.getDevice();
+    queue = device.getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher());
+    device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
 }
 
 Queue::~Queue()
 {
     waitIdle();
-}
-
-void Queue::init()
-{
-    queue = device.device.getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, library.dispatcher);
-    device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
 }
 
 void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
@@ -45,23 +40,23 @@ void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
 
 void Queue::submit(const vk::SubmitInfo & submitInfo, vk::Fence fence) const
 {
-    return queue.submit(submitInfo, fence, library.dispatcher);
+    return queue.submit(submitInfo, fence, context.getDispatcher());
 }
 
 void Queue::submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence) const
 {
-    return queue.submit2(submitInfo2, fence, library.dispatcher);
+    return queue.submit2(submitInfo2, fence, context.getDispatcher());
 }
 
 void Queue::waitIdle() const
 {
-    queue.waitIdle(library.dispatcher);
+    queue.waitIdle(context.getDispatcher());
 }
 
 CommandBuffers Queue::allocateCommandBuffers(std::string_view name, uint32_t count, vk::CommandBufferLevel level) const
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo = {
-        .commandPool = commandPools.getCommandPool(name, queueCreateInfo.familyIndex, level),
+        .commandPool = commandPool,
         .level = level,
         .commandBufferCount = count,
     };
@@ -73,12 +68,12 @@ CommandBuffers Queue::allocateCommandBuffer(std::string_view name, vk::CommandBu
     return allocateCommandBuffers(name, 1, level);
 }
 
-Queues::Queues(const Context & context, const CommandPools & commandPools)
-    : externalGraphics{context, context.getDevice().physicalDevice.externalGraphicsQueueCreateInfo, commandPools}
-    , graphics{context, context.getDevice().physicalDevice.graphicsQueueCreateInfo, commandPools}
-    , compute{context, context.getDevice().physicalDevice.computeQueueCreateInfo, commandPools}
-    , transferHostToDevice{context, context.getDevice().physicalDevice.transferHostToDeviceQueueCreateInfo, commandPools}
-    , transferDeviceToHost{context, context.getDevice().physicalDevice.transferDeviceToHostQueueCreateInfo, commandPools}
+Queues::Queues(const Context & context, const CommandPool & commandPool)
+    : externalGraphics{context, context.getPhysicalDevice().externalGraphicsQueueCreateInfo, commandPool}
+    , graphics{context, context.getPhysicalDevice().graphicsQueueCreateInfo, commandPool}
+    , compute{context, context.getPhysicalDevice().computeQueueCreateInfo, commandPool}
+    , transferHostToDevice{context, context.getPhysicalDevice().transferHostToDeviceQueueCreateInfo, commandPool}
+    , transferDeviceToHost{context, context.getPhysicalDevice().transferDeviceToHostQueueCreateInfo, commandPool}
 {}
 
 void Queues::waitIdle() const

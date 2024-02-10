@@ -34,20 +34,6 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
-    const Context & context;
-    const Library & library;
-    const Instance & instance;
-
-    vk::PhysicalDevice physicalDevice;
-
-    std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
-
-    std::vector<vk::ExtensionProperties> extensionPropertyList;
-    StringUnorderedSet extensions;
-    StringUnorderedMultiMap extensionLayers;
-    StringUnorderedSet enabledExtensionSet;
-    std::vector<const char *> enabledExtensions;
-
     vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceDescriptorIndexingProperties,
                        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
                        vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceMaintenance5PropertiesKHR>
@@ -109,16 +95,6 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
     };
 
-    vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo;
-    vk::SurfaceCapabilities2KHR surfaceCapabilities;
-    using SurfaceFormatChain = vk::StructureChain<vk::SurfaceFormat2KHR, vk::ImageCompressionPropertiesEXT>;
-    std::vector<SurfaceFormatChain> surfaceFormats;
-    std::vector<vk::PresentModeKHR> presentModes;
-
-    std::vector<std::vector<float>> deviceQueuesPriorities;
-    std::unordered_map<uint32_t /*queueFamilyIndex*/, size_t /*count*/> usedQueueFamilySizes;
-    std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
-
     QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics queue"};
     QueueCreateInfo graphicsQueueCreateInfo{"Graphics queue"};
     QueueCreateInfo computeQueueCreateInfo{"Compute queue"};
@@ -126,6 +102,9 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
 
     PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice);
+
+    [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const &;
+    [[nodiscard]] operator vk::PhysicalDevice() const &;  // NOLINT: google-explicit-constructor
 
     [[nodiscard]] std::string getDeviceName() const;
     [[nodiscard]] std::string getPipelineCacheUUID() const;
@@ -136,24 +115,45 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     [[nodiscard]] bool enableExtensionIfAvailable(const char * extensionName);
 
+    [[nodiscard]] const std::vector<vk::DeviceQueueCreateInfo> & getDeviceQueueCreateInfos() const &;
+
+    [[nodiscard]] const std::vector<const char *> & getEnabledExtensions() const &;
+    [[nodiscard]] bool isExtensionEnabled(const char * extension) const;
+
 private:
-    void init();
+    const Context & context;
+
+    vk::PhysicalDevice physicalDevice;
+
+    std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
+
+    std::vector<vk::ExtensionProperties> extensionPropertyList;
+    StringUnorderedSet extensions;
+    StringUnorderedMultiMap extensionLayers;
+    StringUnorderedSet enabledExtensionSet;
+    std::vector<const char *> enabledExtensions;
+
+    vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo;
+    vk::SurfaceCapabilities2KHR surfaceCapabilities;
+    using SurfaceFormatChain = vk::StructureChain<vk::SurfaceFormat2KHR, vk::ImageCompressionPropertiesEXT>;
+    std::vector<SurfaceFormatChain> surfaceFormats;
+    std::vector<vk::PresentModeKHR> presentModes;
+
+    std::vector<std::vector<float>> deviceQueuesPriorities;
+    std::unordered_map<uint32_t /*queueFamilyIndex*/, size_t /*count*/> usedQueueFamilySizes;
+    std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
 };
 
 struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 {
-    const Context & context;
-    const Library & library;
-    const Instance & instance;
-
-    std::list<PhysicalDevice> physicalDevices;
-
     explicit PhysicalDevices(const Context & context);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 
 private:
-    void init();
+    const Context & context;
+
+    std::list<PhysicalDevice> physicalDevices;
 };
 
 }  // namespace engine

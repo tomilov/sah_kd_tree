@@ -17,16 +17,7 @@ namespace engine
 
 struct ENGINE_EXPORT Queue final : utils::NonCopyable
 {
-    const Context & context;
-    const Library & library;
-    const QueueCreateInfo & queueCreateInfo;
-    const Device & device;
-    const CommandPools & commandPools;
-
-    vk::Queue queue;
-
-    Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPools & commandPools);
-
+    Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool);
     ~Queue();
 
     void submit(vk::CommandBuffer commandBuffer, vk::Fence fence = {}) const;
@@ -39,7 +30,10 @@ struct ENGINE_EXPORT Queue final : utils::NonCopyable
     [[nodiscard]] CommandBuffers allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 
 private:
-    void init();
+    const Context & context;
+    const CommandPool & commandPool;
+
+    vk::Queue queue;
 };
 
 struct ENGINE_EXPORT Queues final : utils::NonCopyable
@@ -50,7 +44,7 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
 
-    Queues(const Context & context, const CommandPools & commandPools);
+    Queues(const Context & context, const CommandPool & commandPool);
 
     void waitIdle() const;
 };

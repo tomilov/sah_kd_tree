@@ -33,6 +33,7 @@ public:
     ~Engine() override;
 
     [[nodiscard]] engine::Context & getContext();
+    [[nodiscard]] static std::initializer_list<uint32_t> getMutedMessageIdNumbers();
     [[nodiscard]] const SceneManager & getSceneManager();
 
     [[nodiscard]] QStringList getSupportedSceneFileExtensions() const;
@@ -40,7 +41,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 352;
+    static constexpr size_t kSize = 208;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

@@ -62,7 +62,7 @@ private:
 
     struct Impl;
 
-    static constexpr size_t kSize = 40;
+    static constexpr size_t kSize = 16;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
@@ -181,7 +181,7 @@ public:
 
     ~Buffer();
 
-    operator vk::Buffer() const &;  // NOLINT(google-explicit-constructor)
+    operator vk::Buffer() const &;  // NOLINT: google-explicit-constructor
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     template<typename T>
@@ -212,7 +212,7 @@ public:
 
     Buffer(Buffer &&) noexcept = default;
 
-    operator vk::Buffer() const &  // NOLINT(google-explicit-constructor)
+    operator vk::Buffer() const &  // NOLINT: google-explicit-constructor
     {
         return buffer;
     }
@@ -257,7 +257,7 @@ public:
 
     ~Image();
 
-    operator vk::Image() const &;  // NOLINT(google-explicit-constructor)
+    operator vk::Image() const &;  // NOLINT: google-explicit-constructor
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
 
     [[nodiscard]] vk::ImageLayout exchangeLayout(vk::ImageLayout layout);

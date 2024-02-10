@@ -11,15 +11,11 @@
 namespace engine
 {
 
-CommandBuffers::CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
-    : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, commandBufferAllocateInfo{commandBufferAllocateInfo}
+CommandBuffers::CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo) : name{name}
 {
-    create();
-}
+    const auto & device = context.getDevice();
 
-void CommandBuffers::create()
-{
-    commandBuffersHolder = device.device.allocateCommandBuffersUnique(commandBufferAllocateInfo, library.dispatcher);
+    commandBuffersHolder = device.getDevice().allocateCommandBuffersUnique(commandBufferAllocateInfo, context.getDispatcher());
     commandBuffers.reserve(std::size(commandBuffersHolder));
 
     size_t i = 0;
@@ -33,6 +29,11 @@ void CommandBuffers::create()
             device.setDebugUtilsObjectName(*commandBuffer, name);
         }
     }
+}
+
+const std::vector<vk::CommandBuffer> & CommandBuffers::getCommandBuffers() const &
+{
+    return commandBuffers;
 }
 
 }  // namespace engine

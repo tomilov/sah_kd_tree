@@ -21,11 +21,16 @@ struct GraphicsPipelines;
 
 struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
 {
-    const std::string name;
+    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
 
-    const Context & context;
-    const Library & library;
-    const Device & device;
+    [[nodiscard]] vk::RenderPass getAssociatedRenderPass() const &;
+    [[nodiscard]] vk::PipelineLayout getPipelineLayout() const &;
+
+private:
+    friend GraphicsPipelines;
+
+    std::string name;
+
     const ShaderStages & shaderStages;
     const vk::RenderPass renderPass;
 
@@ -42,22 +47,21 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
     vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 
     vk::UniquePipelineLayout pipelineLayoutHolder;
-    vk::PipelineLayout pipelineLayout;
 
-    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
-
-private:
-    friend GraphicsPipelines;
-
-    void init();
     void fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const;
 };
 
 struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
 {
+    GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache);
+
+    void add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer);
+    void create();
+
+    [[nodiscard]] const std::vector<vk::Pipeline> & getPipelines() const &;
+
+private:
     const Context & context;
-    const Library & library;
-    const Device & device;
     const vk::PipelineCache pipelineCache;
 
     std::vector<std::string> names;
@@ -65,11 +69,6 @@ struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
 
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
-
-    GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache);
-
-    void add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer);
-    void create();
 };
 
 }  // namespace engine

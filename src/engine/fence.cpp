@@ -12,14 +12,16 @@
 namespace engine
 {
 
-void Fences::create(size_t count)
+Fences::Fences(std::string_view name, const Context & context, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, context{context}, fenceCreateFlags{fenceCreateFlags}
 {
+    const auto & device = context.getDevice();
+
     auto & fenceCreateInfo = fenceCreateInfoChain.get<vk::FenceCreateInfo>();
     fenceCreateInfo = {
         .flags = fenceCreateFlags,
     };
     for (size_t i = 0; i < count; ++i) {
-        fencesHolder.push_back(device.device.createFenceUnique(fenceCreateInfo, library.allocationCallbacks, library.dispatcher));
+        fencesHolder.push_back(device.getDevice().createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
         auto fence = *fencesHolder.back();
         fences.push_back(fence);
 
@@ -32,29 +34,24 @@ void Fences::create(size_t count)
     }
 }
 
-Fences::Fences(std::string_view name, const Context & context, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}, fenceCreateFlags{fenceCreateFlags}
-{
-    create(count);
-}
-
 vk::Result Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
 {
-    return device.device.waitForFences(fences, waitAll ? VK_TRUE : VK_FALSE, duration.count(), library.dispatcher);
+    return context.getDevice().getDevice().waitForFences(fences, waitAll ? VK_TRUE : VK_FALSE, duration.count(), context.getDispatcher());
 }
 
 vk::Result Fences::wait(size_t fenceIndex, std::chrono::nanoseconds duration)
 {
-    return device.device.waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), library.dispatcher);
+    return context.getDevice().getDevice().waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), context.getDispatcher());
 }
 
 void Fences::resetAll()
 {
-    device.device.resetFences(fences, library.dispatcher);
+    context.getDevice().getDevice().resetFences(fences, context.getDispatcher());
 }
 
 void Fences::reset(size_t fenceIndex)
 {
-    device.device.resetFences(fences.at(fenceIndex), library.dispatcher);
+    context.getDevice().getDevice().resetFences(fences.at(fenceIndex), context.getDispatcher());
 }
 
 }  // namespace engine

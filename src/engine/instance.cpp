@@ -1,6 +1,5 @@
 #include <common/config.hpp>
 #include <common/version.hpp>
-#include <engine/context.hpp>
 #include <engine/instance.hpp>
 #include <format/vulkan.hpp>
 #include <utils/auto_cast.hpp>
@@ -44,92 +43,123 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
 
 }  // namespace
 
-Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, const Context & context, Library & library) : applicationName{applicationName}, applicationVersion{applicationVersion}, context{context}, library{library}
+struct Instance::DebugUtilsMessageMuteGuard::Impl
 {
-    init();
-}
+    enum class Action
+    {
+        kMute,
+        kUnmute,
+    };
 
-StringUnorderedSet Instance::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const
+    std::mutex & mutex;
+    std::unordered_multiset<uint32_t> & mutedMessageIdNumbers;
+    const Action action;
+    const std::vector<uint32_t> messageIdNumbers;
+
+    Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers);
+    ~Impl();
+
+    void mute();
+    void unmute();
+};
+
+Instance::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() = default;
+
+template<typename... Args>
+Instance::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
+{}
+
+Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()
 {
-    StringUnorderedSet missingExtensions;
-    for (const char * extensionToCheck : extensionsToCheck) {
-        INVARIANT(vk::isInstanceExtension(extensionToCheck), "{} is not instance extension", extensionToCheck);
-        if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
-            SPDLOG_WARN("{} is deprecated", extensionToCheck);
-        }
-        if (vk::getPromotedExtensions().contains(extensionToCheck)) {
-            SPDLOG_WARN("{} is promoted to {}", extensionToCheck, vk::getPromotedExtensions().at(extensionToCheck));
-        }
-        if (vk::getObsoletedExtensions().contains(extensionToCheck)) {
-            SPDLOG_WARN("{} is obsoleted by {}", extensionToCheck, vk::getObsoletedExtensions().at(extensionToCheck));
-        }
-        if (extensions.contains(extensionToCheck)) {
-            continue;
-        }
-        if (extensionLayers.contains(extensionToCheck)) {
-            continue;
-        }
-        missingExtensions.emplace(extensionToCheck);
+    switch (action) {
+    case Action::kMute: {
+        unmute();
+        break;
     }
-    return missingExtensions;
-}
-
-std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const
-{
-    return instance.enumeratePhysicalDevices(library.dispatcher);
-}
-
-vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
-{
-    auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
-    if (!spdlog::should_log(lvl)) {
-        return VK_FALSE;
+    case Action::kUnmute: {
+        mute();
+        break;
     }
-    static const size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
-    // auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
-    // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
-    // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
-    auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
-    if (messageIdNumber == 0x6bdce5fd) {
-        asm volatile("nop;");
     }
-    spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
-                std::move(queues), std::move(buffers), */
-                messageIdNumber, callbackData.pMessage);
-    return VK_FALSE;
 }
 
-vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+Instance::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers)
+    : mutex{mutex}, mutedMessageIdNumbers{mutedMessageIdNumbers}, action{action}, messageIdNumbers{messageIdNumbers}
 {
-    if (context.shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
-        return VK_FALSE;
+    switch (action) {
+    case Action::kMute: {
+        mute();
+        break;
     }
-    return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
+    case Action::kUnmute: {
+        unmute();
+        break;
+    }
+    }
 }
 
-void Instance::init()
+void Instance::DebugUtilsMessageMuteGuard::Impl::mute()
+{
+    if (std::empty(messageIdNumbers)) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock{mutex};
+    mutedMessageIdNumbers.insert(std::cbegin(messageIdNumbers), std::cend(messageIdNumbers));
+}
+
+void Instance::DebugUtilsMessageMuteGuard::Impl::unmute()
+{
+    if (std::empty(messageIdNumbers)) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock{mutex};
+    for (auto messageIdNumber : messageIdNumbers) {
+        auto unmutedMessageIdNumber = mutedMessageIdNumbers.find(messageIdNumber);
+        INVARIANT(unmutedMessageIdNumber != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
+        mutedMessageIdNumbers.erase(unmutedMessageIdNumber);
+    }
+}
+
+auto Instance::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+{
+    return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kMute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
+}
+
+auto Instance::unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+{
+    return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kUnmute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
+}
+
+bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
+{
+    std::lock_guard<std::mutex> lock{mutex};
+    return mutedMessageIdNumbers.contains(messageIdNumber);
+}
+
+Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, std::span<const char * const> requiredInstanceExtensions, Library & library, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
+    : applicationName{applicationName}, applicationVersion{applicationVersion}, library{library}, debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
 {
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
-    if (library.dispatcher.vkEnumerateInstanceVersion) {
-        apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
+    if (library.getDispatcher().vkEnumerateInstanceVersion) {
+        apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
     }
 #else
-    apiVersion = vk::enumerateInstanceVersion(library.dispatcher);
+    apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
 #endif
     INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
 
-    extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.dispatcher);
+    extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.getDispatcher());
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
             SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
-    layerProperties = vk::enumerateInstanceLayerProperties(library.dispatcher);
+    layerProperties = vk::enumerateInstanceLayerProperties(library.getDispatcher());
     layerExtensionPropertyLists.reserve(std::size(layerProperties));
     for (const vk::LayerProperties & layer : layerProperties) {
         layers.insert(layer.layerName);
-        layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.dispatcher));
+        layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.getDispatcher()));
         for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
             extensionLayers.emplace(layerExtensionProperties.extensionName, layer.layerName);
         }
@@ -216,7 +246,7 @@ void Instance::init()
             SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : context.requiredInstanceExtensions) {
+    for (const char * requiredExtension : requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
         }
@@ -242,7 +272,7 @@ void Instance::init()
         debugUtilsMessengerCreateInfo.pUserData = this;
     }
 
-    applicationInfo.pApplicationName = applicationName.c_str();
+    applicationInfo.pApplicationName = this->applicationName.c_str();
     applicationInfo.applicationVersion = applicationVersion;
     applicationInfo.pEngineName = sah_kd_tree::kProjectName;
     applicationInfo.engineVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
@@ -254,19 +284,97 @@ void Instance::init()
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto mute0x822806FA = context.muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
-        instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.allocationCallbacks, library.dispatcher);
-        instance = *instanceHolder;
+        auto mute0x822806FA = muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
     }
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
-    library.dispatcher.init(instance);
+    library.getDispatcher().init(*instanceHolder);
 #endif
 
     if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
         instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
-        debugUtilsMessenger = instance.createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.allocationCallbacks, library.dispatcher);
+        debugUtilsMessenger = instanceHolder->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
         instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
     }
+}
+
+const StringUnorderedSet & Instance::getLayers() const &
+{
+    return layers;
+}
+
+const StringUnorderedSet & Instance::getEnabledLayers() const &
+{
+    return enabledLayerSet;
+}
+
+StringUnorderedSet Instance::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const &
+{
+    StringUnorderedSet missingExtensions;
+    for (const char * extensionToCheck : extensionsToCheck) {
+        INVARIANT(vk::isInstanceExtension(extensionToCheck), "{} is not instance extension", extensionToCheck);
+        if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is deprecated", extensionToCheck);
+        }
+        if (vk::getPromotedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is promoted to {}", extensionToCheck, vk::getPromotedExtensions().at(extensionToCheck));
+        }
+        if (vk::getObsoletedExtensions().contains(extensionToCheck)) {
+            SPDLOG_WARN("{} is obsoleted by {}", extensionToCheck, vk::getObsoletedExtensions().at(extensionToCheck));
+        }
+        if (extensions.contains(extensionToCheck)) {
+            continue;
+        }
+        if (extensionLayers.contains(extensionToCheck)) {
+            continue;
+        }
+        missingExtensions.emplace(extensionToCheck);
+    }
+    return missingExtensions;
+}
+
+std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const &
+{
+    return instanceHolder->enumeratePhysicalDevices(library.getDispatcher());
+}
+
+vk::Instance Instance::getInstance() const &
+{
+    ASSERT(instanceHolder);
+    return *instanceHolder;
+}
+
+Instance::operator vk::Instance() const &
+{
+    return getInstance();
+}
+
+vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+{
+    auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
+    if (!spdlog::should_log(lvl)) {
+        return VK_FALSE;
+    }
+    static const size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
+    // auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
+    // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
+    // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
+    auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
+    if (messageIdNumber == 0x6bdce5fd) {
+        asm volatile("nop;");
+    }
+    spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
+                std::move(queues), std::move(buffers), */
+                messageIdNumber, callbackData.pMessage);
+    return VK_FALSE;
+}
+
+vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+{
+    if (shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
+        return VK_FALSE;
+    }
+    return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
 }
 
 }  // namespace engine

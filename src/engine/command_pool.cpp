@@ -3,6 +3,7 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/library.hpp>
+#include <utils/assert.hpp>
 
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
@@ -17,49 +18,26 @@
 namespace engine
 {
 
-CommandPool::CommandPool(std::string_view name, const Context & context) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}
-{}
-
-void CommandPool::create()
+CommandPool::CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex) : name{name}
 {
-    commandPoolHolder = device.device.createCommandPoolUnique(commandPoolCreateInfo, library.allocationCallbacks, library.dispatcher);
-    commandPool = *commandPoolHolder;
+    vk::CommandPoolCreateInfo commandPoolCreateInfo = {
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = queueFamilyIndex,
+    };
+    commandPoolHolder = context.getDevice().getDevice().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
-    device.setDebugUtilsObjectName(commandPool, name);
+    context.getDevice().setDebugUtilsObjectName(*commandPoolHolder, name);
 }
 
-size_t CommandPools::CommandPoolHash::operator()(const CommandPoolInfo & commandBufferInfo) const noexcept
+vk::CommandPool CommandPool::getCommandPool() const &
 {
-    auto hash = std::hash<uint32_t>{}(commandBufferInfo.first);
-    hash ^= std::hash<vk::CommandBufferLevel>{}(commandBufferInfo.second);
-    return hash;
+    ASSERT(commandPoolHolder);
+    return *commandPoolHolder;
 }
 
-CommandPools::CommandPools(const Context & context) : context{context}, library{context.getLibrary()}, device{context.getDevice()}
-{}
-
-vk::CommandPool CommandPools::getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level) const
+CommandPool::operator vk::CommandPool() const &
 {
-    std::lock_guard<std::mutex> lock{commandPoolsMutex};
-    auto threadId = std::this_thread::get_id();
-    CommandPoolInfo commandPoolInfo{queueFamilyIndex, level};
-    auto & perThreadCommandPools = commandPools[threadId];
-    auto perThreadCommandPool = perThreadCommandPools.find(commandPoolInfo);
-    if (perThreadCommandPool == std::cend(perThreadCommandPools)) {
-        CommandPool commandPool{name, context};
-        commandPool.commandPoolCreateInfo = {
-            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = queueFamilyIndex,
-        };
-        commandPool.create();
-        static_assert(std::is_nothrow_move_constructible_v<CommandPool>);
-        perThreadCommandPool = perThreadCommandPools.emplace_hint(perThreadCommandPool, std::move(commandPoolInfo), std::move(commandPool));
-    } else {
-        if (perThreadCommandPool->second.name != name) {
-            SPDLOG_WARN("Command pool name mismatching for thread {}: '{}' != '{}'", threadId, perThreadCommandPool->second.name, name);
-        }
-    }
-    return perThreadCommandPool->second.commandPool;
+    return getCommandPool();
 }
 
 }  // namespace engine

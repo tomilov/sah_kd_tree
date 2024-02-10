@@ -23,46 +23,16 @@ namespace engine
 
 struct ENGINE_EXPORT CommandPool final
 {
-    const std::string name;
-
-    const Context & context;
-    const Library & library;
-    const Device & device;
-
-    vk::CommandPoolCreateInfo commandPoolCreateInfo;
-    vk::UniqueCommandPool commandPoolHolder;
-    vk::CommandPool commandPool;
-
-    CommandPool(std::string_view name, const Context & context);
-
+    CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex);
     CommandPool(CommandPool &&) noexcept = default;
-    CommandPool & operator=(CommandPool &&) = delete;
 
-    void create();
-};
+    [[nodiscard]] vk::CommandPool getCommandPool() const &;
+    [[nodiscard]] operator vk::CommandPool() const &;  // NOLINT: google-explicit-constructor
 
-struct CommandPools : utils::NonCopyable
-{
-    const Context & context;
-    const Library & library;
-    const Device & device;
+private:
+    std::string name;
 
-    using CommandPoolInfo = std::pair<uint32_t /*queueFamilyIndex*/, vk::CommandBufferLevel>;
-
-    struct CommandPoolHash
-    {
-        size_t operator()(const CommandPoolInfo & commandBufferInfo) const noexcept;
-    };
-
-    using PerThreadCommandPool = std::unordered_map<CommandPoolInfo, CommandPool, CommandPoolHash>;
-    using CommandPoolsType = std::unordered_map<std::thread::id, PerThreadCommandPool>;
-
-    mutable std::mutex commandPoolsMutex;
-    mutable CommandPoolsType commandPools;
-
-    explicit CommandPools(const Context & context);
-
-    [[nodiscard]] vk::CommandPool getCommandPool(std::string_view name, uint32_t queueFamilyIndex, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
+    vk::UniqueCommandPool commandPoolHolder;
 };
 
 }  // namespace engine

@@ -1,5 +1,8 @@
 #include <common/version.hpp>
 #include <engine/context.hpp>
+#include <engine/device.hpp>
+#include <engine/instance.hpp>
+#include <engine/physical_device.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
@@ -291,8 +294,8 @@ int main(int argc, char * argv[])
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
         constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion);
-        vulkanInstance.setVkInstance(engine.getContext().getVulkanInstance());
+        engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt, nullptr, engine.getMutedMessageIdNumbers());
+        vulkanInstance.setVkInstance(engine.getContext().getInstance().getInstance());
     } else {
         {
             QVersionNumber apiVersion(1, 3);
@@ -362,12 +365,11 @@ int main(int argc, char * argv[])
             auto & requiredDeviceExtensions = context.requiredDeviceExtensions;
             requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
             context.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
-            vk::PhysicalDevice physicalDevice = context.getVulkanPhysicalDevice();
-            vk::Device device = context.getVulkanDevice();
-            uint32_t queueFamilyIndex = context.getVulkanGraphicsQueueFamilyIndex();
-            uint32_t queueIndex = context.getVulkanGraphicsQueueIndex();
-            INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueFamilyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
-            auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, queueFamilyIndex, queueIndex);
+            vk::PhysicalDevice physicalDevice = context.getPhysicalDevice();
+            vk::Device device = context.getDevice();
+            const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
+            INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueCreateInfo.familyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
+            auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, utils::autoCast(queueCreateInfo.familyIndex), utils::autoCast(queueCreateInfo.index));
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);
         } else {
             applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);

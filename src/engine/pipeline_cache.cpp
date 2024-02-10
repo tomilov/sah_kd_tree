@@ -10,13 +10,14 @@
 #include <spdlog/spdlog.h>
 
 #include <bit>
-#include <exception>
 #include <vector>
 
 #include <cstdint>
 
 namespace engine
 {
+
+static_assert(utils::kIsOneTime<PipelineCache>);
 
 std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 {
@@ -35,7 +36,7 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
         SPDLOG_INFO("Pipeline cache header version mismatch '{}' != '{}'", pipelineCacheHeader.headerVersion, kPipelineCacheHeaderVersion);
         return {};
     }
-    const auto & physicalDeviceProperties = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+    const auto & physicalDeviceProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     if (pipelineCacheHeader.vendorID != physicalDeviceProperties.vendorID) {
         SPDLOG_INFO("Pipeline cache header vendor ID mismatch '{}' != '{}'", pipelineCacheHeader.vendorID, physicalDeviceProperties.vendorID);
         return {};
@@ -51,14 +52,11 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo)
-    : name{name}, context{context}, fileIo{fileIo}, library{context.getLibrary()}, physicalDevice{context.getDevice().physicalDevice}, device{context.getDevice()}
+PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}
 {
-    load();
-}
+    const auto & library = context.getLibrary();
+    const auto & device = context.getDevice();
 
-void PipelineCache::load()
-{
     auto cacheData = loadPipelineCacheData();
 
     vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
@@ -66,7 +64,7 @@ void PipelineCache::load()
 
     pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
     try {
-        pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+        pipelineCacheHolder = device.getDevice().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
         SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
     } catch (const vk::SystemError & exception) {
         if (std::empty(cacheData)) {
@@ -81,7 +79,7 @@ void PipelineCache::load()
         cacheData.clear();
         pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
         try {
-            pipelineCacheHolder = device.device.createPipelineCacheUnique(pipelineCacheCreateInfo, library.allocationCallbacks, library.dispatcher);
+            pipelineCacheHolder = device.getDevice().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
             SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
         } catch (const vk::SystemError & exception) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
@@ -89,31 +87,40 @@ void PipelineCache::load()
         }
     }
 
-    pipelineCache = *pipelineCacheHolder;
-
-    ASSERT(pipelineCache);
-    device.setDebugUtilsObjectName(pipelineCache, name);
+    ASSERT(pipelineCacheHolder);
+    device.setDebugUtilsObjectName(*pipelineCacheHolder, name);
 }
 
 PipelineCache::~PipelineCache()
 {
-    if (std::uncaught_exceptions() == 0) {
-        if (!flush()) {
-            SPDLOG_WARN("Failed to flush pipeline cache '{}' at destruction", name);
-        }
+    if (!flush()) {
+        SPDLOG_WARN("Failed to flush pipeline cache '{}' at destruction", name);
     }
 }
 
 bool PipelineCache::flush()
 {
-    ASSERT(pipelineCache);
-    auto data = device.device.getPipelineCacheData(pipelineCache, library.dispatcher);
+    ASSERT(pipelineCacheHolder);
+    const auto & library = context.getLibrary();
+    const auto & device = context.getDevice();
+    auto data = device.getDevice().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
     if (!fileIo.savePipelineCache(data, name.c_str())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }
     SPDLOG_INFO("Pipeline cache '{}' successfully flushed", name);
     return true;
+}
+
+vk::PipelineCache PipelineCache::getPipelineCache() const &
+{
+    ASSERT(pipelineCacheHolder);
+    return *pipelineCacheHolder;
+}
+
+PipelineCache::operator vk::PipelineCache() const &
+{
+    return getPipelineCache();
 }
 
 }  // namespace engine

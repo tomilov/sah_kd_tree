@@ -18,30 +18,28 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT PipelineCache final : utils::NonCopyable
+struct ENGINE_EXPORT PipelineCache final : utils::OneTime
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
-    const std::string name;
-
-    const Context & context;
-    const FileIo & fileIo;
-    const Library & library;
-    const PhysicalDevice & physicalDevice;
-    const Device & device;
-
-    vk::UniquePipelineCache pipelineCacheHolder;
-    vk::PipelineCache pipelineCache;
-
     PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo);
+    PipelineCache(PipelineCache &&) noexcept = default;
     ~PipelineCache();
 
     [[nodiscard]] bool flush();
 
-private:
-    [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
+    [[nodiscard]] vk::PipelineCache getPipelineCache() const &;
+    [[nodiscard]] operator vk::PipelineCache() const &;  // NOLINT: google-explicit-constructor
 
-    void load();
+private:
+    std::string name;
+
+    const Context & context;
+    const FileIo & fileIo;
+
+    vk::UniquePipelineCache pipelineCacheHolder;
+
+    [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
 };
 
 }  // namespace engine

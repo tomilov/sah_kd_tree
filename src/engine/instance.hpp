@@ -5,29 +5,102 @@
 #include <engine/library.hpp>
 #include <engine/types.hpp>
 #include <utils/assert.hpp>
+#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
+#include <initializer_list>
+#include <span>
 #include <string>
 #include <vector>
 
+#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>
 
 namespace engine
 {
-class Context;
 struct Library;
 
 struct ENGINE_EXPORT Instance final : utils::NonCopyable
 {
-    const std::string applicationName;
+    class DebugUtilsMessageMuteGuard final : utils::NonCopyable
+    {
+    public:
+        ~DebugUtilsMessageMuteGuard();
+
+    private:
+        friend Instance;
+
+        struct Impl;
+
+        static constexpr size_t kSize = 48;
+        static constexpr size_t kAlignment = 8;
+        utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+
+        template<typename... Args>
+        DebugUtilsMessageMuteGuard(Args &&... args);  // NOLINT: google-explicit-constructor, modernize-use-equals-delete
+    };
+
+    static constexpr std::initializer_list<const char *> kRequiredExtensions = {};
+
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
+
+    Instance(std::string_view applicationName, uint32_t applicationVersion, std::span<const char * const> requiredInstanceExtensions, Library & library, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
+
+    [[nodiscard]] const StringUnorderedSet & getLayers() const &;
+    [[nodiscard]] const StringUnorderedSet & getEnabledLayers() const &;
+
+    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const &;
+
+    [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const &;
+
+    [[nodiscard]] vk::Instance getInstance() const &;
+    [[nodiscard]] operator vk::Instance() const &;  // NOLINT: google-explicit-constructor
+
+    template<typename Object>
+    void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return insertDebugUtilsLabel<Object>(library.getDispatcher(), object, labelName, color);
+    }
+
+    template<typename Object>
+    void insert(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return insert<Object>(library.getDispatcher(), object, labelName.c_str(), color);
+    }
+
+    template<typename Object>
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return ScopedDebugUtilsLabel<Object>::create(library.getDispatcher(), object, labelName, color);
+    }
+
+    template<typename Object>
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    {
+        return create<Object>(object, labelName.c_str(), color);
+    }
+
+    void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+    {
+        instanceHolder->submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.getDispatcher());
+    }
+
+private:
+    std::string applicationName;
     const uint32_t applicationVersion;
 
-    const Context & context;
     Library & library;
+
+    mutable std::mutex mutex;
+    mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
+
+    const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
 
     uint32_t apiVersion = VK_API_VERSION_1_0;
 
@@ -36,8 +109,6 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
     StringUnorderedSet enabledLayerSet;
     std::vector<const char *> enabledLayers;
-
-    static constexpr std::initializer_list<const char *> kRequiredExtensions = {};
 
     std::vector<vk::ExtensionProperties> extensionPropertyList;
     StringUnorderedSet extensions;
@@ -52,50 +123,11 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT, vk::ValidationFeaturesEXT> instanceCreateInfoChain;
     vk::UniqueInstance instanceHolder;
-    vk::Instance instance;
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, const Context & context, Library & library);
-
-    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
-
-    [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const;
-
-    template<typename Object>
-    void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return insertDebugUtilsLabel<Object>(library.dispatcher, object, labelName, color);
-    }
-
-    template<typename Object>
-    void insert(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return insert<Object>(library.dispatcher, object, labelName.c_str(), color);
-    }
-
-    template<typename Object>
-    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return ScopedDebugUtilsLabel<Object>::create(library.dispatcher, object, labelName, color);
-    }
-
-    template<typename Object>
-    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
-    {
-        return create<Object>(object, labelName.c_str(), color);
-    }
-
-    void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
-    {
-        instance.submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.dispatcher);
-    }
-
-private:
     [[nodiscard]] vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
     [[nodiscard]] vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
-
-    void init();
 };
 
 }  // namespace engine

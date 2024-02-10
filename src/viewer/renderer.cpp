@@ -67,14 +67,12 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 }  // namespace
 
+static_assert(utils::kIsOneTime<Renderer>);
+
 struct Renderer::Impl
 {
     const engine::Context & context;
     const uint32_t framesInFlight;
-
-    const engine::Library & library = context.getLibrary();
-    const engine::Instance & instance = context.getInstance();
-    const engine::Device & device = context.getDevice();
 
     std::shared_ptr<const Scene> scene;
     std::shared_ptr<const Scene::Descriptors> descriptors;
@@ -95,6 +93,8 @@ struct Renderer::Impl
 
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
 {}
+
+Renderer::Renderer(Renderer &&) noexcept = default;
 
 Renderer::~Renderer() = default;
 
@@ -122,7 +122,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 {
     ASSERT(this->scene != scene);
 
-    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     graphicsPipeline.reset();
 
@@ -141,7 +141,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
         return;
     }
 
-    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     ASSERT(descriptors);
     {
@@ -157,30 +157,30 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         return;
     }
 
-    auto unmuteMessageGuard = context.unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
-    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Renderer::render", kGreenColor);
+    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Renderer::render", kGreenColor);
 
     ASSERT(descriptors);
 
-    if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.renderPass != renderPass)) {
+    if (!graphicsPipeline || (graphicsPipeline->pipelineLayout.getAssociatedRenderPass() != renderPass)) {
         graphicsPipeline.reset();
         graphicsPipeline = scene->createGraphicsPipeline(renderPass);
     }
-    auto pipeline = graphicsPipeline->pipelines.pipelines.at(0);
-    auto pipelineLayout = graphicsPipeline->pipelineLayout.pipelineLayout;
+    auto pipeline = graphicsPipeline->pipelines.getPipelines().at(0);
+    auto pipelineLayout = graphicsPipeline->pipelineLayout.getPipelineLayout();
 
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
-    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(library.dispatcher, commandBuffer, "Rasterization", kMagentaColor);
+    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Rasterization", kMagentaColor);
 
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, library.dispatcher);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferUsed()) {
         const auto & descriptorSetBuffers = descriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
-            commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, library.dispatcher);
+            commandBuffer.bindDescriptorBuffersEXT(descriptors->descriptorBufferBindingInfos, context.getDispatcher());
             std::vector<uint32_t> bufferIndices(std::size(descriptorSetBuffers));
             std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
             std::vector<vk::DeviceSize> offsets;
@@ -189,18 +189,18 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
                 offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
             }
-            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, library.dispatcher);
+            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
         }
     } else {
         constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptors->descriptorSets.at(currentFrameSlot).descriptorSets, kDynamicOffsets, library.dispatcher);
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptors->descriptorSets.at(currentFrameSlot).getDescriptorSets(), kDynamicOffsets, context.getDispatcher());
     }
 
     {
         PushConstants pushConstants = getPushConstants(frameSettings);
         for (const auto & pushConstantRange : descriptors->pushConstantRanges) {
             const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
-            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, library.dispatcher);
+            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
         }
     }
 
@@ -208,13 +208,13 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     std::initializer_list<vk::Viewport> viewports = {
         frameSettings.viewport,
     };
-    commandBuffer.setViewport(kFirstViewport, viewports, library.dispatcher);
+    commandBuffer.setViewport(kFirstViewport, viewports, context.getDispatcher());
 
     constexpr uint32_t kFirstScissor = 0;
     std::initializer_list<vk::Rect2D> scissors = {
         frameSettings.scissor,
     };
-    commandBuffer.setScissor(kFirstScissor, scissors, library.dispatcher);
+    commandBuffer.setScissor(kFirstScissor, scissors, context.getDispatcher());
 
     constexpr uint32_t kFirstBinding = 0;
     constexpr auto bufferOrNull = [](const auto & wrapper) -> vk::Buffer
@@ -231,12 +231,12 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     if (sah_kd_tree::kIsDebugBuild) {
         for (const auto & vertexBuffer : vertexBuffers) {
             if (!vertexBuffer) {
-                INVARIANT(device.physicalDevice.features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
             }
         }
     }
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
-    commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, library.dispatcher);
+    commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, context.getDispatcher());
 
     vk::Buffer indexBuffer;
     vk::DeviceSize indexBufferSize = 0;
@@ -246,25 +246,25 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (descriptors->instanceBuffer) {
-        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, descriptors->indexTypes.at(0), library.dispatcher);
+        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, descriptors->indexTypes.at(0), context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = descriptors->drawCount;
-        const auto & physicalDeviceLimits = device.physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+        const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
         if (descriptors->drawCountBuffer) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
-            commandBuffer.drawIndexedIndirectCount(descriptors->instanceBuffer.value(), kInstanceBufferOffset, descriptors->drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, library.dispatcher);
+            commandBuffer.drawIndexedIndirectCount(descriptors->instanceBuffer.value(), kInstanceBufferOffset, descriptors->drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());
         } else {
-            commandBuffer.drawIndexedIndirect(descriptors->instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, library.dispatcher);
+            commandBuffer.drawIndexedIndirect(descriptors->instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, context.getDispatcher());
         }
     } else {
         auto indexType = std::cbegin(descriptors->indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : descriptors->instances) {
             ASSERT(indexType != std::cend(descriptors->indexTypes));
-            commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, *indexType++, library.dispatcher);
-            commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, library.dispatcher);
+            commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, *indexType++, context.getDispatcher());
+            commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
     }

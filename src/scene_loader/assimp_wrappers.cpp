@@ -108,7 +108,7 @@ void AssimpLogger::OnError(const char * message)
 AssimpLoggerGuard::AssimpLoggerGuard(Assimp::Logger::LogSeverity logSeverity)
 {
     Assimp::DefaultLogger::set(new AssimpLogger{logSeverity});
-}  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
+}  // NOLINT: clang-analyzer-cplusplus.NewDeleteLeaks
 
 AssimpLoggerGuard::~AssimpLoggerGuard()
 {

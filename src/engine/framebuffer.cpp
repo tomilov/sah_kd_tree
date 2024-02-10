@@ -28,7 +28,7 @@ Framebuffer::Framebuffer(std::string_view name, const Context & context, vk::Ren
     size_t i = 0;
     for (vk::ImageView imageView : imageViews) {
         framebufferCreateInfo.setAttachments(imageView);
-        framebufferHolders.push_back(device.device.createFramebufferUnique(framebufferCreateInfo, library.allocationCallbacks, library.dispatcher));
+        framebufferHolders.push_back(device.getDevice().createFramebufferUnique(framebufferCreateInfo, library.getAllocationCallbacks(), library.getDispatcher()));
         framebuffers.push_back(*framebufferHolders.back());
 
         if (std::size(imageViews) > 1) {

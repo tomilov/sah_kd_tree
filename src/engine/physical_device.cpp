@@ -24,9 +24,64 @@
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice) : context{context}, library{context.getLibrary()}, instance{context.getInstance()}, physicalDevice{physicalDevice}
+PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice) : context{context}, physicalDevice{physicalDevice}
 {
-    init();
+    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, context.getDispatcher());
+    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
+        if (!extensions.insert(extensionProperties.extensionName).second) {
+            SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
+        }
+    }
+
+    layerExtensionPropertyLists.reserve(std::size(context.getInstance().getLayers()));
+    for (const char * layerName : context.getInstance().getLayers()) {
+        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, context.getDispatcher()));
+        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
+            extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
+        }
+    }
+
+    auto & physicalDeviceProperties2 = properties2Chain.get<vk::PhysicalDeviceProperties2>();
+    physicalDevice.getProperties2(&physicalDeviceProperties2, context.getDispatcher());
+    apiVersion = physicalDeviceProperties2.properties.apiVersion;
+
+    auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
+    SPDLOG_INFO("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    SPDLOG_INFO("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
+    SPDLOG_INFO("vendorID {:04x}", physicalDeviceProperties.vendorID);
+    SPDLOG_INFO("deviceID {:04x}", physicalDeviceProperties.deviceID);
+    SPDLOG_INFO("deviceType {}", physicalDeviceProperties.deviceType);
+    SPDLOG_INFO("deviceName {}", std::data(physicalDeviceProperties.deviceName));
+    SPDLOG_INFO("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
+
+    {
+        auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
+        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
+        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
+        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
+        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
+        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
+    }
+
+    auto & physicalDeviceFeatures2 = features2Chain.get<vk::PhysicalDeviceFeatures2>();
+    physicalDevice.getFeatures2(&physicalDeviceFeatures2, context.getDispatcher());
+
+    auto & physicalDeviceMemoryProperties2 = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
+    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, context.getDispatcher());
+
+    using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
+    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(context.getDispatcher());
+}
+
+vk::PhysicalDevice PhysicalDevice::getPhysicalDevice() const &
+{
+    ASSERT(physicalDevice);
+    return physicalDevice;
+}
+
+PhysicalDevice::operator vk::PhysicalDevice() const &
+{
+    return getPhysicalDevice();
 }
 
 std::string PhysicalDevice::getDeviceName() const
@@ -79,7 +134,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
             continue;
         }
         if (surface && (desiredQueueFlags & vk::QueueFlagBits::eGraphics)) {
-            if (VK_FALSE == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, library.dispatcher)) {
+            if (VK_FALSE == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, context.getDispatcher())) {
                 continue;
             }
         }
@@ -165,9 +220,9 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     // TODO: check physical device surface capabilities
     if (surface) {
         surfaceInfo.surface = surface;
-        // surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.dispatcher);
-        // surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.dispatcher);
-        // presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.dispatcher);
+        // surfaceCapabilities = physicalDevice.getSurfaceCapabilities2KHR(physicalDeviceSurfaceInfo, library.getDispatcher());
+        // surfaceFormats = physicalDevice.getSurfaceFormats2KHR<SurfaceFormatChain, typename decltype(surfaceFormats)::allocator_type>(physicalDeviceSurfaceInfo, library.getDispatcher());
+        // presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.getDispatcher());
     }
 
     externalGraphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
@@ -243,7 +298,7 @@ bool PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
     auto extensionLayer = extensionLayers.find(extensionName);
     if (extensionLayer != std::end(extensionLayers)) {
         const char * layerName = extensionLayer->second;
-        if (!instance.enabledLayerSet.contains(layerName)) {
+        if (!context.getInstance().getEnabledLayers().contains(layerName)) {
             INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
         }
         if (enabledExtensionSet.insert(extensionName).second) {
@@ -256,58 +311,28 @@ bool PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
     return false;
 }
 
-void PhysicalDevice::init()
+const std::vector<vk::DeviceQueueCreateInfo> & PhysicalDevice::getDeviceQueueCreateInfos() const &
 {
-    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.dispatcher);
-    for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
-        if (!extensions.insert(extensionProperties.extensionName).second) {
-            SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
-        }
-    }
-
-    layerExtensionPropertyLists.reserve(std::size(instance.layers));
-    for (const char * layerName : instance.layers) {
-        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.dispatcher));
-        for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
-            extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
-        }
-    }
-
-    auto & physicalDeviceProperties2 = properties2Chain.get<vk::PhysicalDeviceProperties2>();
-    physicalDevice.getProperties2(&physicalDeviceProperties2, library.dispatcher);
-    apiVersion = physicalDeviceProperties2.properties.apiVersion;
-
-    auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
-    SPDLOG_INFO("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
-    SPDLOG_INFO("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
-    SPDLOG_INFO("vendorID {:04x}", physicalDeviceProperties.vendorID);
-    SPDLOG_INFO("deviceID {:04x}", physicalDeviceProperties.deviceID);
-    SPDLOG_INFO("deviceType {}", physicalDeviceProperties.deviceType);
-    SPDLOG_INFO("deviceName {}", std::data(physicalDeviceProperties.deviceName));
-    SPDLOG_INFO("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
-
-    {
-        auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
-        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
-        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
-        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
-        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
-        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
-    }
-
-    auto & physicalDeviceFeatures2 = features2Chain.get<vk::PhysicalDeviceFeatures2>();
-    physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.dispatcher);
-
-    auto & physicalDeviceMemoryProperties2 = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
-    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.dispatcher);
-
-    using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
-    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.dispatcher);
+    return deviceQueueCreateInfos;
 }
 
-PhysicalDevices::PhysicalDevices(const Context & context) : context{context}, library{context.getLibrary()}, instance{context.getInstance()}
+const std::vector<const char *> & PhysicalDevice::getEnabledExtensions() const &
 {
-    init();
+    return enabledExtensions;
+}
+
+bool PhysicalDevice::isExtensionEnabled(const char * extension) const
+{
+    return enabledExtensionSet.contains(extension);
+}
+
+PhysicalDevices::PhysicalDevices(const Context & context) : context{context}
+{
+    size_t i = 0;
+    for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {
+        SPDLOG_INFO("Create physical device #{}", i++);
+        physicalDevices.emplace_back(context, physicalDevice);
+    }
 }
 
 auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevice &
@@ -333,15 +358,6 @@ auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevi
         throw RuntimeError("Unable to find suitable physical device");
     }
     return *bestPhysicalDevice;
-}
-
-void PhysicalDevices::init()
-{
-    size_t i = 0;
-    for (vk::PhysicalDevice & physicalDevice : instance.getPhysicalDevices()) {
-        SPDLOG_INFO("Create physical device #{}", i++);
-        physicalDevices.emplace_back(context, physicalDevice);
-    }
 }
 
 }  // namespace engine

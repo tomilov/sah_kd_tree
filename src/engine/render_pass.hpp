@@ -16,11 +16,10 @@ namespace engine
 
 struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
 {
-    const std::string name;
+    RenderPass(std::string_view name, const Context & context);
 
-    const Context & context;
-    const Library & library;
-    const Device & device;
+private:
+    std::string name;
 
     vk::AttachmentReference attachmentReference;
     vk::SubpassDescription subpassDescription;
@@ -29,11 +28,6 @@ struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
     vk::RenderPassCreateInfo renderPassCreateInfo;
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
-
-    RenderPass(std::string_view name, const Context & context);
-
-private:
-    void init();
 };
 
 }  // namespace engine

@@ -12,7 +12,7 @@ struct Device;
 class MemoryAllocator;
 struct QueueCreateInfo;
 struct CommandBuffers;
-struct CommandPools;
+struct CommandPool;
 struct GraphicsPipelineLayout;
 struct GraphicsPipelines;
 struct PipelineCache;

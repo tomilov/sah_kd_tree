@@ -12,12 +12,7 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view name, const Context & context) : name{name}, context{context}, library{context.getLibrary()}, device{context.getDevice()}
-{
-    init();
-}
-
-void RenderPass::init()
+RenderPass::RenderPass(std::string_view name, const Context & context) : name{name}
 {
     attachmentReference = {
         .attachment = 0,
@@ -48,10 +43,9 @@ void RenderPass::init()
     renderPassCreateInfo.setAttachments(colorAttachmentDescription);
     renderPassCreateInfo.setDependencies(nullptr);
 
-    renderPassHolder = device.device.createRenderPassUnique(renderPassCreateInfo, library.allocationCallbacks, library.dispatcher);
-    renderPass = *renderPassHolder;
+    renderPassHolder = context.getDevice().getDevice().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
-    device.setDebugUtilsObjectName(renderPass, name);
+    context.getDevice().setDebugUtilsObjectName(*renderPassHolder, name);
 }
 
 }  // namespace engine
