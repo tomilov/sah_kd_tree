@@ -264,6 +264,10 @@ public:
 
     [[nodiscard]] static vk::AccessFlags2 accessFlagsForImageLayout(vk::ImageLayout imageLayout);
 
+    [[nodiscard]] static Image createImage2D(const MemoryAllocator & memoryAllocator, const AllocationCreateInfo & allocationCreateInfo, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage);
+
+    [[nodiscard]] vk::UniqueImageView createImageView2D() const;
+
 private:
     static constexpr size_t kSize = 304;
     static constexpr size_t kAlignment = 8;

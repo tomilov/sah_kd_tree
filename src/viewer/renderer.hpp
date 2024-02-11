@@ -24,6 +24,7 @@ class Scene;
 
 struct FrameSettings
 {
+    bool useOffscreenTexture = false;
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     float t = 0.0f;
@@ -54,7 +55,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 88;
+    static constexpr size_t kSize = 136;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

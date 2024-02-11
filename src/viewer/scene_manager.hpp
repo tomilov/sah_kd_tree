@@ -109,14 +109,14 @@ public:
         return descriptorBufferEnabled;
     }
 
-    [[nodiscard]] bool isDrawIndexedIndirectEnabled() const
+    [[nodiscard]] bool isMultiDrawIndirectEnabled() const
     {
-        return drawIndexedIndirectEnabled;
+        return multiDrawIndirectEnabled;
     }
 
-    [[nodiscard]] bool isDrawIndexedIndirectCountEnabled() const
+    [[nodiscard]] bool isDrawIndirectCountEnabled() const
     {
-        return drawIndexedIndirectCountEnabled;
+        return drawIndirectCountEnabled;
     }
 
 private:
@@ -139,8 +139,8 @@ private:
     // TODO: put in Settings and set in constructor
     const bool indexTypeUint8Enabled = true;
     const bool descriptorBufferEnabled = true;
-    const bool drawIndexedIndirectEnabled = true;
-    const bool drawIndexedIndirectCountEnabled = true;
+    const bool multiDrawIndirectEnabled = true;
+    const bool drawIndirectCountEnabled = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t vertexBufferBinding = 0;
     engine::ShaderStages shaderStages;

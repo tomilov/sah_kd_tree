@@ -48,6 +48,7 @@ target_link_libraries(
         Qt6::Widgets
         "libformat"
         "libengine"
+        "libcodegen_vulkan_utils"
         "libscene"
         "libscene_loader"
         "gli"

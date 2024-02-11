@@ -239,7 +239,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 if (indexType == vk::IndexType::eNoneKHR) {
                     continue;
                 }
-                if (drawIndexedIndirectEnabled) {
+                if (multiDrawIndirectEnabled) {
                     indexType = maxIndexType;
                 }
                 vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
@@ -308,10 +308,10 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         totalInstanceCount += instance.instanceCount;
     }
 
-    if (drawIndexedIndirectEnabled) {
+    if (multiDrawIndirectEnabled) {
         drawCount = std::size(instances);
 
-        if (drawIndexedIndirectCountEnabled) {
+        if (drawIndirectCountEnabled) {
             vk::BufferCreateInfo drawCountBufferCreateInfo;
             drawCountBufferCreateInfo.size = sizeof(uint32_t);
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
@@ -654,28 +654,27 @@ Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared
 
 void Scene::init()
 {
-    const auto & physicalDevice = context.getPhysicalDevice();
-
-    uint32_t maxPushConstantsSize = physicalDevice.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
 
+    const auto & device = context.getDevice();
     if (indexTypeUint8Enabled) {
-        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
     if (descriptorBufferEnabled) {
-        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
-    if (drawIndexedIndirectEnabled) {
-        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+    if (multiDrawIndirectEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
-    if (drawIndexedIndirectCountEnabled) {
-        if (physicalDevice.features2Chain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+    if (drawIndirectCountEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
             INVARIANT(false, "");
         }
     }

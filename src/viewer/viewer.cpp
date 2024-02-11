@@ -213,6 +213,8 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
 void Viewer::sync()
 {
+    frameSettings->useOffscreenTexture = useOffscreenTexture;
+
     if (currentScenePath != scenePath) {
         currentScenePath = scenePath;
 

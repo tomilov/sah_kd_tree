@@ -863,6 +863,54 @@ vk::AccessFlags2 Image::accessFlagsForImageLayout(vk::ImageLayout imageLayout)
     }
 }
 
+Image Image::createImage2D(const MemoryAllocator & memoryAllocator, const AllocationCreateInfo & allocationCreateInfo, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage)
+{
+    vk::ImageCreateInfo imageCreateInfo = {
+        .flags = {},
+        .imageType = vk::ImageType::e2D,
+        .format = format,
+        .extent = {
+            .width = size.width,
+            .height = size.height,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCountFlagBits::e1,
+        .tiling = vk::ImageTiling::eOptimal,
+        .usage = imageUsage,
+        .sharingMode = vk::SharingMode::eExclusive,
+        .initialLayout = vk::ImageLayout::eUndefined,
+    };
+    return {memoryAllocator, imageCreateInfo, allocationCreateInfo};
+}
+
+vk::UniqueImageView Image::createImageView2D() const
+{
+    const auto & imageResource = impl_->getImageResource();
+    vk::ImageViewCreateInfo imageViewCreateInfo = {
+        .flags = {},
+        .image = *imageResource.image,
+        .viewType = vk::ImageViewType::e2D,
+        .format = imageResource.imageCreateInfo.format,
+        .components = {
+            .r = vk::ComponentSwizzle::eIdentity,
+            .g = vk::ComponentSwizzle::eIdentity,
+            .b = vk::ComponentSwizzle::eIdentity,
+            .a = vk::ComponentSwizzle::eIdentity,
+        },
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+    const auto & context = impl_->memoryAllocator->context;
+    return context.getDevice().getDevice().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+}
+
 vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryProperties() const
 {
     const vk::PhysicalDeviceMemoryProperties::NativeType * physicalDeviceMemoryPropertiesPtr = nullptr;

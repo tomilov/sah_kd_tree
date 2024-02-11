@@ -38,8 +38,10 @@ class Viewer : public QQuickItem
 
     Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
-    Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
     Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
+    Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
+
+    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
 
 public:
     Viewer();
@@ -63,6 +65,8 @@ Q_SIGNALS:
 
     void scenePathChanged(QUrl scenePath);
     void tChanged(qreal t);
+
+    void useOffscreenTextureChanged(bool useOffscreenTexture);
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
@@ -102,15 +106,17 @@ private:
     QUrl scenePath;
     float t = 0.0;
 
+    bool useOffscreenTexture = false;
+
     QUrl currentScenePath;
     std::shared_ptr<const Scene> scene;
     float characteristicSize = 0.0f;
 
-    static constexpr size_t kFrameSettingsSize = 112;
+    static constexpr size_t kFrameSettingsSize = 116;
     static constexpr size_t kFrameSettingsAlignment = 8;
     utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
 
-    static constexpr size_t kRendererSize = 96;
+    static constexpr size_t kRendererSize = 144;
     static constexpr size_t kRendererAlignment = 8;
     utils::FastPimpl<std::optional<Renderer>, kRendererSize, kRendererAlignment> renderer;
 

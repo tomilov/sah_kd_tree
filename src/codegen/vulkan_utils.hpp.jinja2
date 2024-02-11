@@ -105,10 +105,10 @@ struct Format
     }
 };
 
-extern const std::unordered_map<vk::Format, Format> kFormats;
-extern const std::unordered_set<vk::Format> kMultiplaneFormats;
-extern const std::unordered_set<vk::Format> kFormatHasSpvImageFormat;
-extern const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat;
+extern const std::unordered_map<vk::Format, Format> kFormats VULKAN_UTILS_EXPORT;
+extern const std::unordered_set<vk::Format> kMultiplaneFormats VULKAN_UTILS_EXPORT;
+extern const std::unordered_set<vk::Format> kFormatHasSpvImageFormat VULKAN_UTILS_EXPORT;
+extern const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat VULKAN_UTILS_EXPORT;
 
 [[nodiscard]] vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect) VULKAN_UTILS_EXPORT;
 
