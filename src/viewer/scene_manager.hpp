@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/buffer.hpp>
 #include <engine/descriptors.hpp>
 #include <engine/fwd.hpp>
 #include <engine/graphics_pipeline.hpp>

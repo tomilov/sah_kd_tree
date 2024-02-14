@@ -24,6 +24,6 @@ struct OneTime
 };
 
 template<typename T>
-inline constexpr bool kIsOneTime = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T> && std::is_nothrow_move_constructible_v<T> && !std::is_nothrow_move_assignable_v<T>;
+inline constexpr bool kIsOneTime = !std::is_copy_constructible_v<T> && !std::is_copy_assignable_v<T> && std::is_nothrow_move_constructible_v<T> && !std::is_move_assignable_v<T>;
 
 }  // namespace utils

@@ -13,16 +13,16 @@ find_program(
         clang-format
     REQUIRED)
 
-macro(add_codegen_library name dependency command_arg)
+function(add_codegen_library name)
+    cmake_parse_arguments(PARSE_ARGV 1 add_codegen_library "" "DEPENDENCY;COMMAND_ARG" "")
     add_custom_command(
         MAIN_DEPENDENCY
-            "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
+            "generator.py"
         DEPENDS
-            "${dependency}"
+            "${add_codegen_library_DEPENDENCY}"
             "${CMAKE_SOURCE_DIR}/_clang-format"
-            "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
-            "${CMAKE_CURRENT_SOURCE_DIR}/${name}.hpp.jinja2"
-            "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp.jinja2"
+            "${name}.hpp.jinja2"
+            "${name}.cpp.jinja2"
         COMMAND
             #${CMAKE_COMMAND} -E env PYTHONPATH="${spirv_headers_path}"
             Python3::Interpreter
@@ -31,7 +31,7 @@ macro(add_codegen_library name dependency command_arg)
                 --clang-format-executable="${clang_format_executable}"
                 --clang-format-config="${CMAKE_SOURCE_DIR}/_clang-format"
                 "${name}"
-                "${command_arg}"
+                "${add_codegen_library_COMMAND_ARG}"
         COMMAND
             "${CMAKE_COMMAND}" -E copy_if_different
                 "${name}.hpp.tmp"
@@ -76,13 +76,13 @@ macro(add_codegen_library name dependency command_arg)
         PRIVATE
             "libformat"
             "libutils")
-endmacro()
+endfunction()
 
 set(spirv_headers_path "${SPIRV-Headers_SOURCE_DIR}/include")
 add_codegen_library(
     "spirv_format"
-    "${spirv_headers_path}/spirv/unified1/spirv.py"
-    --spirv-headers="${spirv_headers_path}")
+    DEPENDENCY "${spirv_headers_path}/spirv/unified1/spirv.py"
+    COMMAND_ARG --spirv-headers="${spirv_headers_path}")
 
 target_link_libraries(
     "lib${PROJECT_NAME}_spirv_format"
@@ -98,8 +98,8 @@ target_include_directories(
 get_target_property(vulkan_registry_path Vulkan::Headers VULKAN_REGISTRY_PATH)
 add_codegen_library(
     "vulkan_utils"
-    "${vulkan_registry_path}/vk.xml"
-    --vulkan-registry="${vulkan_registry_path}/vk.xml")
+    DEPENDENCY "${vulkan_registry_path}/vk.xml"
+    COMMAND_ARG --vulkan-registry="${vulkan_registry_path}/vk.xml")
 
 target_link_libraries(
     "lib${PROJECT_NAME}_vulkan_utils"

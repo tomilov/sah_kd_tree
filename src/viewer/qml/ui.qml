@@ -65,10 +65,25 @@ ApplicationWindow {
     Menu {
         id: contextMenu
 
+        property SahKdTreeViewer item
+        onItemChanged: (item) => {
+            actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
+        }
+
         Action {
             text: qsTr("Open")
             onTriggered: {
+                sceneOpenDialog.item = item
                 sceneOpenDialog.open()
+            }
+        }
+        Action {
+            id: actionUseOffscreenTexture
+
+            text: qsTr("Use offscreen texture")
+            checkable: true
+            onCheckedChanged: (checked) => {
+                contextMenu.item.useOffscreenTexture = checked
             }
         }
     }
@@ -203,6 +218,15 @@ ApplicationWindow {
                     duration: 3333
                 }
             }
+            SequentialAnimation on scale {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.9
+                    to: 1.1
+                    duration: 10000
+                }
+            }
 
             SequentialAnimation on t {
                 loops: Animation.Infinite
@@ -266,7 +290,7 @@ ApplicationWindow {
                     case Qt.RightButton: {
                         mouse.accepted = true
 
-                        sceneOpenDialog.item = parent
+                        contextMenu.item = parent
                         contextMenu.x = mouse.x
                         contextMenu.y = mouse.y
                         contextMenu.popup()
@@ -375,21 +399,21 @@ ApplicationWindow {
                     NumberAnimation {
                         from: 0.0
                         to: 360.0
-                        duration: 3333
+                        duration: 333300
                     }
                 }
                 SequentialAnimation on scale {
                     loops: Animation.Infinite
                     running: true
                     NumberAnimation {
-                        from: 0.2
-                        to: 1.2
-                        duration: 2000
+                        from: 0.8
+                        to: 1.21
+                        duration: 200000
                     }
                     NumberAnimation {
-                        from: 1.2
-                        to: 0.2
-                        duration: 2000
+                        from: 1.1
+                        to: 0.8
+                        duration: 200000
                     }
                 }
                 SequentialAnimation on t {
@@ -415,6 +439,42 @@ ApplicationWindow {
                     border.width: 3
 
                     color: "transparent"
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+
+                    acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                    cursorShape: parent.cursor
+
+                    onPressed: (mouse) => {
+                        parent.forceActiveFocus()
+                        switch (mouse.button) {
+                        case Qt.LeftButton: {
+                            mouse.accepted = false
+                            break
+                        }
+                        case Qt.RightButton: {
+                            mouse.accepted = true
+                            break
+                        }
+                        }
+                    }
+
+                    onClicked: (mouse) => {
+                        switch (mouse.button) {
+                        case Qt.RightButton: {
+                            mouse.accepted = true
+
+                            contextMenu.item = parent
+                            contextMenu.x = mouse.x
+                            contextMenu.y = mouse.y
+                            contextMenu.popup()
+                            break
+                        }
+                        }
+                    }
                 }
 
                 focus: StackLayout.isCurrentItem

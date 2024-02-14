@@ -5,6 +5,7 @@
 #include <engine/device.hpp>
 #include <engine/framebuffer.hpp>
 #include <engine/graphics_pipeline.hpp>
+#include <engine/image.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -140,97 +141,9 @@ struct Renderer::Impl
         return scene;
     }
 
-    [[nodiscard]] vk::Format findSupportedDepthFormat(vk::ImageTiling imageTiling) const
-    {
-        const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
-        if (imageTiling == vk::ImageTiling::eLinear) {
-            p = &vk::FormatProperties3::linearTilingFeatures;
-        } else if (imageTiling == vk::ImageTiling::eOptimal) {
-            p = &vk::FormatProperties3::optimalTilingFeatures;
-        } else {
-            INVARIANT(false, "{}", imageTiling);
-        }
+    [[nodiscard]] vk::Format findDepthFormat(vk::ImageTiling imageTiling) const;
 
-        const auto findDepthComponent = [](const codegen::vulkan::FormatComponent(&components)[4]) -> const codegen::vulkan::FormatComponent *
-        {
-            for (const auto & component : components) {
-                if (component.componentType == codegen::vulkan::ComponentType::eD) {
-                    return &component;
-                }
-            }
-            return nullptr;
-        };
-
-        constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
-        const auto physicalDevice = context.getPhysicalDevice().getPhysicalDevice();
-        vk::Format depthFormat = vk::Format::eUndefined;
-        const codegen::vulkan::Format * f = nullptr;
-        for (const auto & [vkFormat, format] : codegen::vulkan::kFormats) {
-            auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(vkFormat, context.getDispatcher());
-            if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) == kFormatFeatureFlags) {
-                const auto * depthComponent = findDepthComponent(format.components);
-                INVARIANT(depthComponent, "{}", vkFormat);
-                auto bitsize = depthComponent->bitsize;
-                auto currentBitsize = findDepthComponent(f->components)->bitsize;
-                if (!f || (bitsize > currentBitsize) || ((bitsize == currentBitsize) && (format.componentCount() < f->componentCount()))) {
-                    depthFormat = vkFormat;
-                    f = &format;
-                }
-            }
-        }
-        INVARIANT(depthFormat != vk::Format::eUndefined, "");
-        return depthFormat;
-    }
-
-    Framebuffer getFramebuffer(const vk::Extent2D & size)
-    {
-        ASSERT(offscreenRenderPass);
-
-        while (!std::empty(framebuffers)) {
-            auto framebuffer = std::move(framebuffers.top());
-            framebuffers.pop();
-            if (framebuffer.size == size) {
-                return framebuffer;
-            }
-        }
-
-        engine::AllocationCreateInfo colorAllocationCreateInfo = {
-            .name = "offscreen framebuffer color image",
-            .type = engine::AllocationCreateInfo::AllocationType::kAuto,
-        };
-        auto colorImage = engine::Image::createImage2D(context.getMemoryAllocator(), colorAllocationCreateInfo, Framebuffer::kFormat, size, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled);
-        auto colorImageView = colorImage.createImageView2D();
-
-        engine::AllocationCreateInfo depthAllocationCreateInfo = {
-            .name = "offscreen framebuffer depth image",
-            .type = engine::AllocationCreateInfo::AllocationType::kAuto,
-        };
-        auto depthImage = engine::Image::createImage2D(context.getMemoryAllocator(), depthAllocationCreateInfo, depthFormat, size, vk::ImageUsageFlagBits::eDepthStencilAttachment);
-        auto depthImageView = depthImage.createImageView2D();
-
-        const vk::ImageView attachments[] = {
-            *colorImageView,
-            *depthImageView,
-        };
-        vk::FramebufferCreateInfo framebufferCreateInfo = {
-            .flags = {},
-            .renderPass = *offscreenRenderPass,
-            .width = size.width,
-            .height = size.height,
-            .layers = 1,
-        };
-        framebufferCreateInfo.setAttachments(attachments);
-        auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-
-        return {
-            .size = size,
-            .colorImage = std::move(colorImage),
-            .colorImageView = std::move(colorImageView),
-            .depthImage = std::move(depthImage),
-            .depthImageView = std::move(depthImageView),
-            .framebuffer = std::move(framebuffer),
-        };
-    }
+    Framebuffer getFramebuffer(const vk::Extent2D & size);
 };
 
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
@@ -262,21 +175,16 @@ std::shared_ptr<const Scene> Renderer::getScene() const
 
 void Renderer::Impl::createOffscreenRenderPass()
 {
-    ASSERT(offscreenRenderPass);
-    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures>().separateDepthStencilLayouts == VK_FALSE) {
-        INVARIANT(false, "");
-    }
+    ASSERT(!offscreenRenderPass);
 
-    depthFormat = findSupportedDepthFormat(vk::ImageTiling::eOptimal);
+    depthFormat = findDepthFormat(vk::ImageTiling::eOptimal);
+    INVARIANT(depthFormat != vk::Format::eUndefined, "");
     depthImageAspect = vk::ImageAspectFlagBits::eDepth;
-    depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-    {
-        for (uint8_t i = 0; i < vk::componentCount(depthFormat); ++i) {
-            if (vk::componentName(depthFormat, i) == "S"sv) {
-                depthImageAspect |= vk::ImageAspectFlagBits::eStencil;
-                depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-            }
-        }
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_TRUE) {
+        depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    } else {
+        depthImageAspect |= vk::ImageAspectFlagBits::eStencil;
+        depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     }
 
     const vk::AttachmentDescription attachmentDecriptions[] = {
@@ -370,7 +278,7 @@ void Renderer::Impl::createOffscreenRenderPass()
     renderPassCreateInfo.setDependencies(subpassDependencies);
 
     offscreenRenderPass = context.getDevice().getDevice().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    context.getDevice().setDebugUtilsObjectName(*offscreenRenderPass, "Offscreen renderpass");
+    context.getDevice().setDebugUtilsObjectName(*offscreenRenderPass, "Offscreen renderpass"s);
 }
 
 void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
@@ -428,7 +336,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
-    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Renderer::render", kGreenColor);
+    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Renderer::render"sv, kGreenColor);
 
     ASSERT(descriptors);
 
@@ -440,7 +348,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     auto pipelineLayout = graphicsPipeline->pipelineLayout.getPipelineLayout();
 
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
-    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Rasterization", kMagentaColor);
+    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Rasterization"sv, kMagentaColor);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, context.getDispatcher());
 
@@ -455,7 +363,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             offsets.reserve(std::size(descriptorSetBuffers));
             ASSERT(framesInFlight > 0);
             for (const auto & descriptorSetBuffer : descriptorSetBuffers) {
-                offsets.push_back((descriptorSetBuffer.getSize() / framesInFlight) * currentFrameSlot);
+                offsets.push_back((descriptorSetBuffer.base().getSize() / framesInFlight) * currentFrameSlot);
             }
             commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
         }
@@ -514,7 +422,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (scene->isMultiDrawIndirectEnabled()) {
-        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, descriptors->indexTypes.at(0), context.getDispatcher());
+        const auto indexType = descriptors->indexTypes.at(0);
+        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = descriptors->drawCount;
@@ -536,6 +445,99 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
     }
+}
+
+vk::Format Renderer::Impl::findDepthFormat(vk::ImageTiling imageTiling) const
+{
+    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
+    if (imageTiling == vk::ImageTiling::eLinear) {
+        p = &vk::FormatProperties3::linearTilingFeatures;
+    } else if (imageTiling == vk::ImageTiling::eOptimal) {
+        p = &vk::FormatProperties3::optimalTilingFeatures;
+    } else {
+        INVARIANT(false, "{}", imageTiling);
+    }
+
+    constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
+    auto physicalDevice = context.getPhysicalDevice().getPhysicalDevice();
+    vk::Format depthFormat = vk::Format::eUndefined;
+    for (vk::Format format : codegen::vulkan::kAllFormats) {
+        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
+        if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
+            continue;
+        }
+        const auto & formatDescription = codegen::vulkan::kFormatDescriptions.at(format);
+        const auto * depthComponent = formatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        if (!depthComponent) {
+            continue;
+        }
+        if (depthFormat == vk::Format::eUndefined) {
+            depthFormat = format;
+            continue;
+        }
+        const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
+        const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        ASSERT(bestDepthComponent);
+        if (depthComponent->bitsize < bestDepthComponent->bitsize) {
+            continue;
+        }
+        if (depthComponent->bitsize == bestDepthComponent->bitsize) {
+            if (formatDescription.componentCount() > bestFormatDescription.componentCount()) {
+                continue;
+            }
+            if (formatDescription.componentCount() == bestFormatDescription.componentCount()) {
+                SPDLOG_WARN("{} is equivalent to {}", depthFormat, format);
+            }
+        }
+        depthFormat = format;
+    }
+    return depthFormat;
+}
+
+Renderer::Impl::Framebuffer Renderer::Impl::getFramebuffer(const vk::Extent2D & size)
+{
+    ASSERT(offscreenRenderPass);
+
+    while (!std::empty(framebuffers)) {
+        auto framebuffer = std::move(framebuffers.top());
+        framebuffers.pop();
+        if (framebuffer.size == size) {
+            return framebuffer;
+        }
+    }
+
+    auto colorImageName = "offscreen framebuffer color image"s;
+    constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage);
+    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, vk::ImageAspectFlagBits::eColor);
+
+    auto depthImageName = "offscreen framebuffer depth image"s;
+    constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, depthFormat, size, kDepthImageUsage);
+    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, vk::ImageAspectFlagBits::eColor);
+
+    const vk::ImageView attachments[] = {
+        *colorImageView,
+        *depthImageView,
+    };
+    vk::FramebufferCreateInfo framebufferCreateInfo = {
+        .flags = {},
+        .renderPass = *offscreenRenderPass,
+        .width = size.width,
+        .height = size.height,
+        .layers = 1,
+    };
+    framebufferCreateInfo.setAttachments(attachments);
+    auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+
+    return {
+        .size = size,
+        .colorImage = std::move(colorImage),
+        .colorImageView = std::move(colorImageView),
+        .depthImage = std::move(depthImage),
+        .depthImageView = std::move(depthImageView),
+        .framebuffer = std::move(framebuffer),
+    };
 }
 
 }  // namespace viewer

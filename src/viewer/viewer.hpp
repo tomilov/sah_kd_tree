@@ -113,7 +113,7 @@ private:
     float characteristicSize = 0.0f;
 
     static constexpr size_t kFrameSettingsSize = 116;
-    static constexpr size_t kFrameSettingsAlignment = 8;
+    static constexpr size_t kFrameSettingsAlignment = 4;
     utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
 
     static constexpr size_t kRendererSize = 144;

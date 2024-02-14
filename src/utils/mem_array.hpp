@@ -23,22 +23,22 @@ public:
         return size;
     }
 
-    [[nodiscard]] T * begin()
+    [[nodiscard]] T * begin() &
     {
         return p.get();
     }
 
-    [[nodiscard]] T * end()
+    [[nodiscard]] T * end() &
     {
         return p.get() + size;
     }
 
-    [[nodiscard]] const T * begin() const
+    [[nodiscard]] const T * begin() const &
     {
         return p.get();
     }
 
-    [[nodiscard]] const T * end() const
+    [[nodiscard]] const T * end() const &
     {
         return p.get() + size;
     }

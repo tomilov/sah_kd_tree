@@ -29,8 +29,8 @@ struct FrameSettings
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     float t = 0.0f;
     float alpha = 1.0f;
-    vk::Viewport viewport = {};
     vk::Rect2D scissor = {};
+    vk::Viewport viewport = {};
     float width = 0.0f;
     float height = 0.0f;
     glm::mat2 transform2D{1.0f};

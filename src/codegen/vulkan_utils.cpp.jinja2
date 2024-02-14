@@ -5,6 +5,7 @@
 #include <spirv/unified1/spirv.h>
 #include <vulkan/vulkan.hpp>
 
+#include <initializer_list>
 #include <iterator>
 #include <unordered_map>
 #include <unordered_set>
@@ -65,11 +66,19 @@ uint32_t getPlaneIndex(vk::ImageAspectFlagBits imageAspect)
 
 }  // namespace
 
-const std::unordered_map<vk::Format, Format> kFormats = {
+const std::initializer_list<vk::Format> kAllFormats = {
+    {% set max_length = formats | map(attribute='format_cpp_name') | map('length') | max %}
+    {% for format in formats %}
+    {% set indent_comment = max_length - (format.format_cpp_name | length) %}
+    {{ format.format_cpp_name }}, {{ ' ' * indent_comment }} // {{ format.format_name }}
+    {% endfor %}
+};
+
+const std::unordered_map<vk::Format, FormatDescription> kFormatDescriptions = {
     {% for format in formats %}
     {
         {{ format.format_cpp_name }},  // {{ format.format_name }}
-        Format{
+        FormatDescription{
             .compatibilityClass = FormatCompatibilityClass::e{{ format.compatibility_cpp_class }},
             .components = {
                 {% for component in format.components %}
@@ -157,15 +166,15 @@ vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imag
     } else if (imageAspect == vk::ImageAspectFlagBits::eDepth) {
         return formatDepthBitSize(format);
     }
-    auto f = kFormats.find(format);
-    INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
+    auto f = kFormatDescriptions.find(format);
+    INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
     auto planeCount = f->second.planeCount();
     if (planeCount > 0) {
         uint32_t planeIndex = getPlaneIndex(imageAspect);
         INVARIANT(planeIndex < planeCount, "There is no plane for {}", imageAspect);
         format = f->second.planes[planeIndex].compatibleFormat;
-        f = kFormats.find(format);
-        INVARIANT(f != std::end(kFormats), "Format '{}' is not known", format);
+        f = kFormatDescriptions.find(format);
+        INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
     } else {
         INVARIANT(imageAspect == vk::ImageAspectFlagBits::eColor, "Cannot handle image aspect {}", imageAspect);
     }

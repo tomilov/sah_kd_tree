@@ -21,6 +21,8 @@ target_sources(
         "context.hpp"
         "context.cpp"
         "fwd.hpp"
+        "buffer.hpp"
+        "image.hpp"
         "vma.hpp"
         "vma.cpp"
         "exception.hpp"

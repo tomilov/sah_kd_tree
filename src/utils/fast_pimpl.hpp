@@ -1,6 +1,5 @@
 #pragma once
 
-#include <bit>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -17,7 +16,7 @@ public:
     template<typename... Args>
     explicit FastPimpl(Args &&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
-        new (get()) T{std::forward<Args>(args)...};
+        new (static_cast<void *>(get())) T{std::forward<Args>(args)...};
     }
 
     FastPimpl(const FastPimpl & v) : FastPimpl{*v}
@@ -46,12 +45,12 @@ public:
 
     T * get() noexcept
     {
-        return std::bit_cast<T *>(&storage);
+        return std::launder(reinterpret_cast<T *>(&storage));
     }
 
     const T * get() const noexcept
     {
-        return std::bit_cast<const T *>(&storage);
+        return std::launder(reinterpret_cast<const T *>(&storage));
     }
 
     T * operator->() noexcept
@@ -81,7 +80,7 @@ private:
     struct Validate
     {
         static_assert(kSize == kActualSize);
-        static_assert(kAlignment % kActualAlignment == 0);
+        static_assert(kAlignment == kActualAlignment);
     };
 };
 

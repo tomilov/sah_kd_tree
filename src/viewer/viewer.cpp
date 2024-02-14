@@ -253,15 +253,15 @@ void Viewer::sync()
     }
     frameSettings->alpha = utils::autoCast(alpha);
 
-    frameSettings->width = width();
-    frameSettings->height = height();
+    frameSettings->width = utils::autoCast(width());
+    frameSettings->height = utils::autoCast(height());
 
     frameSettings->zNear = std::sqrt(std::numeric_limits<float>::epsilon()) * characteristicSize;
     frameSettings->zFar = characteristicSize;
 
     if (!boundingRect().isEmpty()) {
         auto mappedBoundingRect = mapRectToScene(boundingRect());
-        qreal devicePixelRatio = window()->effectiveDevicePixelRatio();
+        qreal devicePixelRatio = window()->effectiveDevicePixelRatio();  // QT_SCALE_FACTOR
         QRectF viewportRect{mappedBoundingRect.topLeft() * devicePixelRatio, mappedBoundingRect.size() * devicePixelRatio};
         {
             qreal x = std::ceil(viewportRect.x());

@@ -41,8 +41,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     uint32_t apiVersion = VK_API_VERSION_1_0;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceDescriptorIndexingFeatures,
                        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR,
-                       vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures>
+                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR>
         features2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -64,6 +63,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceVulkan12Features::bufferDeviceAddress,
         &vk::PhysicalDeviceVulkan12Features::descriptorIndexing,
         &vk::PhysicalDeviceVulkan12Features::drawIndirectCount,
+        &vk::PhysicalDeviceVulkan12Features::separateDepthStencilLayouts,
         &vk::PhysicalDeviceVulkan13Features::synchronization2,
         &vk::PhysicalDeviceVulkan13Features::maintenance4,
         //&vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
@@ -75,8 +75,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceRobustness2FeaturesEXT::nullDescriptor,
         //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // VK_KHR_SHADER_CLOCK_EXTENSION_NAME, shaderInt64
         &vk::PhysicalDeviceIndexTypeUint8FeaturesEXT::indexTypeUint8,
-        &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,
-        &vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures::separateDepthStencilLayouts
+        &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5
     >;
     // clang-format on
 

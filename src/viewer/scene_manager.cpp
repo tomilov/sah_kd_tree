@@ -1,3 +1,4 @@
+#include <engine/buffer.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/graphics_pipeline.hpp>
@@ -24,12 +25,14 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include <cstddef>
 #include <cstdint>
 
+using namespace std::string_literals;
 using namespace std::string_view_literals;
 
 namespace viewer
@@ -256,7 +259,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             vk::BufferCreateInfo indexBufferCreateInfo;
             indexBufferCreateInfo.size = indexBufferSize;
             indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
-            indexBuffer.emplace(vma.createStagingBuffer(indexBufferCreateInfo, minAlignment, "Indices"));
+            indexBuffer.emplace(vma.createStagingBuffer("Indices"s, indexBufferCreateInfo, minAlignment));
 
             constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
             auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
@@ -264,8 +267,8 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         }
 
         {
-            auto mappedIndexBuffer = indexBuffer.value().map<void>();
-            auto indices = mappedIndexBuffer.get();
+            auto mappedIndexBuffer = indexBuffer.value().map();
+            auto indices = mappedIndexBuffer.data();
             for (size_t m = 0; m < sceneMeshCount; ++m) {
                 const auto & instance = instances.at(m);
 
@@ -315,7 +318,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             vk::BufferCreateInfo drawCountBufferCreateInfo;
             drawCountBufferCreateInfo.size = sizeof(uint32_t);
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            drawCountBuffer.emplace(vma.createIndirectBuffer(drawCountBufferCreateInfo, minAlignment, "DrawCount"));
+            drawCountBuffer.emplace(vma.createStagingBuffer("DrawCount"s, drawCountBufferCreateInfo, minAlignment));
 
             auto mappedDrawCountBuffer = drawCountBuffer.value().map();
             *mappedDrawCountBuffer.data() = drawCount;
@@ -326,7 +329,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
             instanceBufferCreateInfo.size = drawCount * kSize;
             instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            instanceBuffer.emplace(vma.createIndirectBuffer(instanceBufferCreateInfo, minAlignment, "Instances"));
+            instanceBuffer.emplace(vma.createStagingBuffer("Instances"s, instanceBufferCreateInfo, minAlignment));
 
             auto mappedInstanceBuffer = instanceBuffer.value().map();
             auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
@@ -341,7 +344,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         if (descriptorBufferEnabled) {
             transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
-        transformBuffer.emplace(vma.createStagingBuffer(transformBufferCreateInfo, minAlignment, "Transformations"));
+        transformBuffer.emplace(vma.createStagingBuffer("Transformations"s, transformBufferCreateInfo, minAlignment));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         auto memoryPropertyFlags = transformBuffer.value().getMemoryPropertyFlags();
@@ -377,14 +380,14 @@ void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttribu
         vk::BufferCreateInfo vertexBufferCreateInfo;
         vertexBufferCreateInfo.size = scene.vertices.getSize() * vertexSize;
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBuffer.emplace(vma.createStagingBuffer(vertexBufferCreateInfo, minAlignment, "Vertices"));
+        vertexBuffer.emplace(vma.createStagingBuffer("Vertices"s, vertexBufferCreateInfo, minAlignment));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
         auto memoryPropertyFlags = vertexBuffer.value().getMemoryPropertyFlags();
         INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 
         auto mappedVertexBuffer = vertexBuffer.value().map();
-        ASSERT(scene.vertices.getSize() == mappedVertexBuffer.getSize());
+        ASSERT(scene.vertices.getSize() == mappedVertexBuffer.getCount());
         if (std::copy_n(scene.vertices.begin(), scene.vertices.getSize(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
             ASSERT(false);
         }
@@ -406,7 +409,7 @@ void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Bu
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     for (uint32_t i = 0; i < framesInFlight; ++i) {
         auto uniformBufferName = fmt::format("Uniform buffer (frameInFlight #{})", i);
-        uniformBuffers.emplace_back(vma.createStagingBuffer(uniformBufferCreateInfo, minAlignment, uniformBufferName));
+        uniformBuffers.emplace_back(vma.createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, minAlignment));
 
         auto memoryPropertyFlags = uniformBuffers.back().getMemoryPropertyFlags();
         INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
@@ -440,11 +443,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
                 ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-                descriptorBufferInfos.emplace_back() = {
-                    .buffer = uniformBuffers.at(i),
-                    .offset = 0,
-                    .range = uniformBuffers.at(i).getSize(),
-                };
+                descriptorBufferInfos.push_back(uniformBuffers.at(i).base().getDescriptorBufferInfo());
             }
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
@@ -468,12 +467,7 @@ void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine
             uint32_t transformBufferSetIndex = setBindings->second.setIndex;
 
             ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back();
-            descriptorBufferInfo = {
-                .buffer = transformBuffer.value(),
-                .offset = 0,
-                .range = transformBuffer.value().getSize(),
-            };
+            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back(transformBuffer.value().base().getDescriptorBufferInfo());
 
             for (uint32_t i = 0; i < framesInFlight; ++i) {
                 ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
@@ -495,7 +489,7 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
 {
     const auto minAlignment = getMinAlignment();
 
-    constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCached;
+    constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
     descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
     auto set = std::cbegin(shaderStages.setBindings);
@@ -523,15 +517,14 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
             }
         }
         auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set->first);
-        const auto & descriptorSetBuffer = descriptorSetBuffers.emplace_back(context.getMemoryAllocator().createDescriptorBuffer(descriptorBufferCreateInfo, alignment, descriptorBufferName));
+        auto descriptorSetBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, alignment);
 
         auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
         INVARIANT((memoryPropertyFlags & kRequiredMemoryPropertyFlags) == kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
 
-        descriptorBufferBindingInfos.emplace_back() = {
-            .address = descriptorSetBuffer.getDeviceAddress(),
-            .usage = descriptorBufferCreateInfo.usage,
-        };
+        descriptorBufferBindingInfos.push_back(descriptorSetBuffer.getDescriptorBufferBindingInfo());
+
+        descriptorSetBuffers.emplace_back(std::move(descriptorSetBuffer));
 
         ++set;
     }
@@ -551,7 +544,7 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
         const auto & descriptorSetBuffer = descriptorSetBuffers.at(setIndex);
         auto mappedDescriptorSetBuffer = descriptorSetBuffer.map();
         auto setDescriptors = mappedDescriptorSetBuffer.begin();
-        const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.getSize() / framesInFlight;
+        const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.base().getSize() / framesInFlight;
         for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
             for (uint32_t b = 0; b < std::size(bindings.bindings); ++b) {
                 const auto & binding = bindings.bindings.at(b);
@@ -564,7 +557,7 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
                     const auto & u = uniformBuffers.at(currentFrameSlot);
                     descriptorAddressInfo = {
                         .address = u.getDeviceAddress(),
-                        .range = u.getSize(),
+                        .range = u.base().getSize(),
                         .format = vk::Format::eUndefined,
                     };
                     descriptorGetInfo.data.pUniformBuffer = &descriptorAddressInfo;
@@ -572,7 +565,7 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
                     ASSERT(binding.descriptorType == vk::DescriptorType::eStorageBuffer);
                     descriptorAddressInfo = {
                         .address = transformBuffer.value().getDeviceAddress(),
-                        .range = transformBuffer.value().getSize(),
+                        .range = transformBuffer.value().base().getSize(),
                         .format = vk::Format::eUndefined,
                     };
                     descriptorGetInfo.data.pStorageBuffer = &descriptorAddressInfo;

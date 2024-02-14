@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <array>
+#include <string_view>
 #include <type_traits>
 
 #include <engine/engine_export.h>
@@ -17,13 +18,13 @@ using LabelColor = std::array<float, 4>;
 inline constexpr LabelColor kDefaultLabelColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
 template<typename Object>
-void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
+void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color = kDefaultLabelColor);
 
 template<>
-void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, const char * labelName, const LabelColor & color) ENGINE_EXPORT;
+void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, std::string_view labelName, const LabelColor & color) ENGINE_EXPORT;
 
 template<>
-void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, const char * labelName, const LabelColor & color) ENGINE_EXPORT;
+void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, std::string_view labelName, const LabelColor & color) ENGINE_EXPORT;
 
 template<typename Object>
 class ENGINE_EXPORT ScopedDebugUtilsLabel
@@ -40,7 +41,7 @@ public:
 
     ~ScopedDebugUtilsLabel();
 
-    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor);
+    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color = kDefaultLabelColor);
 
 private:
     const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE * dispatcher = nullptr;
