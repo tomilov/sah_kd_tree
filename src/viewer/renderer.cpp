@@ -24,10 +24,13 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_format_traits.hpp>
 
+#include <queue>
+
 #include <algorithm>
 #include <filesystem>
 #include <initializer_list>
 #include <iterator>
+#include <list>
 #include <memory>
 #include <stack>
 #include <string_view>
@@ -46,16 +49,35 @@ namespace
 {
 
 template<typename T>
-class Stack : std::stack<T, std::vector<T>>
+class ResourceStack final : std::stack<T, std::vector<T>>
 {
     using base = std::stack<T, std::vector<T>>;
 
 public:
-    using base::base;
     using base::empty;
     using base::pop;
     using base::push;
+    using base::size;
     using base::top;
+
+    void clear()
+    {
+        base::c.clear();
+    }
+};
+
+template<typename T>
+class ResourceQueue : std::queue<T, std::list<T>>
+{
+    using base = std::queue<T, std::list<T>>;
+
+public:
+    using base::back;
+    using base::empty;
+    using base::front;
+    using base::pop;
+    using base::push;
+    using base::size;
 
     void clear()
     {
@@ -125,10 +147,12 @@ struct Renderer::Impl
     vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
 
     vk::UniqueRenderPass offscreenRenderPass;
-    Stack<Framebuffer> framebuffers;
+    ResourceStack<Framebuffer> framebuffers;
 
     Impl(const engine::Context & context, uint32_t framesInFlight) : context{context}, framesInFlight{framesInFlight}
     {}
+
+    [[nodiscard]] vk::Format findDepthFormat(vk::ImageTiling imageTiling) const;
 
     void createOffscreenRenderPass();
 
@@ -141,9 +165,8 @@ struct Renderer::Impl
         return scene;
     }
 
-    [[nodiscard]] vk::Format findDepthFormat(vk::ImageTiling imageTiling) const;
-
     Framebuffer getFramebuffer(const vk::Extent2D & size);
+    void putFramebuffer(Framebuffer && framebuffer);
 };
 
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
@@ -171,6 +194,53 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
 std::shared_ptr<const Scene> Renderer::getScene() const
 {
     return impl_->getScene();
+}
+
+vk::Format Renderer::Impl::findDepthFormat(vk::ImageTiling imageTiling) const
+{
+    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
+    if (imageTiling == vk::ImageTiling::eLinear) {
+        p = &vk::FormatProperties3::linearTilingFeatures;
+    } else if (imageTiling == vk::ImageTiling::eOptimal) {
+        p = &vk::FormatProperties3::optimalTilingFeatures;
+    } else {
+        INVARIANT(false, "{}", imageTiling);
+    }
+
+    constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
+    auto physicalDevice = context.getPhysicalDevice().getPhysicalDevice();
+    vk::Format depthFormat = vk::Format::eUndefined;
+    for (vk::Format format : codegen::vulkan::kAllFormats) {
+        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
+        if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
+            continue;
+        }
+        const auto & formatDescription = codegen::vulkan::kFormatDescriptions.at(format);
+        const auto * depthComponent = formatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        if (!depthComponent) {
+            continue;
+        }
+        if (depthFormat == vk::Format::eUndefined) {
+            depthFormat = format;
+            continue;
+        }
+        const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
+        const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        ASSERT(bestDepthComponent);
+        if (depthComponent->bitsize < bestDepthComponent->bitsize) {
+            continue;
+        }
+        if (depthComponent->bitsize == bestDepthComponent->bitsize) {
+            if (formatDescription.componentCount() > bestFormatDescription.componentCount()) {
+                continue;
+            }
+            if (formatDescription.componentCount() == bestFormatDescription.componentCount()) {
+                SPDLOG_WARN("{} is equivalent to {}", depthFormat, format);
+            }
+        }
+        depthFormat = format;
+    }
+    return depthFormat;
 }
 
 void Renderer::Impl::createOffscreenRenderPass()
@@ -321,8 +391,8 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     ASSERT(descriptors);
     {
-        auto mappedUniformBuffer = descriptors->uniformBuffers.at(currentFrameSlot).map();
-        fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
+        auto mappedUniformBuffer = descriptors->uniformBuffer.value().map();
+        fillUniformBuffer(frameSettings, mappedUniformBuffer.at(currentFrameSlot));
     }
 }
 
@@ -447,54 +517,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 }
 
-vk::Format Renderer::Impl::findDepthFormat(vk::ImageTiling imageTiling) const
-{
-    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
-    if (imageTiling == vk::ImageTiling::eLinear) {
-        p = &vk::FormatProperties3::linearTilingFeatures;
-    } else if (imageTiling == vk::ImageTiling::eOptimal) {
-        p = &vk::FormatProperties3::optimalTilingFeatures;
-    } else {
-        INVARIANT(false, "{}", imageTiling);
-    }
-
-    constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
-    auto physicalDevice = context.getPhysicalDevice().getPhysicalDevice();
-    vk::Format depthFormat = vk::Format::eUndefined;
-    for (vk::Format format : codegen::vulkan::kAllFormats) {
-        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
-        if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
-            continue;
-        }
-        const auto & formatDescription = codegen::vulkan::kFormatDescriptions.at(format);
-        const auto * depthComponent = formatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        if (!depthComponent) {
-            continue;
-        }
-        if (depthFormat == vk::Format::eUndefined) {
-            depthFormat = format;
-            continue;
-        }
-        const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
-        const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        ASSERT(bestDepthComponent);
-        if (depthComponent->bitsize < bestDepthComponent->bitsize) {
-            continue;
-        }
-        if (depthComponent->bitsize == bestDepthComponent->bitsize) {
-            if (formatDescription.componentCount() > bestFormatDescription.componentCount()) {
-                continue;
-            }
-            if (formatDescription.componentCount() == bestFormatDescription.componentCount()) {
-                SPDLOG_WARN("{} is equivalent to {}", depthFormat, format);
-            }
-        }
-        depthFormat = format;
-    }
-    return depthFormat;
-}
-
-Renderer::Impl::Framebuffer Renderer::Impl::getFramebuffer(const vk::Extent2D & size)
+auto Renderer::Impl::getFramebuffer(const vk::Extent2D & size) -> Framebuffer
 {
     ASSERT(offscreenRenderPass);
 
@@ -538,6 +561,11 @@ Renderer::Impl::Framebuffer Renderer::Impl::getFramebuffer(const vk::Extent2D & 
         .depthImageView = std::move(depthImageView),
         .framebuffer = std::move(framebuffer),
     };
+}
+
+void Renderer::Impl::putFramebuffer(Framebuffer && framebuffer)
+{
+    framebuffers.push(std::move(framebuffer));
 }
 
 }  // namespace viewer

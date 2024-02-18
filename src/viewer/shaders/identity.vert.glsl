@@ -23,7 +23,8 @@ layout(std140, set = 0, binding = 1) restrict readonly buffer TransformBuffer
 void main()
 {
     vec4 worldVertexPosition = transformBuffer.transforms[gl_InstanceIndex] * vec4(vertexPosition, 1.0f);
-    gl_Position = pushConstants.mvp * worldVertexPosition;
-    y = gl_Position.y;
+    vec4 screenVertexPosition = pushConstants.mvp * worldVertexPosition;
+    gl_Position = screenVertexPosition;
+    y = screenVertexPosition.y;
 }
 

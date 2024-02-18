@@ -321,7 +321,7 @@ const char * toStringSpv(T value)
 template<typename FlagBits>
 struct Flags
 {
-    uint32_t value;
+    uint32_t make;
 };
 
 template<typename T>
@@ -556,11 +556,11 @@ struct nlohmann::adl_serializer<engine::Flags<FlagBits>>
     static void to_json(json & j, const engine::Flags<FlagBits> & flags)
     {
         j = json::array();
-        uint32_t mask = flags.value;
+        uint32_t mask = flags.make;
         while (mask != 0) {
             uint32_t nextMask = mask & (mask - 1);
             uint32_t bit = nextMask ^ mask;
-            auto s = engine::toString(FlagBits(utils::autoCast(bit)));
+            auto s = engine::toString(utils::safeCast<FlagBits>(bit));
             j.push_back(s);
             mask = nextMask;
         }

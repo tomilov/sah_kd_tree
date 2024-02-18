@@ -1,7 +1,6 @@
 #pragma once
 
 #include <utils/assert.hpp>
-#include <utils/auto_cast.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -59,19 +58,44 @@ template<typename T>
 class ENGINE_EXPORT MappedMemory final : utils::OneTime
 {
 public:
-    [[nodiscard]] T * data() const &
+    [[nodiscard]] vk::DeviceSize getElementSize() const
     {
-        return std::launder(static_cast<T *>(mappedMemory.data()));
+        if (count == 0) {
+            return sizeof(T);
+        } else {
+            return mappedMemory.getSize() / count;
+        }
+    }
+
+    [[nodiscard]] T & at(uint32_t index) const &
+    {
+        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        auto data = static_cast<std::byte *>(mappedMemory.data());
+        data += index * getElementSize();
+        return *std::launder(static_cast<T *>(static_cast<void *>(data)));
     }
 
     [[nodiscard]] vk::DeviceSize getCount() const
     {
-        return mappedMemory.getSize() / sizeof(T);
+        if (count == 0) {
+            return mappedMemory.getSize() / sizeof(T);
+        } else {
+            return count;
+        }
     }
 
-    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &
+    [[nodiscard]] vk::DeviceAddress getDeviceAddress(uint32_t index) const &
     {
-        return mappedMemory.getDeviceAddress();
+        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        vk::DeviceAddress deviceAddress = mappedMemory.getDeviceAddress();
+        deviceAddress += index * getElementSize();
+        return deviceAddress;
+    }
+
+    [[nodiscard]] T * data() const &
+    {
+        ASSERT_MSG((count == 0) || (mappedMemory.getSize() == count * sizeof(T)), "{}, {}", count, mappedMemory.getSize());
+        return &at(0);
     }
 
     [[nodiscard]] T * begin() const &
@@ -85,11 +109,21 @@ public:
     }
 
 private:
+    friend class Buffer<void>;
     friend class Buffer<T>;
 
     MappedMemory<void> mappedMemory;
+    const vk::DeviceSize count;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE);  // NOLINT: google-explicit-constructor
+    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) : mappedMemory{buffer, offset, size}, count{count}  // NOLINT: google-explicit-constructor
+    {
+        if (count == 0) {
+            ASSERT_MSG((mappedMemory.getSize() % sizeof(T)) == 0, "Size of buffer mapping {} is not multiple of element size {}", mappedMemory.getSize(), sizeof(T));
+        } else {
+            ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
+            ASSERT_MSG((mappedMemory.getSize() / count) >= sizeof(T), "Size of buffer mapping element {} is less than static element size {}", mappedMemory.getSize() / count, sizeof(T));
+        }
+    }
 };
 
 template<>
@@ -106,6 +140,7 @@ public:
     [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &;
     [[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo() const &;
     [[nodiscard]] vk::DescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo() const &;
+    [[nodiscard]] vk::DescriptorAddressInfoEXT getDescriptorAddressInfo() const &;
 
     [[nodiscard]] vk::Buffer getBuffer() const &;
     [[nodiscard]] operator vk::Buffer() const &;  // NOLINT: google-explicit-constructor
@@ -113,17 +148,9 @@ public:
     [[nodiscard]] MappedMemory<void> map() const &;
 
     template<typename T>
-    [[nodiscard]] MappedMemory<T> map() const &
+    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize count = 0, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const &
     {
-        return {this};
-    }
-
-    template<typename T>
-    [[nodiscard]] MappedMemory<T> map(size_t base, size_t count) const &
-    {
-        auto offset = utils::safeCast<vk::DeviceSize>(base * sizeof(T));
-        auto size = utils::safeCast<vk::DeviceSize>(count * sizeof(T));
-        return {this, offset, size};
+        return {this, count, offset, size};
     }
 
     [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {});
@@ -145,38 +172,54 @@ private:
 };
 
 template<typename T>
-MappedMemory<T>::MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size) : mappedMemory{buffer, offset, size}
-{
-    INVARIANT((mappedMemory.getSize() % sizeof(T)) == 0, "Size of buffer mapping {} is not multiple of element size {}", mappedMemory.getSize(), sizeof(T));
-}
-
-template<typename T>
 class ENGINE_EXPORT Buffer final : utils::OneTime
 {
 public:
-    explicit Buffer(Buffer<void> && buffer) noexcept : buffer{std::move(buffer)}
+    explicit Buffer(Buffer<void> && buffer, vk::DeviceSize count = 0) noexcept : buffer{std::move(buffer)}, count{count}
     {
-        INVARIANT((this->buffer.getSize() % sizeof(T)) == 0, "Size of buffer {} is not multiple of element size {}", this->buffer.getSize(), sizeof(T));
+        if (count == 0) {
+            ASSERT_MSG((base().getSize() % sizeof(T)) == 0, "Size of buffer {} is not multiple of element size {}", base().getSize(), sizeof(T));
+        } else {
+            ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);
+            ASSERT_MSG((base().getSize() / count) >= sizeof(T), "Size of buffer element {} is less than static element size {}", base().getSize() / count, sizeof(T));
+        }
     }
 
-    [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const
+    [[nodiscard]] vk::DeviceSize getElementSize() const
     {
-        return buffer.getMemoryPropertyFlags();
-    }
-
-    [[nodiscard]] uint32_t getMemoryTypeIndex() const
-    {
-        return buffer.getMemoryTypeIndex();
+        if (count == 0) {
+            return sizeof(T);
+        } else {
+            return buffer.getSize() / count;
+        }
     }
 
     [[nodiscard]] vk::DeviceSize getCount() const
     {
-        return buffer.getSize() / sizeof(T);
+        if (count == 0) {
+            return buffer.getSize() / sizeof(T);
+        } else {
+            return count;
+        }
     }
 
-    [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &
+    [[nodiscard]] vk::DeviceAddress getDeviceAddress(uint32_t index = 0) const &
     {
-        return buffer.getDeviceAddress();
+        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        vk::DeviceAddress deviceAddress = buffer.getDeviceAddress();
+        deviceAddress += index * getElementSize();
+        return deviceAddress;
+    }
+
+    [[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t index = 0) const &
+    {
+        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        vk::DeviceSize elementSize = getElementSize();
+        return {
+            .buffer = getBuffer(),
+            .offset = elementSize * index,
+            .range = elementSize,
+        };
     }
 
     [[nodiscard]] vk::Buffer getBuffer() const &
@@ -191,7 +234,7 @@ public:
 
     [[nodiscard]] MappedMemory<T> map() const &
     {
-        return {&buffer};
+        return {&buffer, count};
     }
 
     [[nodiscard]] Buffer<void> & base() &
@@ -206,6 +249,7 @@ public:
 
 private:
     Buffer<void> buffer;
+    const vk::DeviceSize count;
 };
 
 }  // namespace engine

@@ -62,7 +62,7 @@ target_shaders(
         "shaders/barycentric_color.frag.glsl"
         "shaders/fullscreen_rect.vert.glsl"
         "shaders/identity.vert.glsl"
-        "shaders/squircle.frag.glsl"
+        "shaders/offscreen.frag.glsl"
     OUTPUT_VARIABLE
         compiled_shaders)
 

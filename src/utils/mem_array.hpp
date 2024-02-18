@@ -18,7 +18,7 @@ public:
     explicit MemArray(size_t size) : size{size}, p{std::make_unique<T[]>(size)}
     {}
 
-    [[nodiscard]] size_t getSize() const
+    [[nodiscard]] size_t getCount() const
     {
         return size;
     }

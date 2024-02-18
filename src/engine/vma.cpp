@@ -386,6 +386,15 @@ vk::DescriptorBufferBindingInfoEXT Buffer<void>::getDescriptorBufferBindingInfo(
     };
 }
 
+vk::DescriptorAddressInfoEXT Buffer<void>::getDescriptorAddressInfo() const &
+{
+    return {
+        .address = getDeviceAddress(),
+        .range = getSize(),
+        .format = vk::Format::eUndefined,
+    };
+}
+
 vk::Buffer Buffer<void>::getBuffer() const &
 {
     ASSERT(impl_->resource);

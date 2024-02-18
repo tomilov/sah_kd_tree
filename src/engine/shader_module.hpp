@@ -65,20 +65,26 @@ struct ENGINE_EXPORT VertexInputState final : utils::OneTime
 
 struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
 {
+    struct DescriptorSetLayoutBinding
+    {
+        vk::DescriptorSetLayoutBinding binding;
+        size_t size = 0;
+    };
+
     vk::ShaderStageFlagBits shaderStage = {};
-    std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, vk::DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
+    std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
     std::optional<vk::PushConstantRange> pushConstantRange;
 
-    ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPoint);
+    ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName);
     ~ShaderModuleReflection();
 
-    [[nodiscard]] const std::string & getEntryPoint() const &;
+    [[nodiscard]] const std::string & getEntryPointName() const &;
     [[nodiscard]] VertexInputState getVertexInputState(uint32_t vertexBufferBinding) const;
 
 private:
     const Context & context;
     const ShaderModule & shaderModule;
-    const std::string entryPoint;
+    const std::string entryPointName;
 
     static constexpr size_t kSize = 1208;
     static constexpr size_t kAlignment = 8;
@@ -108,12 +114,12 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
         }
     };
 
-    std::deque<std::string> entryPoints;
+    std::deque<std::string> entryPointNames;
     std::deque<std::string> names;
     PipelineShaderStageCreateInfoChains shaderStages;
     std::vector<std::reference_wrapper<const ShaderModuleReflection>> shaderModuleReflections;
 
-    std::optional<engine::VertexInputState> vertexInputState;
+    std::optional<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 

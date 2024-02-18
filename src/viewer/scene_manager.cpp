@@ -47,8 +47,10 @@ using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
 const auto kRasterization = "rasterization"sv;
 constexpr uint32_t kUniformBufferSet = 0;
 constexpr uint32_t kTransformBuferSet = 0;
-const std::string kUniformBufferName = "uniformBuffer";     // clazy:exclude=non-pod-global-static
-const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
+constexpr uint32_t kDisplaySamplerSet = 1;
+const auto kUniformBufferName = "uniformBuffer"s;     // clazy:exclude=non-pod-global-static
+const auto kTransformBuferName = "transformBuffer"s;  // clazy:exclude=non-pod-global-static
+const auto kDisplaySamplerName = "display"s;          // clazy:exclude=non-pod-global-static
 
 vk::Format indexTypeToFormat(vk::IndexType indexType)
 {
@@ -94,6 +96,230 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 }
 
 }  // namespace
+
+Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
+    : pipelineLayout{name, context, shaderStages, renderPass}, pipelines{context, pipelineCache}
+{
+    pipelines.add(pipelineLayout, useDescriptorBuffer);
+    pipelines.create();
+}
+
+std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
+{
+    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
+}
+
+const std::filesystem::path & Scene::getScenePath() const
+{
+    return scenePath;
+}
+
+const scene::Scene & Scene::getScene() const
+{
+    return scene;
+}
+
+auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
+{
+    Descriptors descriptors;
+
+    createInstances(descriptors);
+    createVertexBuffer(descriptors);
+    createUniformBuffers(framesInFlight, descriptors);
+
+    for (const auto & [set, bindings] : shaderStages.setBindings) {
+        INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
+    }
+
+    if (descriptorBufferEnabled) {
+        createDescriptorBuffers(framesInFlight, descriptors);
+    } else {
+        createDescriptorSets(framesInFlight, descriptors);
+    }
+
+    descriptors.pushConstantRanges = shaderStages.pushConstantRanges;
+
+    if (descriptorBufferEnabled) {
+        fillDescriptorBuffers(framesInFlight, descriptors);
+    } else {
+        fillDescriptorSets(framesInFlight, descriptors);
+    }
+
+    return descriptors;
+}
+
+auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
+{
+    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, shaderStages, renderPass, descriptorBufferEnabled);
+}
+
+Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
+    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::move(scene)}, shaderStages{context, kVertexBufferBinding}, offscreenShaderStages{context, kVertexBufferBinding}
+{
+    init();
+}
+
+void Scene::init()
+{
+    uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
+
+    const auto & device = context.getDevice();
+    if (indexTypeUint8Enabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (descriptorBufferEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (multiDrawIndirectEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (drawIndirectCountEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+
+    ASSERT(!std::empty(scenePath));
+
+    vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
+    if (descriptorBufferEnabled) {
+        descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
+    }
+
+    const auto addShader = [this](std::string_view shaderName, std::string_view entryPoint = "main") -> const Shader &
+    {
+        auto [it, inserted] = shaders.emplace(std::piecewise_construct, std::tie(shaderName), std::tie(context, fileIo, shaderName, entryPoint));
+        INVARIANT(inserted, "");
+        return it->second;
+    };
+
+    {
+        const auto & [vertexShader, vertexShaderReflection] = addShader("identity.vert");
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kTransformBuferSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kTransformBuferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eStorageBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(glm::mat4), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(glm::mat4));
+            }
+            if ((false)) {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+            }
+
+            INVARIANT(vertexShaderReflection.pushConstantRange, "");
+            {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+            }
+        }
+        shaderStages.append(vertexShader, vertexShaderReflection);
+
+        const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+            // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
+        }
+        shaderStages.append(fragmentShader, fragmentShaderReflection);
+    }
+    shaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
+
+    {
+        const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+            }
+
+            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
+            if ((false)) {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+            }
+        }
+        offscreenShaderStages.append(vertexShader, vertexShaderReflection);
+
+        const auto & [fragmentShader, fragmentShaderReflection] = addShader("offscreen.frag");
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 2, "");
+            {
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+                {
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                    // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+                }
+            }
+            {
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kDisplaySamplerSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kDisplaySamplerSet);
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+                {
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kDisplaySamplerName);
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eCombinedImageSampler, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                }
+            }
+
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
+            if (fragmentShaderReflection.pushConstantRange) {
+                const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, x), "");
+                INVARIANT(pushConstantRange.size == sizeof(PushConstants::x), "");
+            }
+        }
+        offscreenShaderStages.append(fragmentShader, fragmentShaderReflection);
+    }
+    offscreenShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
+}
 
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
 {
@@ -178,8 +404,41 @@ vk::DeviceSize Scene::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector<vk::DrawIndexedIndirectCommand> & instances, uint32_t & drawCount, std::optional<engine::Buffer<uint32_t>> & drawCountBuffer,
-                            std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> & instanceBuffer, std::optional<engine::Buffer<void>> & indexBuffer, std::optional<engine::Buffer<glm::mat4>> & transformBuffer) const
+void Scene::createVertexBuffer(Descriptors & descriptors) const
+{
+    const auto minAlignment = getMinAlignment();
+    const auto & vma = context.getMemoryAllocator();
+
+    if (!shaderStages.vertexInputState) {
+        return;
+    }
+    vk::DeviceSize vertexSize = 0;
+    for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.value().vertexInputAttributeDescriptions) {
+        vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
+    }
+
+    if (vertexSize == 0) {
+        return;
+    }
+    INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
+
+    vk::BufferCreateInfo vertexBufferCreateInfo;
+    vertexBufferCreateInfo.size = scene.vertices.getCount() * vertexSize;
+    vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+    descriptors.vertexBuffer.emplace(vma.createStagingBuffer("Vertices"s, vertexBufferCreateInfo, minAlignment));
+
+    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    auto memoryPropertyFlags = descriptors.vertexBuffer.value().base().getMemoryPropertyFlags();
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+    auto mappedVertexBuffer = descriptors.vertexBuffer.value().map();
+    ASSERT(scene.vertices.getCount() == mappedVertexBuffer.getCount());
+    if (std::copy_n(scene.vertices.begin(), scene.vertices.getCount(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+        ASSERT(false);
+    }
+}
+
+void Scene::createInstances(Descriptors & descriptors) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
@@ -188,13 +447,13 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
     std::vector<std::vector<glm::mat4>> transforms;  // [Scene::meshes index][instance index]
     transforms.resize(sceneMeshCount);
-    instances.resize(sceneMeshCount);
+    descriptors.instances.resize(sceneMeshCount);
 
-    const auto collectNodeInfos = [this, &instances, &transforms](const auto & collectNodeInfos, const scene::Node & sceneNode, glm::mat4 transform) -> void
+    const auto collectNodeInfos = [this, &descriptors, &transforms](const auto & collectNodeInfos, const scene::Node & sceneNode, glm::mat4 transform) -> void
     {
         transform *= sceneNode.transform;
         for (size_t m : sceneNode.meshes) {
-            ++instances.at(m).instanceCount;
+            ++descriptors.instances.at(m).instanceCount;
             transforms.at(m).push_back(transform);
         }
         for (size_t sceneNodeChild : sceneNode.children) {
@@ -210,11 +469,11 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
         for (size_t m = 0; m < sceneMeshCount; ++m) {
             const scene::Mesh & sceneMesh = scene.meshes.at(m);
-            auto & instance = instances.at(m);
+            auto & instance = descriptors.instances.at(m);
 
             instance.vertexOffset = utils::autoCast(sceneMesh.vertexOffset);
 
-            auto & indexType = indexTypes.emplace_back();
+            auto & indexType = descriptors.indexTypes.emplace_back();
             if (sceneMesh.indexCount == 0) {
                 indexType = vk::IndexType::eNoneKHR;
                 continue;
@@ -238,7 +497,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
 
         if (maxIndexType != vk::IndexType::eNoneKHR) {
             for (size_t m = 0; m < sceneMeshCount; ++m) {
-                auto & indexType = indexTypes.at(m);
+                auto & indexType = descriptors.indexTypes.at(m);
                 if (indexType == vk::IndexType::eNoneKHR) {
                     continue;
                 }
@@ -247,7 +506,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                 }
                 vk::DeviceSize formatSize = vk::blockSize(indexTypeToFormat(indexType));
                 indexBufferSize = engine::alignedSize(indexBufferSize, formatSize);
-                auto & instance = instances.at(m);
+                auto & instance = descriptors.instances.at(m);
                 instance.firstIndex = utils::autoCast(indexBufferSize / formatSize);
                 indexBufferSize += instance.indexCount * formatSize;
             }
@@ -259,18 +518,18 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
             vk::BufferCreateInfo indexBufferCreateInfo;
             indexBufferCreateInfo.size = indexBufferSize;
             indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
-            indexBuffer.emplace(vma.createStagingBuffer("Indices"s, indexBufferCreateInfo, minAlignment));
+            descriptors.indexBuffer.emplace(vma.createStagingBuffer("Indices"s, indexBufferCreateInfo, minAlignment));
 
             constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-            auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
+            auto memoryPropertyFlags = descriptors.indexBuffer.value().getMemoryPropertyFlags();
             INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
         }
 
         {
-            auto mappedIndexBuffer = indexBuffer.value().map();
+            auto mappedIndexBuffer = descriptors.indexBuffer.value().map();
             auto indices = mappedIndexBuffer.data();
             for (size_t m = 0; m < sceneMeshCount; ++m) {
-                const auto & instance = instances.at(m);
+                const auto & instance = descriptors.instances.at(m);
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
@@ -283,7 +542,7 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
                         *indexOut++ = utils::autoCast(*indexIn++);
                     }
                 };
-                switch (indexTypes.at(m)) {
+                switch (descriptors.indexTypes.at(m)) {
                 case vk::IndexType::eNoneKHR: {
                     // no indices have to be copied
                     break;
@@ -306,33 +565,33 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 
     uint32_t totalInstanceCount = 0;
-    for (auto & instance : instances) {
+    for (auto & instance : descriptors.instances) {
         instance.firstInstance = totalInstanceCount;
         totalInstanceCount += instance.instanceCount;
     }
 
     if (multiDrawIndirectEnabled) {
-        drawCount = std::size(instances);
+        descriptors.drawCount = std::size(descriptors.instances);
 
         if (drawIndirectCountEnabled) {
             vk::BufferCreateInfo drawCountBufferCreateInfo;
             drawCountBufferCreateInfo.size = sizeof(uint32_t);
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            drawCountBuffer.emplace(vma.createStagingBuffer("DrawCount"s, drawCountBufferCreateInfo, minAlignment));
+            descriptors.drawCountBuffer.emplace(vma.createStagingBuffer("DrawCount"s, drawCountBufferCreateInfo, minAlignment));
 
-            auto mappedDrawCountBuffer = drawCountBuffer.value().map();
-            *mappedDrawCountBuffer.data() = drawCount;
+            auto mappedDrawCountBuffer = descriptors.drawCountBuffer.value().map();
+            mappedDrawCountBuffer.at(0) = descriptors.drawCount;
         }
 
         {
             vk::BufferCreateInfo instanceBufferCreateInfo;
             constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
-            instanceBufferCreateInfo.size = drawCount * kSize;
+            instanceBufferCreateInfo.size = descriptors.drawCount * kSize;
             instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            instanceBuffer.emplace(vma.createStagingBuffer("Instances"s, instanceBufferCreateInfo, minAlignment));
+            descriptors.instanceBuffer.emplace(vma.createStagingBuffer("Instances"s, instanceBufferCreateInfo, minAlignment));
 
-            auto mappedInstanceBuffer = instanceBuffer.value().map();
-            auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
+            auto mappedInstanceBuffer = descriptors.instanceBuffer.value().map();
+            auto end = std::copy(std::cbegin(descriptors.instances), std::cend(descriptors.instances), mappedInstanceBuffer.begin());
             INVARIANT(end == mappedInstanceBuffer.end(), "");
         }
     }
@@ -344,15 +603,15 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
         if (descriptorBufferEnabled) {
             transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
-        transformBuffer.emplace(vma.createStagingBuffer("Transformations"s, transformBufferCreateInfo, minAlignment));
+        descriptors.transformBuffer.emplace(vma.createStagingBuffer("Transformations"s, transformBufferCreateInfo, minAlignment));
 
         constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = transformBuffer.value().getMemoryPropertyFlags();
+        auto memoryPropertyFlags = descriptors.transformBuffer.value().base().getMemoryPropertyFlags();
         INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
     }
 
     {
-        auto mappedTransformBuffer = transformBuffer.value().map();
+        auto mappedTransformBuffer = descriptors.transformBuffer.value().map();
         auto t = mappedTransformBuffer.begin();
         for (const auto & instanceTransforms : transforms) {
             ASSERT(mappedTransformBuffer.end() != t);
@@ -362,136 +621,42 @@ void Scene::createInstances(std::vector<vk::IndexType> & indexTypes, std::vector
     }
 }
 
-void Scene::createVertexBuffer(std::optional<engine::Buffer<scene::VertexAttributes>> & vertexBuffer) const
-{
-    const auto minAlignment = getMinAlignment();
-    const auto & vma = context.getMemoryAllocator();
-
-    vk::DeviceSize vertexSize = 0;
-    if (shaderStages.vertexInputState) {
-        for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.value().vertexInputAttributeDescriptions) {
-            vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
-        }
-    }
-
-    if (vertexSize > 0) {
-        INVARIANT(sizeof(scene::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene::VertexAttributes), vertexSize);
-
-        vk::BufferCreateInfo vertexBufferCreateInfo;
-        vertexBufferCreateInfo.size = scene.vertices.getSize() * vertexSize;
-        vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBuffer.emplace(vma.createStagingBuffer("Vertices"s, vertexBufferCreateInfo, minAlignment));
-
-        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = vertexBuffer.value().getMemoryPropertyFlags();
-        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
-
-        auto mappedVertexBuffer = vertexBuffer.value().map();
-        ASSERT(scene.vertices.getSize() == mappedVertexBuffer.getCount());
-        if (std::copy_n(scene.vertices.begin(), scene.vertices.getSize(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
-            ASSERT(false);
-        }
-    }
-}
-
-void Scene::createUniformBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers) const
+void Scene::createUniformBuffers(uint32_t framesInFlight, Descriptors & descriptors) const
 {
     const auto minAlignment = getMinAlignment();
     const auto & vma = context.getMemoryAllocator();
 
     vk::BufferCreateInfo uniformBufferCreateInfo;
-    uniformBufferCreateInfo.size = sizeof(UniformBuffer);
+    auto alignment = std::max(minAlignment, utils::safeCast<vk::DeviceSize>(alignof(UniformBuffer)));
+    auto alignedSize = engine::alignedSize(sizeof(UniformBuffer), alignment);
+    uniformBufferCreateInfo.size = alignedSize * framesInFlight;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
     if (descriptorBufferEnabled) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
-    uniformBuffers.reserve(framesInFlight);
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    for (uint32_t i = 0; i < framesInFlight; ++i) {
-        auto uniformBufferName = fmt::format("Uniform buffer (frameInFlight #{})", i);
-        uniformBuffers.emplace_back(vma.createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, minAlignment));
+    auto uniformBufferName = fmt::format("Uniform buffer");
+    descriptors.uniformBuffer.emplace(vma.createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, alignment), framesInFlight);
 
-        auto memoryPropertyFlags = uniformBuffers.back().getMemoryPropertyFlags();
-        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer (frame #{}) in {} memory, got {} memory", i, kMemoryPropertyFlags, memoryPropertyFlags);
-    }
+    auto memoryPropertyFlags = descriptors.uniformBuffer.value().base().getMemoryPropertyFlags();
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
 }
 
-void Scene::createDescriptorSets(uint32_t framesInFlight, std::unique_ptr<engine::DescriptorPool> & descriptorPool, std::vector<engine::DescriptorSets> & descriptorSets) const
+void Scene::createDescriptorSets(uint32_t framesInFlight, Descriptors & descriptors) const
 {
-    descriptorPool = std::make_unique<engine::DescriptorPool>(kRasterization, context, framesInFlight, shaderStages);
+    descriptors.descriptorPool = std::make_unique<engine::DescriptorPool>(kRasterization, context, framesInFlight, shaderStages);
     for (uint32_t i = 0; i < framesInFlight; ++i) {
-        descriptorSets.emplace_back(kRasterization, context, shaderStages, *descriptorPool);
+        descriptors.descriptorSets.emplace_back(kRasterization, context, shaderStages, *descriptors.descriptorPool);
     }
 }
 
-void Scene::fillDescriptorSets(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
-                               const std::vector<engine::DescriptorSets> & descriptorSets) const
-{
-    const auto & dispatcher = context.getDispatcher();
-    const auto & device = context.getDevice();
-
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-    writeDescriptorSets.reserve(framesInFlight * 2);
-    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
-    descriptorBufferInfos.reserve(framesInFlight + 1);
-
-    {
-        auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
-        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kUniformBufferSet, kUniformBufferName);
-        if (const auto * uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName)) {
-            uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
-
-            for (uint32_t i = 0; i < framesInFlight; ++i) {
-                ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-                descriptorBufferInfos.push_back(uniformBuffers.at(i).base().getDescriptorBufferInfo());
-            }
-
-            for (uint32_t i = 0; i < framesInFlight; ++i) {
-                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-
-                writeDescriptorSet.dstSet = descriptorSets.at(i).getDescriptorSets().at(uniformBufferSetIndex);
-                writeDescriptorSet.dstBinding = uniformBufferBinding->binding;
-                writeDescriptorSet.dstArrayElement = 0;  // not an array
-                writeDescriptorSet.descriptorType = uniformBufferBinding->descriptorType;
-                writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
-            }
-        }
-    }
-
-    {
-        ASSERT(transformBuffer);
-        auto setBindings = shaderStages.setBindings.find(kTransformBuferSet);
-        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
-        if (const auto * transformBufferBinding = setBindings->second.getBinding(kTransformBuferName)) {
-            uint32_t transformBufferSetIndex = setBindings->second.setIndex;
-
-            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back(transformBuffer.value().base().getDescriptorBufferInfo());
-
-            for (uint32_t i = 0; i < framesInFlight; ++i) {
-                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-
-                writeDescriptorSet.dstSet = descriptorSets.at(i).getDescriptorSets().at(transformBufferSetIndex);
-                writeDescriptorSet.dstBinding = transformBufferBinding->binding;
-                writeDescriptorSet.dstArrayElement = 0;  // not an array
-                writeDescriptorSet.descriptorType = transformBufferBinding->descriptorType;
-                writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
-            }
-        }
-    }
-
-    device.getDevice().updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
-}
-
-void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers, std::vector<vk::DescriptorBufferBindingInfoEXT> & descriptorBufferBindingInfos) const
+void Scene::createDescriptorBuffers(uint32_t framesInFlight, Descriptors & descriptors) const
 {
     const auto minAlignment = getMinAlignment();
 
-    constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eHostVisible;
+    constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
-    descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
+    descriptors.descriptorSetBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
     auto set = std::cbegin(shaderStages.setBindings);
     for (const auto & descriptorSetLayout : shaderStages.descriptorSetLayouts) {
         vk::BufferCreateInfo descriptorBufferCreateInfo;
@@ -522,18 +687,77 @@ void Scene::createDescriptorBuffers(uint32_t framesInFlight, std::vector<engine:
         auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
         INVARIANT((memoryPropertyFlags & kRequiredMemoryPropertyFlags) == kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
 
-        descriptorBufferBindingInfos.push_back(descriptorSetBuffer.getDescriptorBufferBindingInfo());
+        descriptors.descriptorBufferBindingInfos.push_back(descriptorSetBuffer.getDescriptorBufferBindingInfo());
 
-        descriptorSetBuffers.emplace_back(std::move(descriptorSetBuffer));
+        descriptors.descriptorSetBuffers.emplace_back(std::move(descriptorSetBuffer), framesInFlight);
 
         ++set;
     }
 }
 
-void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<engine::Buffer<UniformBuffer>> & uniformBuffers, const std::optional<engine::Buffer<glm::mat4>> & transformBuffer,
-                                  std::vector<engine::Buffer<std::byte>> & descriptorSetBuffers) const
+void Scene::fillDescriptorSets(uint32_t framesInFlight, Descriptors & descriptors) const
 {
-    ASSERT(transformBuffer);
+    const auto & dispatcher = context.getDispatcher();
+    const auto & device = context.getDevice();
+
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
+    writeDescriptorSets.reserve(framesInFlight * 2);
+    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
+    descriptorBufferInfos.reserve(framesInFlight + 1);
+
+    {
+        auto setBindings = shaderStages.setBindings.find(kUniformBufferSet);
+        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kUniformBufferSet, kUniformBufferName);
+        if (const auto * uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName)) {
+            uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
+
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+                descriptorBufferInfos.push_back(descriptors.uniformBuffer.value().getDescriptorBufferInfo(i));
+            }
+
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+                writeDescriptorSet.dstSet = descriptors.descriptorSets.at(i).getDescriptorSets().at(uniformBufferSetIndex);
+                writeDescriptorSet.dstBinding = uniformBufferBinding->binding;
+                writeDescriptorSet.dstArrayElement = 0;  // not an array
+                writeDescriptorSet.descriptorType = uniformBufferBinding->descriptorType;
+                writeDescriptorSet.setBufferInfo(descriptorBufferInfos.at(i));
+            }
+        }
+    }
+
+    {
+        ASSERT(descriptors.transformBuffer);
+        auto setBindings = shaderStages.setBindings.find(kTransformBuferSet);
+        INVARIANT(setBindings != std::end(shaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
+        if (const auto * transformBufferBinding = setBindings->second.getBinding(kTransformBuferName)) {
+            uint32_t transformBufferSetIndex = setBindings->second.setIndex;
+
+            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
+            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back(descriptors.transformBuffer.value().base().getDescriptorBufferInfo());
+
+            for (uint32_t i = 0; i < framesInFlight; ++i) {
+                ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
+                auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
+
+                writeDescriptorSet.dstSet = descriptors.descriptorSets.at(i).getDescriptorSets().at(transformBufferSetIndex);
+                writeDescriptorSet.dstBinding = transformBufferBinding->binding;
+                writeDescriptorSet.dstArrayElement = 0;  // not an array
+                writeDescriptorSet.descriptorType = transformBufferBinding->descriptorType;
+                writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
+            }
+        }
+    }
+
+    device.getDevice().updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+}
+
+void Scene::fillDescriptorBuffers(uint32_t framesInFlight, Descriptors & descriptors) const
+{
+    ASSERT(descriptors.transformBuffer);
 
     const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
@@ -541,10 +765,8 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
     for (const auto & [set, bindings] : shaderStages.setBindings) {
         const auto setIndex = bindings.setIndex;
         const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setIndex);
-        const auto & descriptorSetBuffer = descriptorSetBuffers.at(setIndex);
+        const auto & descriptorSetBuffer = descriptors.descriptorSetBuffers.at(setIndex);
         auto mappedDescriptorSetBuffer = descriptorSetBuffer.map();
-        auto setDescriptors = mappedDescriptorSetBuffer.begin();
-        const vk::DeviceSize descriptorSetBufferPerFrameSize = descriptorSetBuffer.base().getSize() / framesInFlight;
         for (uint32_t currentFrameSlot = 0; currentFrameSlot < framesInFlight; ++currentFrameSlot) {
             for (uint32_t b = 0; b < std::size(bindings.bindings); ++b) {
                 const auto & binding = bindings.bindings.at(b);
@@ -554,233 +776,25 @@ void Scene::fillDescriptorBuffers(uint32_t framesInFlight, const std::vector<eng
                 const auto & bindingName = bindings.bindingNames.at(b);
                 if (bindingName == kUniformBufferName) {
                     ASSERT(binding.descriptorType == vk::DescriptorType::eUniformBuffer);
-                    const auto & u = uniformBuffers.at(currentFrameSlot);
-                    descriptorAddressInfo = {
-                        .address = u.getDeviceAddress(),
-                        .range = u.base().getSize(),
-                        .format = vk::Format::eUndefined,
-                    };
+                    const auto & u = descriptors.uniformBuffer.value();
+                    descriptorAddressInfo = u.base().getDescriptorAddressInfo();
+                    descriptorAddressInfo.range /= framesInFlight;
+                    descriptorAddressInfo.address += descriptorAddressInfo.range * currentFrameSlot;
                     descriptorGetInfo.data.pUniformBuffer = &descriptorAddressInfo;
                 } else if (bindingName == kTransformBuferName) {
                     ASSERT(binding.descriptorType == vk::DescriptorType::eStorageBuffer);
-                    descriptorAddressInfo = {
-                        .address = transformBuffer.value().getDeviceAddress(),
-                        .range = transformBuffer.value().base().getSize(),
-                        .format = vk::Format::eUndefined,
-                    };
+                    descriptorAddressInfo = descriptors.transformBuffer.value().base().getDescriptorAddressInfo();
                     descriptorGetInfo.data.pStorageBuffer = &descriptorAddressInfo;
                 } else {
                     INVARIANT(false, "Cannot find descriptor for binding '{}'", bindingName);
                 }
                 vk::DeviceSize descriptorSize = getDescriptorSize(binding.descriptorType);
                 vk::DeviceSize bindingOffset = device.getDevice().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
-                ASSERT(setDescriptors + bindingOffset + descriptorSize <= mappedDescriptorSetBuffer.end());
-                device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, setDescriptors + bindingOffset, dispatcher);
-            }
-            setDescriptors += descriptorSetBufferPerFrameSize;
-        }
-        ASSERT(setDescriptors == mappedDescriptorSetBuffer.end());
-    }
-}
-
-Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
-    : pipelineLayout{name, context, shaderStages, renderPass}, pipelines{context, pipelineCache}
-{
-    pipelines.add(pipelineLayout, useDescriptorBuffer);
-    pipelines.create();
-}
-
-std::shared_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
-{
-    return std::shared_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
-}
-
-const std::filesystem::path & Scene::getScenePath() const
-{
-    return scenePath;
-}
-
-const scene::Scene & Scene::getScene() const
-{
-    return scene;
-}
-
-auto Scene::makeDescriptors(uint32_t framesInFlight) const -> Descriptors
-{
-    Descriptors descriptors;
-
-    createUniformBuffers(framesInFlight, descriptors.uniformBuffers);
-    createInstances(descriptors.indexTypes, descriptors.instances, descriptors.drawCount, descriptors.drawCountBuffer, descriptors.instanceBuffer, descriptors.indexBuffer, descriptors.transformBuffer);
-    createVertexBuffer(descriptors.vertexBuffer);
-
-    for (const auto & [set, bindings] : shaderStages.setBindings) {
-        INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
-    }
-
-    if (descriptorBufferEnabled) {
-        createDescriptorBuffers(framesInFlight, descriptors.descriptorSetBuffers, descriptors.descriptorBufferBindingInfos);
-    } else {
-        createDescriptorSets(framesInFlight, descriptors.descriptorPool, descriptors.descriptorSets);
-    }
-
-    descriptors.pushConstantRanges = shaderStages.pushConstantRanges;
-
-    if (descriptorBufferEnabled) {
-        fillDescriptorBuffers(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSetBuffers);
-    } else {
-        fillDescriptorSets(framesInFlight, descriptors.uniformBuffers, descriptors.transformBuffer, descriptors.descriptorSets);
-    }
-
-    return descriptors;
-}
-
-auto Scene::createGraphicsPipeline(vk::RenderPass renderPass) const -> std::unique_ptr<const GraphicsPipeline>
-{
-    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, shaderStages, renderPass, descriptorBufferEnabled);
-}
-
-Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene)
-    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::move(scene)}, shaderStages{context, vertexBufferBinding}
-{
-    init();
-}
-
-void Scene::init()
-{
-    uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
-    INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
-
-    const auto & device = context.getDevice();
-    if (indexTypeUint8Enabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
-            INVARIANT(false, "");
-        }
-    }
-    if (descriptorBufferEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
-            INVARIANT(false, "");
-        }
-    }
-    if (multiDrawIndirectEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
-            INVARIANT(false, "");
-        }
-    }
-    if (drawIndirectCountEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
-            INVARIANT(false, "");
-        }
-    }
-
-    ASSERT(!std::empty(scenePath));
-
-    const auto addShader = [this](std::string_view shaderName, std::string_view entryPoint = "main") -> const Shader &
-    {
-        auto [it, inserted] = shaders.emplace(std::piecewise_construct, std::tie(shaderName), std::tie(context, fileIo, shaderName, entryPoint));
-        INVARIANT(inserted, "");
-        return it->second;
-    };
-
-    if ((false)) {
-        const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
-        {
-            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            }
-
-            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
-            if ((false)) {
-                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+                ASSERT(bindingOffset + descriptorSize <= descriptorSetBuffer.getElementSize());
+                device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, &mappedDescriptorSetBuffer.at(currentFrameSlot) + bindingOffset, dispatcher);
             }
         }
-        shaderStages.append(vertexShader, vertexShaderReflection);
-
-        const auto & [fragmentShader, fragmentShaderReflection] = addShader("squircle.frag");
-        {
-            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
-            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-            }
-
-            INVARIANT(fragmentShaderReflection.pushConstantRange, "");
-            const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
-            INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-            INVARIANT(pushConstantRange.offset == offsetof(PushConstants, x), "");
-            INVARIANT(pushConstantRange.size == sizeof(PushConstants::x), "");
-        }
-        shaderStages.append(fragmentShader, fragmentShaderReflection);
-    } else {
-        const auto & [vertexShader, vertexShaderReflection] = addShader("identity.vert");
-        {
-            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(kTransformBuferSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(kTransformBuferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kTransformBuferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eStorageBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            }
-            if ((false)) {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-            }
-
-            INVARIANT(vertexShaderReflection.pushConstantRange, "");
-            {
-                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
-            }
-        }
-        shaderStages.append(vertexShader, vertexShaderReflection);
-
-        const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
-        {
-            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(kUniformBufferSet), "");
-            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(kUniformBufferSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kUniformBufferName);
-            INVARIANT(descriptorSetLayoutBindingReflection.binding == 0, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.descriptorCount == 1, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-
-            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
-        }
-        shaderStages.append(fragmentShader, fragmentShaderReflection);
     }
-
-    vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags = {};
-    if (descriptorBufferEnabled) {
-        descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
-    }
-    shaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
 }
 
 SceneManager::SceneManager(const engine::Context & context) : context{context}

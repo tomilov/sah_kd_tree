@@ -198,7 +198,7 @@ template<typename T>
         }
         qCDebug(sceneLoaderLog).noquote() << u"loadArrayFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         array = utils::MemArray<T>{utils::autoCast(arrayLength)};
-        if (!loadDataFromCache(array.begin(), array.getSize(), arrayName)) {
+        if (!loadDataFromCache(array.begin(), array.getCount(), arrayName)) {
             return {};
         }
         return true;
@@ -241,7 +241,7 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getSize()).arg(scene.vertices.getSize());
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getCount()).arg(scene.vertices.getCount());
     return true;
 }
 
@@ -302,12 +302,12 @@ template<typename T>
     };
     const auto saveArrayToCache = [&dataStream, &cacheFile, &saveDataToCache]<typename T>(const utils::MemArray<T> & array, QString arrayName) -> bool
     {
-        qint32 arrayLength = utils::autoCast(array.getSize());
+        qint32 arrayLength = utils::autoCast(array.getCount());
         qCDebug(sceneLoaderLog).noquote() << u"saveArrayToCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
         if (!checkDataStreamStatus(dataStream << arrayLength, u"unable to write size of array of %1 to scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
-        if (!saveDataToCache(array.begin(), array.getSize(), arrayName)) {
+        if (!saveDataToCache(array.begin(), array.getCount(), arrayName)) {
             return {};
         }
         return true;
@@ -351,7 +351,7 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getSize()).arg(scene.vertices.getSize());
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getCount()).arg(scene.vertices.getCount());
     return true;
 }
 }  // namespace
