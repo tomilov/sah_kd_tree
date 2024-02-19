@@ -339,8 +339,12 @@ struct Buffer<void>::Impl final : utils::OneTime
 };
 
 Buffer<void>::Buffer(Buffer &&) noexcept = default;
-
 Buffer<void>::~Buffer() = default;
+
+const vk::BufferCreateInfo & Buffer<void>::getBufferCreateInfo() const
+{
+    return impl_->createInfo;
+}
 
 vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
 {
@@ -355,12 +359,12 @@ uint32_t Buffer<void>::getMemoryTypeIndex() const
 
 vk::DeviceSize Buffer<void>::getSize() const
 {
-    return impl_->createInfo.size;
+    return getBufferCreateInfo().size;
 }
 
 vk::DeviceAddress Buffer<void>::getDeviceAddress() const &
 {
-    auto bufferUsage = impl_->createInfo.usage;
+    auto bufferUsage = getBufferCreateInfo().usage;
     INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain {}", bufferUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress);
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo = {
         .buffer = getBuffer(),
@@ -382,7 +386,7 @@ vk::DescriptorBufferBindingInfoEXT Buffer<void>::getDescriptorBufferBindingInfo(
 {
     return {
         .address = getDeviceAddress(),
-        .usage = impl_->createInfo.usage,
+        .usage = getBufferCreateInfo().usage,
     };
 }
 
@@ -586,8 +590,12 @@ struct Image::Impl final : utils::OneTime
 };
 
 Image::Image(Image &&) noexcept = default;
-
 Image::~Image() = default;
+
+const vk::ImageCreateInfo & Image::getImageCreateInfo() const
+{
+    return impl_->createInfo;
+}
 
 vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const
 {
@@ -601,7 +609,7 @@ uint32_t Image::getMemoryTypeIndex() const
 
 vk::Extent2D Image::getExtent2D() const
 {
-    const auto & [width, height, depth] = impl_->createInfo.extent;
+    const auto & [width, height, depth] = getImageCreateInfo().extent;
     ASSERT(depth == 1);
     return {
         .width = width,
@@ -611,7 +619,7 @@ vk::Extent2D Image::getExtent2D() const
 
 vk::Extent3D Image::getExtent3D() const
 {
-    return impl_->createInfo.extent;
+    return getImageCreateInfo().extent;
 }
 
 vk::Image Image::getImage() const &
@@ -664,7 +672,7 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
         .flags = {},
         .image = impl_->resource->image,
         .viewType = viewType,
-        .format = impl_->createInfo.format,
+        .format = getImageCreateInfo().format,
         .components = {
             .r = vk::ComponentSwizzle::eIdentity,
             .g = vk::ComponentSwizzle::eIdentity,

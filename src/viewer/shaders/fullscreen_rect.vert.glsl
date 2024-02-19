@@ -27,7 +27,7 @@ void main()
         uv = vec2(1.0f, -1.0f);
         break;
     }
-    case 3: {  // TODO: make n of vertices 3 and remove me
+    case 3: {
         uv = vec2(1.0f, 1.0f);
         break;
     }

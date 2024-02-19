@@ -62,8 +62,8 @@ struct SCENE_EXPORT Node
 
 struct SCENE_EXPORT Mesh
 {
-    uint32_t indexOffset = 0, indexCount = 0;    // indices in Scene::indices
-    uint32_t vertexOffset = 0, vertexCount = 0;  // indices in Scene::vertices
+    uint32_t indexOffset = 0, indexCount = 0;    // range in Scene::indices
+    uint32_t vertexOffset = 0, vertexCount = 0;  // range in Scene::vertices
     AABB aabb;
 };
 static_assert(std::is_standard_layout_v<Mesh>);

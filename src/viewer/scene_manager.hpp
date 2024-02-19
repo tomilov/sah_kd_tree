@@ -62,10 +62,14 @@ class Scene
     , public std::enable_shared_from_this<Scene>
 {
 public:
-    struct Descriptors : utils::OneTime
+    enum class PipelineKind
     {
-        std::optional<engine::Buffer<UniformBuffer>> uniformBuffer;
+        kScenePipeline,
+        kDisplayPipeline,
+    };
 
+    struct SceneDescriptors : utils::OneTime
+    {
         std::vector<vk::IndexType> indexTypes;
         std::vector<vk::DrawIndexedIndirectCommand> instances;
         uint32_t drawCount = 0;
@@ -75,17 +79,27 @@ public:
         std::optional<engine::Buffer<void>> indexBuffer;
         std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
 
-        std::unique_ptr<engine::DescriptorPool> descriptorPool;
-        std::vector<engine::DescriptorSets> descriptorSets;
-
-        std::vector<engine::Buffer<std::byte>> descriptorSetBuffers;
-        std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
-
         std::vector<vk::PushConstantRange> pushConstantRanges;
 
         static constexpr void checkTraits()
         {
-            static_assert(utils::kIsOneTime<Descriptors>);
+            static_assert(utils::kIsOneTime<SceneDescriptors>);
+        }
+    };
+
+    struct FrameDescriptors : utils::OneTime
+    {
+        std::optional<engine::Buffer<UniformBuffer>> uniformBuffer;
+
+        std::optional<engine::DescriptorPool> descriptorPool;
+        std::optional<engine::DescriptorSets> descriptorSets;
+
+        std::vector<engine::Buffer<std::byte>> descriptorSetBuffers;  // set-indexed
+        std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
+
+        static constexpr void checkTraits()
+        {
+            static_assert(utils::kIsOneTime<FrameDescriptors>);
         }
     };
 
@@ -102,8 +116,9 @@ public:
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
     [[nodiscard]] const scene::Scene & getScene() const;
 
-    [[nodiscard]] Descriptors makeDescriptors(uint32_t framesInFlight) const;
-    [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass) const;
+    [[nodiscard]] SceneDescriptors makeSceneDescriptors() const;
+    [[nodiscard]] FrameDescriptors makeFrameDescriptors(const SceneDescriptors & sceneDescriptors) const;
+    [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
 
     [[nodiscard]] bool isDescriptorBufferEnabled() const
     {
@@ -144,25 +159,29 @@ private:
     const bool drawIndirectCountEnabled = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t kVertexBufferBinding = 0;
-    engine::ShaderStages shaderStages;
+    engine::ShaderStages sceneShaderStages;
     engine::ShaderStages offscreenShaderStages;
 
-    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
+    void check();
 
-    void init();
+    const Shader & addShader(std::string_view shaderName, std::string_view entryPoint = "main");
+    void addShaders();
+
+    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> && pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    void createVertexBuffer(Descriptors & descriptors) const;
-    void createInstances(Descriptors & descriptors) const;
-    void createUniformBuffers(uint32_t framesInFlight, Descriptors & descriptors) const;
+    void createVertexBuffer(SceneDescriptors & sceneDescriptors) const;
+    void createGeometryInstances(SceneDescriptors & sceneDescriptors) const;
 
-    void createDescriptorSets(uint32_t framesInFlight, Descriptors & descriptors) const;
-    void createDescriptorBuffers(uint32_t framesInFlight, Descriptors & descriptors) const;
+    void createUniformBuffers(FrameDescriptors & frameDescriptors) const;
 
-    void fillDescriptorSets(uint32_t framesInFlight, Descriptors & descriptors) const;
-    void fillDescriptorBuffers(uint32_t framesInFlight, Descriptors & descriptors) const;
+    void createDescriptorSets(FrameDescriptors & frameDescriptors) const;
+    void createDescriptorBuffers(FrameDescriptors & frameDescriptors) const;
+
+    void fillDescriptorSets(const SceneDescriptors & sceneDescriptors, FrameDescriptors & frameDescriptors) const;
+    void fillDescriptorBuffers(const SceneDescriptors & sceneDescriptors, FrameDescriptors & frameDescriptors) const;
 };
 
 class SceneManager
