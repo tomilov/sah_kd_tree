@@ -145,7 +145,7 @@ auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::Image
     return createImage(name, imageCreateInfo, AllocationType::kReadback, aspectMask);
 }
 
-Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage) const &
+Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags aspectMask) const &
 {
     vk::ImageCreateInfo imageCreateInfo = {
         .flags = {},
@@ -164,7 +164,7 @@ Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, c
         .sharingMode = vk::SharingMode::eExclusive,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
-    return createImage(name, imageCreateInfo, AllocationType::kAuto, vk::ImageAspectFlagBits::eColor);
+    return createImage(name, imageCreateInfo, AllocationType::kAuto, aspectMask);
 }
 
 MemoryAllocator::Impl::Impl(const Context & context) : context{context}
@@ -595,6 +595,11 @@ Image::~Image() = default;
 const vk::ImageCreateInfo & Image::getImageCreateInfo() const
 {
     return impl_->createInfo;
+}
+
+vk::ImageAspectFlags Image::getAspectMask() const
+{
+    return impl_->aspectMask;
 }
 
 vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const

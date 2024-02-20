@@ -123,20 +123,21 @@ struct Renderer::Impl
     struct OffscreenRenderPass
     {
         vk::Format depthFormat = vk::Format::eUndefined;
-        vk::ImageAspectFlags depthImageAspect = vk::ImageAspectFlagBits::eNone;
         vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
 
         vk::UniqueRenderPass renderPass;
 
-        static OffscreenRenderPass make(const engine::Context & context);
+        static std::unique_ptr<OffscreenRenderPass> make(const engine::Context & context);
     };
 
     struct Framebuffer
     {
         static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
 
+        std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
         vk::Extent2D size;
-        vk::RenderPass renderPass;
+
+        vk::ImageAspectFlags depthImageAspect = vk::ImageAspectFlagBits::eNone;
 
         engine::Image colorImage;
         vk::UniqueImageView colorImageView;
@@ -146,12 +147,7 @@ struct Renderer::Impl
 
         vk::UniqueFramebuffer framebuffer;
 
-        static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
-    };
-
-    struct Frame
-    {
-        std::shared_ptr<const Scene::FrameDescriptors> descriptors;
+        static std::unique_ptr<Framebuffer> make(const engine::Context & context, const vk::Extent2D & size, std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass);
     };
 
     const engine::Context & context;
@@ -160,10 +156,11 @@ struct Renderer::Impl
     std::shared_ptr<const Scene> scene;
     std::shared_ptr<const Scene::SceneDescriptors> sceneDescriptors;
     std::shared_ptr<const Scene::GraphicsPipeline> sceneGraphicsPipeline;
-    ResourceQueue<Frame> frames;
+    ResourceStack<std::shared_ptr<const Scene::FrameDescriptors>> frameDescriptorsPool;
+    std::shared_ptr<const Scene::FrameDescriptors> currentFrameDescriptors;
 
-    std::optional<OffscreenRenderPass> offscreenRenderPass;
-    ResourceStack<Framebuffer> framebuffers;
+    std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
+    ResourceStack<std::shared_ptr<const Framebuffer>> framebufferPool;
 
     Impl(const engine::Context & context, uint32_t framesInFlight);
 
@@ -173,11 +170,11 @@ struct Renderer::Impl
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
 
-    Framebuffer getFramebuffer(const vk::Extent2D & size);
-    void putFramebuffer(Framebuffer && framebuffer);
+    std::shared_ptr<const Framebuffer> getFramebuffer(const vk::Extent2D & size);
+    void putFramebuffer(std::shared_ptr<const Framebuffer> framebuffer);
 
-    Frame getFrame();
-    void putFramebuffer(Frame && frame);
+    std::shared_ptr<const Scene::FrameDescriptors> getFrameDescriptors();
+    void putFrameDescriptors(std::shared_ptr<const Scene::FrameDescriptors> frameDescriptors);
 };
 
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
@@ -206,14 +203,12 @@ std::shared_ptr<const Scene> Renderer::getScene() const
     return impl_->scene;
 }
 
-auto Renderer::Impl::OffscreenRenderPass::make(const engine::Context & context) -> OffscreenRenderPass
+auto Renderer::Impl::OffscreenRenderPass::make(const engine::Context & context) -> std::unique_ptr<OffscreenRenderPass>
 {
     vk::Format depthFormat = findDepthFormat(context, vk::ImageTiling::eOptimal);
     INVARIANT(depthFormat != vk::Format::eUndefined, "");
-    vk::ImageAspectFlags depthImageAspect = vk::ImageAspectFlagBits::eDepth;
     vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
-        depthImageAspect |= vk::ImageAspectFlagBits::eStencil;
         depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     } else {
         depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
@@ -311,28 +306,35 @@ auto Renderer::Impl::OffscreenRenderPass::make(const engine::Context & context) 
 
     vk::UniqueRenderPass renderPass = context.getDevice().getDevice().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*renderPass, "Offscreen renderpass"s);
-    return {
+    OffscreenRenderPass offscreenRenderPass = {
         .depthFormat = depthFormat,
-        .depthImageAspect = depthImageAspect,
         .depthImageLayout = depthImageLayout,
         .renderPass = std::move(renderPass),
     };
+    return std::make_unique<OffscreenRenderPass>(std::move(offscreenRenderPass));
 }
 
-auto Renderer::Impl::Framebuffer::make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) -> Framebuffer
+auto Renderer::Impl::Framebuffer::make(const engine::Context & context, const vk::Extent2D & size, std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass) -> std::unique_ptr<Framebuffer>
 {
-    ASSERT(offscreenRenderPass.renderPass);
-    auto renderPass = *offscreenRenderPass.renderPass;
+    ASSERT(offscreenRenderPass);
+    ASSERT(offscreenRenderPass->renderPass);
+    auto renderPass = *offscreenRenderPass->renderPass;
+
+    vk::ImageAspectFlags depthImageAspect = vk::ImageAspectFlagBits::eDepth;
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+        depthImageAspect |= vk::ImageAspectFlagBits::eStencil;
+    }
 
     auto colorImageName = "offscreen framebuffer color image"s;
     constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
-    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage);
-    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, vk::ImageAspectFlagBits::eColor);
+    constexpr vk::ImageAspectFlags kColorAspectMask = vk::ImageAspectFlagBits::eColor;
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage, kColorAspectMask);
+    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorAspectMask);
 
     auto depthImageName = "offscreen framebuffer depth image"s;
     constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, size, kDepthImageUsage);
-    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, vk::ImageAspectFlagBits::eColor);
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass->depthFormat, size, kDepthImageUsage, depthImageAspect);
+    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspect);
 
     const vk::ImageView attachments[] = {
         *colorImageView,
@@ -346,17 +348,18 @@ auto Renderer::Impl::Framebuffer::make(const engine::Context & context, const vk
         .layers = 1,
     };
     framebufferCreateInfo.setAttachments(attachments);
-    auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
-    return {
+    Framebuffer framebuffer = {
+        .offscreenRenderPass = std::move(offscreenRenderPass),
         .size = size,
-        .renderPass = renderPass,
+        .depthImageAspect = depthImageAspect,
         .colorImage = std::move(colorImage),
         .colorImageView = std::move(colorImageView),
         .depthImage = std::move(depthImage),
         .depthImageView = std::move(depthImageView),
-        .framebuffer = std::move(framebuffer),
+        .framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()),
     };
+    return std::make_unique<Framebuffer>(std::move(framebuffer));
 }
 
 Renderer::Impl::Impl(const engine::Context & context, uint32_t framesInFlight) : context{context}, framesInFlight{framesInFlight}
@@ -415,14 +418,12 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
+    framebufferPool.clear();
+    offscreenRenderPass.reset();
+    currentFrameDescriptors.reset();
+    frameDescriptorsPool.clear();
     sceneGraphicsPipeline.reset();
-
-    frames.clear();
     sceneDescriptors.reset();
-    if (scene) {
-        sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
-    }
-
     this->scene = std::move(scene);
 }
 
@@ -435,24 +436,25 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     if (frameSettings.useOffscreenTexture) {
         if (!offscreenRenderPass) {
-            offscreenRenderPass.emplace(OffscreenRenderPass::make(context));
+            offscreenRenderPass = OffscreenRenderPass::make(context);
         }
     } else {
-        if (offscreenRenderPass) {
-            offscreenRenderPass.reset();
-        }
-        if (!std::empty(framebuffers)) {
-            framebuffers.clear();
-        }
+        framebufferPool.clear();
+        offscreenRenderPass.reset();
     }
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-    // Frame & frame = frames.
 
-    ASSERT(sceneDescriptors);
+    if (!sceneDescriptors) {
+        sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
+    }
+    if (!currentFrameDescriptors) {
+        currentFrameDescriptors = getFrameDescriptors();
+    }
+
     {
-        auto mappedUniformBuffer = frame.descriptors->uniformBuffer.value().map();
+        auto mappedUniformBuffer = currentFrameDescriptors->uniformBuffer.value().map();
         fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
     }
 }
@@ -485,9 +487,9 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferEnabled()) {
-        const auto & descriptorSetBuffers = frame.frameDescriptors->descriptorSetBuffers;
+        const auto & descriptorSetBuffers = currentFrameDescriptors->descriptorSetBuffers;
         if (!std::empty(descriptorSetBuffers)) {
-            commandBuffer.bindDescriptorBuffersEXT(frame.frameDescriptors->descriptorBufferBindingInfos, context.getDispatcher());
+            commandBuffer.bindDescriptorBuffersEXT(currentFrameDescriptors->descriptorBufferBindingInfos, context.getDispatcher());
             std::vector<uint32_t> bufferIndices(std::size(descriptorSetBuffers));
             std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
             std::vector<vk::DeviceSize> offsets(std::size(descriptorSetBuffers), 0);
@@ -496,7 +498,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         }
     } else {
         constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, frameDescriptors->descriptorSets.at(currentFrameSlot).getDescriptorSets(), kDynamicOffsets, context.getDispatcher());
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, currentFrameDescriptors->descriptorSets.value().getDescriptorSets(), kDynamicOffsets, context.getDispatcher());
     }
 
     {
@@ -570,41 +572,42 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     }
 }
 
-auto Renderer::Impl::getFramebuffer(const vk::Extent2D & size) -> Framebuffer
+auto Renderer::Impl::getFramebuffer(const vk::Extent2D & size) -> std::shared_ptr<const Framebuffer>
 {
     ASSERT(offscreenRenderPass);
-    while (!std::empty(framebuffers)) {
-        auto framebuffer = std::move(framebuffers.top());
-        framebuffers.pop();
-        if (framebuffer.size == size) {
-            ASSERT(offscreenRenderPass.value().renderPass);
-            ASSERT(framebuffer.renderPass == *offscreenRenderPass.value().renderPass);
+    while (!std::empty(framebufferPool)) {
+        auto framebuffer = std::move(framebufferPool.top());
+        framebufferPool.pop();
+        if ((framebuffer->offscreenRenderPass == offscreenRenderPass) && (framebuffer->size == size)) {
+            ASSERT(offscreenRenderPass->renderPass);
             return framebuffer;
         }
     }
-    return Framebuffer::make(context, size, offscreenRenderPass.value());
+    return Framebuffer::make(context, size, offscreenRenderPass);
 }
 
-void Renderer::Impl::putFramebuffer(Framebuffer && framebuffer)
+void Renderer::Impl::putFramebuffer(std::shared_ptr<const Framebuffer> framebuffer)
 {
-    framebuffers.push(std::move(framebuffer));
+    ASSERT_MSG(framebuffer.use_count() == 1, "Non-unique use in single-threaded context: {}", framebuffer.use_count());
+    framebufferPool.push(std::move(framebuffer));
 }
 
-auto Renderer::Impl::getFrame() -> Frame
+auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const Scene::FrameDescriptors>
 {
-    if (!std::empty(frames)) {
-        auto frame = std::move(frames.front());
-        frames.pop();
-        return frame;
+    while (!std::empty(frameDescriptorsPool)) {
+        auto frameDescriptors = std::move(frameDescriptorsPool.top());
+        frameDescriptorsPool.pop();
+        if (frameDescriptors->sceneDescriptors == sceneDescriptors) {
+            return frameDescriptors;
+        }
     }
-    return {
-        .descriptors = std::make_shared<const Scene::FrameDescriptors>(scene->makeFrameDescriptors(*sceneDescriptors)),
-    };
+    return scene->makeFrameDescriptors(sceneDescriptors);
 }
 
-void Renderer::Impl::putFramebuffer(Frame && frame)
+void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const Scene::FrameDescriptors> frameDescriptors)
 {
-    frames.push(std::move(frame));
+    ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
+    frameDescriptorsPool.push(std::move(frameDescriptors));
 }
 
 }  // namespace viewer

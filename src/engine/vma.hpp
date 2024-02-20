@@ -57,7 +57,7 @@ public:
     [[nodiscard]] Image createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const &;
     [[nodiscard]] Image createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const &;
 
-    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage) const &;
+    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags aspectMask) const &;
 
 private:
     friend class MappedMemory<void>;

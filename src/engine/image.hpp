@@ -27,6 +27,7 @@ public:
     ~Image();
 
     [[nodiscard]] const vk::ImageCreateInfo & getImageCreateInfo() const;
+    [[nodiscard]] vk::ImageAspectFlags getAspectMask() const;
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
     [[nodiscard]] uint32_t getMemoryTypeIndex() const;
     [[nodiscard]] vk::Extent2D getExtent2D() const;
