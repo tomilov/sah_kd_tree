@@ -17,8 +17,6 @@
 namespace engine
 {
 
-static_assert(utils::kIsOneTime<PipelineCache>);
-
 std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 {
     auto cacheData = fileIo.loadPipelineCache(name.c_str());

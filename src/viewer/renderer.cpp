@@ -116,8 +116,6 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 }  // namespace
 
-static_assert(utils::kIsOneTime<Renderer>);
-
 struct Renderer::Impl
 {
     struct OffscreenRenderPass
@@ -445,7 +443,6 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-
     if (!sceneDescriptors) {
         sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
     }
@@ -454,7 +451,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
     }
 
     {
-        auto mappedUniformBuffer = currentFrameDescriptors->uniformBuffer.value().map();
+        auto mappedUniformBuffer = currentFrameDescriptors->uniformBuffer.map();
         fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
     }
 }

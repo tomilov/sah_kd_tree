@@ -15,9 +15,6 @@
 namespace engine
 {
 
-static_assert(utils::kIsOneTime<DescriptorPool>);
-static_assert(utils::kIsOneTime<DescriptorSets>);
-
 DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages) : name{name}
 {
     const Device & device = context.getDevice();

@@ -20,7 +20,7 @@ class MemoryAllocator;
 
 [[nodiscard]] vk::AccessFlags2 getAccessFlagsForImageLayout(vk::ImageLayout imageLayout) ENGINE_EXPORT;
 
-class ENGINE_EXPORT Image final : utils::OneTime
+class ENGINE_EXPORT Image final : utils::OneTime<Image>
 {
 public:
     Image(Image &&) noexcept;
@@ -50,6 +50,11 @@ private:
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
     Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask);
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

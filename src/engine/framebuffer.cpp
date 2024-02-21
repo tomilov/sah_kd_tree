@@ -13,8 +13,6 @@
 namespace engine
 {
 
-static_assert(utils::kIsOneTime<Framebuffer>);
-
 Framebuffer::Framebuffer(std::string_view name, const Context & context, vk::RenderPass renderPass, uint32_t width, uint32_t height, uint32_t layers, std::span<const vk::ImageView> imageViews) : name{name}
 {
     const auto & library = context.getLibrary();

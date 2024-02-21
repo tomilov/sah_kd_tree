@@ -40,12 +40,6 @@ namespace engine
 namespace
 {
 
-static_assert(utils::kIsOneTime<MappedMemory<void>>);
-static_assert(utils::kIsOneTime<MappedMemory<char>>);
-static_assert(utils::kIsOneTime<Buffer<void>>);
-static_assert(utils::kIsOneTime<Buffer<char>>);
-static_assert(utils::kIsOneTime<Image>);
-
 [[nodiscard]] VmaAllocationCreateInfo makeAllocationCreateInfo(AllocationType allocationType)
 {
     VmaAllocationCreateInfo allocationCreateInfo = {
@@ -239,7 +233,7 @@ MemoryAllocator::Impl::~Impl()
     vmaDestroyAllocator(allocator);
 }
 
-struct MappedMemory<void>::Impl final : utils::OneTime
+struct MappedMemory<void>::Impl final : utils::OneTime<Impl>
 {
     const Buffer<void> * buffer;
     const vk::DeviceSize offset;
@@ -251,9 +245,9 @@ struct MappedMemory<void>::Impl final : utils::OneTime
     Impl(Impl && rhs) noexcept;
     ~Impl();
 
-    static constexpr void checkTraits()
+    static constexpr void completeClassContext()
     {
-        static_assert(utils::kIsOneTime<Impl>);
+        checkTraits();
     }
 };
 
@@ -313,7 +307,7 @@ struct BufferResource final : utils::NonCopyable
 
 }  // namespace
 
-struct Buffer<void>::Impl final : utils::OneTime
+struct Buffer<void>::Impl final : utils::OneTime<Impl>
 {
     std::string name;
     const MemoryAllocator & memoryAllocator;
@@ -332,9 +326,9 @@ struct Buffer<void>::Impl final : utils::OneTime
 
     Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment);
 
-    static constexpr void checkTraits()
+    static constexpr void completeClassContext()
     {
-        static_assert(utils::kIsOneTime<Impl>);
+        checkTraits();
     }
 };
 
@@ -563,7 +557,7 @@ struct ImageResource final : utils::NonCopyable
 
 }  // namespace
 
-struct Image::Impl final : utils::OneTime
+struct Image::Impl final : utils::OneTime<Impl>
 {
     std::string name;
     const MemoryAllocator & memoryAllocator;
@@ -583,9 +577,9 @@ struct Image::Impl final : utils::OneTime
 
     Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask);
 
-    static constexpr void checkTraits()
+    static constexpr void completeClassContext()
     {
-        static_assert(utils::kIsOneTime<Impl>);
+        checkTraits();
     }
 };
 

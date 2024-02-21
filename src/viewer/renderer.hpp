@@ -39,7 +39,7 @@ struct FrameSettings
     float zFar = 1E3f;
 };
 
-class Renderer : utils::OneTime
+class Renderer : utils::OneTime<Renderer>
 {
 public:
     Renderer(const engine::Context & context, uint32_t framesInFlight);
@@ -58,6 +58,11 @@ private:
     static constexpr size_t kSize = 144;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace viewer

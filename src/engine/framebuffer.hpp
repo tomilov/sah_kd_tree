@@ -18,7 +18,7 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT Framebuffer final : utils::OneTime
+struct ENGINE_EXPORT Framebuffer final : utils::OneTime<Framebuffer>
 {
     Framebuffer(std::string_view name, const Context & context, vk::RenderPass renderPass, uint32_t width, uint32_t height, uint32_t layers, std::span<const vk::ImageView> imageViews);
 
@@ -27,6 +27,11 @@ private:
 
     std::vector<vk::UniqueFramebuffer> framebufferHolders;
     std::vector<vk::Framebuffer> framebuffers;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

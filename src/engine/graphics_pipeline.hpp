@@ -19,7 +19,7 @@ namespace engine
 
 struct GraphicsPipelines;
 
-struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::NonCopyable
+struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
 {
     GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
 
@@ -49,9 +49,14 @@ private:
     vk::UniquePipelineLayout pipelineLayoutHolder;
 
     void fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
-struct ENGINE_EXPORT GraphicsPipelines final : utils::NonCopyable
+struct ENGINE_EXPORT GraphicsPipelines final : utils::OneTime<GraphicsPipelines>
 {
     GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache);
 
@@ -69,6 +74,11 @@ private:
 
     std::vector<vk::UniquePipeline> pipelineHolders;
     std::vector<vk::Pipeline> pipelines;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

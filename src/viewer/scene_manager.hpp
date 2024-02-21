@@ -26,9 +26,8 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
-#include <vector>
 #include <variant>
-#include <functional>
+#include <vector>
 
 #include <cstddef>
 
@@ -70,61 +69,62 @@ public:
         kDisplayPipeline,
     };
 
-    struct DescriptorSets : utils::OneTime
+    struct DescriptorSets : utils::OneTime<DescriptorSets>
     {
         engine::DescriptorPool descriptorPool;
         engine::DescriptorSets descriptorSets;
 
-        static constexpr void checkTraits()
+        static constexpr void completeClassContext()
         {
-            static_assert(utils::kIsOneTime<DescriptorSets>);
+            checkTraits();
         }
     };
 
-    struct DescriptorBuffers : utils::OneTime
+    struct DescriptorBuffers : utils::OneTime<DescriptorBuffers>
     {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         std::vector<engine::Buffer<std::byte>> descriptorBuffers;  // set-indexed
 
-        static constexpr void checkTraits()
+        static constexpr void completeClassContext()
         {
-            static_assert(utils::kIsOneTime<DescriptorBuffers>);
+            checkTraits();
         }
     };
 
-    using SetDescriptorInfoGetter = std::tuple<vk::DescriptorSet, vk::DescriptorBufferInfo> (const std::string & bufferName);
-    using SetDescriptorInfoGetters = std::unordered_map<std::string_view, std::function<SetDescriptorInfoGetter>>;
+    using DescriptorSetInfoGetter = std::function<void(const std::string_view & symbol, vk::DescriptorSet & descriptorSet, vk::DescriptorBufferInfo & descriptorBufferInfo)>;
+    using DescriptorBufferInfoGetter = std::function<void(const std::string_view & symbol, vk::DescriptorGetInfoEXT & descriptorGetInfo, vk::DescriptorAddressInfoEXT & descriptorAddressInfo)>;
 
-    using BufferDescriptorInfoGetter = void(vk::DescriptorGetInfoEXT & descriptorGetInfo, vk::DescriptorAddressInfoEXT & descriptorAddressInfo);
-    using BufferDescriptorInfoGetters = std::unordered_map<std::string_view, std::function<BufferDescriptorInfoGetter>>;
-
-    struct SceneDescriptors : utils::OneTime
+    struct SceneDescriptors : utils::OneTime<SceneDescriptors>
     {
         static constexpr uint32_t kSet = 0;
 
-        std::vector<vk::IndexType> indexTypes;
+        std::vector<std::vector<glm::mat4>> transforms;
         std::vector<vk::DrawIndexedIndirectCommand> instances;
+        std::vector<vk::IndexType> indexTypes;
+        std::optional<engine::Buffer<void>> indexBuffer;
         uint32_t drawCount = 0;
         std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
         std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
         engine::Buffer<glm::mat4> transformBuffer;
-        std::optional<engine::Buffer<void>> indexBuffer;
-        engine::Buffer<scene::VertexAttributes> vertexBuffer;
 
-        std::variant<DescriptorSets, DescriptorBuffers> descriptors;
+        std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
 
         std::vector<vk::PushConstantRange> pushConstantRanges;
 
-        [[nodiscard]] SetDescriptorInfoGetters getSetDescriptorInfoGetters() const;
-        [[nodiscard]] BufferDescriptorInfoGetters getBufferDescriptorInfoGetters() const;
+        std::variant<std::monostate /* TODO: remove */, DescriptorSets, DescriptorBuffers> descriptors;
 
-        static constexpr void checkTraits()
+        [[nodiscard]] DescriptorSetInfoGetter getDescriptorSetInfoGetter() const;
+        [[nodiscard]] DescriptorBufferInfoGetter getDescriptorBufferInfoGetter() const;
+
+        operator std::unique_ptr<SceneDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
+
+        static constexpr void completeClassContext()
         {
-            static_assert(utils::kIsOneTime<SceneDescriptors>);
+            checkTraits();
         }
     };
 
-    struct FrameDescriptors : utils::OneTime
+    struct FrameDescriptors : utils::OneTime<FrameDescriptors>
     {
         static constexpr uint32_t kSet = 1;
 
@@ -132,21 +132,28 @@ public:
 
         std::variant<DescriptorSets, DescriptorBuffers> descriptors;
 
-        [[nodiscard]] SetDescriptorInfoGetters getSetDescriptorInfoGetters() const;
-        [[nodiscard]] BufferDescriptorInfoGetters getBufferDescriptorInfoGetters() const;
+        [[nodiscard]] DescriptorSetInfoGetter getDescriptorSetInfoGetter() const;
+        [[nodiscard]] DescriptorBufferInfoGetter getDescriptorBufferInfoGetter() const;
 
-        static constexpr void checkTraits()
+        operator std::unique_ptr<FrameDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
+
+        static constexpr void completeClassContext()
         {
-            static_assert(utils::kIsOneTime<FrameDescriptors>);
+            checkTraits();
         }
     };
 
-    struct GraphicsPipeline : utils::NonCopyable
+    struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
     {
         engine::GraphicsPipelineLayout pipelineLayout;
         engine::GraphicsPipelines pipelines;
 
         GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer);
+
+        static constexpr void completeClassContext()
+        {
+            checkTraits();
+        }
     };
 
     [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
@@ -156,7 +163,7 @@ public:
 
     [[nodiscard]] std::unique_ptr<SceneDescriptors> makeSceneDescriptors() const;
     [[nodiscard]] std::unique_ptr<FrameDescriptors> makeFrameDescriptors() const;
-    [[nodiscard]] std::unique_ptr<const GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
+    [[nodiscard]] std::unique_ptr<GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
 
     [[nodiscard]] bool isDescriptorBufferEnabled() const
     {
@@ -210,16 +217,15 @@ private:
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
-    void createVertexBuffer(SceneDescriptors & sceneDescriptors) const;
-    void createGeometryInstances(SceneDescriptors & sceneDescriptors) const;
+    std::optional<engine::Buffer<scene::VertexAttributes>> createVertexBuffer() const;
 
     engine::Buffer<UniformBuffer> createUniformBuffer() const;
 
     DescriptorSets createDescriptorSets() const;
     DescriptorBuffers createDescriptorBuffer() const;
 
-    void fillDescriptorSets(DescriptorSets & descriptorSets, uint32_t set, const SetDescriptorInfoGetters & getDescriptorInfo) const;
-    void fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, uint32_t set, const BufferDescriptorInfoGetters & getDescriptorInfo) const;
+    void fillDescriptorSets(DescriptorSets & descriptorSets, uint32_t set, const DescriptorSetInfoGetter & getDescriptorInfo) const;
+    void fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, uint32_t set, const DescriptorBufferInfoGetter & getDescriptorInfo) const;
 };
 
 class SceneManager

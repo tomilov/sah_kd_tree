@@ -19,7 +19,7 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT Device final : utils::OneTime
+struct ENGINE_EXPORT Device final : utils::OneTime<Device>
 {
     vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
                        vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
@@ -100,8 +100,11 @@ private:
 
     void setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const;
     void setDebugUtilsObjectTag(const vk::DebugUtilsObjectTagInfoEXT & debugUtilsObjectTagInfo) const;
-};
 
-static_assert(utils::kIsOneTime<Device>);
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
 
 }  // namespace engine

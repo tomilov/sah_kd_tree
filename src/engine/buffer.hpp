@@ -28,7 +28,7 @@ template<typename T>
 class Buffer;
 
 template<>
-class ENGINE_EXPORT MappedMemory<void> final : utils::OneTime
+class ENGINE_EXPORT MappedMemory<void> final : utils::OneTime<MappedMemory<void>>
 {
 public:
     MappedMemory(MappedMemory &&) noexcept;
@@ -52,10 +52,15 @@ private:
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
     MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE);  // NOLINT: google-explicit-constructor
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 template<typename T>
-class ENGINE_EXPORT MappedMemory final : utils::OneTime
+class ENGINE_EXPORT MappedMemory final : utils::OneTime<MappedMemory<T>>
 {
 public:
     [[nodiscard]] vk::DeviceSize getElementSize() const
@@ -113,10 +118,15 @@ private:
         ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
         ASSERT_MSG((mappedMemory.getSize() / count) >= sizeof(T), "Size of buffer mapping element {} is less than static element size {}", mappedMemory.getSize() / count, sizeof(T));
     }
+
+    static constexpr void completeClassContext()
+    {
+        MappedMemory::checkTraits();
+    }
 };
 
 template<>
-class ENGINE_EXPORT Buffer<void> final : utils::OneTime
+class ENGINE_EXPORT Buffer<void> final : utils::OneTime<Buffer<void>>
 {
 public:
     Buffer(Buffer &&) noexcept;
@@ -159,10 +169,15 @@ private:
     [[nodiscard]] void * getMappedData() const &;
 
     Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment);
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 template<typename T>
-class ENGINE_EXPORT Buffer final : utils::OneTime
+class ENGINE_EXPORT Buffer final : utils::OneTime<Buffer<T>>
 {
 public:
     explicit Buffer(Buffer<void> && buffer, vk::DeviceSize count = 1) noexcept : buffer{std::move(buffer)}, count{count}
@@ -246,6 +261,11 @@ public:
 private:
     Buffer<void> buffer;
     const vk::DeviceSize count;
+
+    static constexpr void completeClassContext()
+    {
+        Buffer::checkTraits();
+    }
 };
 
 }  // namespace engine

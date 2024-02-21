@@ -18,7 +18,7 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT PipelineCache final : utils::OneTime
+struct ENGINE_EXPORT PipelineCache final : utils::OneTime<PipelineCache>
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
@@ -40,6 +40,11 @@ private:
     vk::UniquePipelineCache pipelineCacheHolder;
 
     [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

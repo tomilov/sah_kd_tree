@@ -32,7 +32,7 @@ struct ShaderModule;
 namespace engine
 {
 
-struct ENGINE_EXPORT ShaderModule final : utils::OneTime
+struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
 {
     ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo);
 
@@ -53,17 +53,27 @@ private:
     std::vector<uint32_t> spirv;
 
     vk::UniqueShaderModule shaderModuleHolder;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
-struct ENGINE_EXPORT VertexInputState final : utils::OneTime
+struct ENGINE_EXPORT VertexInputState final : utils::OneTime<VertexInputState>
 {
     std::vector<std::string> variableNames;
     std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions;
     std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
     vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
-struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
+struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleReflection>
 {
     struct DescriptorSetLayoutBinding
     {
@@ -71,11 +81,11 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
         size_t size = 0;
     };
 
-    vk::ShaderStageFlagBits shaderStage = {};
     std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
     std::optional<vk::PushConstantRange> pushConstantRange;
 
     ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName);
+    ShaderModuleReflection(ShaderModuleReflection &&) noexcept;
     ~ShaderModuleReflection();
 
     [[nodiscard]] const std::string & getEntryPointName() const &;
@@ -83,7 +93,8 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::NonCopyable
 
 private:
     const Context & context;
-    const ShaderModule & shaderModule;
+    std::string shaderModuleName;
+    const vk::ShaderStageFlagBits shaderStage;
     const std::string entryPointName;
 
     static constexpr size_t kSize = 1208;
@@ -91,6 +102,11 @@ private:
     utils::FastPimpl<spv_reflect::ShaderModule, kSize, kAlignment> reflectionModule;
 
     void reflect();
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
@@ -117,7 +133,6 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::deque<std::string> entryPointNames;
     std::deque<std::string> names;
     PipelineShaderStageCreateInfoChains shaderStages;
-    std::vector<std::reference_wrapper<const ShaderModuleReflection>> shaderModuleReflections;
 
     std::optional<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;
@@ -132,7 +147,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
-    // TODO: descriptor update template
+    // TODO: descriptor update template?
 
 private:
     const Context & context;

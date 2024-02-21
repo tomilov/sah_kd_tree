@@ -25,10 +25,6 @@
 namespace engine
 {
 
-static_assert(utils::kIsOneTime<ShaderModule>);
-static_assert(utils::kIsOneTime<VertexInputState>);
-static_assert(utils::kIsOneTime<ShaderModule>);
-
 namespace
 {
 
@@ -371,16 +367,17 @@ ShaderModule::operator vk::ShaderModule() const &
 }
 
 ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
-    : context{context}, shaderModule{shaderModule}, entryPointName{entryPointName}, reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
+    : context{context}, shaderModuleName{shaderModule.getName()}, shaderStage{shaderModule.getShaderStage()}, entryPointName{entryPointName}, reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
     auto reflectionResult = reflectionModule->GetResult();
-    INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModule.getName());
+    INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModuleName);
 
     dump(*reflectionModule);
 
     reflect();
 }
 
+ShaderModuleReflection::ShaderModuleReflection(ShaderModuleReflection &&) noexcept = default;
 ShaderModuleReflection::~ShaderModuleReflection() = default;
 
 const std::string & ShaderModuleReflection::getEntryPointName() const &
@@ -450,22 +447,19 @@ void ShaderModuleReflection::reflect()
 {
     SpvReflectResult reflectResult = SPV_REFLECT_RESULT_SUCCESS;
 
-    bool entryPointFound = false;
     auto entryPointCount = reflectionModule->GetEntryPointCount();
     SPDLOG_DEBUG("Shader consists of {} entry points", entryPointCount);
+    vk::ShaderStageFlags shaderStageMask;
     for (uint32_t i = 0; i < entryPointCount; ++i) {
         auto nextEntryPointName = reflectionModule->GetEntryPointName(i);
         if (nextEntryPointName == entryPointName) {
             SPDLOG_DEBUG("Found entry point '{}'", nextEntryPointName);
-            shaderStage = spvReflectShaderStageToVk(reflectionModule->GetEntryPointShaderStage(i));
-            entryPointFound = true;
+            shaderStageMask = spvReflectShaderStageToVk(reflectionModule->GetEntryPointShaderStage(i));
             break;
         }
     }
-    INVARIANT(entryPointFound, "Entry point '{}' is not found", entryPointName);
-    if (!(shaderStage & shaderModule.getShaderStage())) {
-        SPDLOG_WARN("Reflected flags ({}) of shader module '{}' does not contain inferred flags ({})", shaderStage, shaderModule.getName(), shaderModule.getShaderStage());
-    }
+    INVARIANT(shaderStageMask, "Entry point '{}' is not found", entryPointName);
+    INVARIANT(shaderStageMask == shaderStage, "Reflected shader stage ({}) of shader module '{}' does not match inferred shader stage ({})", shaderStageMask, shaderModuleName, shaderStage);
 
     uint32_t descriptorSetCount = 0;
     reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, nullptr);
@@ -520,7 +514,7 @@ void ShaderModuleReflection::reflect()
             if ((member.flags & SPV_REFLECT_VARIABLE_FLAGS_UNUSED) != 0) {
                 auto memberName = member.name ? member.name : "<unknown>";
                 auto blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";
-                SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPointName, shaderStage, shaderModule.getName());
+                SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPointName, shaderStage, shaderModuleName);
                 continue;
             }
 
@@ -547,7 +541,6 @@ ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding
 
 void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
 {
-    shaderModuleReflections.emplace_back(shaderModuleReflection);
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.emplace_back(entryPointName);
     const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getName(), entryPointName));
