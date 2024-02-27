@@ -316,7 +316,7 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
     const vk::DeviceSize minAlignment;
 
     std::unique_ptr<BufferResource> resource;
-    VmaAllocationInfo allocationInfo = {};
+    VmaAllocationInfo2 allocationInfo = {};
     vk::MemoryPropertyFlags memoryPropertyFlags;
     uint32_t memoryTypeIndex = VK_MAX_MEMORY_TYPES;
 
@@ -338,6 +338,11 @@ Buffer<void>::~Buffer() = default;
 const vk::BufferCreateInfo & Buffer<void>::getBufferCreateInfo() const
 {
     return impl_->createInfo;
+}
+
+bool Buffer<void>::isDedicatedAllocation() const
+{
+    return impl_->allocationInfo.dedicatedMemory == VK_TRUE;
 }
 
 vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
@@ -436,7 +441,7 @@ bool Buffer<void>::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMa
 
 void * Buffer<void>::getMappedData() const &
 {
-    return impl_->allocationInfo.pMappedData;
+    return impl_->allocationInfo.allocationInfo.pMappedData;
 }
 
 Buffer<void>::Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment)
@@ -460,7 +465,7 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offse
         auto result = vk::Result{vmaInvalidateAllocation(allocator, allocation, 0, VK_WHOLE_SIZE)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
     }
-    if (!buffer->impl_->allocationInfo.pMappedData) {
+    if (!buffer->impl_->allocationInfo.allocationInfo.pMappedData) {
         auto result = vk::Result{vmaMapMemory(allocator, allocation, &mappedData)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot map memory: {}", result);
     }
@@ -495,8 +500,9 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
     resource = std::make_unique<BufferResource>(allocator);
     {
-        auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &resource->buffer, &resource->allocation, &allocationInfo)};
+        auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &resource->buffer, &resource->allocation, nullptr)};
         INVARIANT(result == vk::Result::eSuccess, "{}", result);
+        vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
     }
 
     memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Buffer{resource->buffer}, this->name.c_str());
@@ -566,7 +572,7 @@ struct Image::Impl final : utils::OneTime<Impl>
     const vk::ImageAspectFlags aspectMask;
 
     std::unique_ptr<ImageResource> resource;
-    VmaAllocationInfo allocationInfo = {};
+    VmaAllocationInfo2 allocationInfo = {};
     vk::MemoryPropertyFlags memoryPropertyFlags;
     uint32_t memoryTypeIndex = VK_MAX_MEMORY_TYPES;
 
@@ -589,6 +595,11 @@ Image::~Image() = default;
 const vk::ImageCreateInfo & Image::getImageCreateInfo() const
 {
     return impl_->createInfo;
+}
+
+bool Image::isDedicatedAllocation() const
+{
+    return impl_->allocationInfo.dedicatedMemory == VK_TRUE;
 }
 
 vk::ImageAspectFlags Image::getAspectMask() const
@@ -703,8 +714,9 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
     resource = std::make_unique<ImageResource>(allocator);
     {
-        auto result = vk::Result{vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &resource->image, &resource->allocation, &allocationInfo)};
+        auto result = vk::Result{vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &resource->image, &resource->allocation, nullptr)};
         INVARIANT(result == vk::Result::eSuccess, "{}", result);
+        vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
     }
 
     memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Image{resource->image}, this->name.c_str());

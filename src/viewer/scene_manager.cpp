@@ -97,32 +97,37 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 
 }  // namespace
 
-auto Scene::SceneDescriptors::getDescriptorSetInfoGetter() const -> DescriptorSetInfoGetter
+auto Scene::SceneDescriptors::Resources::getDescriptorSetInfos() const -> DescriptorSetInfos
 {
-    return [this](const std::string_view & symbol, vk::DescriptorSet & descriptorSet, vk::DescriptorBufferInfo & descriptorBufferInfo)
-    {
-        if (symbol == kTransformBuferName) {
-            descriptorBufferInfo = transformBuffer.base().getDescriptorBufferInfo();
-        } else {
-            INVARIANT(false, "{}", symbol);
-        }
+    return {
+        {kTransformBuferName, vk::DescriptorType::eStorageBuffer, transformBuffer.base().getDescriptorBufferInfo()},
     };
 }
 
-auto Scene::SceneDescriptors::getDescriptorBufferInfoGetter() const -> DescriptorBufferInfoGetter
+auto Scene::SceneDescriptors::Resources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
 {
-    return [this](const std::string_view & symbol, vk::DescriptorGetInfoEXT & descriptorGetInfo, vk::DescriptorAddressInfoEXT & descriptorAddressInfo)
-    {
-        if (symbol == kTransformBuferName) {
-        } else {
-            INVARIANT(false, "{}", symbol);
-        }
+    return {
+        {kTransformBuferName, vk::DescriptorType::eStorageBuffer, transformBuffer.base().getDescriptorAddressInfo()},
     };
 }
 
 Scene::SceneDescriptors::operator std::unique_ptr<SceneDescriptors>() && noexcept
 {
     return std::make_unique<SceneDescriptors>(std::move(*this));
+}
+
+auto Scene::FrameDescriptors::Resources::getDescriptorSetInfos() const -> DescriptorSetInfos
+{
+    return {
+        {kTransformBuferName, vk::DescriptorType::eUniformBuffer, uniformBuffer.base().getDescriptorBufferInfo()},
+    };
+}
+
+auto Scene::FrameDescriptors::Resources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
+{
+    return {
+        {kTransformBuferName, vk::DescriptorType::eUniformBuffer, uniformBuffer.base().getDescriptorAddressInfo()},
+    };
 }
 
 Scene::FrameDescriptors::operator std::unique_ptr<FrameDescriptors>() && noexcept
@@ -152,7 +157,7 @@ const scene::Scene & Scene::getScene() const
     return scene;
 }
 
-auto Scene::makeSceneDescriptors() const -> std::unique_ptr<SceneDescriptors>
+auto Scene::makeSceneDescriptors() const -> SceneDescriptors
 {
     std::vector<std::vector<glm::mat4>> transforms(std::size(scene.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(scene.meshes));
@@ -307,7 +312,7 @@ auto Scene::makeSceneDescriptors() const -> std::unique_ptr<SceneDescriptors>
         }
     }
 
-    auto getTransformBuffer = [this, totalInstanceCount, &transforms]
+    auto transformBuffer = [this, totalInstanceCount, &transforms]
     {
         vk::BufferCreateInfo transformBufferCreateInfo;
         transformBufferCreateInfo.size = totalInstanceCount * sizeof(glm::mat4);
@@ -330,9 +335,9 @@ auto Scene::makeSceneDescriptors() const -> std::unique_ptr<SceneDescriptors>
         ASSERT(t == mappedTransformBuffer.end());
 
         return transformBuffer;
-    };
+    }();
 
-    return SceneDescriptors{
+    SceneDescriptors::Resources resources = {
         .transforms = std::move(transforms),
         .instances = std::move(instances),
         .indexTypes = std::move(indexTypes),
@@ -340,32 +345,54 @@ auto Scene::makeSceneDescriptors() const -> std::unique_ptr<SceneDescriptors>
         .drawCount = drawCount,
         .drawCountBuffer = std::move(drawCountBuffer),
         .instanceBuffer = std::move(instanceBuffer),
-        .transformBuffer = getTransformBuffer(),
+        .transformBuffer = std::move(transformBuffer),
         .vertexBuffer = createVertexBuffer(),
-        .pushConstantRanges = sceneShaderStages.pushConstantRanges,
     };
+    if (descriptorBufferEnabled) {
+        auto descriptorBuffers = createDescriptorBuffer(sceneShaderStages, SceneDescriptors::kSet);
+        fillDescriptorBuffer(descriptorBuffers, sceneShaderStages, SceneDescriptors::kSet, resources.getDescriptorBufferInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = std::move(descriptorBuffers),
+        };
+    } else {
+        auto descriptorSets = createDescriptorSets(sceneShaderStages, SceneDescriptors::kSet);
+        fillDescriptorSets(descriptorSets, sceneShaderStages, SceneDescriptors::kSet, resources.getDescriptorSetInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = std::move(descriptorSets),
+        };
+    }
 }
 
-auto Scene::makeFrameDescriptors() const -> std::unique_ptr<FrameDescriptors>
+auto Scene::makeFrameDescriptors() const -> FrameDescriptors
 {
     for (const auto & [set, bindings] : sceneShaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor sets ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
+    FrameDescriptors::Resources resources = {
+        .uniformBuffer = createUniformBuffer(),
+    };
     if (descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer();
-        fillDescriptorBuffer(descriptorBuffer);
-        return FrameDescriptors{
-            .uniformBuffer = createUniformBuffer(),
-            .descriptors = std::move(descriptorBuffer),
+        auto descriptorBuffers = createDescriptorBuffer(sceneShaderStages, FrameDescriptors::kSet);
+        fillDescriptorBuffer(descriptorBuffers, sceneShaderStages, FrameDescriptors::kSet, resources.getDescriptorBufferInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = std::move(descriptorBuffers),
         };
     } else {
-        createDescriptorSets();
-        fillDescriptorSets();
-        return FrameDescriptors{
-            .uniformBuffer = createUniformBuffer(),
-            .descriptors = std::move(descriptors),
+        auto descriptorSets = createDescriptorSets(sceneShaderStages, FrameDescriptors::kSet);
+        fillDescriptorSets(descriptorSets, sceneShaderStages, FrameDescriptors::kSet, resources.getDescriptorSetInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = std::move(descriptorSets),
         };
     }
+}
+
+const std::vector<vk::PushConstantRange> & Scene::getScenePushConstantRanges() const
+{
+    return sceneShaderStages.pushConstantRanges;
 }
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const -> std::unique_ptr<GraphicsPipeline>
@@ -683,7 +710,7 @@ auto Scene::createUniformBuffer() const -> engine::Buffer<UniformBuffer>
     }
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     auto uniformBufferName = fmt::format("Uniform buffer");
-    engine::Buffer<UniformBuffer> uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, getMinAlignment());
+    engine::Buffer<UniformBuffer> uniformBuffer{context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, getMinAlignment())};
 
     auto memoryPropertyFlags = uniformBuffer.base().getMemoryPropertyFlags();
     INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
@@ -691,33 +718,33 @@ auto Scene::createUniformBuffer() const -> engine::Buffer<UniformBuffer>
     return uniformBuffer;
 }
 
-auto Scene::createDescriptorSets() const -> DescriptorSets
+auto Scene::createDescriptorSets(const engine::ShaderStages & shaderStages, uint32_t set) const -> DescriptorSets
 {
     constexpr uint32_t kFramesInFlight = 1;
-    engine::DescriptorPool descriptorPool{kRasterization, context, kFramesInFlight, sceneShaderStages};
-    engine::DescriptorSets descriptorSets{kRasterization, context, sceneShaderStages, descriptorPool.value()};
+    engine::DescriptorPool descriptorPool{kRasterization, context, kFramesInFlight, set, shaderStages};
+    engine::DescriptorSets descriptorSets{kRasterization, context, set, descriptorPool, shaderStages};
     return {
         .descriptorPool = std::move(descriptorPool),
         .descriptorSets = std::move(descriptorSets),
     };
 }
 
-auto Scene::createDescriptorBuffer() const -> DescriptorBuffers
+auto Scene::createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const -> DescriptorBuffers
 {
     constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
     auto alignment = std::max(getMinAlignment(), descriptorBufferOffsetAlignment);
     std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
-    descriptorBufferBindingInfos.reserve(std::size(sceneShaderStages.descriptorSetLayouts));
+    descriptorBufferBindingInfos.reserve(std::size(shaderStages.descriptorSetLayouts));
     std::vector<engine::Buffer<std::byte>> descriptorBuffers;
-    descriptorBuffers.reserve(std::size(sceneShaderStages.descriptorSetLayouts));
-    auto set = std::cbegin(sceneShaderStages.setBindings);
-    for (const auto & descriptorSetLayout : sceneShaderStages.descriptorSetLayouts) {
+    descriptorBuffers.reserve(std::size(shaderStages.descriptorSetLayouts));
+    {
+        const auto & setBindings = shaderStages.setBindings.at(set);
+        const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setBindings.setIndex);
         vk::BufferCreateInfo descriptorBufferCreateInfo;
         descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
         descriptorBufferCreateInfo.size = context.getDevice().getDevice().getDescriptorSetLayoutSizeEXT(descriptorSetLayout, context.getDispatcher());
-        INVARIANT(set != std::cend(sceneShaderStages.setBindings), "");
-        for (const auto & binding : set->second.bindings) {
+        for (const auto & binding : setBindings.bindings) {
             switch (binding.descriptorType) {
             case vk::DescriptorType::eSampler: {
                 descriptorBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT;
@@ -734,7 +761,7 @@ auto Scene::createDescriptorBuffer() const -> DescriptorBuffers
             }
             }
         }
-        auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set->first);
+        auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set);
         auto descriptorSetBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, alignment);
 
         auto memoryPropertyFlags = descriptorSetBuffer.getMemoryPropertyFlags();
@@ -742,8 +769,6 @@ auto Scene::createDescriptorBuffer() const -> DescriptorBuffers
 
         descriptorBufferBindingInfos.push_back(descriptorSetBuffer.getDescriptorBufferBindingInfo());
         descriptorBuffers.emplace_back(std::move(descriptorSetBuffer));
-
-        ++set;
     }
 
     return {
@@ -752,99 +777,125 @@ auto Scene::createDescriptorBuffer() const -> DescriptorBuffers
     };
 }
 
-void Scene::fillDescriptorSets(DescriptorSets & descriptorSets) const
+void Scene::fillDescriptorSets(DescriptorSets & descriptorSets, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & descriptorSetInfos) const
 {
-    const auto & dispatcher = context.getDispatcher();
-    const auto & device = context.getDevice();
-
     std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
-    descriptorBufferInfos.reserve(2);
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-    writeDescriptorSets.reserve(2);
-
-    {
-        auto setBindings = sceneShaderStages.setBindings.find(kUniformBufferSet);
-        INVARIANT(setBindings != std::end(sceneShaderStages.setBindings), "Set {} for buffer {} is not found", kUniformBufferSet, kUniformBufferName);
-        if (const auto * uniformBufferBinding = setBindings->second.getBinding(kUniformBufferName)) {
-            uint32_t uniformBufferSetIndex = setBindings->second.setIndex;
-
-            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back(frameDescriptors.uniformBuffer.value().getDescriptorBufferInfo());
-
-            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-            writeDescriptorSet = {
-                .dstSet = frameDescriptors.descriptorSets.value().getDescriptorSets().at(uniformBufferSetIndex),
-                .dstBinding = uniformBufferBinding->binding,
-                .dstArrayElement = 0,  // not an array
-                .descriptorType = uniformBufferBinding->descriptorType,
-            };
-            writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
-        }
+    descriptorBufferInfos.reserve(std::size(descriptorSetInfos));
+    std::vector<vk::WriteDescriptorSet> descriptorWrites;
+    descriptorWrites.reserve(std::size(descriptorSetInfos));
+    const auto & setBindings = shaderStages.setBindings.at(set);
+    INVARIANT(std::size(setBindings.bindingIndices) == std::size(descriptorSetInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorSetInfos));
+    for (const auto & [symbol, descriptorType, descriptorBufferInfo] : descriptorSetInfos) {
+        const auto * binding = setBindings.getBinding(symbol);
+        ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
+        ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
+        descriptorBufferInfos.push_back(descriptorBufferInfo);
+        auto & writeDescriptorSet = descriptorWrites.emplace_back();
+        writeDescriptorSet = {
+            .dstSet = descriptorSets.descriptorSets.getDescriptorSets().at(setBindings.setIndex),
+            .dstBinding = binding->binding,
+            .dstArrayElement = 0,  // not an array
+            .descriptorType = descriptorType,
+        };
+        writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
     }
 
-    {
-        ASSERT(frameDescriptors.sceneDescriptors);
-        ASSERT(frameDescriptors.sceneDescriptors->transformBuffer);
-        auto setBindings = sceneShaderStages.setBindings.find(kTransformBuferSet);
-        INVARIANT(setBindings != std::end(sceneShaderStages.setBindings), "Set {} for buffer {} is not found", kTransformBuferSet, kTransformBuferName);
-        if (const auto * transformBufferBinding = setBindings->second.getBinding(kTransformBuferName)) {
-            uint32_t transformBufferSetIndex = setBindings->second.setIndex;
-
-            ASSERT(std::size(descriptorBufferInfos) < descriptorBufferInfos.capacity());
-            auto & descriptorBufferInfo = descriptorBufferInfos.emplace_back(frameDescriptors.sceneDescriptors->transformBuffer.value().base().getDescriptorBufferInfo());
-
-            ASSERT(std::size(writeDescriptorSets) < writeDescriptorSets.capacity());
-            auto & writeDescriptorSet = writeDescriptorSets.emplace_back();
-            writeDescriptorSet = {
-                .dstSet = frameDescriptors.descriptorSets.value().getDescriptorSets().at(transformBufferSetIndex),
-                .dstBinding = transformBufferBinding->binding,
-                .dstArrayElement = 0,  // not an array
-                .descriptorType = transformBufferBinding->descriptorType,
-            };
-            writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
-        }
-    }
-
-    device.getDevice().updateDescriptorSets(writeDescriptorSets, nullptr, dispatcher);
+    constexpr auto kDescriptorCopies = nullptr;
+    context.getDevice().getDevice().updateDescriptorSets(descriptorWrites, kDescriptorCopies, context.getDispatcher());
 }
 
-void Scene::fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers) const
+void Scene::fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const
 {
     const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
 
-    for (const auto & [set, bindings] : sceneShaderStages.setBindings) {
-        const auto setIndex = bindings.setIndex;
-        const auto & descriptorSetLayout = sceneShaderStages.descriptorSetLayouts.at(setIndex);
-        const auto & descriptorSetBuffer = descriptorBuffers.descriptorBuffers.at(setIndex);
-        auto mappedDescriptorSetBuffer = descriptorSetBuffer.map();
-        for (uint32_t b = 0; b < std::size(bindings.bindings); ++b) {
-            const auto & binding = bindings.bindings.at(b);
-            vk::DescriptorGetInfoEXT descriptorGetInfo;
-            descriptorGetInfo.type = binding.descriptorType;
-            vk::DescriptorAddressInfoEXT descriptorAddressInfo;
-            const auto & bindingName = bindings.bindingNames.at(b);
-            if (bindingName == kUniformBufferName) {
-                ASSERT(descriptorGetInfo.type == vk::DescriptorType::eUniformBuffer);
-                const auto & uniformBuffer = frameDescriptors.uniformBuffer.value();
-                descriptorAddressInfo = uniformBuffer.getDescriptorAddressInfo();
-                descriptorGetInfo.data.pUniformBuffer = &descriptorAddressInfo;
-            } else if (bindingName == kTransformBuferName) {
-                ASSERT(descriptorGetInfo.type == vk::DescriptorType::eStorageBuffer);
-                ASSERT(frameDescriptors.sceneDescriptors);
-                ASSERT(frameDescriptors.sceneDescriptors->transformBuffer);
-                const auto & transformBuffer = frameDescriptors.sceneDescriptors->transformBuffer.value();
-                descriptorAddressInfo = transformBuffer.base().getDescriptorAddressInfo();
-                descriptorGetInfo.data.pStorageBuffer = &descriptorAddressInfo;
+    const auto & setBindings = shaderStages.setBindings.at(set);
+    INVARIANT(std::size(setBindings.bindingIndices) == std::size(descriptorBufferInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorBufferInfos));
+    const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setBindings.setIndex);
+    const auto & descriptorBuffer = descriptorBuffers.descriptorBuffers.at(setBindings.setIndex);
+    auto mappedDescriptorSetBuffer = descriptorBuffer.map();
+    for (const auto & [symbol, descriptorType, descriptorInfo] : descriptorBufferInfos) {
+        const auto * binding = setBindings.getBinding(symbol);
+        ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
+        ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
+        vk::DescriptorGetInfoEXT descriptorGetInfo = {
+            .type = descriptorType,
+        };
+        const auto setDescriptorInfo = [descriptorType = descriptorType, &descriptorData = descriptorGetInfo.data]<typename T>(const T & descriptorInfo)
+        {
+            if constexpr (std::is_same_v<T, vk::Sampler>) {
+                switch (descriptorType) {
+                case vk::DescriptorType::eSampler: {
+                    descriptorData.setPSampler(&descriptorInfo);
+                    break;
+                }
+                default: {
+                    ASSERT_MSG(false, "{}", descriptorType);
+                }
+                }
+            } else if constexpr (std::is_same_v<T, vk::DescriptorImageInfo>) {
+                switch (descriptorType) {
+                case vk::DescriptorType::eCombinedImageSampler: {
+                    descriptorData.setPCombinedImageSampler(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eInputAttachment: {
+                    descriptorData.setPInputAttachmentImage(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eSampledImage: {
+                    descriptorData.setPSampledImage(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eStorageImage: {
+                    descriptorData.setPStorageImage(&descriptorInfo);
+                    break;
+                }
+                default: {
+                    ASSERT_MSG(false, "{}", descriptorType);
+                }
+                }
+            } else if constexpr (std::is_same_v<T, vk::DeviceAddress>) {
+                switch (descriptorType) {
+                case vk::DescriptorType::eAccelerationStructureKHR: {
+                    descriptorData.setAccelerationStructure(descriptorInfo);
+                    break;
+                }
+                default: {
+                    ASSERT_MSG(false, "{}", descriptorType);
+                }
+                }
+            } else if constexpr (std::is_same_v<T, vk::DescriptorAddressInfoEXT>) {
+                switch (descriptorType) {
+                case vk::DescriptorType::eUniformTexelBuffer: {
+                    descriptorData.setPUniformTexelBuffer(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eStorageTexelBuffer: {
+                    descriptorData.setPStorageTexelBuffer(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eUniformBuffer: {
+                    descriptorData.setPUniformBuffer(&descriptorInfo);
+                    break;
+                }
+                case vk::DescriptorType::eStorageBuffer: {
+                    descriptorData.setPStorageBuffer(&descriptorInfo);
+                    break;
+                }
+                default: {
+                    ASSERT_MSG(false, "{}", descriptorType);
+                }
+                }
             } else {
-                INVARIANT(false, "Cannot find descriptor for binding '{}'", bindingName);
+                static_assert(sizeof(T) == 0);
             }
-            vk::DeviceSize descriptorSize = getDescriptorSize(binding.descriptorType);
-            vk::DeviceSize bindingOffset = device.getDevice().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding.binding, dispatcher);
-            ASSERT(bindingOffset + descriptorSize <= descriptorSetBuffer.getElementSize());
-            device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, mappedDescriptorSetBuffer.data() + bindingOffset, dispatcher);
-        }
+        };
+        std::visit(setDescriptorInfo, descriptorInfo);
+        vk::DeviceSize descriptorSize = getDescriptorSize(descriptorType);
+        vk::DeviceSize bindingOffset = device.getDevice().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding->binding, dispatcher);
+        ASSERT(descriptorSize + bindingOffset <= descriptorBuffer.getElementSize());
+        device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, mappedDescriptorSetBuffer.data() + bindingOffset, dispatcher);
     }
 }
 

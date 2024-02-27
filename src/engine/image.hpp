@@ -27,6 +27,7 @@ public:
     ~Image();
 
     [[nodiscard]] const vk::ImageCreateInfo & getImageCreateInfo() const;
+    [[nodiscard]] bool isDedicatedAllocation() const;
     [[nodiscard]] vk::ImageAspectFlags getAspectMask() const;
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
     [[nodiscard]] uint32_t getMemoryTypeIndex() const;
@@ -45,7 +46,7 @@ private:
 
     friend class MemoryAllocator;
 
-    static constexpr size_t kSize = 232;
+    static constexpr size_t kSize = 248;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

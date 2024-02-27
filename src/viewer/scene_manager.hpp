@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <variant>
@@ -91,30 +92,34 @@ public:
         }
     };
 
-    using DescriptorSetInfoGetter = std::function<void(const std::string_view & symbol, vk::DescriptorSet & descriptorSet, vk::DescriptorBufferInfo & descriptorBufferInfo)>;
-    using DescriptorBufferInfoGetter = std::function<void(const std::string_view & symbol, vk::DescriptorGetInfoEXT & descriptorGetInfo, vk::DescriptorAddressInfoEXT & descriptorAddressInfo)>;
+    using DescriptorSetInfos = std::vector<std::tuple<std::string, vk::DescriptorType, vk::DescriptorBufferInfo>>;
+
+    using DescriptorInfo = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
+    using DescriptorBufferInfos = std::vector<std::tuple<std::string, vk::DescriptorType, DescriptorInfo>>;
 
     struct SceneDescriptors : utils::OneTime<SceneDescriptors>
     {
         static constexpr uint32_t kSet = 0;
 
-        std::vector<std::vector<glm::mat4>> transforms;
-        std::vector<vk::DrawIndexedIndirectCommand> instances;
-        std::vector<vk::IndexType> indexTypes;
-        std::optional<engine::Buffer<void>> indexBuffer;
-        uint32_t drawCount = 0;
-        std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
-        std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
-        engine::Buffer<glm::mat4> transformBuffer;
+        struct Resources
+        {
+            std::vector<std::vector<glm::mat4>> transforms;
+            std::vector<vk::DrawIndexedIndirectCommand> instances;
+            std::vector<vk::IndexType> indexTypes;
+            std::optional<engine::Buffer<void>> indexBuffer;
+            uint32_t drawCount = 0;
+            std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
+            std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
+            engine::Buffer<glm::mat4> transformBuffer;
 
-        std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
+            std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
 
-        std::vector<vk::PushConstantRange> pushConstantRanges;
+            [[nodiscard]] DescriptorSetInfos getDescriptorSetInfos() const;
+            [[nodiscard]] DescriptorBufferInfos getDescriptorBufferInfos() const;
+        };
 
-        std::variant<std::monostate /* TODO: remove */, DescriptorSets, DescriptorBuffers> descriptors;
-
-        [[nodiscard]] DescriptorSetInfoGetter getDescriptorSetInfoGetter() const;
-        [[nodiscard]] DescriptorBufferInfoGetter getDescriptorBufferInfoGetter() const;
+        Resources resources;
+        std::variant<DescriptorSets, DescriptorBuffers> descriptors;
 
         operator std::unique_ptr<SceneDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
 
@@ -128,12 +133,16 @@ public:
     {
         static constexpr uint32_t kSet = 1;
 
-        engine::Buffer<UniformBuffer> uniformBuffer;
+        struct Resources
+        {
+            engine::Buffer<UniformBuffer> uniformBuffer;
 
+            [[nodiscard]] DescriptorSetInfos getDescriptorSetInfos() const;
+            [[nodiscard]] DescriptorBufferInfos getDescriptorBufferInfos() const;
+        };
+
+        Resources resources;
         std::variant<DescriptorSets, DescriptorBuffers> descriptors;
-
-        [[nodiscard]] DescriptorSetInfoGetter getDescriptorSetInfoGetter() const;
-        [[nodiscard]] DescriptorBufferInfoGetter getDescriptorBufferInfoGetter() const;
 
         operator std::unique_ptr<FrameDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
 
@@ -161,8 +170,9 @@ public:
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
     [[nodiscard]] const scene::Scene & getScene() const;
 
-    [[nodiscard]] std::unique_ptr<SceneDescriptors> makeSceneDescriptors() const;
-    [[nodiscard]] std::unique_ptr<FrameDescriptors> makeFrameDescriptors() const;
+    [[nodiscard]] SceneDescriptors makeSceneDescriptors() const;
+    [[nodiscard]] FrameDescriptors makeFrameDescriptors() const;
+    [[nodiscard]] const std::vector<vk::PushConstantRange> & getScenePushConstantRanges() const;
     [[nodiscard]] std::unique_ptr<GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
 
     [[nodiscard]] bool isDescriptorBufferEnabled() const
@@ -221,11 +231,11 @@ private:
 
     engine::Buffer<UniformBuffer> createUniformBuffer() const;
 
-    DescriptorSets createDescriptorSets() const;
-    DescriptorBuffers createDescriptorBuffer() const;
+    DescriptorSets createDescriptorSets(const engine::ShaderStages & shaderStages, uint32_t set) const;
+    DescriptorBuffers createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
 
-    void fillDescriptorSets(DescriptorSets & descriptorSets, uint32_t set, const DescriptorSetInfoGetter & getDescriptorInfo) const;
-    void fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, uint32_t set, const DescriptorBufferInfoGetter & getDescriptorInfo) const;
+    void fillDescriptorSets(DescriptorSets & descriptorSets, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
+    void fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
 };
 
 class SceneManager

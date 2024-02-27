@@ -15,11 +15,11 @@
 namespace engine
 {
 
-DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages) : name{name}
+DescriptorPool::DescriptorPool(std::string_view name, const Context & context, uint32_t framesInFlight, uint32_t set, const ShaderStages & shaderStages) : name{name}, set{set}
 {
     const Device & device = context.getDevice();
 
-    const auto & descriptorCounts = shaderStages.descriptorCounts;
+    const auto & descriptorCounts = shaderStages.setDescriptorCounts.at(set);
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
     descriptorPoolSizes.reserve(std::size(descriptorPoolSizes));
     for (const auto & [descriptorType, descriptorCount] : descriptorCounts) {
@@ -35,6 +35,11 @@ DescriptorPool::DescriptorPool(std::string_view name, const Context & context, u
     device.setDebugUtilsObjectName(*descriptorPoolHolder, name);
 }
 
+uint32_t DescriptorPool::getSet() const
+{
+    return set;
+}
+
 vk::DescriptorPool DescriptorPool::getDescriptorPool() const &
 {
     ASSERT(descriptorPoolHolder);
@@ -46,23 +51,23 @@ DescriptorPool::operator vk::DescriptorPool() const &
     return getDescriptorPool();
 }
 
-DescriptorSets::DescriptorSets(std::string_view name, const Context & context, const ShaderStages & shaderStages, const DescriptorPool & descriptorPool) : name{name}
+DescriptorSets::DescriptorSets(std::string_view name, const Context & context, uint32_t set, vk::DescriptorPool descriptorPool, const ShaderStages & shaderStages) : name{name}, set{set}
 {
     const Library & library = context.getLibrary();
     const Device & device = context.getDevice();
 
-    auto bindings = std::cbegin(shaderStages.setBindings);
+    const auto & setBindings = shaderStages.setBindings.at(set);
+    const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setBindings.setIndex);
 
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
     descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-    descriptorSetAllocateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
+    descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayout);
     descriptorSetHolders = device.getDevice().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, library.getDispatcher());
     descriptorSets.reserve(descriptorSetHolders.size());
     size_t i = 0;
     for (const auto & descriptorSetHolder : descriptorSetHolders) {
         descriptorSets.push_back(*descriptorSetHolder);
 
-        uint32_t set = bindings->first;
         if (std::size(descriptorSetHolders) > 1) {
             auto descriptorSetName = fmt::format("{} set #{} #{}/{}", name, set, i++, std::size(descriptorSetHolders));
             device.setDebugUtilsObjectName(descriptorSets.back(), descriptorSetName);
@@ -70,8 +75,12 @@ DescriptorSets::DescriptorSets(std::string_view name, const Context & context, c
             auto descriptorSetName = fmt::format("{} set #{}", name, set);
             device.setDebugUtilsObjectName(descriptorSets.back(), descriptorSetName);
         }
-        ++bindings;
     }
+}
+
+uint32_t DescriptorSets::getSet() const
+{
+    return set;
 }
 
 const std::vector<vk::DescriptorSet> & DescriptorSets::getDescriptorSets() const &

@@ -138,7 +138,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::map<uint32_t /*set*/, SetBindings> setBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
-    std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */> descriptorCounts;
+    std::unordered_map<uint32_t /*set*/, std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */>> setDescriptorCounts;
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered in the same way as setBindings: descriptorSetLayouts[descriptorSetLayouts[set].setIndex]
 

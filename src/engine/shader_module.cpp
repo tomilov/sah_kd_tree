@@ -620,7 +620,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eUniformBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eStorageBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
             } else {
-                descriptorCounts[descriptorSetLayoutBinding.descriptorType] += descriptorSetLayoutBinding.descriptorCount;
+                setDescriptorCounts[set][descriptorSetLayoutBinding.descriptorType] += descriptorSetLayoutBinding.descriptorCount;
             }
         }
 

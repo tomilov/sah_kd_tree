@@ -133,6 +133,7 @@ public:
     ~Buffer();
 
     [[nodiscard]] const vk::BufferCreateInfo & getBufferCreateInfo() const;
+    [[nodiscard]] bool isDedicatedAllocation() const;
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
     [[nodiscard]] uint32_t getMemoryTypeIndex() const;
     [[nodiscard]] vk::DeviceSize getSize() const;
@@ -162,7 +163,7 @@ private:
 
     struct Impl;
 
-    static constexpr size_t kSize = 208;
+    static constexpr size_t kSize = 224;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
