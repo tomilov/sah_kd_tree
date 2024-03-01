@@ -111,11 +111,6 @@ auto Scene::SceneDescriptors::Resources::getDescriptorBufferInfos() const -> Des
     };
 }
 
-Scene::SceneDescriptors::operator std::unique_ptr<SceneDescriptors>() && noexcept
-{
-    return std::make_unique<SceneDescriptors>(std::move(*this));
-}
-
 auto Scene::FrameDescriptors::Resources::getDescriptorSetInfos() const -> DescriptorSetInfos
 {
     return {
@@ -128,11 +123,6 @@ auto Scene::FrameDescriptors::Resources::getDescriptorBufferInfos() const -> Des
     return {
         {kTransformBuferName, vk::DescriptorType::eUniformBuffer, uniformBuffer.base().getDescriptorAddressInfo()},
     };
-}
-
-Scene::FrameDescriptors::operator std::unique_ptr<FrameDescriptors>() && noexcept
-{
-    return std::make_unique<FrameDescriptors>(std::move(*this));
 }
 
 Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
@@ -312,30 +302,7 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
         }
     }
 
-    auto transformBuffer = [this, totalInstanceCount, &transforms]
-    {
-        vk::BufferCreateInfo transformBufferCreateInfo;
-        transformBufferCreateInfo.size = totalInstanceCount * sizeof(glm::mat4);
-        transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-        if (descriptorBufferEnabled) {
-            transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
-        }
-        engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("Transformations"s, transformBufferCreateInfo, getMinAlignment())};
-
-        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = transformBuffer.base().getMemoryPropertyFlags();
-        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
-
-        auto mappedTransformBuffer = transformBuffer.map();
-        auto t = mappedTransformBuffer.begin();
-        for (const auto & instanceTransforms : transforms) {
-            ASSERT(mappedTransformBuffer.end() != t);
-            t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);
-        }
-        ASSERT(t == mappedTransformBuffer.end());
-
-        return transformBuffer;
-    }();
+    auto transformBuffer = createTransformBuffer(totalInstanceCount, transforms);
 
     SceneDescriptors::Resources resources = {
         .transforms = std::move(transforms),
@@ -390,7 +357,7 @@ auto Scene::makeFrameDescriptors() const -> FrameDescriptors
     }
 }
 
-const std::vector<vk::PushConstantRange> & Scene::getScenePushConstantRanges() const
+const std::vector<vk::PushConstantRange> & Scene::getPushConstantRanges() const
 {
     return sceneShaderStages.pushConstantRanges;
 }
@@ -665,6 +632,32 @@ vk::DeviceSize Scene::getMinAlignment() const
 {
     const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
     return physicalDeviceLimits.nonCoherentAtomSize;
+}
+
+
+engine::Buffer<glm::mat4> Scene::createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const
+{
+    vk::BufferCreateInfo transformBufferCreateInfo;
+    transformBufferCreateInfo.size = totalInstanceCount * sizeof(glm::mat4);
+    transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    if (descriptorBufferEnabled) {
+        transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
+    }
+    engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("Transformations"s, transformBufferCreateInfo, getMinAlignment())};
+
+    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    auto memoryPropertyFlags = transformBuffer.base().getMemoryPropertyFlags();
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+    auto mappedTransformBuffer = transformBuffer.map();
+    auto t = mappedTransformBuffer.begin();
+    for (const auto & instanceTransforms : transforms) {
+        ASSERT(mappedTransformBuffer.end() != t);
+        t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);
+    }
+    ASSERT(t == mappedTransformBuffer.end());
+
+    return transformBuffer;
 }
 
 std::optional<engine::Buffer<scene::VertexAttributes>> Scene::createVertexBuffer() const

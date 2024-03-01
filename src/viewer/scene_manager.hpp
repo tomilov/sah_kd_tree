@@ -121,8 +121,6 @@ public:
         Resources resources;
         std::variant<DescriptorSets, DescriptorBuffers> descriptors;
 
-        operator std::unique_ptr<SceneDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
-
         static constexpr void completeClassContext()
         {
             checkTraits();
@@ -143,8 +141,6 @@ public:
 
         Resources resources;
         std::variant<DescriptorSets, DescriptorBuffers> descriptors;
-
-        operator std::unique_ptr<FrameDescriptors>() && noexcept;  // NOLINT: google-explicit-constructor
 
         static constexpr void completeClassContext()
         {
@@ -172,7 +168,7 @@ public:
 
     [[nodiscard]] SceneDescriptors makeSceneDescriptors() const;
     [[nodiscard]] FrameDescriptors makeFrameDescriptors() const;
-    [[nodiscard]] const std::vector<vk::PushConstantRange> & getScenePushConstantRanges() const;
+    [[nodiscard]] const std::vector<vk::PushConstantRange> & getPushConstantRanges() const;
     [[nodiscard]] std::unique_ptr<GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
 
     [[nodiscard]] bool isDescriptorBufferEnabled() const
@@ -227,6 +223,8 @@ private:
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
+
+    engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
     std::optional<engine::Buffer<scene::VertexAttributes>> createVertexBuffer() const;
 
     engine::Buffer<UniformBuffer> createUniformBuffer() const;

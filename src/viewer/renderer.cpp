@@ -85,6 +85,16 @@ public:
     }
 };
 
+template<typename T, typename U>
+[[nodiscard]] std::vector<T> concatenate(const std::vector<U> & first, const std::vector<U> & second)
+{
+    std::vector<T> result;
+    result.reserve(std::size(first) + std::size(second));
+    result.insert(std::cend(result), std::cbegin(first), std::cend(first));
+    result.insert(std::cend(result), std::cbegin(second), std::cend(second));
+    return result;
+}
+
 constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
     0x5C0EC5D6,
     0xE4D96472,
@@ -152,6 +162,7 @@ struct Renderer::Impl
     const uint32_t framesInFlight;
 
     std::shared_ptr<const Scene> scene;
+    utils::CheckedPtr<const std::vector<vk::PushConstantRange>> pushConstantRanges = nullptr;
     std::shared_ptr<const Scene::SceneDescriptors> sceneDescriptors;
     std::shared_ptr<const Scene::GraphicsPipeline> sceneGraphicsPipeline;
     ResourceStack<std::shared_ptr<const Scene::FrameDescriptors>> frameDescriptorsPool;
@@ -422,6 +433,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     frameDescriptorsPool.clear();
     sceneGraphicsPipeline.reset();
     sceneDescriptors.reset();
+    pushConstantRanges = nullptr;
     this->scene = std::move(scene);
 }
 
@@ -443,15 +455,17 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
+    if (!pushConstantRanges) {
+        pushConstantRanges = &scene->getPushConstantRanges();
+    }
     if (!sceneDescriptors) {
         sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
     }
-    if (!currentFrameDescriptors) {
-        currentFrameDescriptors = getFrameDescriptors();
-    }
+    /* TODO: resource recycling 1. tied to frame slot and 2. tied to fence */reuse(prev(currentFrameSlot), std::move(currentFrameDescriptors));
+    currentFrameDescriptors = getFrameDescriptors();
 
     {
-        auto mappedUniformBuffer = currentFrameDescriptors->uniformBuffer.map();
+        auto mappedUniformBuffer = currentFrameDescriptors->resources.uniformBuffer.map();
         fillUniformBuffer(frameSettings, *mappedUniformBuffer.data());
     }
 }
@@ -484,23 +498,35 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferEnabled()) {
-        const auto & descriptorSetBuffers = currentFrameDescriptors->descriptorSetBuffers;
-        if (!std::empty(descriptorSetBuffers)) {
-            commandBuffer.bindDescriptorBuffersEXT(currentFrameDescriptors->descriptorBufferBindingInfos, context.getDispatcher());
-            std::vector<uint32_t> bufferIndices(std::size(descriptorSetBuffers));
+        const auto * sceneDescriptorBuffers = std::get_if<Scene::DescriptorBuffers>(&sceneDescriptors->descriptors);
+        INVARIANT(sceneDescriptorBuffers, "");
+        const auto * frameDescriptorBuffers = std::get_if<Scene::DescriptorBuffers>(&currentFrameDescriptors->descriptors);
+        INVARIANT(frameDescriptorBuffers, "");
+        if (!std::empty(sceneDescriptorBuffers->descriptorBuffers) || !std::empty(frameDescriptorBuffers->descriptorBuffers)) {
+            auto descriptorBufferBindingInfos = concatenate<vk::DescriptorBufferBindingInfoEXT>(sceneDescriptorBuffers->descriptorBufferBindingInfos, frameDescriptorBuffers->descriptorBufferBindingInfos);
+            auto descriptorBuffers = concatenate<vk::Buffer>(sceneDescriptorBuffers->descriptorBuffers, frameDescriptorBuffers->descriptorBuffers);
+            commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
+            std::vector<uint32_t> bufferIndices(std::size(descriptorBuffers));
             std::iota(std::begin(bufferIndices), std::end(bufferIndices), bufferIndices.front());
-            std::vector<vk::DeviceSize> offsets(std::size(descriptorSetBuffers), 0);
-            // std::fill(std::begin(offsets), std::end(offsets), 0);
+            std::vector<vk::DeviceSize> offsets(std::size(descriptorBuffers), 0);
             commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
         }
     } else {
-        constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, currentFrameDescriptors->descriptorSets.value().getDescriptorSets(), kDynamicOffsets, context.getDispatcher());
+        const auto * sceneDescriptorSets = std::get_if<Scene::DescriptorSets>(&sceneDescriptors->descriptors);
+        INVARIANT(sceneDescriptorSets, "");
+        const auto * frameDescriptorSets = std::get_if<Scene::DescriptorSets>(&currentFrameDescriptors->descriptors);
+        INVARIANT(frameDescriptorSets, "");
+        if (!std::empty(sceneDescriptorSets->descriptorSets.getDescriptorSets()) || !std::empty(frameDescriptorSets->descriptorSets.getDescriptorSets())) {
+            auto descriptorSets = concatenate<vk::DescriptorSet>(sceneDescriptorSets->descriptorSets.getDescriptorSets(), frameDescriptorSets->descriptorSets.getDescriptorSets());
+            constexpr auto kDynamicOffsets = nullptr;
+            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
+        }
     }
 
     {
         PushConstants pushConstants = getPushConstants(frameSettings);
-        for (const auto & pushConstantRange : sceneDescriptors->pushConstantRanges) {
+        ASSERT(pushConstantRanges);
+        for (const auto & pushConstantRange : *pushConstantRanges) {
             const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
             commandBuffer.pushConstants(scenePipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
         }
@@ -518,6 +544,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     };
     commandBuffer.setScissor(kFirstScissor, scissors, context.getDispatcher());
 
+    const auto & sceneResources = sceneDescriptors->resources;
+
     constexpr uint32_t kFirstBinding = 0;
     const auto bufferOrNull = [this](const auto & wrapper) -> vk::Buffer
     {
@@ -525,43 +553,43 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
             return wrapper.value();
         } else {
             if (sah_kd_tree::kIsDebugBuild) {
-                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
             }
             return VK_NULL_HANDLE;
         }
     };
     std::initializer_list<vk::Buffer> vertexBuffers = {
-        bufferOrNull(sceneDescriptors->vertexBuffer),
+        bufferOrNull(sceneResources.vertexBuffer),
     };
     std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
     commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, context.getDispatcher());
 
     vk::Buffer indexBuffer;
     vk::DeviceSize indexBufferSize = 0;
-    if (sceneDescriptors->indexBuffer) {
-        indexBuffer = sceneDescriptors->indexBuffer.value();
-        indexBufferSize = sceneDescriptors->indexBuffer.value().getSize();
+    if (sceneResources.indexBuffer) {
+        indexBuffer = sceneResources.indexBuffer.value();
+        indexBufferSize = sceneResources.indexBuffer.value().getSize();
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (scene->isMultiDrawIndirectEnabled()) {
-        const auto indexType = sceneDescriptors->indexTypes.at(0);
+        const auto indexType = sceneResources.indexTypes.at(0);
         commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
-        uint32_t drawCount = sceneDescriptors->drawCount;
+        uint32_t drawCount = sceneResources.drawCount;
         const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
         if (scene->isDrawIndirectCountEnabled()) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
-            commandBuffer.drawIndexedIndirectCount(sceneDescriptors->instanceBuffer.value(), kInstanceBufferOffset, sceneDescriptors->drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());
+            commandBuffer.drawIndexedIndirectCount(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, sceneResources.drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());
         } else {
-            commandBuffer.drawIndexedIndirect(sceneDescriptors->instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, context.getDispatcher());
+            commandBuffer.drawIndexedIndirect(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, context.getDispatcher());
         }
     } else {
-        auto indexType = std::cbegin(sceneDescriptors->indexTypes);
-        for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : sceneDescriptors->instances) {
-            ASSERT(indexType != std::cend(sceneDescriptors->indexTypes));
+        auto indexType = std::cbegin(sceneResources.indexTypes);
+        for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : sceneResources.instances) {
+            ASSERT(indexType != std::cend(sceneResources.indexTypes));
             commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, *indexType++, context.getDispatcher());
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
@@ -594,11 +622,9 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const Scene::Frame
     while (!std::empty(frameDescriptorsPool)) {
         auto frameDescriptors = std::move(frameDescriptorsPool.top());
         frameDescriptorsPool.pop();
-        if (frameDescriptors->sceneDescriptors == sceneDescriptors) {
-            return frameDescriptors;
-        }
+        return frameDescriptors;
     }
-    return scene->makeFrameDescriptors(sceneDescriptors);
+    return std::make_shared<Scene::FrameDescriptors>(scene->makeFrameDescriptors());
 }
 
 void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const Scene::FrameDescriptors> frameDescriptors)
