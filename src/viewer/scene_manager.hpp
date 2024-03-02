@@ -83,8 +83,7 @@ public:
 
     struct DescriptorBuffers : utils::OneTime<DescriptorBuffers>
     {
-        std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
-        std::vector<engine::Buffer<std::byte>> descriptorBuffers;  // set-indexed
+        engine::Buffer<std::byte> descriptorBuffer;
 
         static constexpr void completeClassContext()
         {
@@ -100,6 +99,7 @@ public:
     struct SceneDescriptors : utils::OneTime<SceneDescriptors>
     {
         static constexpr uint32_t kSet = 0;
+        static inline const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
 
         struct Resources
         {
@@ -130,6 +130,7 @@ public:
     struct FrameDescriptors : utils::OneTime<FrameDescriptors>
     {
         static constexpr uint32_t kSet = 1;
+        static inline const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
 
         struct Resources
         {
@@ -222,7 +223,6 @@ private:
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
-
 
     engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
     std::optional<engine::Buffer<scene::VertexAttributes>> createVertexBuffer() const;

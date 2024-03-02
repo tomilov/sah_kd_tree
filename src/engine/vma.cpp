@@ -9,6 +9,7 @@
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 
+#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
@@ -124,22 +125,22 @@ auto MemoryAllocator::createReadbackBuffer(std::string_view name, const vk::Buff
     return createBuffer(name, bufferCreateInfo, AllocationType::kReadback, minAlignment);
 }
 
-auto MemoryAllocator::createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask) const & -> Image
+auto MemoryAllocator::createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask) const & -> Image
 {
-    return {name, *this, imageCreateInfo, allocationType, aspectMask};
+    return {name, *this, imageCreateInfo, allocationType, imageAspectMask};
 }
 
-auto MemoryAllocator::createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const & -> Image
+auto MemoryAllocator::createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kStaging, aspectMask);
+    return createImage(name, imageCreateInfo, AllocationType::kStaging, imageAspectMask);
 }
 
-auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const & -> Image
+auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kReadback, aspectMask);
+    return createImage(name, imageCreateInfo, AllocationType::kReadback, imageAspectMask);
 }
 
-Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags aspectMask) const &
+Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask) const &
 {
     vk::ImageCreateInfo imageCreateInfo = {
         .flags = {},
@@ -158,7 +159,7 @@ Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, c
         .sharingMode = vk::SharingMode::eExclusive,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
-    return createImage(name, imageCreateInfo, AllocationType::kAuto, aspectMask);
+    return createImage(name, imageCreateInfo, AllocationType::kAuto, imageAspectMask);
 }
 
 MemoryAllocator::Impl::Impl(const Context & context) : context{context}
@@ -173,7 +174,7 @@ MemoryAllocator::Impl::Impl(const Context & context) : context{context}
         allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*context.getAllocationCallbacks());
     }
 
-    allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;  // ?
+    // allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;  // ?
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
@@ -287,13 +288,17 @@ namespace
 
 struct BufferResource final : utils::NonCopyable
 {
+    const std::string name;
     const VmaAllocator allocator;
 
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
 
-    explicit BufferResource(VmaAllocator allocator) : allocator{allocator}
+    explicit BufferResource(std::string_view name, VmaAllocator allocator) : name{name}, allocator{allocator}
     {
+        ASSERT(!std::empty(name));
+        SPDLOG_INFO("CONSTRUCT '{}'", name);
+
         ASSERT(allocator);
     }
 
@@ -302,6 +307,9 @@ struct BufferResource final : utils::NonCopyable
         ASSERT(buffer);
         ASSERT(allocation);
         vmaDestroyBuffer(allocator, buffer, allocation);
+
+        ASSERT(!std::empty(name));
+        SPDLOG_INFO("DESTRUCT '{}'", name);
     }
 };
 
@@ -309,7 +317,6 @@ struct BufferResource final : utils::NonCopyable
 
 struct Buffer<void>::Impl final : utils::OneTime<Impl>
 {
-    std::string name;
     const MemoryAllocator & memoryAllocator;
     const vk::BufferCreateInfo createInfo;
     const AllocationType allocationType;
@@ -492,21 +499,21 @@ MappedMemory<void>::Impl::~Impl()
 }
 
 Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment)
-    : name{name}, memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, minAlignment{minAlignment}
+    : memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, minAlignment{minAlignment}
 {
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
     auto allocator = memoryAllocator.impl_->allocator;
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
-    resource = std::make_unique<BufferResource>(allocator);
+    resource = std::make_unique<BufferResource>(name, allocator);
     {
         auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &resource->buffer, &resource->allocation, nullptr)};
         INVARIANT(result == vk::Result::eSuccess, "{}", result);
         vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
     }
 
-    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Buffer{resource->buffer}, this->name.c_str());
-    vmaSetAllocationName(allocator, resource->allocation, this->name.c_str());
+    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Buffer{resource->buffer}, resource->name.c_str());
+    vmaSetAllocationName(allocator, resource->allocation, resource->name.c_str());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
     vmaGetAllocationMemoryProperties(allocator, resource->allocation, &cMemoryPropertyFlags);
@@ -543,13 +550,17 @@ namespace
 
 struct ImageResource final : utils::NonCopyable
 {
+    const std::string name;
     const VmaAllocator allocator;
 
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
 
-    explicit ImageResource(VmaAllocator allocator) : allocator{allocator}
+    explicit ImageResource(std::string_view name, VmaAllocator allocator) : name{name}, allocator{allocator}
     {
+        ASSERT(!std::empty(name));
+        SPDLOG_INFO("CONSTRUCT '{}'", name);
+
         ASSERT(allocator);
     }
 
@@ -558,6 +569,9 @@ struct ImageResource final : utils::NonCopyable
         ASSERT(image);
         ASSERT(allocation);
         vmaDestroyImage(allocator, image, allocation);
+
+        ASSERT(!std::empty(name));
+        SPDLOG_INFO("DESTRUCT '{}'", name);
     }
 };
 
@@ -565,11 +579,10 @@ struct ImageResource final : utils::NonCopyable
 
 struct Image::Impl final : utils::OneTime<Impl>
 {
-    std::string name;
     const MemoryAllocator & memoryAllocator;
     const vk::ImageCreateInfo createInfo;
     const AllocationType allocationType;
-    const vk::ImageAspectFlags aspectMask;
+    const vk::ImageAspectFlags imageAspectMask;
 
     std::unique_ptr<ImageResource> resource;
     VmaAllocationInfo2 allocationInfo = {};
@@ -581,7 +594,7 @@ struct Image::Impl final : utils::OneTime<Impl>
     vk::ImageLayout layout = vk::ImageLayout::eUndefined;
     uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
-    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask);
+    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask);
 
     static constexpr void completeClassContext()
     {
@@ -602,9 +615,9 @@ bool Image::isDedicatedAllocation() const
     return impl_->allocationInfo.dedicatedMemory == VK_TRUE;
 }
 
-vk::ImageAspectFlags Image::getAspectMask() const
+vk::ImageAspectFlags Image::getImageAspectMask() const
 {
-    return impl_->aspectMask;
+    return impl_->imageAspectMask;
 }
 
 vk::MemoryPropertyFlags Image::getMemoryPropertyFlags() const
@@ -660,7 +673,7 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
         .dstQueueFamilyIndex = queueFamilyIndex,
         .image = impl_->resource->image,
         .subresourceRange = {
-            .aspectMask = impl_->aspectMask,
+            .aspectMask = impl_->imageAspectMask,
             .baseMipLevel = 0,
             .levelCount = VK_REMAINING_MIP_LEVELS,
             .baseArrayLayer = 0,
@@ -675,9 +688,9 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     return true;
 }
 
-vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags aspectMask) const
+vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const
 {
-    ASSERT_MSG(impl_->aspectMask & aspectMask, "{} ^ {}", impl_->aspectMask, aspectMask);
+    ASSERT_MSG(impl_->imageAspectMask & imageAspectMask, "{} ^ {}", impl_->imageAspectMask, imageAspectMask);
     vk::ImageViewCreateInfo imageViewCreateInfo = {
         .flags = {},
         .image = impl_->resource->image,
@@ -690,7 +703,7 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
             .a = vk::ComponentSwizzle::eIdentity,
         },
         .subresourceRange = {
-            .aspectMask = aspectMask,
+            .aspectMask = imageAspectMask,
             .baseMipLevel = 0,
             .levelCount = VK_REMAINING_MIP_LEVELS,
             .baseArrayLayer = 0,
@@ -701,26 +714,26 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
     return context.getDevice().getDevice().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 }
 
-Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask)
-    : impl_{name, memoryAllocator, createInfo, allocationType, aspectMask}
+Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask)
+    : impl_{name, memoryAllocator, createInfo, allocationType, imageAspectMask}
 {}
 
-Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask)
-    : name{name}, memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, aspectMask{aspectMask}, layout{createInfo.initialLayout}
+Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask)
+    : memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, imageAspectMask{imageAspectMask}, layout{createInfo.initialLayout}
 {
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
     auto allocator = memoryAllocator.impl_->allocator;
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
-    resource = std::make_unique<ImageResource>(allocator);
+    resource = std::make_unique<ImageResource>(name, allocator);
     {
         auto result = vk::Result{vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &resource->image, &resource->allocation, nullptr)};
         INVARIANT(result == vk::Result::eSuccess, "{}", result);
         vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
     }
 
-    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Image{resource->image}, this->name.c_str());
-    vmaSetAllocationName(allocator, resource->allocation, this->name.c_str());
+    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Image{resource->image}, resource->name.c_str());
+    vmaSetAllocationName(allocator, resource->allocation, resource->name.c_str());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
     vmaGetAllocationMemoryProperties(allocator, resource->allocation, &cMemoryPropertyFlags);

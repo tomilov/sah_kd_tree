@@ -5,6 +5,7 @@
 #include <utils/checked_ptr.hpp>
 #include <utils/exception.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/math.hpp>
 #include <utils/meta.hpp>
 #include <utils/noncopyable.hpp>
 #include <utils/overloaded.hpp>

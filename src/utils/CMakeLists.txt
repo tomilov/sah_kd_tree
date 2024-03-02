@@ -42,7 +42,9 @@ target_sources(
         "scope_guard.hpp"
         "scope_guard.cpp"
         "mem_array.hpp"
-        "mem_array.cpp")
+        "mem_array.cpp"
+        "math.hpp"
+        "math.cpp")
 
 add_subdirectory("tests")
 

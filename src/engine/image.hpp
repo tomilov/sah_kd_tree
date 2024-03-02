@@ -28,7 +28,7 @@ public:
 
     [[nodiscard]] const vk::ImageCreateInfo & getImageCreateInfo() const;
     [[nodiscard]] bool isDedicatedAllocation() const;
-    [[nodiscard]] vk::ImageAspectFlags getAspectMask() const;
+    [[nodiscard]] vk::ImageAspectFlags getImageAspectMask() const;
     [[nodiscard]] vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
     [[nodiscard]] uint32_t getMemoryTypeIndex() const;
     [[nodiscard]] vk::Extent2D getExtent2D() const;
@@ -39,18 +39,18 @@ public:
 
     [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {});
 
-    [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags aspectMask) const;
+    [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const;
 
 private:
     struct Impl;
 
     friend class MemoryAllocator;
 
-    static constexpr size_t kSize = 248;
+    static constexpr size_t kSize = 216;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask);
+    Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask);
 
     static constexpr void completeClassContext()
     {

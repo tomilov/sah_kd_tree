@@ -163,7 +163,7 @@ private:
 
     struct Impl;
 
-    static constexpr size_t kSize = 224;
+    static constexpr size_t kSize = 192;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
@@ -181,11 +181,10 @@ template<typename T>
 class ENGINE_EXPORT Buffer final : utils::OneTime<Buffer<T>>
 {
 public:
-    explicit Buffer(Buffer<void> && buffer, vk::DeviceSize count = 1) noexcept : buffer{std::move(buffer)}, count{count}
+    explicit Buffer(Buffer<void> && buffer) noexcept : buffer{std::move(buffer)}, count{base().getSize() / sizeof(T)}
     {
         ASSERT(count > 0);
         ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);
-        ASSERT_MSG((base().getSize() / count) >= sizeof(T), "Size of buffer element {} is less than static element size {}", base().getSize() / count, sizeof(T));
     }
 
     [[nodiscard]] vk::DeviceSize getElementSize() const

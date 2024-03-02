@@ -36,4 +36,3 @@ void main()
     //debugPrintfEXT("%i\n", gl_VertexIndex);
     outUv = uv;
 }
-

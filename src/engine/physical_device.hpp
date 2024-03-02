@@ -36,12 +36,13 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
     vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceDescriptorIndexingProperties,
                        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceMaintenance5PropertiesKHR>
+                       vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceMaintenance5PropertiesKHR, vk::PhysicalDeviceMaintenance6PropertiesKHR>
         properties2Chain;
     uint32_t apiVersion = VK_API_VERSION_1_0;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceDescriptorIndexingFeatures,
                        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR>
+                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesEXT, vk::PhysicalDeviceMaintenance5FeaturesKHR,
+                       vk::PhysicalDeviceMaintenance6FeaturesKHR>
         features2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -51,7 +52,9 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     // clang-format off
     using DebugFeatures = FeatureList<
-        &vk::PhysicalDeviceFeatures::robustBufferAccess
+        &vk::PhysicalDeviceFeatures::robustBufferAccess,
+        &vk::PhysicalDeviceRobustness2FeaturesEXT::robustBufferAccess2,
+        &vk::PhysicalDeviceRobustness2FeaturesEXT::robustImageAccess2
     >;
 
     using RequiredFeatures = FeatureList<
@@ -75,7 +78,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceRobustness2FeaturesEXT::nullDescriptor,
         //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // VK_KHR_SHADER_CLOCK_EXTENSION_NAME, shaderInt64
         &vk::PhysicalDeviceIndexTypeUint8FeaturesEXT::indexTypeUint8,
-        &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5
+        &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,
+        &vk::PhysicalDeviceMaintenance6FeaturesKHR::maintenance6
     >;
     // clang-format on
 

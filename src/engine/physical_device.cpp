@@ -177,18 +177,20 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     auto checkFeature = [this, &i, &isAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::*feature) mutable
     {
         ++i;
+        bool isFeatureAvailable = true;
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
             if (features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature == VK_FALSE) {
-                isAllFeaturesAvailable = false;
+                isFeatureAvailable = false;
             }
         } else {
             if (features2Chain.get<Features>().*feature == VK_FALSE) {
-                isAllFeaturesAvailable = false;
+                isFeatureAvailable = false;
             }
         }
-        if (!isAllFeaturesAvailable) {
+        if (!isFeatureAvailable) {
             SPDLOG_WARN("Feature {}.#{} is not available", typeid(Features).name(), i);
         }
+        isAllFeaturesAvailable = isFeatureAvailable;
     };
     const auto checkFeatures = [&checkFeature]<auto... features>(const FeatureList<features...> *)
     {

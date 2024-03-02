@@ -15,7 +15,7 @@ layout(push_constant, scalar) uniform PushConstants
     mat4 mvp;
 } pushConstants;
 
-layout(std140, set = 0, binding = 1) restrict readonly buffer TransformBuffer
+layout(std140, set = 0, binding = 0) restrict readonly buffer TransformBuffer
 {
     mat4 transforms[];
 } transformBuffer;
@@ -27,4 +27,3 @@ void main()
     gl_Position = screenVertexPosition;
     y = screenVertexPosition.y;
 }
-

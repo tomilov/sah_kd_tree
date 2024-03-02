@@ -53,11 +53,11 @@ public:
     [[nodiscard]] Buffer<void> createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment) const &;
     [[nodiscard]] Buffer<void> createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment) const &;
 
-    [[nodiscard]] Image createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags aspectMask) const &;
-    [[nodiscard]] Image createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const &;
-    [[nodiscard]] Image createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags aspectMask) const &;
+    [[nodiscard]] Image createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask) const &;
+    [[nodiscard]] Image createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const &;
+    [[nodiscard]] Image createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const &;
 
-    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags aspectMask) const &;
+    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask) const &;
 
 private:
     friend class MappedMemory<void>;
