@@ -57,8 +57,6 @@ target_sources(
         "shader_module.cpp"
         "render_pass.hpp"
         "render_pass.cpp"
-        "framebuffer.hpp"
-        "framebuffer.cpp"
         "pipeline_cache.hpp"
         "pipeline_cache.cpp"
         "graphics_pipeline.hpp"

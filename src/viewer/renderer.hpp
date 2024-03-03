@@ -39,11 +39,10 @@ struct FrameSettings
     float zFar = 1E3f;
 };
 
-class Renderer : utils::OneTime<Renderer>
+class Renderer : utils::NonCopyable
 {
 public:
     Renderer(const engine::Context & context, uint32_t framesInFlight);
-    Renderer(Renderer &&) noexcept;
     ~Renderer();
 
     void setScene(std::shared_ptr<const Scene> scene);
@@ -58,11 +57,6 @@ private:
     static constexpr size_t kSize = 184;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
-
-    static constexpr void completeClassContext()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace viewer

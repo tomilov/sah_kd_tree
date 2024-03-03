@@ -290,26 +290,20 @@ struct BufferResource final : utils::NonCopyable
 {
     const std::string name;
     const VmaAllocator allocator;
+    const VkBuffer buffer;
+    const VmaAllocation allocation;
 
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
-
-    explicit BufferResource(std::string_view name, VmaAllocator allocator) : name{name}, allocator{allocator}
+    BufferResource(std::string_view name, VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation) : name{name}, allocator{allocator}, buffer{buffer}, allocation{allocation}
     {
         ASSERT(!std::empty(name));
-        SPDLOG_INFO("CONSTRUCT '{}'", name);
-
         ASSERT(allocator);
+        ASSERT(buffer);
+        ASSERT(allocation);
     }
 
     ~BufferResource()
     {
-        ASSERT(buffer);
-        ASSERT(allocation);
         vmaDestroyBuffer(allocator, buffer, allocation);
-
-        ASSERT(!std::empty(name));
-        SPDLOG_INFO("DESTRUCT '{}'", name);
     }
 };
 
@@ -408,7 +402,6 @@ vk::DescriptorAddressInfoEXT Buffer<void>::getDescriptorAddressInfo() const &
 vk::Buffer Buffer<void>::getBuffer() const &
 {
     ASSERT(impl_->resource);
-    ASSERT(impl_->resource->buffer != VK_NULL_HANDLE);
     return impl_->resource->buffer;
 }
 
@@ -505,18 +498,18 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
 
     auto allocator = memoryAllocator.impl_->allocator;
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
-    resource = std::make_unique<BufferResource>(name, allocator);
-    {
-        auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &resource->buffer, &resource->allocation, nullptr)};
-        INVARIANT(result == vk::Result::eSuccess, "{}", result);
-        vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
-    }
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    auto result = vk::Result{vmaCreateBufferWithAlignment(allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &buffer, &allocation, nullptr)};
+    INVARIANT(result == vk::Result::eSuccess, "{}", result);
+    resource = std::make_unique<BufferResource>(name, allocator, buffer, allocation);
+    vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
 
-    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Buffer{resource->buffer}, resource->name.c_str());
-    vmaSetAllocationName(allocator, resource->allocation, resource->name.c_str());
+    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Buffer{buffer}, resource->name.c_str());
+    vmaSetAllocationName(allocator, allocation, resource->name.c_str());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
-    vmaGetAllocationMemoryProperties(allocator, resource->allocation, &cMemoryPropertyFlags);
+    vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);
     memoryPropertyFlags = vk::MemoryPropertyFlags{cMemoryPropertyFlags};
 
     {
@@ -552,26 +545,20 @@ struct ImageResource final : utils::NonCopyable
 {
     const std::string name;
     const VmaAllocator allocator;
+    const VkImage image;
+    const VmaAllocation allocation;
 
-    VkImage image = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
-
-    explicit ImageResource(std::string_view name, VmaAllocator allocator) : name{name}, allocator{allocator}
+    ImageResource(std::string_view name, VmaAllocator allocator, VkImage image, VmaAllocation allocation) : name{name}, allocator{allocator}, image{image}, allocation{allocation}
     {
         ASSERT(!std::empty(name));
-        SPDLOG_INFO("CONSTRUCT '{}'", name);
-
         ASSERT(allocator);
+        ASSERT(image);
+        ASSERT(allocation);
     }
 
     ~ImageResource()
     {
-        ASSERT(image);
-        ASSERT(allocation);
         vmaDestroyImage(allocator, image, allocation);
-
-        ASSERT(!std::empty(name));
-        SPDLOG_INFO("DESTRUCT '{}'", name);
     }
 };
 
@@ -648,7 +635,6 @@ vk::Extent3D Image::getExtent3D() const
 vk::Image Image::getImage() const &
 {
     ASSERT(impl_->resource);
-    ASSERT(impl_->resource->image != VK_NULL_HANDLE);
     return impl_->resource->image;
 }
 
@@ -725,18 +711,18 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
 
     auto allocator = memoryAllocator.impl_->allocator;
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
-    resource = std::make_unique<ImageResource>(name, allocator);
-    {
-        auto result = vk::Result{vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &resource->image, &resource->allocation, nullptr)};
-        INVARIANT(result == vk::Result::eSuccess, "{}", result);
-        vmaGetAllocationInfo2(allocator, resource->allocation, &allocationInfo);
-    }
+    VkImage image = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    auto result = vk::Result{vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, nullptr)};
+    INVARIANT(result == vk::Result::eSuccess, "{}", result);
+    resource = std::make_unique<ImageResource>(name, allocator, image, allocation);
+    vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
 
-    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Image{resource->image}, resource->name.c_str());
-    vmaSetAllocationName(allocator, resource->allocation, resource->name.c_str());
+    memoryAllocator.impl_->context.getDevice().setDebugUtilsObjectName(vk::Image{image}, resource->name.c_str());
+    vmaSetAllocationName(allocator, allocation, resource->name.c_str());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
-    vmaGetAllocationMemoryProperties(allocator, resource->allocation, &cMemoryPropertyFlags);
+    vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);
     memoryPropertyFlags = vk::MemoryPropertyFlags{cMemoryPropertyFlags};
 
     {

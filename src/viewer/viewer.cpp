@@ -57,7 +57,7 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 class CleanupJob : public QRunnable
 {
 public:
-    explicit CleanupJob(Renderer && renderer) : renderer{std::move(renderer)}
+    explicit CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
     {}
 
     void run() override
@@ -66,7 +66,7 @@ public:
     }
 
 private:
-    std::optional<Renderer> renderer;
+    std::unique_ptr<Renderer> renderer;
 };
 
 }  // namespace
@@ -324,24 +324,24 @@ void Viewer::beforeRendering()
 
     auto graphicsStateInfo = window()->graphicsStateInfo();
 
-    if (!*renderer) {
+    if (!renderer) {
         checkEngine();
-        renderer->emplace(engine->getContext(), utils::autoCast(graphicsStateInfo.framesInFlight));
+        renderer = std::make_unique<Renderer>(engine->getContext(), utils::autoCast(graphicsStateInfo.framesInFlight));
     }
 
-    if (renderer->value().getScene() != scene) {
-        renderer->value().setScene(scene);
+    if (renderer->getScene() != scene) {
+        renderer->setScene(scene);
     }
 
     if (boundingRect().isEmpty()) {
         return;
     }
-    renderer->value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
+    renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
 }
 
 void Viewer::beforeRenderPassRecording()
 {
-    if (!*renderer) {
+    if (!renderer) {
         return;
     }
 
@@ -369,7 +369,7 @@ void Viewer::beforeRenderPassRecording()
         device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
 
         auto graphicsStateInfo = w->graphicsStateInfo();
-        renderer->value().render(*commandBuffer, *renderPass, utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
+        renderer->render(*commandBuffer, *renderPass, utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
     }
     w->endExternalCommands();
 }
@@ -595,9 +595,8 @@ void Viewer::handleInput()
 void Viewer::releaseResources()
 {
     scene.reset();
-    if (*renderer) {
-        window()->scheduleRenderJob(new CleanupJob{std::move(*renderer).value()}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
-        renderer->reset();
+    if (renderer) {
+        window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
     }
 }
 

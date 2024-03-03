@@ -70,10 +70,9 @@ public:
         kDisplayPipeline,
     };
 
-    struct DescriptorSets : utils::OneTime<DescriptorSets>
+    struct DescriptorSet : utils::OneTime<DescriptorSet>
     {
-        engine::DescriptorPool descriptorPool;
-        engine::DescriptorSets descriptorSets;
+        engine::DescriptorSet descriptorSet;
 
         static constexpr void completeClassContext()
         {
@@ -81,7 +80,7 @@ public:
         }
     };
 
-    struct DescriptorBuffers : utils::OneTime<DescriptorBuffers>
+    struct DescriptorBuffer : utils::OneTime<DescriptorBuffer>
     {
         engine::Buffer<std::byte> descriptorBuffer;
 
@@ -119,7 +118,17 @@ public:
         };
 
         Resources resources;
-        std::variant<DescriptorSets, DescriptorBuffers> descriptors;
+        std::variant<DescriptorSet, DescriptorBuffer> descriptors;
+
+        const DescriptorSet & getDescriptorSet() const &
+        {
+            return std::get<DescriptorSet>(descriptors);
+        }
+
+        const DescriptorBuffer & getDescriptorBuffer() const &
+        {
+            return std::get<DescriptorBuffer>(descriptors);
+        }
 
         static constexpr void completeClassContext()
         {
@@ -141,7 +150,17 @@ public:
         };
 
         Resources resources;
-        std::variant<DescriptorSets, DescriptorBuffers> descriptors;
+        std::variant<DescriptorSet, DescriptorBuffer> descriptors;
+
+        const DescriptorSet & getDescriptorSet() const &
+        {
+            return std::get<DescriptorSet>(descriptors);
+        }
+
+        const DescriptorBuffer & getDescriptorBuffer() const &
+        {
+            return std::get<DescriptorBuffer>(descriptors);
+        }
 
         static constexpr void completeClassContext()
         {
@@ -229,11 +248,11 @@ private:
 
     engine::Buffer<UniformBuffer> createUniformBuffer() const;
 
-    DescriptorSets createDescriptorSets(const engine::ShaderStages & shaderStages, uint32_t set) const;
-    DescriptorBuffers createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
+    DescriptorSet createDescriptorSet(const engine::ShaderStages & shaderStages, uint32_t set) const;
+    DescriptorBuffer createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
 
-    void fillDescriptorSets(DescriptorSets & descriptorSets, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
-    void fillDescriptorBuffer(DescriptorBuffers & descriptorBuffers, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
+    void fillDescriptorSet(DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
+    void fillDescriptorBuffer(DescriptorBuffer & descriptorBuffers, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
 };
 
 class SceneManager

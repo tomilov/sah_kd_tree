@@ -3,7 +3,6 @@
 #include <engine/context.hpp>
 #include <engine/debug_utils.hpp>
 #include <engine/device.hpp>
-#include <engine/framebuffer.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/image.hpp>
 #include <engine/instance.hpp>
@@ -51,6 +50,8 @@ namespace viewer
 namespace
 {
 
+using Resource = std::shared_ptr<const void>;
+
 template<typename T>
 class ResourceStack final : std::stack<T, std::vector<T>>
 {
@@ -88,21 +89,41 @@ public:
     }
 };
 
-template<typename F, typename... Args>
-[[nodiscard]] std::unique_ptr<void, void (*)(void *)> makeRecycler(F && f, Args &&... args)
+class Recycler : utils::OneTime<Recycler>
 {
-    static_assert(std::is_invocable_v<F &&, Args &&...>);
-    using Recycler = std::pair<std::decay_t<F>, std::tuple<std::decay_t<Args>...>>;
-    constexpr auto recycle = [](void * p)
+public:
+    template<typename F, typename... Args>
+    Recycler(F && f, Args &&... args) : holder{makeHolder<F, Args...>(f, args..., std::index_sequence_for<Args...>{})}  // NOLINT: google-explicit-constructor
+    {}
+
+    [[nodiscard]] operator Resource() && noexcept  // NOLINT: google-explicit-constructor
     {
-        std::unique_ptr<Recycler> recycler{static_cast<Recycler *>(p)};
-        [&recycler]<size_t... Indices>(std::index_sequence<Indices...>)
+        return std::move(holder);
+    }
+
+private:
+    using Holder = std::unique_ptr<void, void (*)(void * p)>;
+
+    Holder holder;
+
+    template<typename F, typename... Args, size_t... Indices>
+    [[nodiscard]] static Holder makeHolder(F & f, Args &... args, std::index_sequence<Indices...>)
+    {
+        static_assert(std::is_invocable_v<F &&, Args &&...>);
+        using Storage = std::pair<std::decay_t<F>, std::tuple<std::decay_t<Args>...>>;
+        constexpr auto recycle = [](void * p)
         {
-            std::invoke(recycler->first, std::forward<Args>(std::get<Indices>(recycler->second))...);
-        }(std::index_sequence_for<Args...>{});
-    };
-    return {new Recycler{std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...)}, recycle};
-}
+            std::unique_ptr<Storage> recycler{static_cast<Storage *>(p)};
+            std::invoke(std::forward<F>(recycler->first), std::forward<Args>(std::get<Indices>(recycler->second))...);
+        };
+        return {new Storage{std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...)}, recycle};
+    }
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
 
 template<typename T, typename U>
 [[nodiscard]] std::vector<T> concatenate(const std::vector<U> & first, const std::vector<U> & second)
@@ -145,7 +166,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 }  // namespace
 
-struct Renderer::Impl
+struct Renderer::Impl : utils::NonCopyable
 {
     struct OffscreenRenderPass
     {
@@ -190,7 +211,8 @@ struct Renderer::Impl
     std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
     ResourceStack<std::shared_ptr<const Framebuffer>> framebufferPool;
 
-    std::vector<std::vector<std::shared_ptr<const void>>> deferredDeletionSlots{framesInFlight};
+    // revocation lists should be the last members
+    std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
     Impl(const engine::Context & context, uint32_t framesInFlight);
 
@@ -209,8 +231,8 @@ struct Renderer::Impl
     template<typename... Resources>
     void deferDeletion(uint32_t previousFrameSlot, Resources &&... resources)
     {
-        auto & resourceHolders = deferredDeletionSlots.at(previousFrameSlot);
-        (resourceHolders.emplace_back(std::forward<Resources>(resources)), ...);
+        auto & slotResources = deferredDeletionSlots.at(previousFrameSlot);
+        (slotResources.emplace_back(std::forward<Resources>(resources)), ...);
     }
 
     void deleteDeferred(uint32_t currentFrameSlot)
@@ -222,7 +244,6 @@ struct Renderer::Impl
 Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
 {}
 
-Renderer::Renderer(Renderer &&) noexcept = default;
 Renderer::~Renderer() = default;
 
 void Renderer::setScene(std::shared_ptr<const Scene> scene)
@@ -495,14 +516,13 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
         sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
     }
     if (frameDescriptors) {
-        deferDeletion(utils::modDown(currentFrameSlot, framesInFlight), makeRecycler(&Impl::putFrameDescriptors, this, std::move(frameDescriptors)));
+        uint32_t previousFrame = utils::modDown(currentFrameSlot, framesInFlight);
+        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // this captured, Renderer::Impl should be NonCopyable
+        deferDeletion(previousFrame, std::move(recycler));
     }
     frameDescriptors = getFrameDescriptors();
 
-    {
-        auto mappedUniformBuffer = frameDescriptors->resources.uniformBuffer.map();
-        fillUniformBuffer(frameSettings, mappedUniformBuffer.at(0));
-    }
+    fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
 }
 
 void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
@@ -533,36 +553,24 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferEnabled()) {
-        const auto * sceneDescriptorBuffers = std::get_if<Scene::DescriptorBuffers>(&sceneDescriptors->descriptors);
-        INVARIANT(sceneDescriptorBuffers, "");
-        const auto * frameDescriptorBuffers = std::get_if<Scene::DescriptorBuffers>(&frameDescriptors->descriptors);
-        INVARIANT(frameDescriptorBuffers, "");
-        {
-            vk::DescriptorBufferBindingInfoEXT descriptorBufferBindingInfos[] = {
-                sceneDescriptorBuffers->descriptorBuffer.getDescriptorBufferBindingInfo(),
-                frameDescriptorBuffers->descriptorBuffer.getDescriptorBufferBindingInfo(),
-            };
-            vk::Buffer descriptorBuffers[] = {
-                sceneDescriptorBuffers->descriptorBuffer,
-                frameDescriptorBuffers->descriptorBuffer,
-            };
-            commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
-            uint32_t bufferIndices[std::size(descriptorBuffers)];
-            std::iota(std::begin(bufferIndices), std::end(bufferIndices), uint32_t(0));
-            vk::DeviceSize offsets[std::size(descriptorBuffers)];
-            std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize(0));
-            commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
-        }
+        vk::DescriptorBufferBindingInfoEXT descriptorBufferBindingInfos[] = {
+            sceneDescriptors->getDescriptorBuffer().descriptorBuffer.getDescriptorBufferBindingInfo(),
+            frameDescriptors->getDescriptorBuffer().descriptorBuffer.getDescriptorBufferBindingInfo(),
+        };
+        commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
+
+        uint32_t bufferIndices[std::size(descriptorBufferBindingInfos)];
+        std::iota(std::begin(bufferIndices), std::end(bufferIndices), uint32_t{0});
+        vk::DeviceSize offsets[std::size(descriptorBufferBindingInfos)];
+        std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize{0});
+        commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
     } else {
-        const auto * sceneDescriptorSets = std::get_if<Scene::DescriptorSets>(&sceneDescriptors->descriptors);
-        INVARIANT(sceneDescriptorSets, "");
-        const auto * frameDescriptorSets = std::get_if<Scene::DescriptorSets>(&frameDescriptors->descriptors);
-        INVARIANT(frameDescriptorSets, "");
-        if (!std::empty(sceneDescriptorSets->descriptorSets.getDescriptorSets()) || !std::empty(frameDescriptorSets->descriptorSets.getDescriptorSets())) {
-            auto descriptorSets = concatenate<vk::DescriptorSet>(sceneDescriptorSets->descriptorSets.getDescriptorSets(), frameDescriptorSets->descriptorSets.getDescriptorSets());
-            constexpr auto kDynamicOffsets = nullptr;
-            commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
-        }
+        vk::DescriptorSet descriptorSets[] = {
+            sceneDescriptors->getDescriptorSet().descriptorSet,
+            frameDescriptors->getDescriptorSet().descriptorSet,
+        };
+        constexpr auto kDynamicOffsets = nullptr;
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
     {
