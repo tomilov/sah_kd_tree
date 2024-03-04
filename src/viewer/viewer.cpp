@@ -2,7 +2,7 @@
 #include <engine/device.hpp>
 #include <engine/instance.hpp>
 #include <engine/physical_device.hpp>
-#include <scene/scene.hpp>
+#include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>

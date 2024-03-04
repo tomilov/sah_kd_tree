@@ -1,10 +1,10 @@
-#include <scene/scene.hpp>
+#include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 
-namespace scene
+namespace scene_data
 {
 
-size_t Scene::instanceCount(size_t rootNodeIndex) const
+size_t SceneData::instanceCount(size_t rootNodeIndex) const
 {
     size_t instanceCount = 0;
     const auto countInstances = [this, &instanceCount](const auto & countInstances, size_t nodeIndex) -> void
@@ -19,9 +19,9 @@ size_t Scene::instanceCount(size_t rootNodeIndex) const
     return instanceCount;
 }
 
-void Scene::updateAABBs()
+void SceneData::updateAABBs()
 {
-    for (scene::Node & node : nodes) {
+    for (Node & node : nodes) {
         for (size_t meshIndex : node.meshes) {
             const auto & mesh = meshes.at(meshIndex);
             node.aabb.min = glm::min(node.aabb.min, mesh.aabb.min);
@@ -32,7 +32,7 @@ void Scene::updateAABBs()
     }
 }
 
-utils::MemArray<Triangle> Scene::makeTriangles() const
+utils::MemArray<Triangle> SceneData::makeTriangles() const
 {
     size_t vertexCount = 0;
     for (const Mesh & mesh : meshes) {
@@ -65,7 +65,7 @@ utils::MemArray<Triangle> Scene::makeTriangles() const
     return triangles;
 }
 
-utils::MemArray<Triangle> Scene::makeTriangles(size_t rootNodeIndex) const
+utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
 {
     size_t vertexCount = 0;
     const auto countTriangles = [this, &vertexCount](const auto & countTriangles, size_t nodeIndex) -> void
@@ -117,4 +117,4 @@ utils::MemArray<Triangle> Scene::makeTriangles(size_t rootNodeIndex) const
     return triangles;
 }
 
-}  // namespace scene
+}  // namespace scene_data

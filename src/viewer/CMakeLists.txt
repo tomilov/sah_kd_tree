@@ -49,7 +49,7 @@ target_link_libraries(
         "libformat"
         "libengine"
         "libcodegen_vulkan_utils"
-        "libscene"
+        "libscene_data"
         "libscene_loader"
         "gli"
     PUBLIC

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <scene/fwd.hpp>
+#include <scene_data/fwd.hpp>
 #include <utils/mem_array.hpp>
 
 #include <glm/mat4x4.hpp>
@@ -12,9 +12,9 @@
 
 #include <cstddef>
 
-#include <scene/scene_export.h>
+#include <scene_data/scene_data_export.h>
 
-namespace scene
+namespace scene_data
 {
 
 using Position = glm::vec3;
@@ -27,48 +27,40 @@ struct Triangle
     Position a, b, c;
 };
 
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<Triangle>);
-
-#pragma pack(push, 1)
 
 struct VertexAttributes
 {
     Position position;
 };
-
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<VertexAttributes>);
-
-#pragma pack(push, 1)
 
 struct AABB
 {
     glm::vec3 min{std::numeric_limits<float>::max()};
     glm::vec3 max{std::numeric_limits<float>::lowest()};
 };
-
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<AABB>);
 
-struct SCENE_EXPORT Node
+#pragma pack(pop)
+
+struct SCENE_DATA_EXPORT Node
 {
-    size_t parent = 0;  // index in Scene::Nodes
+    size_t parent = 0;  // index in scene_data::Nodes
     glm::mat4 transform{1.0f};
     std::vector<size_t> meshes = {};    // indices in Scene::meshes
-    std::vector<size_t> children = {};  // indices in Scene::nodes
+    std::vector<size_t> children = {};  // indices in scene_data::Nodes
     AABB aabb;
 };
 
-struct SCENE_EXPORT Mesh
+struct SCENE_DATA_EXPORT Mesh
 {
     uint32_t indexOffset = 0, indexCount = 0;    // range in Scene::indices
     uint32_t vertexOffset = 0, vertexCount = 0;  // range in Scene::vertices
     AABB aabb;
 };
-static_assert(std::is_standard_layout_v<Mesh>);
 
-struct SCENE_EXPORT Scene
+struct SCENE_DATA_EXPORT SceneData
 {
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
@@ -84,6 +76,6 @@ struct SCENE_EXPORT Scene
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles() const;
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles(size_t rootNodeIndex) const;
 };
-static_assert(std::is_nothrow_move_constructible_v<Scene>);
+static_assert(std::is_nothrow_move_constructible_v<SceneData>);
 
-}  // namespace scene
+}  // namespace scene_data

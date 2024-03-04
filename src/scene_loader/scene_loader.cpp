@@ -1,4 +1,4 @@
-#include <scene/scene.hpp>
+#include <scene_data/scene_data.hpp>
 #include <scene_loader/assimp_wrappers.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/auto_cast.hpp>
@@ -129,7 +129,7 @@ template<typename T>
     return cacheFileInfo;
 }
 
-[[nodiscard]] bool loadFromCache(scene::Scene & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool loadFromCache(scene_data::SceneData & scene, QFileInfo cacheFileInfo)
 {
     QFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::ReadOnly)) {
@@ -210,7 +210,7 @@ template<typename T>
     }
     qCDebug(sceneLoaderLog).noquote() << u"nodeCount %1"_s.arg(sceneNodeCount);
     scene.nodes.resize(utils::autoCast(sceneNodeCount));
-    for (scene::Node & node : scene.nodes) {
+    for (scene_data::Node & node : scene.nodes) {
         if (!loadDataFromCache(&node.transform, 1, "node.transform")) {
             return {};
         }
@@ -245,7 +245,7 @@ template<typename T>
     return true;
 }
 
-[[nodiscard]] bool storeToCache(scene::Scene & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool storeToCache(scene_data::SceneData & scene, QFileInfo cacheFileInfo)
 {
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::OpenModeFlag::WriteOnly)) {
@@ -318,7 +318,7 @@ template<typename T>
     if (!checkDataStreamStatus(dataStream << sceneNodeCount, u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
         return {};
     }
-    for (const scene::Node & node : scene.nodes) {
+    for (const scene_data::Node & node : scene.nodes) {
         if (!saveDataToCache(&node.transform, 1, "node.transform")) {
             return {};
         }
@@ -363,7 +363,7 @@ QStringList getSupportedExtensions()
     return QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
 }
 
-bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
+bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
 {
     INVARIANT(sceneFileInfo.isFile(), "");
 
@@ -469,7 +469,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
         const auto traverseNodes = [&scene, &parents, &meshUsages, assimpMeshes](const auto & traverseNodes, const aiNode * assimpNode) -> size_t
         {
             size_t nodeIndex = std::size(scene.nodes);
-            scene::Node & node = scene.nodes.emplace_back();
+            scene_data::Node & node = scene.nodes.emplace_back();
             if (auto assimpNodeParent = assimpNode->mParent) {
                 auto p = parents.find(assimpNodeParent);
                 ASSERT(p != std::end(parents));
@@ -552,7 +552,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
             vertexCount += mesh.vertexCount;
         }
 
-        for (scene::Node & node : scene.nodes) {
+        for (scene_data::Node & node : scene.nodes) {
             for (size_t & meshIndex : node.meshes) {
                 meshIndex = meshIndexRemap.at(meshIndex);
             }
@@ -563,7 +563,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
 
     {
         scene.indices = utils::MemArray<uint32_t>{indexCount};
-        scene.vertices = utils::MemArray<scene::VertexAttributes>{vertexCount};
+        scene.vertices = utils::MemArray<scene_data::VertexAttributes>{vertexCount};
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
             auto & aabb = scene.meshes.at(meshUsage.meshIndex).aabb;
@@ -629,7 +629,7 @@ bool load(scene::Scene & scene, QFileInfo sceneFileInfo)
     return true;
 }
 
-bool cachingLoad(scene::Scene & scene, QFileInfo sceneFileInfo, QDir cacheDir)
+bool cachingLoad(scene_data::SceneData & scene, QFileInfo sceneFileInfo, QDir cacheDir)
 {
     if ((true)) {
         QStringList nameFilters;

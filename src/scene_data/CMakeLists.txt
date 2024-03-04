@@ -1,4 +1,4 @@
-project("scene")
+project("scene_data")
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(

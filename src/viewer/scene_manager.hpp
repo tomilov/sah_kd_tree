@@ -6,7 +6,7 @@
 #include <engine/graphics_pipeline.hpp>
 #include <engine/shader_module.hpp>
 #include <engine/vma.hpp>
-#include <scene/scene.hpp>
+#include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
@@ -70,30 +70,10 @@ public:
         kDisplayPipeline,
     };
 
-    struct DescriptorSet : utils::OneTime<DescriptorSet>
-    {
-        engine::DescriptorSet descriptorSet;
-
-        static constexpr void completeClassContext()
-        {
-            checkTraits();
-        }
-    };
-
-    struct DescriptorBuffer : utils::OneTime<DescriptorBuffer>
-    {
-        engine::Buffer<std::byte> descriptorBuffer;
-
-        static constexpr void completeClassContext()
-        {
-            checkTraits();
-        }
-    };
-
     using DescriptorSetInfos = std::vector<std::tuple<std::string, vk::DescriptorType, vk::DescriptorBufferInfo>>;
 
-    using DescriptorInfo = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
-    using DescriptorBufferInfos = std::vector<std::tuple<std::string, vk::DescriptorType, DescriptorInfo>>;
+    using DescriptorData = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
+    using DescriptorBufferInfos = std::vector<std::tuple<std::string, vk::DescriptorType, DescriptorData>>;
 
     struct SceneDescriptors : utils::OneTime<SceneDescriptors>
     {
@@ -111,23 +91,23 @@ public:
             std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
             engine::Buffer<glm::mat4> transformBuffer;
 
-            std::optional<engine::Buffer<scene::VertexAttributes>> vertexBuffer;
+            std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
 
             [[nodiscard]] DescriptorSetInfos getDescriptorSetInfos() const;
             [[nodiscard]] DescriptorBufferInfos getDescriptorBufferInfos() const;
         };
 
         Resources resources;
-        std::variant<DescriptorSet, DescriptorBuffer> descriptors;
+        std::variant<engine::DescriptorSet, engine::Buffer<std::byte>> descriptors;
 
-        const DescriptorSet & getDescriptorSet() const &
+        [[nodiscard]] const engine::DescriptorSet & getDescriptorSet() const &
         {
-            return std::get<DescriptorSet>(descriptors);
+            return std::get<engine::DescriptorSet>(descriptors);
         }
 
-        const DescriptorBuffer & getDescriptorBuffer() const &
+        [[nodiscard]] const engine::Buffer<std::byte> & getDescriptorBuffer() const &
         {
-            return std::get<DescriptorBuffer>(descriptors);
+            return std::get<engine::Buffer<std::byte>>(descriptors);
         }
 
         static constexpr void completeClassContext()
@@ -150,16 +130,16 @@ public:
         };
 
         Resources resources;
-        std::variant<DescriptorSet, DescriptorBuffer> descriptors;
+        std::variant<engine::DescriptorSet, engine::Buffer<std::byte>> descriptors;
 
-        const DescriptorSet & getDescriptorSet() const &
+        [[nodiscard]] const engine::DescriptorSet & getDescriptorSet() const &
         {
-            return std::get<DescriptorSet>(descriptors);
+            return std::get<engine::DescriptorSet>(descriptors);
         }
 
-        const DescriptorBuffer & getDescriptorBuffer() const &
+        [[nodiscard]] const engine::Buffer<std::byte> & getDescriptorBuffer() const &
         {
-            return std::get<DescriptorBuffer>(descriptors);
+            return std::get<engine::Buffer<std::byte>>(descriptors);
         }
 
         static constexpr void completeClassContext()
@@ -181,10 +161,10 @@ public:
         }
     };
 
-    [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
+    [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene);
 
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
-    [[nodiscard]] const scene::Scene & getScene() const;
+    [[nodiscard]] const scene_data::SceneData & getScene() const;
 
     [[nodiscard]] SceneDescriptors makeSceneDescriptors() const;
     [[nodiscard]] FrameDescriptors makeFrameDescriptors() const;
@@ -221,7 +201,7 @@ private:
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::filesystem::path scenePath;
 
-    scene::Scene scene;
+    scene_data::SceneData scene;
 
     // TODO: put in Settings and set in constructor
     const bool indexTypeUint8Enabled = true;
@@ -238,21 +218,21 @@ private:
     const Shader & addShader(std::string_view shaderName, std::string_view entryPoint = "main");
     void addShaders();
 
-    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene::Scene && scene);
+    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene);
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
     engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
-    std::optional<engine::Buffer<scene::VertexAttributes>> createVertexBuffer() const;
+    std::optional<engine::Buffer<scene_data::VertexAttributes>> createVertexBuffer() const;
 
     engine::Buffer<UniformBuffer> createUniformBuffer() const;
 
-    DescriptorSet createDescriptorSet(const engine::ShaderStages & shaderStages, uint32_t set) const;
-    DescriptorBuffer createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
+    engine::DescriptorSet createDescriptorSet(const engine::ShaderStages & shaderStages, uint32_t set) const;
+    engine::Buffer<std::byte> createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
 
-    void fillDescriptorSet(DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
-    void fillDescriptorBuffer(DescriptorBuffer & descriptorBuffers, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
+    void fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
+    void fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
 };
 
 class SceneManager

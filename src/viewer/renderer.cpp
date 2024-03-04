@@ -554,8 +554,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferEnabled()) {
         vk::DescriptorBufferBindingInfoEXT descriptorBufferBindingInfos[] = {
-            sceneDescriptors->getDescriptorBuffer().descriptorBuffer.getDescriptorBufferBindingInfo(),
-            frameDescriptors->getDescriptorBuffer().descriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDescriptors->getDescriptorBuffer().getDescriptorBufferBindingInfo(),
+            frameDescriptors->getDescriptorBuffer().getDescriptorBufferBindingInfo(),
         };
         commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
 
@@ -566,8 +566,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
     } else {
         vk::DescriptorSet descriptorSets[] = {
-            sceneDescriptors->getDescriptorSet().descriptorSet,
-            frameDescriptors->getDescriptorSet().descriptorSet,
+            sceneDescriptors->getDescriptorSet(),
+            frameDescriptors->getDescriptorSet(),
         };
         constexpr auto kDynamicOffsets = nullptr;
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
