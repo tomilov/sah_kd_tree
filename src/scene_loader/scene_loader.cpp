@@ -129,7 +129,7 @@ template<typename T>
     return cacheFileInfo;
 }
 
-[[nodiscard]] bool loadFromCache(scene_data::SceneData & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool loadFromCache(scene_data::SceneData & sceneData, QFileInfo cacheFileInfo)
 {
     QFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::ReadOnly)) {
@@ -209,8 +209,8 @@ template<typename T>
         return {};
     }
     qCDebug(sceneLoaderLog).noquote() << u"nodeCount %1"_s.arg(sceneNodeCount);
-    scene.nodes.resize(utils::autoCast(sceneNodeCount));
-    for (scene_data::Node & node : scene.nodes) {
+    sceneData.nodes.resize(utils::autoCast(sceneNodeCount));
+    for (scene_data::Node & node : sceneData.nodes) {
         if (!loadDataFromCache(&node.transform, 1, "node.transform")) {
             return {};
         }
@@ -224,16 +224,16 @@ template<typename T>
             return {};
         }
     }
-    if (!loadVectorFromCache(scene.meshes, "scene.meshes")) {
+    if (!loadVectorFromCache(sceneData.meshes, "scene.meshes")) {
         return {};
     }
-    if (!loadDataFromCache(&scene.aabb, 1, "scene.aabb")) {
+    if (!loadDataFromCache(&sceneData.aabb, 1, "scene.aabb")) {
         return {};
     }
-    if (!loadArrayFromCache(scene.indices, "scene.indices")) {
+    if (!loadArrayFromCache(sceneData.indices, "scene.indices")) {
         return {};
     }
-    if (!loadArrayFromCache(scene.vertices, "scene.vertices")) {
+    if (!loadArrayFromCache(sceneData.vertices, "scene.vertices")) {
         return {};
     }
     if (!dataStream.atEnd()) {
@@ -241,11 +241,11 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getCount()).arg(scene.vertices.getCount());
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
 
-[[nodiscard]] bool storeToCache(scene_data::SceneData & scene, QFileInfo cacheFileInfo)
+[[nodiscard]] bool storeToCache(scene_data::SceneData & sceneData, QFileInfo cacheFileInfo)
 {
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::OpenModeFlag::WriteOnly)) {
@@ -313,12 +313,12 @@ template<typename T>
         return true;
     };
 
-    quint64 sceneNodeCount = utils::autoCast(std::size(scene.nodes));
+    quint64 sceneNodeCount = utils::autoCast(std::size(sceneData.nodes));
     qCDebug(sceneLoaderLog).noquote() << u"nodeCount %1"_s.arg(sceneNodeCount);
     if (!checkDataStreamStatus(dataStream << sceneNodeCount, u"unable to write number of nodes to scene cache file %1"_s.arg(cacheFile.fileName()))) {
         return {};
     }
-    for (const scene_data::Node & node : scene.nodes) {
+    for (const scene_data::Node & node : sceneData.nodes) {
         if (!saveDataToCache(&node.transform, 1, "node.transform")) {
             return {};
         }
@@ -332,16 +332,16 @@ template<typename T>
             return {};
         }
     }
-    if (!saveVectorToCache(scene.meshes, "scene.meshes")) {
+    if (!saveVectorToCache(sceneData.meshes, "scene.meshes")) {
         return {};
     }
-    if (!saveDataToCache(&scene.aabb, 1, "scene.aabb")) {
+    if (!saveDataToCache(&sceneData.aabb, 1, "scene.aabb")) {
         return {};
     }
-    if (!saveArrayToCache(scene.indices, "scene.indices")) {
+    if (!saveArrayToCache(sceneData.indices, "scene.indices")) {
         return {};
     }
-    if (!saveArrayToCache(scene.vertices, "scene.vertices")) {
+    if (!saveArrayToCache(sceneData.vertices, "scene.vertices")) {
         return {};
     }
 
@@ -351,7 +351,7 @@ template<typename T>
     }
 
     qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
-    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(scene.meshes)).arg(scene.indices.getCount()).arg(scene.vertices.getCount());
+    qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
 }  // namespace
@@ -363,7 +363,7 @@ QStringList getSupportedExtensions()
     return QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
 }
 
-bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
+bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
 {
     INVARIANT(sceneFileInfo.isFile(), "");
 
@@ -466,10 +466,10 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
         }
 
         std::unordered_map<const aiNode *, size_t> parents;
-        const auto traverseNodes = [&scene, &parents, &meshUsages, assimpMeshes](const auto & traverseNodes, const aiNode * assimpNode) -> size_t
+        const auto traverseNodes = [&sceneData, &parents, &meshUsages, assimpMeshes](const auto & traverseNodes, const aiNode * assimpNode) -> size_t
         {
-            size_t nodeIndex = std::size(scene.nodes);
-            scene_data::Node & node = scene.nodes.emplace_back();
+            size_t nodeIndex = std::size(sceneData.nodes);
+            scene_data::Node & node = sceneData.nodes.emplace_back();
             if (auto assimpNodeParent = assimpNode->mParent) {
                 auto p = parents.find(assimpNodeParent);
                 ASSERT(p != std::end(parents));
@@ -500,7 +500,7 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
                 auto assimpNodeChild = assimpNodeChildren[c];
                 ASSERT(assimpNodeChild->mParent == assimpNode);
                 size_t childNodeIndex = traverseNodes(traverseNodes, assimpNodeChild);
-                scene.nodes.at(nodeIndex).children.push_back(childNodeIndex);
+                sceneData.nodes.at(nodeIndex).children.push_back(childNodeIndex);
             }
             return nodeIndex;
         };
@@ -538,10 +538,10 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
                 qCWarning(sceneLoaderLog).noquote() << u"primitive type of mesh %1 is not triangle (possibly NGON-encoded)"_s.arg(QString::fromLatin1(assimpMesh->mName.C_Str()));
                 return {};
             }
-            size_t newMeshIndex = std::size(scene.meshes);
+            size_t newMeshIndex = std::size(sceneData.meshes);
             meshIndexRemap.emplace(meshUsage.meshIndex, newMeshIndex);
             meshUsage.meshIndex = newMeshIndex;
-            auto & mesh = scene.meshes.emplace_back();
+            auto & mesh = sceneData.meshes.emplace_back();
             mesh = {
                 .indexOffset = indexCount,
                 .indexCount = utils::autoCast(assimpMesh->mNumFaces * 3),
@@ -552,7 +552,7 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
             vertexCount += mesh.vertexCount;
         }
 
-        for (scene_data::Node & node : scene.nodes) {
+        for (scene_data::Node & node : sceneData.nodes) {
             for (size_t & meshIndex : node.meshes) {
                 meshIndex = meshIndexRemap.at(meshIndex);
             }
@@ -562,14 +562,14 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
     qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
 
     {
-        scene.indices = utils::MemArray<uint32_t>{indexCount};
-        scene.vertices = utils::MemArray<scene_data::VertexAttributes>{vertexCount};
+        sceneData.indices = utils::MemArray<uint32_t>{indexCount};
+        sceneData.vertices = utils::MemArray<scene_data::VertexAttributes>{vertexCount};
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
-            const auto & mesh = scene.meshes.at(meshUsage.meshIndex);
-            auto & aabb = scene.meshes.at(meshUsage.meshIndex).aabb;
+            const auto & mesh = sceneData.meshes.at(meshUsage.meshIndex);
+            auto & aabb = sceneData.meshes.at(meshUsage.meshIndex).aabb;
 
             {
-                auto vertex = std::next(scene.vertices.begin(), mesh.vertexOffset);
+                auto vertex = std::next(sceneData.vertices.begin(), mesh.vertexOffset);
                 const auto vertexEnd = std::next(vertex, mesh.vertexCount);
                 auto assimpVertices = assimpMesh->mVertices;
                 for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
@@ -582,7 +582,7 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
                 ASSERT(vertex == vertexEnd);
             }
 
-            auto sceneIndices = scene.indices.begin();
+            auto sceneIndices = sceneData.indices.begin();
 
             if (mesh.indexCount == 0) {
                 INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
@@ -608,7 +608,7 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
 
             if ((true)) {
                 std::vector<uint32_t> vertexUseCounts(mesh.vertexCount);
-                auto index = std::next(scene.indices.begin(), mesh.indexOffset);
+                auto index = std::next(sceneData.indices.begin(), mesh.indexOffset);
                 const auto indexEnd = std::next(index, mesh.indexCount);
                 for (uint32_t i : std::span<const uint32_t>(index, indexEnd)) {
                     ++vertexUseCounts.at(i);
@@ -622,14 +622,14 @@ bool load(scene_data::SceneData & scene, QFileInfo sceneFileInfo)
         }
     }
 
-    scene.updateAABBs();
+    sceneData.updateAABBs();
 
     importer.FreeScene();
 
     return true;
 }
 
-bool cachingLoad(scene_data::SceneData & scene, QFileInfo sceneFileInfo, QDir cacheDir)
+bool cachingLoad(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo, QDir cacheDir)
 {
     if ((true)) {
         QStringList nameFilters;
@@ -653,7 +653,7 @@ bool cachingLoad(scene_data::SceneData & scene, QFileInfo sceneFileInfo, QDir ca
     QFileInfo cacheFileInfo = getCacheFileInfo(sceneFileInfo, cacheDir);
     if (cacheFileInfo.exists()) {
         qCInfo(sceneLoaderLog).noquote() << u"scene file for scene %1 exists"_s.arg(sceneFileInfo.filePath());
-        if (loadFromCache(scene, cacheFileInfo)) {
+        if (loadFromCache(sceneData, cacheFileInfo)) {
             return true;
         }
         if (!QFile::remove(cacheFileInfo.filePath())) {
@@ -661,10 +661,10 @@ bool cachingLoad(scene_data::SceneData & scene, QFileInfo sceneFileInfo, QDir ca
         }
         qCWarning(sceneLoaderLog).noquote() << u"cache broken or cannot be read; scene will be loaded from file %1"_s.arg(sceneFileInfo.filePath());
     }
-    if (!load(scene, sceneFileInfo)) {
+    if (!load(sceneData, sceneFileInfo)) {
         return {};
     }
-    if (!storeToCache(scene, cacheFileInfo)) {
+    if (!storeToCache(sceneData, cacheFileInfo)) {
         return {};
     }
     return true;

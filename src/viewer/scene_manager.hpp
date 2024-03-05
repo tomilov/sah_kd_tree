@@ -161,10 +161,10 @@ public:
         }
     };
 
-    [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene);
+    [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
-    [[nodiscard]] const scene_data::SceneData & getScene() const;
+    [[nodiscard]] const scene_data::SceneData & getScenedData() const;
 
     [[nodiscard]] SceneDescriptors makeSceneDescriptors() const;
     [[nodiscard]] FrameDescriptors makeFrameDescriptors() const;
@@ -201,7 +201,7 @@ private:
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::filesystem::path scenePath;
 
-    scene_data::SceneData scene;
+    scene_data::SceneData sceneData;
 
     // TODO: put in Settings and set in constructor
     const bool indexTypeUint8Enabled = true;
@@ -218,7 +218,7 @@ private:
     const Shader & addShader(std::string_view shaderName, std::string_view entryPoint = "main");
     void addShaders();
 
-    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene);
+    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;

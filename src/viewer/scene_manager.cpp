@@ -128,9 +128,9 @@ Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::C
     pipelines.create();
 }
 
-std::unique_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene)
+std::unique_ptr<Scene> Scene::make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
 {
-    return std::unique_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(scene)}};
+    return std::unique_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(sceneData)}};
 }
 
 const std::filesystem::path & Scene::getScenePath() const
@@ -138,15 +138,15 @@ const std::filesystem::path & Scene::getScenePath() const
     return scenePath;
 }
 
-const scene_data::SceneData & Scene::getScene() const
+const scene_data::SceneData & Scene::getScenedData() const
 {
-    return scene;
+    return sceneData;
 }
 
 auto Scene::makeSceneDescriptors() const -> SceneDescriptors
 {
-    std::vector<std::vector<glm::mat4>> transforms(std::size(scene.meshes));  // [Scene::meshes index][instance index]
-    std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(scene.meshes));
+    std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
+    std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
     {
         const auto collectNodeInfos = [this, &transforms, &instances](const auto & collectNodeInfos, const scene_data::Node & sceneNode, glm::mat4 transform) -> void
         {
@@ -156,10 +156,10 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
                 ++instances.at(m).instanceCount;
             }
             for (size_t sceneNodeChild : sceneNode.children) {
-                collectNodeInfos(collectNodeInfos, scene.nodes.at(sceneNodeChild), transform);
+                collectNodeInfos(collectNodeInfos, sceneData.nodes.at(sceneNodeChild), transform);
             }
         };
-        collectNodeInfos(collectNodeInfos, scene.nodes.front(), glm::identity<glm::mat4>());
+        collectNodeInfos(collectNodeInfos, sceneData.nodes.front(), glm::identity<glm::mat4>());
     }
 
     std::vector<vk::IndexType> indexTypes;
@@ -167,8 +167,8 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
     uint32_t totalInstanceCount = 0;
     {
         vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
-        for (size_t m = 0; m < std::size(scene.meshes); ++m) {
-            const scene_data::Mesh & sceneMesh = scene.meshes.at(m);
+        for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
+            const scene_data::Mesh & sceneMesh = sceneData.meshes.at(m);
             auto & instance = instances.at(m);
 
             instance.vertexOffset = utils::autoCast(sceneMesh.vertexOffset);
@@ -181,7 +181,7 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
 
             instance.indexCount = utils::autoCast(sceneMesh.indexCount);
 
-            auto firstIndex = std::next(scene.indices.begin(), sceneMesh.indexOffset);
+            auto firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
             uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
             if (indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
                 indexType = vk::IndexType::eUint8EXT;
@@ -196,7 +196,7 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
         }
 
         if (maxIndexType != vk::IndexType::eNoneKHR) {
-            for (size_t m = 0; m < std::size(scene.meshes); ++m) {
+            for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
                 auto & indexType = indexTypes.at(m);
                 if (indexType == vk::IndexType::eNoneKHR) {
                     continue;
@@ -234,15 +234,15 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
         {
             auto mappedIndexBuffer = indexBuffer.value().map();
             auto indices = mappedIndexBuffer.data();
-            for (size_t m = 0; m < std::size(scene.meshes); ++m) {
+            for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
                 const auto & instance = instances.at(m);
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
-                uint32_t sceneIndexOffset = scene.meshes.at(m).indexOffset;
+                uint32_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
                 const auto convertCopy = [this, &instance, sceneIndexOffset](auto indices)
                 {
-                    auto indexIn = std::next(scene.indices.begin(), sceneIndexOffset);
+                    auto indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
                     auto indexOut = std::next(indices, instance.firstIndex);
                     for (uint32_t i = 0; i < instance.indexCount; ++i) {
                         *indexOut++ = utils::autoCast(*indexIn++);
@@ -535,8 +535,8 @@ void Scene::addShaders()
     offscreenShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
 }
 
-Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && scene)
-    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, scene{std::move(scene)}, sceneShaderStages{context, kVertexBufferBinding}, offscreenShaderStages{context, kVertexBufferBinding}
+Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
+    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, sceneData{std::move(sceneData)}, sceneShaderStages{context, kVertexBufferBinding}, offscreenShaderStages{context, kVertexBufferBinding}
 {
     check();
     addShaders();
@@ -668,7 +668,7 @@ std::optional<engine::Buffer<scene_data::VertexAttributes>> Scene::createVertexB
     INVARIANT(sizeof(scene_data::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene_data::VertexAttributes), vertexSize);
 
     vk::BufferCreateInfo vertexBufferCreateInfo;
-    vertexBufferCreateInfo.size = scene.vertices.getCount() * vertexSize;
+    vertexBufferCreateInfo.size = sceneData.vertices.getCount() * vertexSize;
     vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
     engine::Buffer<scene_data::VertexAttributes> vertexBuffer{context.getMemoryAllocator().createStagingBuffer("Vertices"s, vertexBufferCreateInfo, getMinAlignment())};
 
@@ -678,8 +678,8 @@ std::optional<engine::Buffer<scene_data::VertexAttributes>> Scene::createVertexB
 
     {
         auto mappedVertexBuffer = vertexBuffer.map();
-        ASSERT(scene.vertices.getCount() == mappedVertexBuffer.getCount());
-        if (std::copy_n(scene.vertices.begin(), scene.vertices.getCount(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+        ASSERT(sceneData.vertices.getCount() == mappedVertexBuffer.getCount());
+        if (std::copy_n(sceneData.vertices.begin(), sceneData.vertices.getCount(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
             ASSERT(false);
         }
     }
@@ -879,18 +879,18 @@ std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::pat
     if (p) {
         SPDLOG_DEBUG("Old scene {} reused", scenePath);
     } else {
-        scene_data::SceneData scene;
+        scene_data::SceneData sceneData;
         if ((true)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-            if (!scene_loader::cachingLoad(scene, QFileInfo{scenePath}, cacheLocation)) {
+            if (!scene_loader::cachingLoad(sceneData, QFileInfo{scenePath}, cacheLocation)) {
                 return nullptr;
             }
         } else {
-            if (!scene_loader::load(scene, QFileInfo{scenePath})) {
+            if (!scene_loader::load(sceneData, QFileInfo{scenePath})) {
                 return nullptr;
             }
         }
-        p = Scene::make(context, fileIo, getOrCreatePipelineCache(), std::move(scenePath), std::move(scene));
+        p = Scene::make(context, fileIo, getOrCreatePipelineCache(), std::move(scenePath), std::move(sceneData));
         w = p;
         SPDLOG_DEBUG("New scene {} created", p->getScenePath());
     }

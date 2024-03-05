@@ -26,7 +26,6 @@ struct Triangle
 {
     Position a, b, c;
 };
-
 static_assert(std::is_standard_layout_v<Triangle>);
 
 struct VertexAttributes
@@ -48,8 +47,8 @@ struct SCENE_DATA_EXPORT Node
 {
     size_t parent = 0;  // index in scene_data::Nodes
     glm::mat4 transform{1.0f};
-    std::vector<size_t> meshes = {};    // indices in Scene::meshes
-    std::vector<size_t> children = {};  // indices in scene_data::Nodes
+    std::vector<size_t> meshes;    // indices in Scene::meshes
+    std::vector<size_t> children;  // indices in scene_data::Nodes
     AABB aabb;
 };
 

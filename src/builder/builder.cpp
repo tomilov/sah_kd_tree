@@ -24,25 +24,25 @@ Q_LOGGING_CATEGORY(builderLog, "builder")
 
 bool buildSceneFromFile(QString sceneFileName, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    scene_data::SceneData scene;
+    scene_data::SceneData sceneData;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!scene_loader::load(scene, sceneFileInfo)) {
+    if (!scene_loader::load(sceneData, sceneFileInfo)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto triangles = scene.makeTriangles();
+    auto triangles = sceneData.makeTriangles();
     return buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 
 bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    scene_data::SceneData scene;
+    scene_data::SceneData sceneData;
     QFileInfo sceneFileInfo{sceneFileName};
-    if (!scene_loader::cachingLoad(scene, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+    if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
         qCDebug(builderLog).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
         return false;
     }
-    auto triangles = scene.makeTriangles();
+    auto triangles = sceneData.makeTriangles();
     return buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 }  // namespace builder

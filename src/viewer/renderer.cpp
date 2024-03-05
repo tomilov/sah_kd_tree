@@ -110,13 +110,13 @@ private:
     [[nodiscard]] static Holder makeHolder(F & f, Args &... args, std::index_sequence<Indices...>)
     {
         static_assert(std::is_invocable_v<F &&, Args &&...>);
-        using Storage = std::pair<std::decay_t<F>, std::tuple<std::decay_t<Args>...>>;
+        using Storage = std::tuple<std::decay_t<F>, std::decay_t<Args>...>;
         constexpr auto recycle = [](void * p)
         {
-            std::unique_ptr<Storage> recycler{static_cast<Storage *>(p)};
-            std::invoke(std::forward<F>(recycler->first), std::forward<Args>(std::get<Indices>(recycler->second))...);
+            std::unique_ptr<Storage> storage{static_cast<Storage *>(p)};
+            std::invoke(std::forward<F>(std::get<0>(*storage)), std::forward<Args>(std::get<1 + Indices>(*storage))...);
         };
-        return {new Storage{std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...)}, recycle};
+        return {new Storage{std::forward<F>(f), std::forward<Args>(args)...}, recycle};
     }
 
     static constexpr void completeClassContext()
@@ -500,15 +500,6 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
 
     deleteDeferred(currentFrameSlot);
 
-    if (frameSettings.useOffscreenTexture) {
-        if (!offscreenRenderPass) {
-            offscreenRenderPass = std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context));
-        }
-    } else {
-        framebufferPool.clear();
-        offscreenRenderPass.reset();
-    }
-
     if (!pushConstantRanges) {
         pushConstantRanges = &scene->getPushConstantRanges();
     }
@@ -517,10 +508,19 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
     }
     if (frameDescriptors) {
         uint32_t previousFrame = utils::modDown(currentFrameSlot, framesInFlight);
-        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // this captured, Renderer::Impl should be NonCopyable
+        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // 'this' captured, Renderer::Impl should be NonCopyable
         deferDeletion(previousFrame, std::move(recycler));
     }
     frameDescriptors = getFrameDescriptors();
+
+    if (frameSettings.useOffscreenTexture) {
+        if (!offscreenRenderPass) {
+            offscreenRenderPass = std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context));
+        }
+    } else {
+        framebufferPool.clear();
+        offscreenRenderPass.reset();
+    }
 
     fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
 }
@@ -602,17 +602,13 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
         if (wrapper) {
             return wrapper.value();
         } else {
-            if (sah_kd_tree::kIsDebugBuild) {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
-            }
+            ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
             return VK_NULL_HANDLE;
         }
     };
-    std::initializer_list<vk::Buffer> vertexBuffers = {
-        bufferOrNull(sceneResources.vertexBuffer),
-    };
-    std::vector<vk::DeviceSize> vertexBufferOffsets(std::size(vertexBuffers), 0);
-    commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffers, vertexBufferOffsets, context.getDispatcher());
+    vk::Buffer vertexBuffer = bufferOrNull(sceneResources.vertexBuffer);
+    vk::DeviceSize vertexBufferOffset = 0;
+    commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffer, vertexBufferOffset, context.getDispatcher());
 
     vk::Buffer indexBuffer;
     vk::DeviceSize indexBufferSize = 0;

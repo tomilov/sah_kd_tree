@@ -235,7 +235,7 @@ void Viewer::sync()
             return;
         }
 
-        const auto & [aabbMin, aabbMax] = scene->getScene().aabb;
+        const auto & [aabbMin, aabbMax] = scene->getScenedData().aabb;
         characteristicSize = glm::length(aabbMax - aabbMin);
         if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 5.0f))) {
             qFatal("unreachable");
