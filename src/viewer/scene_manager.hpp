@@ -44,7 +44,7 @@ struct UniformBuffer
     float alpha = 0.0f;
     float zNear = 1E-2f;
     float zFar = 1E4;
-    glm::vec3 pos{0.0f};
+    glm::vec3 position{0.0f};
     float t = 0.0f;
 };
 #pragma pack(pop)

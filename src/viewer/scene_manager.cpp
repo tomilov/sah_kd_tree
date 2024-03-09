@@ -790,12 +790,12 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
         vk::DescriptorGetInfoEXT descriptorGetInfo = {
             .type = descriptorType,
         };
-        const auto setDescriptorInfo = [descriptorType = descriptorType, &descriptorGetInfo]<typename T>(const T & descriptorData)
+        const auto setDescriptorInfo = [descriptorType = descriptorType, &data = descriptorGetInfo.data]<typename T>(const T & descriptorData)
         {
             if constexpr (std::is_same_v<T, vk::Sampler>) {
                 switch (descriptorType) {
                 case vk::DescriptorType::eSampler: {
-                    descriptorGetInfo.data.setPSampler(&descriptorData);
+                    data.setPSampler(&descriptorData);
                     break;
                 }
                 default: {
@@ -805,19 +805,19 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
             } else if constexpr (std::is_same_v<T, vk::DescriptorImageInfo>) {
                 switch (descriptorType) {
                 case vk::DescriptorType::eCombinedImageSampler: {
-                    descriptorGetInfo.data.setPCombinedImageSampler(&descriptorData);
+                    data.setPCombinedImageSampler(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eInputAttachment: {
-                    descriptorGetInfo.data.setPInputAttachmentImage(&descriptorData);
+                    data.setPInputAttachmentImage(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eSampledImage: {
-                    descriptorGetInfo.data.setPSampledImage(&descriptorData);
+                    data.setPSampledImage(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eStorageImage: {
-                    descriptorGetInfo.data.setPStorageImage(&descriptorData);
+                    data.setPStorageImage(&descriptorData);
                     break;
                 }
                 default: {
@@ -827,7 +827,7 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
             } else if constexpr (std::is_same_v<T, vk::DeviceAddress>) {
                 switch (descriptorType) {
                 case vk::DescriptorType::eAccelerationStructureKHR: {
-                    descriptorGetInfo.data.setAccelerationStructure(descriptorData);
+                    data.setAccelerationStructure(descriptorData);
                     break;
                 }
                 default: {
@@ -837,19 +837,19 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
             } else if constexpr (std::is_same_v<T, vk::DescriptorAddressInfoEXT>) {
                 switch (descriptorType) {
                 case vk::DescriptorType::eUniformTexelBuffer: {
-                    descriptorGetInfo.data.setPUniformTexelBuffer(&descriptorData);
+                    data.setPUniformTexelBuffer(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eStorageTexelBuffer: {
-                    descriptorGetInfo.data.setPStorageTexelBuffer(&descriptorData);
+                    data.setPStorageTexelBuffer(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eUniformBuffer: {
-                    descriptorGetInfo.data.setPUniformBuffer(&descriptorData);
+                    data.setPUniformBuffer(&descriptorData);
                     break;
                 }
                 case vk::DescriptorType::eStorageBuffer: {
-                    descriptorGetInfo.data.setPStorageBuffer(&descriptorData);
+                    data.setPStorageBuffer(&descriptorData);
                     break;
                 }
                 default: {

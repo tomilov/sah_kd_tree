@@ -377,6 +377,8 @@ ApplicationWindow {
             }
         }
 
+        //opacity: 0.3
+
         StackLayout {
             currentIndex: tabBar.currentIndex
 
@@ -389,8 +391,13 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                //rotation: 30.0
-                //scale: 0.7
+                //layer.enabled: true
+                //clip: true
+
+                rotation: 30.0
+                scale: 0.5
+
+                //opacity: 0.2
 
                 /*
                 SequentialAnimation on rotation {
@@ -488,6 +495,7 @@ ApplicationWindow {
                 }
             }
 
+            /*
             ColumnLayout {
                 SwipeView {
                     id: swipeView
@@ -567,6 +575,7 @@ ApplicationWindow {
                     }
                 }
             }
+            */
         }
     }
 

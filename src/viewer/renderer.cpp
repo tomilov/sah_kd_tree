@@ -147,7 +147,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .alpha = frameSettings.alpha,
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
-        .pos = frameSettings.position,
+        .position = frameSettings.position,
         .t = frameSettings.t,
     };
 }
@@ -220,7 +220,8 @@ struct Renderer::Impl : utils::NonCopyable
 
     void setScene(std::shared_ptr<const Scene> scene);
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
+    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
 
     std::shared_ptr<const Framebuffer> getFramebuffer(const vk::Extent2D & size);
     void putFramebuffer(std::shared_ptr<const Framebuffer> && framebuffer);
@@ -256,14 +257,14 @@ void Renderer::advance(uint32_t currentFrameSlot, const FrameSettings & frameSet
     return impl_->advance(currentFrameSlot, frameSettings);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
+bool Renderer::updateRenderPass(vk::RenderPass renderPass)
 {
-    return impl_->render(commandBuffer, renderPass, currentFrameSlot, frameSettings);
+    return impl_->updateRenderPass(renderPass);
 }
 
-std::shared_ptr<const Scene> Renderer::getScene() const
+void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const
 {
-    return impl_->scene;
+    return impl_->render(commandBuffer, currentFrameSlot, frameSettings);
 }
 
 auto Renderer::Impl::OffscreenRenderPass::make(const engine::Context & context) -> OffscreenRenderPass
@@ -479,11 +480,11 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
+    sceneGraphicsPipeline.reset();
     framebufferPool.clear();
     offscreenRenderPass.reset();
     frameDescriptors.reset();
     frameDescriptorsPool.clear();
-    sceneGraphicsPipeline.reset();
     sceneDescriptors.reset();
     pushConstantRanges = nullptr;
     this->scene = std::move(scene);
@@ -525,7 +526,19 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
     fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings)
+bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
+{
+    if (sceneGraphicsPipeline) {
+        if (sceneGraphicsPipeline->pipelineLayout.getAssociatedRenderPass() == renderPass) {
+            return false;
+        }
+        sceneGraphicsPipeline.reset();
+    }
+    sceneGraphicsPipeline = scene->createGraphicsPipeline(renderPass, Scene::PipelineKind::kScenePipeline);
+    return true;
+}
+
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const
 {
     ASSERT(currentFrameSlot < framesInFlight);
     if (!scene) {
@@ -539,12 +552,8 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
 
     ASSERT(sceneDescriptors);
 
-    if (!sceneGraphicsPipeline || (sceneGraphicsPipeline->pipelineLayout.getAssociatedRenderPass() != renderPass)) {
-        sceneGraphicsPipeline.reset();
-        sceneGraphicsPipeline = scene->createGraphicsPipeline(renderPass, Scene::PipelineKind::kScenePipeline);
-    }
-    auto scenePipeline = sceneGraphicsPipeline->pipelines.getPipelines().at(0);
     auto scenePipelineLayout = sceneGraphicsPipeline->pipelineLayout.getPipelineLayout();
+    auto scenePipeline = sceneGraphicsPipeline->pipelines.getPipelines().at(0);
 
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
     auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Rasterization"sv, kMagentaColor);

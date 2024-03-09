@@ -6,6 +6,6 @@ layout(std140, set = 1, binding = 0, scalar) uniform UniformBuffer
     float alpha;
     float zNear;
     float zFar;
-    vec3 pos;
+    vec3 position;
     float t;
 } uniformBuffer;

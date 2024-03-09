@@ -43,6 +43,7 @@ target_link_libraries(
     PRIVATE
         Qt6::Core
         Qt6::Gui
+        Qt6::GuiPrivate
         Qt6::Qml
         Qt6::Quick
         Qt6::Widgets
@@ -87,6 +88,7 @@ target_link_libraries(
         "libformat"
         "libengine"
         Qt6::Gui
+        Qt6::GuiPrivate
         Qt6::Qml
         Qt6::Widgets
         Qt6::Quick

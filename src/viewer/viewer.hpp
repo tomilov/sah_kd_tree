@@ -1,7 +1,5 @@
 #pragma once
 
-#include <utils/fast_pimpl.hpp>
-
 #include <QtCore/QHash>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -44,7 +42,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
 
 public:
-    Viewer();
+    explicit Viewer(QQuickItem * parent = nullptr);
     ~Viewer() override;
 
     Q_INVOKABLE void rotate(QVector3D tiltPanRoll);
@@ -84,6 +82,7 @@ private Q_SLOTS:
     void cleanup();
 
 private:
+    static constexpr bool kUseRenderNode = true;
     static constexpr qreal kDefaultFov = 90.0f;
 
     QVector3D eulerAngles;
@@ -112,13 +111,12 @@ private:
     std::shared_ptr<const Scene> scene;
     float characteristicSize = 0.0f;
 
-    static constexpr size_t kFrameSettingsSize = 116;
-    static constexpr size_t kFrameSettingsAlignment = 4;
-    utils::FastPimpl<FrameSettings, kFrameSettingsSize, kFrameSettingsAlignment> frameSettings;
-
+    bool frameSettingsDirty = false;
+    std::unique_ptr<FrameSettings> frameSettings;
     std::unique_ptr<Renderer> renderer;
 
-    void checkEngine() const;
+    void setScene();
+    [[nodiscard]] FrameSettings getFrameSettings() const;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
     void handleInput();
@@ -137,6 +135,8 @@ private:
 
     void keyPressEvent(QKeyEvent * event) override;
     void keyReleaseEvent(QKeyEvent * event) override;
+
+    [[nodiscard]] QSGNode * updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData) override;
 };
 
 }  // namespace viewer

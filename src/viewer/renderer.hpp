@@ -25,18 +25,21 @@ class Scene;
 struct FrameSettings
 {
     bool useOffscreenTexture = false;
+    glm::mat2 transform2D{1.0f};
+    float alpha = 1.0f;
+    float zNear = 1E-3f;
+    float zFar = 1E3f;
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     float t = 0.0f;
-    float alpha = 1.0f;
     vk::Rect2D scissor = {};
     vk::Viewport viewport = {};
     float width = 0.0f;
     float height = 0.0f;
-    glm::mat2 transform2D{1.0f};
     float fov = glm::half_pi<float>();
-    float zNear = 1E-3f;
-    float zFar = 1E3f;
+
+    bool operator==(const FrameSettings &) const = default;
+    bool operator!=(const FrameSettings &) const = default;
 };
 
 class Renderer : utils::NonCopyable
@@ -47,9 +50,8 @@ public:
 
     void setScene(std::shared_ptr<const Scene> scene);
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-
-    [[nodiscard]] std::shared_ptr<const Scene> getScene() const;
+    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
 
 private:
     struct Impl;
