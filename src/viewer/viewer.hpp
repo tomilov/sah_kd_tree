@@ -82,7 +82,6 @@ private Q_SLOTS:
     void cleanup();
 
 private:
-    static constexpr bool kUseRenderNode = true;
     static constexpr qreal kDefaultFov = 90.0f;
 
     QVector3D eulerAngles;
@@ -105,13 +104,12 @@ private:
     QUrl scenePath;
     float t = 0.0;
 
-    bool useOffscreenTexture = false;
+    bool useOffscreenTexture = true;
 
     QUrl currentScenePath;
     std::shared_ptr<const Scene> scene;
     float characteristicSize = 0.0f;
 
-    bool frameSettingsDirty = false;
     std::unique_ptr<FrameSettings> frameSettings;
     std::unique_ptr<Renderer> renderer;
 

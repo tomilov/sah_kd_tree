@@ -20,6 +20,7 @@
 #include <glm/mat3x3.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
@@ -61,6 +62,8 @@ constexpr float kMinDepth = 0.0f;
 #else
 constexpr float kMinDepth = -1.0f;
 #endif
+
+constexpr bool kUseRenderNode = true;
 
 void checkEngine(QQuickWindow * window, const engine::Context & context)
 {
@@ -171,9 +174,13 @@ private:
 
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
-            // const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-            // qCDebug(viewerCategory) << mvp;
-            // qCDebug(viewerCategory) << QString::fromStdString(glm::to_string(frameSettings.transform2D));
+            //static_assert(!kUseRenderNode, "Not implemented");
+            auto mvp = *projectionMatrix() * *matrix();
+            auto m = glm::make_mat4x4(mvp.constData());
+            m = glm::scale(m, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+            m = glm::translate(m, glm::vec3{1.0f, 1.0f, 0.0f});
+            qCDebug(viewerCategory) << QString::fromStdString(glm::to_string(m));
+            qCDebug(viewerCategory) << QString::fromStdString(glm::to_string(frameSettings.transform2D));
 
             // qDebug() << frameSettings.alpha << inheritedOpacity();
 
@@ -190,13 +197,6 @@ private:
 
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
-            //*renderState->projectionMatrix() * *matrix();
-
-            // QColor colorClearValue = Qt::GlobalColor::red;
-            // QRhiDepthStencilClearValue depthStencilClearValue{0.0f, quint32{0}};
-            // constexpr QRhiResourceUpdateBatch * resourceUpdates = nullptr;
-            // constexpr QRhiCommandBuffer::BeginPassFlags kBeginPassFlags = QRhiCommandBuffer::BeginPassFlag::ExternalContent;
-            // commandBuffer()->beginPass(renderTarget(), colorClearValue, depthStencilClearValue, resourceUpdates, kBeginPassFlags);
             commandBuffer()->beginExternal();
             {
                 auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
@@ -222,7 +222,6 @@ private:
                 renderer->render(cb, utils::autoCast(currentFrameSlot), frameSettings);
             }
             commandBuffer()->endExternal();
-            // commandBuffer()->endPass(resourceUpdates);
         }
     }
 
@@ -414,11 +413,7 @@ void Viewer::sync()
         setScene();
     }
 
-    FrameSettings newFrameSettings = getFrameSettings();
-    if (*frameSettings != newFrameSettings) {
-        *frameSettings = newFrameSettings;
-        frameSettingsDirty = true;
-    }
+    *frameSettings = getFrameSettings();
 }
 
 void Viewer::beforeRendering()
@@ -443,7 +438,6 @@ void Viewer::beforeRendering()
 
     if (!boundingRect().isEmpty()) {
         renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
-        frameSettingsDirty = false;
     }
 }
 
@@ -571,6 +565,7 @@ FrameSettings Viewer::getFrameSettings() const
             };
         }
 
+        // should be calculated relative to the first parent rendertarget Item (layer.enabled: true)
         qreal scaleFactor = scale();
         qreal rotationAngle = rotation();
         for (auto p = parentItem(); p; p = p->parentItem()) {

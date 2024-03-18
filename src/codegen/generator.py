@@ -1,11 +1,13 @@
-import re
-import sys
-import subprocess
-from jinja2 import Environment, select_autoescape, FileSystemLoader
-import difflib
-from termcolor import colored
 import argparse
-import xml.etree.ElementTree as etree
+import difflib
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ElementTree
+from pathlib import Path
+
+from jinja2 import Environment, select_autoescape, FileSystemLoader
+from termcolor import colored
 
 FORMAT_REGEX = re.compile(
     r"""
@@ -73,7 +75,7 @@ FORMAT_REGEX = re.compile(
 )
 
 
-def print_diff(unformatted, formatted, /, *, file_name=""):
+def _print_diff(unformatted, formatted, /, *, file_name=""):
     a = unformatted.splitlines(keepends=False)
     b = formatted.splitlines(keepends=False)
     for line in difflib.unified_diff(
@@ -97,11 +99,11 @@ def print_diff(unformatted, formatted, /, *, file_name=""):
         print(colored(line, color), file=sys.stderr)
 
 
-def gen_spirv_format_context(args):
-    sys.path.append(args.spirv_headers)
-    from spirv.unified1.spirv import spv
+def _gen_spirv_format_context(args):
+    sys.path.append(str(args.spirv_headers))
+    import spirv.unified1.spirv
 
-    def prefix_to_lower(m):
+    def _prefix_to_lower(m):
         g1 = m.group(1)
         if g1:
             return g1[:-1].lower() + g1[-1]
@@ -109,11 +111,11 @@ def gen_spirv_format_context(args):
 
     split_typename_regex = re.compile(r"^(?:([A-Z]{2,})|([A-Z]))")
 
-    def to_variable_name(name):
-        return split_typename_regex.sub(prefix_to_lower, name)
+    def _to_variable_name(name):
+        return split_typename_regex.sub(_prefix_to_lower, name)
 
     spv_enums = list()
-    for key, value in spv.items():
+    for key, value in spirv.unified1.spirv.spv.items():
         if key in [
             "HostAccessQualifier",
             "LoadCacheControl",
@@ -126,7 +128,7 @@ def gen_spirv_format_context(args):
         spv_enum = dict()
 
         spv_enum["enum_typename"] = f"Spv{key}"
-        spv_enum["variable_name"] = to_variable_name(key)
+        spv_enum["variable_name"] = _to_variable_name(key)
 
         enum_values = sorted(value.items(), key=lambda item: (item[1], item[0]))
         unique_enum_underlying_values = set()
@@ -135,7 +137,7 @@ def gen_spirv_format_context(args):
             assert isinstance(enum_underlying_value, int), type(
                 enum_underlying_value
             ).__name__
-            if not enum_underlying_value in unique_enum_underlying_values:
+            if enum_underlying_value not in unique_enum_underlying_values:
                 unique_enum_underlying_values.add(enum_underlying_value)
                 enum_value = {
                     "enum_value_name": enum_value_name,
@@ -147,7 +149,7 @@ def gen_spirv_format_context(args):
         spv_enums.append(spv_enum)
 
     filters = {
-        "to_variable_name": to_variable_name,
+        "to_variable_name": _to_variable_name,
     }
     context = {
         "spv_enums": spv_enums,
@@ -155,10 +157,10 @@ def gen_spirv_format_context(args):
     return context, filters
 
 
-def gen_vulkan_utils_context(args):
-    registry = etree.parse(args.vulkan_registry).getroot()
+def _gen_vulkan_utils_context(args):
+    registry = ElementTree.parse(args.vulkan_registry).getroot()
 
-    def cpp_case(m):
+    def _cpp_case(m):
         g1 = m.group(1)
         if g1:
             return g1
@@ -170,23 +172,23 @@ def gen_vulkan_utils_context(args):
     tags = registry.findall("tags")
     assert len(tags) == 1, len(tags)
     vendors = "|".join(tag.get("name") for tag in tags[0].findall("tag"))
-    split_c_regex = re.compile(f"(?:_({vendors})$)|(_)|([A-Z]+)")
+    split_c_regex = re.compile(f"_({vendors})$|(_)|([A-Z]+)")
 
-    def to_cpp_case(identifier):
-        return split_c_regex.sub(cpp_case, identifier)
+    def _to_cpp_case(identifier):
+        return split_c_regex.sub(_cpp_case, identifier)
 
-    def c_enum_to_cpp(identifier, prefix):
+    def _c_enum_to_cpp(identifier, prefix):
         vk_len = len("VK_")
         assert prefix[:vk_len] == "VK_", prefix
         assert identifier[: len(prefix)] == prefix, identifier[: len(prefix)]
-        camel_case = to_cpp_case(identifier[vk_len:])
+        camel_case = _to_cpp_case(identifier[vk_len:])
         type_len = sum(1 for c in prefix[vk_len:] if c != "_")
         return f"vk::{camel_case[:type_len]}::e{camel_case[type_len:]}"
 
-    reformat_identifier_regex = re.compile(r"[_\ \-]|\bASTC_(\d+x\d+)\b|([A-Za-z]+)")
+    reformat_identifier_regex = re.compile(r"[_ \-]|\bASTC_(\d+x\d+)\b|([A-Za-z]+)")
 
-    def reformat_identifier(identifier):
-        def reformat(m):
+    def _reformat_identifier(identifier):
+        def _reformat(m):
             g1 = m.group(1)
             if g1:
                 return f"Astc{g1}"
@@ -194,7 +196,7 @@ def gen_vulkan_utils_context(args):
             if g2:
                 return g2[0].upper() + g2[1:].lower()
 
-        return reformat_identifier_regex.sub(reformat, identifier)
+        return reformat_identifier_regex.sub(_reformat, identifier)
 
     compatibility_classes = set()
     component_types = set()
@@ -207,17 +209,17 @@ def gen_vulkan_utils_context(args):
     formats = registry.findall("formats")
     assert len(formats) == 1, len(formats)
     output_formats = list()
-    for format in formats[0]:
-        assert format.tag == "format", format.tag
+    for image_format in formats[0]:
+        assert image_format.tag == "format", image_format.tag
         output_format = dict()
 
-        assert len(format) > 0, len(format)
-        for key, value in format.attrib.items():
+        assert len(image_format) > 0, len(image_format)
+        for key, value in image_format.attrib.items():
             if key == "name":
                 format_name = value
                 assert FORMAT_REGEX.match(format_name), format_name
                 output_format["format_name"] = format_name
-                output_format["format_cpp_name"] = c_enum_to_cpp(
+                output_format["format_cpp_name"] = _c_enum_to_cpp(
                     format_name, "VK_FORMAT"
                 )
             elif key == "blockExtent":
@@ -229,19 +231,19 @@ def gen_vulkan_utils_context(args):
                 output_format["block_size"] = value
             elif key == "class":
                 output_format["compatibility_class"] = value
-                compatibility_class = reformat_identifier(value)
+                compatibility_class = _reformat_identifier(value)
                 output_format["compatibility_cpp_class"] = compatibility_class
                 compatibility_classes.add((value, compatibility_class))
             elif key == "packed":
                 output_format["packed"] = value
             elif key == "compressed":
                 output_format["compression_type"] = value
-                compression_type = reformat_identifier(value)
+                compression_type = _reformat_identifier(value)
                 output_format["compression_cpp_type"] = compression_type
                 compression_types.add((value, compression_type))
             elif key == "chroma":
                 output_format["chroma_kind"] = value
-                chroma_kind = reformat_identifier(value)
+                chroma_kind = _reformat_identifier(value)
                 output_format["chroma_kind_cpp"] = chroma_kind
                 chroma_kinds.add((value, chroma_kind))
             elif key == "texelsPerBlock":
@@ -255,12 +257,13 @@ def gen_vulkan_utils_context(args):
         assert "compatibility_class" in output_format
 
         assert all(
-            child.tag in {"component", "spirvimageformat", "plane"} for child in format
+            child.tag in {"component", "spirvimageformat", "plane"}
+            for child in image_format
         )
 
-        components = format.findall("component")
-        planes = format.findall("plane")
-        spirvimageformats = format.findall("spirvimageformat")
+        components = image_format.findall("component")
+        planes = image_format.findall("plane")
+        spirvimageformats = image_format.findall("spirvimageformat")
 
         assert components
         max_component_count = max(max_component_count, len(components))
@@ -274,7 +277,7 @@ def gen_vulkan_utils_context(args):
                     component_types.add(value)
                 elif key == "numericFormat":
                     output_component["numeric_format"] = value
-                    numeric_format = reformat_identifier(value)
+                    numeric_format = _reformat_identifier(value)
                     output_component["numeric_cpp_format"] = numeric_format
                     numeric_formats.add((value, numeric_format))
                 elif key == "bits":
@@ -305,7 +308,7 @@ def gen_vulkan_utils_context(args):
                         output_plane["index"] = int(value)
                     elif key == "compatible":
                         output_plane["compatible_format_name"] = value
-                        output_plane["compatible_cpp_format_name"] = c_enum_to_cpp(
+                        output_plane["compatible_cpp_format_name"] = _c_enum_to_cpp(
                             value, "VK_FORMAT"
                         )
                     elif key == "heightDivisor":
@@ -320,7 +323,7 @@ def gen_vulkan_utils_context(args):
                 assert "height_divisor" in output_plane
                 assert "width_divisor" in output_plane
                 output_planes.append(output_plane)
-            output_planes.sort(key=lambda output_plane: output_plane["index"])
+            output_planes.sort(key=lambda x: x["index"])
             for output_plane in output_planes:
                 del output_plane["index"]
 
@@ -357,33 +360,34 @@ def gen_vulkan_utils_context(args):
         "formats": sorted(output_formats, key=lambda x: x["format_name"]),
     }
     filters = {
-        "c_enum_to_cpp": c_enum_to_cpp,
+        "c_enum_to_cpp": _c_enum_to_cpp,
     }
     return context, filters
 
 
-def clang_format(unformatted):
+def _clang_format(args, unformatted):
     popenargs = [
-        args.clang_format_executable,
+        str(args.clang_format_executable),
         f"-style=file:{args.clang_format_config}",
     ]
     completed_process = subprocess.run(
-        popenargs, input=unformatted.encode(), stdout=subprocess.PIPE
+        popenargs, input=unformatted.encode(), stdout=subprocess.PIPE, check=True
     )
-    completed_process.check_returncode()
     return completed_process.stdout.decode()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+def main():
+    parser = argparse.ArgumentParser("Tool to generate sources")
     parser.add_argument("--source-dir", required=True, help="Source directory")
     parser.add_argument(
         "--clang-format-executable",
+        type=Path,
         required=True,
         help="Filepath of clang-format executable",
     )
     parser.add_argument(
         "--clang-format-config",
+        type=Path,
         required=True,
         help="Filepath of _clang-format config file",
     )
@@ -397,17 +401,21 @@ if __name__ == "__main__":
 
     spirv_parser = subparsers.add_parser("spirv_format")
     spirv_parser.add_argument(
-        "--spirv-headers", required=True, help="SPIR-V Headers dirpath"
+        "--spirv-headers", type=Path, required=True, help="SPIR-V Headers dirpath"
     )
-    spirv_parser.set_defaults(handler=gen_spirv_format_context)
+    spirv_parser.set_defaults(handler=_gen_spirv_format_context)
 
     vulkan_parser = subparsers.add_parser("vulkan_utils")
     vulkan_parser.add_argument(
-        "--vulkan-registry", required=True, help="Vulkan Registry filepath"
+        "--vulkan-registry", type=Path, required=True, help="Vulkan Registry filepath"
     )
-    vulkan_parser.set_defaults(handler=gen_vulkan_utils_context)
+    vulkan_parser.set_defaults(handler=_gen_vulkan_utils_context)
 
     args = parser.parse_args()
+
+    if not hasattr(args, "handler"):
+        parser.print_help()
+        return
     context, filters = args.handler(args)
 
     env = Environment(
@@ -421,12 +429,16 @@ if __name__ == "__main__":
     )
     env.filters.update(filters)
 
-    for ext in ["hpp", "cpp"]:
+    for ext in "hpp", "cpp":
         file_name = f"{args.subparser_name}.{ext}"
         unformatted = env.get_template(f"{file_name}.jinja2").render(context)
-        formatted = clang_format(unformatted)
+        formatted = _clang_format(args, unformatted)
         if unformatted != formatted:
-            print_diff(unformatted, formatted, file_name=file_name)
+            _print_diff(unformatted, formatted, file_name=file_name)
             assert not args.fail_on_format_mismatch, "Failed on formats mismatch"
         with open(f"{file_name}.tmp", "wb") as tmp:
             tmp.write(unformatted.encode())
+
+
+if __name__ == "__main__":
+    main()

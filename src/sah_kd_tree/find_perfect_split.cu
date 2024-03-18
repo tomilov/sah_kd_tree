@@ -59,7 +59,7 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         assert(!(splitPos < min));
         assert(!(max < splitPos));
         if (!(min < max)) {
-            return {std::numeric_limits<F>::infinity(), 0};
+            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
         }
         F l = splitPos - min, r = max - splitPos;
         U polygonCountLeft = polygonCountLefts[event];
@@ -84,18 +84,18 @@ void sah_kd_tree::Projection::findPerfectSplit(const Params & sah, U layerSize, 
         if (polygonCountLeft == 0) {
             assert(polygonCountRight != 0);
             if (!(min < splitPos)) {
-                return {std::numeric_limits<F>::infinity(), 0};
+                return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountRight == polygonCount) {
-            return {std::numeric_limits<F>::infinity(), 0};
+            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
         } else if (polygonCountRight == 0) {
             if (!(splitPos < max)) {
-                return {std::numeric_limits<F>::infinity(), 0};
+                return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountLeft == polygonCount) {
-            return {std::numeric_limits<F>::infinity(), 0};
+            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
         }
         F x = max - min;
         F y = nodeYMaxs[eventNode] - nodeYMins[eventNode];

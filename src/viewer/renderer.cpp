@@ -89,7 +89,7 @@ public:
     }
 };
 
-class Recycler : utils::OneTime<Recycler>
+class Recycler final : utils::OneTime<Recycler>
 {
 public:
     template<typename F, typename... Args>

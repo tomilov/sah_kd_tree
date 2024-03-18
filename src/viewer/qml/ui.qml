@@ -385,113 +385,144 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            SahKdTreeViewer {
-                id: mainSahKdTreeViewer
-                objectName: "Main"
+            Item {
+                layer.enabled: true
 
-                engine: SahKdTreeEngine
+                Item {
+                    anchors.centerIn: parent
+                    width: 256
+                    height: 256
 
-                //layer.enabled: true
-                //clip: true
+                    Rectangle {
+                        anchors.fill: mainSahKdTreeViewer
+                        anchors.margins: -4
 
-                rotation: 30.0
-                scale: 0.5
+                        scale: mainSahKdTreeViewer.scale
+                        transformOrigin: mainSahKdTreeViewer.transformOrigin
 
-                //opacity: 0.2
+                        border.color: mainSahKdTreeViewer.activeFocus ? "red" : "green"
+                        border.width: 3
 
-                /*
-                SequentialAnimation on rotation {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        from: 0.0
-                        to: 360.0
-                        duration: 333300
+                        color: "transparent"
                     }
-                }
-                SequentialAnimation on scale {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        from: 0.8
-                        to: 1.21
-                        duration: 200000
-                    }
-                    NumberAnimation {
-                        from: 1.1
-                        to: 0.8
-                        duration: 200000
-                    }
-                }
-                SequentialAnimation on t {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation {
-                        to: 1.0
-                        duration: 200
-                        easing.type: Easing.InQuad
-                    }
-                    NumberAnimation {
-                        to: 0.0
-                        duration: 200
-                        easing.type: Easing.OutQuad
-                    }
-                }
-                //*/
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -4
 
-                    border.color: parent.activeFocus ? "red" : "green"
-                    border.width: 3
+                    SahKdTreeViewer {
+                        id: mainSahKdTreeViewer
+                        objectName: "Main"
 
-                    color: "transparent"
-                }
+                        anchors.fill: parent
 
-                MouseArea {
-                    anchors.fill: parent
+                        engine: SahKdTreeEngine
 
-                    acceptedButtons: Qt.RightButton | Qt.LeftButton
+                        Timer {
+                            interval: 1000
+                            repeat: true
+                            running: true
 
-                    cursorShape: parent.cursor
-
-                    onPressed: (mouse) => {
-                        parent.forceActiveFocus()
-                        switch (mouse.button) {
-                        case Qt.LeftButton: {
-                            mouse.accepted = false
-                            break
+                            onTriggered: {
+                                //mainSahKdTreeViewer.layer.enabled = !mainSahKdTreeViewer.layer.enabled
+                            }
                         }
-                        case Qt.RightButton: {
-                            mouse.accepted = true
-                            break
+
+                        //layer.enabled: true
+                        //clip: true
+
+                        //scale: 0.5
+                        //transformOrigin: Item.TopLeft
+
+                        //opacity: 0.2
+
+                        /*
+                        SequentialAnimation on rotation {
+                            loops: Animation.Infinite
+                            running: true
+                            NumberAnimation {
+                                from: -7.5
+                                to: 7.5
+                                duration: 5000
+                            }
+                            NumberAnimation {
+                                from: 7.5
+                                to: -7.5
+                                duration: 5000
+                            }
                         }
+                        SequentialAnimation on scale {
+                            loops: Animation.Infinite
+                            running: true
+                            NumberAnimation {
+                                from: 0.8
+                                to: 1.21
+                                duration: 200000
+                            }
+                            NumberAnimation {
+                                from: 1.1
+                                to: 0.8
+                                duration: 200000
+                            }
+                        }
+                        SequentialAnimation on t {
+                            loops: Animation.Infinite
+                            running: true
+                            NumberAnimation {
+                                to: 1.0
+                                duration: 200
+                                easing.type: Easing.InQuad
+                            }
+                            NumberAnimation {
+                                to: 0.0
+                                duration: 200
+                                easing.type: Easing.OutQuad
+                            }
+                        }
+                        //*/
+
+                        MouseArea {
+                            anchors.fill: parent
+
+                            acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                            cursorShape: parent.cursor
+
+                            onPressed: (mouse) => {
+                                parent.forceActiveFocus()
+                                switch (mouse.button) {
+                                case Qt.LeftButton: {
+                                    mouse.accepted = false
+                                    break
+                                }
+                                case Qt.RightButton: {
+                                    mouse.accepted = true
+                                    break
+                                }
+                                }
+                            }
+
+                            onClicked: (mouse) => {
+                                switch (mouse.button) {
+                                case Qt.RightButton: {
+                                    mouse.accepted = true
+
+                                    contextMenu.item = parent
+                                    contextMenu.x = mouse.x
+                                    contextMenu.y = mouse.y
+                                    contextMenu.popup()
+                                    break
+                                }
+                                }
+                            }
+                        }
+
+                        focus: StackLayout.isCurrentItem
+
+                        Settings {
+                            category: "%1".arg(mainSahKdTreeViewer.objectName)
+                            property alias scenePath: mainSahKdTreeViewer.scenePath
+                            property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
+                            property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
+                            property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
                         }
                     }
-
-                    onClicked: (mouse) => {
-                        switch (mouse.button) {
-                        case Qt.RightButton: {
-                            mouse.accepted = true
-
-                            contextMenu.item = parent
-                            contextMenu.x = mouse.x
-                            contextMenu.y = mouse.y
-                            contextMenu.popup()
-                            break
-                        }
-                        }
-                    }
-                }
-
-                focus: StackLayout.isCurrentItem
-
-                Settings {
-                    category: "%1".arg(mainSahKdTreeViewer.objectName)
-                    property alias scenePath: mainSahKdTreeViewer.scenePath
-                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
-                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
-                    property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
                 }
             }
 

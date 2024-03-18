@@ -67,7 +67,7 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
             return {2, nodeZSplitPositions[layerNode], nodeZLeftChildPolygonCount, nodeZRightChildPolygonCount};
         } else {
             assert(!(bestNodeSplitCost < t));
-            return {-1};  // leaf
+            return NodeBestSplitType{-1};  // leaf
         }
     };
     thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
