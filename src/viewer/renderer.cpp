@@ -28,7 +28,6 @@
 #include <queue>
 
 #include <algorithm>
-#include <filesystem>
 #include <initializer_list>
 #include <iterator>
 #include <list>
@@ -93,7 +92,8 @@ class Recycler final : utils::OneTime<Recycler>
 {
 public:
     template<typename F, typename... Args>
-    Recycler(F && f, Args &&... args) : holder{makeHolder<F, Args...>(f, args..., std::index_sequence_for<Args...>{})}  // NOLINT: google-explicit-constructor
+    Recycler(F && f, Args &&... args)
+        : holder{makeHolder<F, Args...>(f, args..., std::index_sequence_for<Args...>{})}  // NOLINT: google-explicit-constructor
     {}
 
     [[nodiscard]] operator Resource() && noexcept  // NOLINT: google-explicit-constructor
@@ -242,7 +242,8 @@ struct Renderer::Impl : utils::NonCopyable
     }
 };
 
-Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight) : impl_{context, framesInFlight}
+Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight)
+    : impl_{context, framesInFlight}
 {}
 
 Renderer::~Renderer() = default;
@@ -424,7 +425,9 @@ auto Renderer::Impl::Framebuffer::make(const engine::Context & context, const vk
     };
 }
 
-Renderer::Impl::Impl(const engine::Context & context, uint32_t framesInFlight) : context{context}, framesInFlight{framesInFlight}
+Renderer::Impl::Impl(const engine::Context & context, uint32_t framesInFlight)
+    : context{context}
+    , framesInFlight{framesInFlight}
 {}
 
 vk::Format Renderer::Impl::findDepthImageFormat(const engine::Context & context, vk::ImageTiling imageTiling)

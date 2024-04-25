@@ -1,0 +1,6 @@
+black
+isort
+jinja2
+mypy
+pytest
+termcolor

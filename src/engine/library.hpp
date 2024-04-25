@@ -8,7 +8,6 @@
 
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include <engine/engine_export.h>
 
@@ -17,7 +16,7 @@ namespace engine
 
 struct ENGINE_EXPORT Library final : utils::NonCopyable
 {
-    Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const Context & context);
+    Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks);
 
     [[nodiscard]] vk::Optional<const vk::AllocationCallbacks> getAllocationCallbacks() const &;
     [[nodiscard]] const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & getDispatcher() const &;
@@ -25,8 +24,6 @@ struct ENGINE_EXPORT Library final : utils::NonCopyable
 
 private:
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
-
-    const Context & context;
 
 #if defined(VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL)
     std::optional<vk::DynamicLoader> dl;

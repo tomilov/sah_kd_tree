@@ -2,18 +2,12 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
-#include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
-#include <mutex>
 #include <string>
 #include <string_view>
-#include <thread>
-#include <unordered_map>
-#include <utility>
 
-#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>

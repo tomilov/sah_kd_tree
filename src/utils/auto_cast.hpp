@@ -52,7 +52,8 @@ template<typename Source>
 class autoCast
 {
 public:
-    constexpr explicit autoCast(Source && source) noexcept : source{source}
+    constexpr explicit autoCast(Source && source) noexcept
+        : source{source}
     {}
 
     template<typename Destination>

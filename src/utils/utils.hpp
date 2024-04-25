@@ -15,4 +15,5 @@
 
 namespace utils
 {
-}
+
+}  // namespace utils

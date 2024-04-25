@@ -8,15 +8,17 @@
 #include <engine/shader_module.hpp>
 #include <engine/spirv_reflect_dump.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
-#include <utils/checked_ptr.hpp>
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
 
 #include <algorithm>
 #include <iterator>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -327,7 +329,10 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}
+ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo)
+    : name{name}
+    , context{context}
+    , fileIo{fileIo}
 {
     shaderStage = shaderNameToStage(name);
     spirv = fileIo.loadShader(name);
@@ -367,7 +372,11 @@ ShaderModule::operator vk::ShaderModule() const &
 }
 
 ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
-    : context{context}, shaderModuleName{shaderModule.getName()}, shaderStage{shaderModule.getShaderStage()}, entryPointName{entryPointName}, reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
+    : context{context}
+    , shaderModuleName{shaderModule.getName()}
+    , shaderStage{shaderModule.getShaderStage()}
+    , entryPointName{entryPointName}
+    , reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
     auto reflectionResult = reflectionModule->GetResult();
     INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModuleName);
@@ -536,7 +545,9 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding) : context{context}, vertexBufferBinding{vertexBufferBinding}
+ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding)
+    : context{context}
+    , vertexBufferBinding{vertexBufferBinding}
 {}
 
 void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)

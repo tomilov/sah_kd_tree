@@ -1,15 +1,18 @@
 #include <common/config.hpp>
 #include <common/version.hpp>
 #include <engine/instance.hpp>
+#include <engine/library.hpp>
+#include <engine/types.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 
-#include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan_extension_inspection.hpp>
 
 #include <iterator>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -66,7 +69,8 @@ struct Instance::DebugUtilsMessageMuteGuard::Impl
 Instance::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() = default;
 
 template<typename... Args>
-Instance::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args) : impl_{std::forward<Args>(args)...}
+Instance::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args)
+    : impl_{std::forward<Args>(args)...}
 {}
 
 Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()
@@ -84,7 +88,10 @@ Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()
 }
 
 Instance::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers)
-    : mutex{mutex}, mutedMessageIdNumbers{mutedMessageIdNumbers}, action{action}, messageIdNumbers{messageIdNumbers}
+    : mutex{mutex}
+    , mutedMessageIdNumbers{mutedMessageIdNumbers}
+    , action{action}
+    , messageIdNumbers{messageIdNumbers}
 {
     switch (action) {
     case Action::kMute: {
@@ -137,7 +144,10 @@ bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
 }
 
 Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, std::span<const char * const> requiredInstanceExtensions, Library & library, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
-    : applicationName{applicationName}, applicationVersion{applicationVersion}, library{library}, debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+    : applicationName{applicationName}
+    , applicationVersion{applicationVersion}
+    , library{library}
+    , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
 {
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     if (library.getDispatcher().vkEnumerateInstanceVersion) {

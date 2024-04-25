@@ -3,11 +3,11 @@
 #include <utils/assert.hpp>
 
 #include <fmt/color.h>
-#include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_to_string.hpp>
 
+#include <algorithm>
+#include <array>
 #include <limits>
 #include <type_traits>
 #include <utility>

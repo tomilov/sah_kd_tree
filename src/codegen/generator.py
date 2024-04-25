@@ -6,12 +6,12 @@ import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
-from jinja2 import Environment, select_autoescape, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from termcolor import colored
 
 FORMAT_REGEX = re.compile(
     r"""
-^VK_FORMAT
+VK_FORMAT
 (?:
         # NVIDIA optical flow
         _R16G16_S10_5_NV
@@ -69,7 +69,7 @@ FORMAT_REGEX = re.compile(
         _(?P<numeric_format>USCALED|UINT|UFLOAT|SINT|SFLOAT|SSCALED|SRGB|SNORM|UNORM)
         (?:_(?P<batch>[234])?PACK(?P<pack>8|16|32))?
         (?:_KHR)?
-)$
+)
 """,
     re.VERBOSE,
 )
@@ -101,7 +101,7 @@ def _print_diff(unformatted, formatted, /, *, file_name=""):
 
 def _gen_spirv_format_context(args):
     sys.path.append(str(args.spirv_headers))
-    import spirv.unified1.spirv
+    import spirv.unified1.spirv  # type: ignore
 
     def _prefix_to_lower(m):
         g1 = m.group(1)
@@ -217,7 +217,7 @@ def _gen_vulkan_utils_context(args):
         for key, value in image_format.attrib.items():
             if key == "name":
                 format_name = value
-                assert FORMAT_REGEX.match(format_name), format_name
+                assert FORMAT_REGEX.fullmatch(format_name), format_name
                 output_format["format_name"] = format_name
                 output_format["format_cpp_name"] = _c_enum_to_cpp(
                     format_name, "VK_FORMAT"

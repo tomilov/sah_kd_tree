@@ -1,9 +1,11 @@
 #pragma once
 
+#include <assimp/IOStream.hpp>
 #include <assimp/IOSystem.hpp>
 #include <assimp/Logger.hpp>
 #include <assimp/ProgressHandler.hpp>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QIODevice>
 #include <QtCore/QMap>
 

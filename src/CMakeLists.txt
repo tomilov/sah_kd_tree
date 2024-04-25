@@ -20,6 +20,13 @@ if(TRUE)
     endif()
 endif()
 
+option(ENABLE_IWYU "Run include-what-you-use")
+if(ENABLE_IWYU)
+  find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
+  set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
+  set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
+endif()
+
 include_directories(
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -1,24 +1,17 @@
-#include <engine/command_buffer.hpp>
 #include <engine/command_pool.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/library.hpp>
 #include <utils/assert.hpp>
 
-#include <fmt/std.h>
-#include <spdlog/spdlog.h>
+#include <string_view>
 
-#include <iterator>
-#include <type_traits>
-#include <utility>
-
-#include <cstddef>
 #include <cstdint>
 
 namespace engine
 {
 
-CommandPool::CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex) : name{name}
+CommandPool::CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex)
+    : name{name}
 {
     vk::CommandPoolCreateInfo commandPoolCreateInfo = {
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,

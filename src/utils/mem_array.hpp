@@ -1,7 +1,5 @@
 #pragma once
 
-#include <utils/fast_pimpl.hpp>
-
 #include <memory>
 
 #include <cstddef>
@@ -15,7 +13,9 @@ class MemArray
 public:
     MemArray() = default;
 
-    explicit MemArray(size_t size) : size{size}, p{std::make_unique<T[]>(size)}
+    explicit MemArray(size_t size)
+        : size{size}
+        , p{std::make_unique<T[]>(size)}
     {}
 
     [[nodiscard]] size_t getCount() const

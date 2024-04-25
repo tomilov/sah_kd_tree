@@ -11,8 +11,11 @@
 #include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
+#include <mutex>
 #include <span>
 #include <string>
+#include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include <cstddef>
@@ -22,7 +25,6 @@
 
 namespace engine
 {
-struct Library;
 
 struct ENGINE_EXPORT Instance final : utils::NonCopyable
 {

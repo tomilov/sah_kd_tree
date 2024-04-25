@@ -350,263 +350,80 @@ ApplicationWindow {
         z: 1.0
     }
 
-    ColumnLayout {
+    Item {
         anchors.fill: parent
 
-        TabBar {
-            id: tabBar
+        SahKdTreeViewer {
+            id: mainSahKdTreeViewer
+            objectName: "Main"
 
-            Layout.fillWidth: true
+            engine: SahKdTreeEngine
 
-            TabButton {
-                text: qsTr("Single")
+            anchors.fill: parent
 
-                width: implicitWidth
+            //layer.enabled: true
+            //clip: true
+
+            scale: 0.5
+            //transformOrigin: Item.TopLeft
+
+            //opacity: 0.2
+
+            MouseArea {
+                anchors.fill: parent
+
+                acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                cursorShape: parent.cursor
+
+                onPressed: (mouse) => {
+                    parent.forceActiveFocus()
+                    switch (mouse.button) {
+                    case Qt.LeftButton: {
+                        mouse.accepted = false
+                        break
+                    }
+                    case Qt.RightButton: {
+                        mouse.accepted = true
+                        break
+                    }
+                    }
+                }
+
+                onClicked: (mouse) => {
+                    switch (mouse.button) {
+                    case Qt.RightButton: {
+                        mouse.accepted = true
+
+                        contextMenu.item = parent
+                        contextMenu.x = mouse.x
+                        contextMenu.y = mouse.y
+                        contextMenu.popup()
+                        break
+                    }
+                    }
+                }
             }
 
-            TabButton {
-                text: qsTr("Swipe")
-
-                width: implicitWidth
-            }
-
-            TabButton {
-                text: qsTr("Grid")
-
-                width: implicitWidth
+            Settings {
+                category: "%1".arg(mainSahKdTreeViewer.objectName)
+                property alias scenePath: mainSahKdTreeViewer.scenePath
+                property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
+                property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
+                property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
             }
         }
 
-        //opacity: 0.3
+        Rectangle {
+            color: "transparent"
 
-        StackLayout {
-            currentIndex: tabBar.currentIndex
+            anchors.fill: parent
+            anchors.margins: -4
+            border.color: "red"
+            border.width: 3
 
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            Item {
-                layer.enabled: true
-
-                Item {
-                    anchors.centerIn: parent
-                    width: 256
-                    height: 256
-
-                    Rectangle {
-                        anchors.fill: mainSahKdTreeViewer
-                        anchors.margins: -4
-
-                        scale: mainSahKdTreeViewer.scale
-                        transformOrigin: mainSahKdTreeViewer.transformOrigin
-
-                        border.color: mainSahKdTreeViewer.activeFocus ? "red" : "green"
-                        border.width: 3
-
-                        color: "transparent"
-                    }
-
-                    SahKdTreeViewer {
-                        id: mainSahKdTreeViewer
-                        objectName: "Main"
-
-                        anchors.fill: parent
-
-                        engine: SahKdTreeEngine
-
-                        Timer {
-                            interval: 1000
-                            repeat: true
-                            running: true
-
-                            onTriggered: {
-                                //mainSahKdTreeViewer.layer.enabled = !mainSahKdTreeViewer.layer.enabled
-                            }
-                        }
-
-                        //layer.enabled: true
-                        //clip: true
-
-                        //scale: 0.5
-                        //transformOrigin: Item.TopLeft
-
-                        //opacity: 0.2
-
-                        /*
-                        SequentialAnimation on rotation {
-                            loops: Animation.Infinite
-                            running: true
-                            NumberAnimation {
-                                from: -7.5
-                                to: 7.5
-                                duration: 5000
-                            }
-                            NumberAnimation {
-                                from: 7.5
-                                to: -7.5
-                                duration: 5000
-                            }
-                        }
-                        SequentialAnimation on scale {
-                            loops: Animation.Infinite
-                            running: true
-                            NumberAnimation {
-                                from: 0.8
-                                to: 1.21
-                                duration: 200000
-                            }
-                            NumberAnimation {
-                                from: 1.1
-                                to: 0.8
-                                duration: 200000
-                            }
-                        }
-                        SequentialAnimation on t {
-                            loops: Animation.Infinite
-                            running: true
-                            NumberAnimation {
-                                to: 1.0
-                                duration: 200
-                                easing.type: Easing.InQuad
-                            }
-                            NumberAnimation {
-                                to: 0.0
-                                duration: 200
-                                easing.type: Easing.OutQuad
-                            }
-                        }
-                        //*/
-
-                        MouseArea {
-                            anchors.fill: parent
-
-                            acceptedButtons: Qt.RightButton | Qt.LeftButton
-
-                            cursorShape: parent.cursor
-
-                            onPressed: (mouse) => {
-                                parent.forceActiveFocus()
-                                switch (mouse.button) {
-                                case Qt.LeftButton: {
-                                    mouse.accepted = false
-                                    break
-                                }
-                                case Qt.RightButton: {
-                                    mouse.accepted = true
-                                    break
-                                }
-                                }
-                            }
-
-                            onClicked: (mouse) => {
-                                switch (mouse.button) {
-                                case Qt.RightButton: {
-                                    mouse.accepted = true
-
-                                    contextMenu.item = parent
-                                    contextMenu.x = mouse.x
-                                    contextMenu.y = mouse.y
-                                    contextMenu.popup()
-                                    break
-                                }
-                                }
-                            }
-                        }
-
-                        focus: StackLayout.isCurrentItem
-
-                        Settings {
-                            category: "%1".arg(mainSahKdTreeViewer.objectName)
-                            property alias scenePath: mainSahKdTreeViewer.scenePath
-                            property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
-                            property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
-                            property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
-                        }
-                    }
-                }
-            }
-
-            /*
-            ColumnLayout {
-                SwipeView {
-                    id: swipeView
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    Repeater {
-                        model: 50
-
-                        delegate: Loader {
-                            onItemChanged: if (item) item.objectName = "Swipe %1".arg(SwipeView.index)
-
-                            active: SwipeView.isCurrentItem || SwipeView.isNextItem || SwipeView.isPreviousItem
-
-                            rotation: -5.0
-                            scale: 0.9
-
-                            sourceComponent: sahKdTreeViewerComponent
-
-                            activeFocusOnTab: true
-                            onActiveFocusChanged: {
-                                if (item && activeFocus) {
-                                    item.forceActiveFocus()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                PageIndicator {
-                    id: indicator
-
-                    Layout.alignment: Qt.AlignHCenter
-
-                    count: swipeView.count
-                    currentIndex: swipeView.currentIndex
-                }
-            }
-
-            Loader {
-                active: StackLayout.isCurrentItem
-
-                sourceComponent: GridLayout {
-                    id: gridLayout
-
-                    columns: 4
-
-                    anchors.margins: 16
-
-                    Repeater {
-                        //id: repeater
-
-                        model: 11
-                        delegate: Loader {
-                            onItemChanged: if (item) item.objectName = "Grid %1".arg(index)
-
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
-                            required property int index
-
-                            active: index !== 1
-
-                            //KeyNavigation.priority: KeyNavigation.BeforeItem
-                            //KeyNavigation.up: print(index, gridLayout.columns)//repeater.itemAt((index + count - gridLayout.columns) % count)
-
-                            sourceComponent: sahKdTreeViewerComponent
-
-                            activeFocusOnTab: true
-                            onActiveFocusChanged: {
-                                if (item && activeFocus) {
-                                    item.forceActiveFocus()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            */
+            scale: mainSahKdTreeViewer.scale
+            transformOrigin: mainSahKdTreeViewer.transformOrigin
         }
     }
 

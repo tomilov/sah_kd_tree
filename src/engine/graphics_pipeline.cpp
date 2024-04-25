@@ -1,19 +1,24 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/graphics_pipeline.hpp>
-#include <engine/library.hpp>
 #include <engine/shader_module.hpp>
-#include <utils/auto_cast.hpp>
+#include <utils/assert.hpp>
 
-#include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <iterator>
+#include <optional>
 #include <utility>
+
+#include <cstddef>
 
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass) : name{name}, shaderStages{shaderStages}, renderPass{renderPass}
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass)
+    : name{name}
+    , shaderStages{shaderStages}
+    , renderPass{renderPass}
 {
     ASSERT(renderPass);
 
@@ -134,7 +139,9 @@ void GraphicsPipelineLayout::fill(std::string & name, vk::GraphicsPipelineCreate
     graphicsPipelineCreateInfo.basePipelineIndex = 0;
 }
 
-GraphicsPipelines::GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache) : context{context}, pipelineCache{pipelineCache}
+GraphicsPipelines::GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache)
+    : context{context}
+    , pipelineCache{pipelineCache}
 {}
 
 void GraphicsPipelines::add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer)

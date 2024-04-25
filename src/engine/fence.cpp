@@ -1,9 +1,9 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/fence.hpp>
-#include <engine/library.hpp>
 
 #include <fmt/format.h>
+#include <vulkan/vulkan.hpp>
 
 #include <chrono>
 
@@ -12,7 +12,10 @@
 namespace engine
 {
 
-Fences::Fences(std::string_view name, const Context & context, size_t count, vk::FenceCreateFlags fenceCreateFlags) : name{name}, context{context}, fenceCreateFlags{fenceCreateFlags}
+Fences::Fences(std::string_view name, const Context & context, size_t count, vk::FenceCreateFlags fenceCreateFlags)
+    : name{name}
+    , context{context}
+    , fenceCreateFlags{fenceCreateFlags}
 {
     const auto & device = context.getDevice();
 

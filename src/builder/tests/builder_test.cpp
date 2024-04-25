@@ -4,6 +4,7 @@
 
 #include <QtCore/QDir>
 #include <QtCore/QString>
+#include <QtCore/QtContainerFwd>
 
 using builder::buildSceneFromFile;
 using builder::buildSceneFromFileOrCache;

@@ -11,7 +11,10 @@
 #include <QtCore/QSaveFile>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QString>
+#include <QtCore/QtLogging>
+#include <QtCore/QtTypes>
 
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -29,7 +32,8 @@ Q_DECLARE_LOGGING_CATEGORY(viewerFileIoCategory)
 Q_LOGGING_CATEGORY(viewerFileIoCategory, "viewer.file_io")
 }  // namespace
 
-FileIo::FileIo(QString shaderLocation) : shaderLocation{shaderLocation}
+FileIo::FileIo(QString shaderLocation)
+    : shaderLocation{shaderLocation}
 {}
 
 std::vector<uint8_t> FileIo::loadPipelineCache(std::string_view pipelineCacheName) const

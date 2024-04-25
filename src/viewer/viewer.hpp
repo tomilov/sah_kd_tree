@@ -1,15 +1,21 @@
 #pragma once
 
 #include <QtCore/QHash>
+#include <QtCore/QMetaObject>
 #include <QtCore/QObject>
+#include <QtCore/QPoint>
 #include <QtCore/QTimer>
+#include <QtCore/QUrl>
+#include <QtCore/QtTypes>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
 #include <QtGui/QWheelEvent>
+#include <QtQmlIntegration/QtQmlIntegration>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
+#include <QtQuick/QSGNode>
 
 #include <memory>
 

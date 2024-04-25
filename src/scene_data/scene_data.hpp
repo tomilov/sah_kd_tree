@@ -1,6 +1,5 @@
 #pragma once
 
-#include <scene_data/fwd.hpp>
 #include <utils/mem_array.hpp>
 
 #include <glm/mat4x4.hpp>
@@ -11,6 +10,7 @@
 #include <vector>
 
 #include <cstddef>
+#include <cstdint>
 
 #include <scene_data/scene_data_export.h>
 

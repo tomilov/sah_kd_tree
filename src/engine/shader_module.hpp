@@ -3,23 +3,22 @@
 #include <engine/fwd.hpp>
 #include <engine/utils.hpp>
 #include <utils/assert.hpp>
-#include <utils/checked_ptr.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <deque>
-#include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
+#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>

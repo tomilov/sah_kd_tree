@@ -2,18 +2,15 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
-#include <utils/checked_ptr.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
-#include <iterator>
 #include <memory>
-#include <mutex>
 #include <optional>
+#include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include <cstdint>

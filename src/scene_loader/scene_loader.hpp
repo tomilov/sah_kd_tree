@@ -3,12 +3,11 @@
 #include <scene_data/fwd.hpp>
 
 #include <QtCore/QDir>
-#include <QtCore/QFileInfo>
-#include <QtCore/QStringList>
-
-#include <tuple>
+#include <QtCore/QtContainerFwd>
 
 #include <scene_loader/scene_loader_export.h>
+
+class QFileInfo;
 
 namespace scene_loader
 {

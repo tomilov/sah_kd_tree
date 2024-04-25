@@ -19,10 +19,12 @@ public:
         new (static_cast<void *>(get())) T{std::forward<Args>(args)...};
     }
 
-    FastPimpl(const FastPimpl & v) : FastPimpl{*v}
+    FastPimpl(const FastPimpl & v)
+        : FastPimpl{*v}
     {}
 
-    FastPimpl(FastPimpl && v) noexcept(std::is_nothrow_move_constructible_v<T>) : FastPimpl{std::move(*v)}
+    FastPimpl(FastPimpl && v) noexcept(std::is_nothrow_move_constructible_v<T>)
+        : FastPimpl{std::move(*v)}
     {}
 
     FastPimpl & operator=(const FastPimpl & rhs)

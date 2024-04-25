@@ -75,11 +75,13 @@ public:
 
         Iterator() = default;
 
-        explicit Iterator(vk::Flags<BitType> f) : m{static_cast<MaskType>(f)}
+        explicit Iterator(vk::Flags<BitType> f)
+            : m{static_cast<MaskType>(f)}
         {}
     };
 
-    explicit FlagBits(vk::Flags<BitType> f) : f{f}
+    explicit FlagBits(vk::Flags<BitType> f)
+        : f{f}
     {}
 
     static FlagBits allBits()

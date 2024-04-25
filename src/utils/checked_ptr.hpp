@@ -14,7 +14,8 @@ public:
     constexpr CheckedPtr(std::nullptr_t) noexcept  // NOLINT: google-explicit-constructor
     {}
 
-    constexpr CheckedPtr(T * p) : p{p}  // NOLINT: google-explicit-constructor
+    constexpr CheckedPtr(T * p)  // NOLINT: google-explicit-constructor
+        : p{p}
     {
         INVARIANT(p, "Empty CheckedPtr");
         checked = true;

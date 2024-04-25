@@ -62,11 +62,13 @@ public:
         using other = Allocator<R, systemAllocationScope>;
     };
 
-    explicit Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacks) noexcept : allocationCallbacks{allocationCallbacks}
+    explicit Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacks) noexcept
+        : allocationCallbacks{allocationCallbacks}
     {}
 
     template<typename R>
-    explicit Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept : allocationCallbacks{rhs.allocationCallbacks}
+    explicit Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept
+        : allocationCallbacks{rhs.allocationCallbacks}
     {}
 
     [[nodiscard]] T * allocate(size_t n) const

@@ -3,8 +3,10 @@
 #include <QtCore/QCommandLineOption>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QList>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
+#include <QtCore/QtContainerFwd>
 
 #include <cstdlib>
 

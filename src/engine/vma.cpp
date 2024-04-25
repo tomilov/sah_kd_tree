@@ -7,9 +7,10 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
+#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
@@ -84,7 +85,8 @@ struct MemoryAllocator::Impl final : utils::NonCopyable
     ~Impl();
 };
 
-MemoryAllocator::MemoryAllocator(const Context & context) : impl_{context}
+MemoryAllocator::MemoryAllocator(const Context & context)
+    : impl_{context}
 {}
 
 MemoryAllocator::~MemoryAllocator() = default;
@@ -162,7 +164,8 @@ Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, c
     return createImage(name, imageCreateInfo, AllocationType::kAuto, imageAspectMask);
 }
 
-MemoryAllocator::Impl::Impl(const Context & context) : context{context}
+MemoryAllocator::Impl::Impl(const Context & context)
+    : context{context}
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = utils::safeCast<vk::Instance::NativeType>(context.getInstance().getInstance());
@@ -280,7 +283,8 @@ vk::DeviceAddress MappedMemory<void>::getDeviceAddress() const &
     return impl_->buffer->getDeviceAddress() + impl_->offset;
 }
 
-MappedMemory<void>::MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size) : impl_{buffer, offset, size}
+MappedMemory<void>::MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size)
+    : impl_{buffer, offset, size}
 {}
 
 namespace
@@ -293,7 +297,11 @@ struct BufferResource final : utils::NonCopyable
     const VkBuffer buffer;
     const VmaAllocation allocation;
 
-    BufferResource(std::string_view name, VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation) : name{name}, allocator{allocator}, buffer{buffer}, allocation{allocation}
+    BufferResource(std::string_view name, VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation)
+        : name{name}
+        , allocator{allocator}
+        , buffer{buffer}
+        , allocation{allocation}
     {
         ASSERT(!std::empty(name));
         ASSERT(allocator);
@@ -448,7 +456,10 @@ Buffer<void>::Buffer(std::string_view name, const MemoryAllocator & memoryAlloca
     : impl_{name, memoryAllocator, createInfo, allocationType, minAlignment}
 {}
 
-MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size) : buffer{buffer}, offset{offset}, size{size}
+MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size)
+    : buffer{buffer}
+    , offset{offset}
+    , size{size}
 {
     ASSERT(buffer);
 
@@ -471,7 +482,11 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offse
     }
 }
 
-MappedMemory<void>::Impl::Impl(Impl && rhs) noexcept : buffer{std::exchange(rhs.buffer, nullptr)}, offset{rhs.offset}, size{rhs.size}, mappedData{std::exchange(rhs.mappedData, nullptr)}
+MappedMemory<void>::Impl::Impl(Impl && rhs) noexcept
+    : buffer{std::exchange(rhs.buffer, nullptr)}
+    , offset{rhs.offset}
+    , size{rhs.size}
+    , mappedData{std::exchange(rhs.mappedData, nullptr)}
 {}
 
 MappedMemory<void>::Impl::~Impl()
@@ -492,7 +507,10 @@ MappedMemory<void>::Impl::~Impl()
 }
 
 Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment)
-    : memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, minAlignment{minAlignment}
+    : memoryAllocator{memoryAllocator}
+    , createInfo{createInfo}
+    , allocationType{allocationType}
+    , minAlignment{minAlignment}
 {
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
@@ -548,7 +566,11 @@ struct ImageResource final : utils::NonCopyable
     const VkImage image;
     const VmaAllocation allocation;
 
-    ImageResource(std::string_view name, VmaAllocator allocator, VkImage image, VmaAllocation allocation) : name{name}, allocator{allocator}, image{image}, allocation{allocation}
+    ImageResource(std::string_view name, VmaAllocator allocator, VkImage image, VmaAllocation allocation)
+        : name{name}
+        , allocator{allocator}
+        , image{image}
+        , allocation{allocation}
     {
         ASSERT(!std::empty(name));
         ASSERT(allocator);
@@ -705,7 +727,11 @@ Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, con
 {}
 
 Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask)
-    : memoryAllocator{memoryAllocator}, createInfo{createInfo}, allocationType{allocationType}, imageAspectMask{imageAspectMask}, layout{createInfo.initialLayout}
+    : memoryAllocator{memoryAllocator}
+    , createInfo{createInfo}
+    , allocationType{allocationType}
+    , imageAspectMask{imageAspectMask}
+    , layout{createInfo.initialLayout}
 {
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 

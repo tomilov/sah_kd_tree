@@ -4,5 +4,5 @@
 
 TEST(Engine, SimpleGeometry)
 {
-    //
+    [[maybe_unused]] engine::Context context;
 }

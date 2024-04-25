@@ -12,7 +12,6 @@
 #include <utils/noncopyable.hpp>
 #include <viewer/file_io.hpp>
 
-#include <fmt/format.h>
 #include <fmt/std.h>
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan.hpp>
@@ -20,7 +19,6 @@
 #include <QtCore/QChar>
 
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -189,7 +187,9 @@ public:
 private:
     struct Shader
     {
-        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint) : shader{shaderName, context, fileIo}, shaderReflection{context, shader, entryPoint}
+        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
+            : shader{shaderName, context, fileIo}
+            , shaderReflection{context, shader, entryPoint}
         {}
 
         engine::ShaderModule shader;

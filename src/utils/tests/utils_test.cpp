@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+
 using ScopeGuard = utils::ScopeGuard<void (*)()>;
 
 static_assert(!std::is_default_constructible_v<ScopeGuard>, "one-time");

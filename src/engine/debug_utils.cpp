@@ -1,7 +1,9 @@
 #include <engine/debug_utils.hpp>
+#include <utils/assert.hpp>
 
-#include <algorithm>
-#include <iterator>
+#include <vulkan/vulkan.hpp>
+
+#include <string>
 #include <utility>
 
 namespace engine
@@ -26,7 +28,9 @@ template<>
 void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, std::string_view labelName, const LabelColor & color);
 
 template<typename Object>
-ScopedDebugUtilsLabel<Object>::ScopedDebugUtilsLabel(ScopedDebugUtilsLabel && rhs) noexcept : dispatcher{std::exchange(rhs.dispatcher, nullptr)}, object{std::exchange(rhs.object, nullptr)}
+ScopedDebugUtilsLabel<Object>::ScopedDebugUtilsLabel(ScopedDebugUtilsLabel && rhs) noexcept
+    : dispatcher{std::exchange(rhs.dispatcher, nullptr)}
+    , object{std::exchange(rhs.object, nullptr)}
 {}
 
 template<typename Object>

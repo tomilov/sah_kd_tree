@@ -1,9 +1,6 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/library.hpp>
 #include <engine/render_pass.hpp>
-#include <engine/shader_module.hpp>
-#include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
 
@@ -12,7 +9,8 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view name, const Context & context) : name{name}
+RenderPass::RenderPass(std::string_view name, const Context & context)
+    : name{name}
 {
     attachmentReference = {
         .attachment = 0,

@@ -3,4 +3,4 @@
 namespace utils
 {
 
-}
+}  // namespace utils

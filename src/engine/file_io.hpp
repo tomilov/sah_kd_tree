@@ -10,7 +10,7 @@
 namespace engine
 {
 
-class FileIo
+class ENGINE_EXPORT FileIo
 {
 public:
     virtual ~FileIo() = default;

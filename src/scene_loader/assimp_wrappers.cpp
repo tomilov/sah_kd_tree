@@ -3,16 +3,25 @@
 
 #include <assimp/DefaultLogger.hpp>
 #include <assimp/IOStream.hpp>
+#include <assimp/LogStream.hpp>
 #include <assimp/Logger.hpp>
+#include <assimp/types.h>
 
 #include <QtCore/QByteArray>
+#include <QtCore/QChar>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileDevice>
 #include <QtCore/QFileInfo>
+#include <QtCore/QFlags>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtCore/QtAssert>
+#include <QtCore/QtLogging>
+#include <QtCore/QtPreprocessorSupport>
+#include <QtCore/QtTypes>
 
 #include <memory>
 
@@ -121,7 +130,8 @@ bool AssimpProgressHandler::Update(float percentage)
     return true;
 }
 
-AssimpIOStream::AssimpIOStream(QIODevice * device) : device{device}
+AssimpIOStream::AssimpIOStream(QIODevice * device)
+    : device{device}
 {}
 
 AssimpIOStream::~AssimpIOStream() = default;

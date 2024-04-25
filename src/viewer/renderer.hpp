@@ -13,9 +13,6 @@
 #include <glm/vec3.hpp>
 #include <vulkan/vulkan.hpp>
 
-#include <filesystem>
-#include <string_view>
-
 #include <cstdint>
 
 namespace viewer

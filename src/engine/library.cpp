@@ -1,7 +1,10 @@
+#include <engine/fwd.hpp>
 #include <engine/library.hpp>
+#include <utils/assert.hpp>
 #include <utils/pp.hpp>
 
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
 
 #include <string_view>
 
@@ -14,7 +17,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 namespace engine
 {
 
-Library::Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, const Context & context) : allocationCallbacks{allocationCallbacks}, context{context}
+Library::Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
+    : allocationCallbacks{allocationCallbacks}
 {
     using namespace std::string_view_literals;
     SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);

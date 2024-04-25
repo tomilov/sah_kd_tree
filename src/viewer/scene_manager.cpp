@@ -13,7 +13,6 @@
 #include <utils/auto_cast.hpp>
 #include <viewer/scene_manager.hpp>
 
-#include <fmt/format.h>
 #include <fmt/std.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
@@ -122,7 +121,8 @@ auto Scene::FrameDescriptors::Resources::getDescriptorBufferInfos() const -> Des
 }
 
 Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
-    : pipelineLayout{name, context, shaderStages, renderPass}, pipelines{context, pipelineCache}
+    : pipelineLayout{name, context, shaderStages, renderPass}
+    , pipelines{context, pipelineCache}
 {
     pipelines.add(pipelineLayout, useDescriptorBuffer);
     pipelines.create();
@@ -536,7 +536,13 @@ void Scene::addShaders()
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
-    : context{context}, fileIo{fileIo}, pipelineCache{std::move(pipelineCache)}, scenePath{std::move(scenePath)}, sceneData{std::move(sceneData)}, sceneShaderStages{context, kVertexBufferBinding}, offscreenShaderStages{context, kVertexBufferBinding}
+    : context{context}
+    , fileIo{fileIo}
+    , pipelineCache{std::move(pipelineCache)}
+    , scenePath{std::move(scenePath)}
+    , sceneData{std::move(sceneData)}
+    , sceneShaderStages{context, kVertexBufferBinding}
+    , offscreenShaderStages{context, kVertexBufferBinding}
 {
     check();
     addShaders();
@@ -868,7 +874,8 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
     }
 }
 
-SceneManager::SceneManager(const engine::Context & context) : context{context}
+SceneManager::SceneManager(const engine::Context & context)
+    : context{context}
 {}
 
 std::shared_ptr<const Scene> SceneManager::getOrCreateScene(std::filesystem::path scenePath) const

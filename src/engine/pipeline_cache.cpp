@@ -5,11 +5,14 @@
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
 
+#include <array>
 #include <bit>
+#include <iterator>
 #include <vector>
 
 #include <cstdint>
@@ -50,7 +53,10 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo) : name{name}, context{context}, fileIo{fileIo}
+PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo)
+    : name{name}
+    , context{context}
+    , fileIo{fileIo}
 {
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();

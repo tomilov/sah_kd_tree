@@ -11,7 +11,9 @@
 namespace engine
 {
 
-Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool) : context{context}, commandPool{commandPool}
+Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool)
+    : context{context}
+    , commandPool{commandPool}
 {
     const auto & device = context.getDevice();
     queue = device.getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher());

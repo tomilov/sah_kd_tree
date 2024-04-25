@@ -39,7 +39,8 @@ struct Engine::Impl final : utils::NonCopyable
     SceneManager sceneManager{context};
 };
 
-Engine::Engine(QObject * parent) : QObject{parent}
+Engine::Engine(QObject * parent)
+    : QObject{parent}
 {
     auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
     auto shaderLocation = u":/%1/imports/%2/shaders/"_s.arg(projectName, toCamelCase(projectName, true));

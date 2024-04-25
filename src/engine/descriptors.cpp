@@ -3,19 +3,25 @@
 #include <engine/device.hpp>
 #include <engine/library.hpp>
 #include <engine/shader_module.hpp>
+#include <utils/assert.hpp>
 
-#include <initializer_list>
+#include <fmt/format.h>
+
 #include <iterator>
+#include <map>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include <cstddef>
 #include <cstdint>
 
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, uint32_t set, const ShaderStages & shaderStages) : name{name}, set{set}
+DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, uint32_t set, const ShaderStages & shaderStages)
+    : name{name}
+    , set{set}
 {
     const Device & device = context.getDevice();
 

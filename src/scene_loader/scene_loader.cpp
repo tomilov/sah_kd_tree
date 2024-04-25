@@ -1,23 +1,27 @@
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/assimp_wrappers.hpp>
 #include <scene_loader/scene_loader.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/mem_array.hpp>
 
 #include <assimp/Importer.hpp>
+#include <assimp/Logger.hpp>
+#include <assimp/config.h>
+#include <assimp/defs.h>
 #include <assimp/matrix3x3.h>
 #include <assimp/matrix4x4.h>
+#include <assimp/mesh.h>
 #include <assimp/postprocess.h>
 #include <assimp/quaternion.h>
 #include <assimp/scene.h>
+#include <assimp/types.h>
 #include <assimp/vector3.h>
 #include <glm/common.hpp>
-#include <glm/ext/quaternion_double.hpp>
 #include <glm/ext/quaternion_float.hpp>
-#include <glm/ext/vector_double3.hpp>
-#include <glm/ext/vector_double4.hpp>
-#include <glm/ext/vector_float3.hpp>
-#include <glm/ext/vector_float4.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QCryptographicHash>
@@ -28,22 +32,28 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QIODevice>
+#include <QtCore/QList>
 #include <QtCore/QLocale>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QSaveFile>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
+#include <QtCore/QtLogging>
+#include <QtCore/QtTypes>
 
 #include <algorithm>
 #include <iterator>
 #include <limits>
-#include <memory>
 #include <span>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <cstddef>
+#include <cstdint>
 
 using namespace Qt::StringLiterals;
 

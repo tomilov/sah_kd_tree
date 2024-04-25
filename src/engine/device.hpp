@@ -6,12 +6,11 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <memory>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
 
-#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>

@@ -1,20 +1,13 @@
 #include <engine/push_constant_ranges.hpp>
-#include <engine/utils.hpp>
 #include <format/vulkan.hpp>
 #include <utils/auto_cast.hpp>
 
-#include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <gtest/gtest.h>
 
-#include <iterator>
+#include <initializer_list>
 #include <ostream>
-#include <random>
-#include <set>
-#include <unordered_map>
 #include <vector>
-
-#include <cstdint>
 
 namespace vk
 {

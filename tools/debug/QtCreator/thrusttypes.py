@@ -36,7 +36,6 @@ THRUST_TYPE_REGEX = re.compile(
         (?:[A-Z0-9]+_)*[A-Z0-9]+(?:__|::)
     )?
     (?P<name>
-        # (?:[a-z_]+::)*[a-z_]+
         {THRUST_TYPE_NAMES}
     )
     (?:<.*>)?

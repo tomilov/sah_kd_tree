@@ -2,12 +2,9 @@
 
 #include <utils/noncopyable.hpp>
 
-#include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-
-#include <utils/utils_export.h>
 
 namespace utils
 {
@@ -22,7 +19,9 @@ public:
         : storage{std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...)}
     {}
 
-    ScopeGuard(ScopeGuard && other) noexcept(std::is_nothrow_move_constructible_v<Storage>) : storage{std::move(other).storage}, isActive{std::exchange(other.isActive, false)}
+    ScopeGuard(ScopeGuard && other) noexcept(std::is_nothrow_move_constructible_v<Storage>)
+        : storage{std::move(other).storage}
+        , isActive{std::exchange(other.isActive, false)}
     {}
 
     ~ScopeGuard() noexcept

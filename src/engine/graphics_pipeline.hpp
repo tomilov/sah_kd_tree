@@ -10,8 +10,6 @@
 #include <string_view>
 #include <vector>
 
-#include <cstdint>
-
 #include <engine/engine_export.h>
 
 namespace engine

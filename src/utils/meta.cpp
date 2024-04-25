@@ -2,4 +2,5 @@
 
 namespace meta
 {
-}
+
+}  // namespace meta

@@ -16,6 +16,7 @@ FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
 TEST_NAME_REGEX ?= .*
+PYTHON ?= python3
 
 # format: "800 600"
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
@@ -146,9 +147,25 @@ plan 3d: $(CRASH_FILE)
 		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
+.PHONY: venv
+venv:
+	cd $(ROOT_DIR)
+	$(PYTHON) -m venv .venv/
+	. .venv/bin/activate
+	pip install -r requirements.txt
+
 .PHONY: format
 format:
-	git add $(ROOT_DIR)
+	cd $(ROOT_DIR)
+	git add .
 	git clang-format $(shell git rev-list --max-parents=0 HEAD) || true
-	python -m black $(ROOT_DIR)/src/
+	. .venv/bin/activate
+	black src/
+	isort --profile black src/
+	mypy src/
 
+.PHONY: pytest
+pytest:
+	cd $(ROOT_DIR)
+	. .venv/bin/activate
+	pytest src/

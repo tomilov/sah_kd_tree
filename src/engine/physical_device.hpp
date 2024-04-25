@@ -28,7 +28,8 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
     size_t index = std::numeric_limits<size_t>::max();
 
-    explicit QueueCreateInfo(const std::string & name) : name{name}
+    explicit QueueCreateInfo(const std::string & name)
+        : name{name}
     {}
 };
 

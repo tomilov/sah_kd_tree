@@ -2,15 +2,14 @@
 #include <builder/builder.hpp>
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
-
-#include <thrust/device_vector.h>
+#include <utils/mem_array.hpp>
 
 #include <QtCore/QDebug>
+#include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
-
-#include <iterator>
+#include <QtCore/QtLogging>
 
 using namespace Qt::StringLiterals;
 

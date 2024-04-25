@@ -4,6 +4,9 @@
 
 #include <QtCore/QString>
 
+#include <string_view>
+#include <vector>
+
 #include <cstdint>
 
 namespace viewer

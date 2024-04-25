@@ -1,7 +1,5 @@
 #include <common/config.hpp>
 #include <engine/device.hpp>
-#include <engine/fence.hpp>
-#include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
@@ -10,12 +8,15 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cstddef>
+#include <type_traits>
 
 namespace engine
 {
 
-Device::Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice) : name{name}, library{library}, physicalDevice{physicalDevice}
+Device::Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice)
+    : name{name}
+    , library{library}
+    , physicalDevice{physicalDevice}
 {
     const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::*feature)
     {

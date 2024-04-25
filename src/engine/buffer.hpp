@@ -112,7 +112,9 @@ private:
     MappedMemory<void> mappedMemory;
     const vk::DeviceSize count;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) : mappedMemory{buffer, offset, size}, count{count}  // NOLINT: google-explicit-constructor
+    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE)
+        : mappedMemory{buffer, offset, size}
+        , count{count}  // NOLINT: google-explicit-constructor
     {
         ASSERT(count > 0);
         ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
@@ -181,7 +183,9 @@ template<typename T>
 class ENGINE_EXPORT Buffer final : utils::OneTime<Buffer<T>>
 {
 public:
-    Buffer(Buffer<void> && buffer) noexcept : buffer{std::move(buffer)}, count{base().getSize() / sizeof(T)}  // NOLINT: google-explicit-constructor
+    Buffer(Buffer<void> && buffer) noexcept
+        : buffer{std::move(buffer)}
+        , count{base().getSize() / sizeof(T)}  // NOLINT: google-explicit-constructor
     {
         ASSERT(count > 0);
         ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);

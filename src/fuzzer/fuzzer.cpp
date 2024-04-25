@@ -3,18 +3,19 @@
 #include <utils/random.hpp>
 
 #include <fmt/color.h>
-#include <fmt/format.h>
 
 #include <algorithm>
 #include <array>
 #include <bitset>
 #include <charconv>
+#include <cstdio>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <numeric>
 #include <random>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -24,6 +25,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 using namespace std::rel_ops;

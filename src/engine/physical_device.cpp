@@ -2,12 +2,12 @@
 #include <engine/context.hpp>
 #include <engine/exception.hpp>
 #include <engine/instance.hpp>
-#include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/types.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 
-#include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan_extension_inspection.hpp>
@@ -15,7 +15,11 @@
 #include <bitset>
 #include <iterator>
 #include <limits>
-#include <memory>
+#include <map>
+#include <string_view>
+#include <type_traits>
+#include <typeinfo>
+#include <utility>
 #include <vector>
 
 #include <cstddef>
@@ -24,7 +28,9 @@
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice) : context{context}, physicalDevice{physicalDevice}
+PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice)
+    : context{context}
+    , physicalDevice{physicalDevice}
 {
     extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, context.getDispatcher());
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
@@ -328,7 +334,8 @@ bool PhysicalDevice::isExtensionEnabled(const char * extension) const
     return enabledExtensionSet.contains(extension);
 }
 
-PhysicalDevices::PhysicalDevices(const Context & context) : context{context}
+PhysicalDevices::PhysicalDevices(const Context & context)
+    : context{context}
 {
     size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {

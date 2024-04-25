@@ -12,40 +12,67 @@
 #include <viewer/viewer.hpp>
 
 #include <fmt/std.h>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_float.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/gtx/matrix_transform_2d.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/mat2x2.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <glm/vec4.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
+#include <QtCore/QFlags>
+#include <QtCore/QList>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QMetaType>
 #include <QtCore/QObject>
+#include <QtCore/QRectF>
 #include <QtCore/QRunnable>
+#include <QtCore/QSize>
+#include <QtCore/QString>
+#include <QtCore/QTypeInfo>
+#include <QtCore/QVariant>
+#include <QtCore/QtAssert>
+#include <QtCore/QtLogging>
 #include <QtCore/QtMath>
 #include <QtCore/QtMinMax>
 #include <QtCore/QtNumeric>
+#include <QtGui/QCursor>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QMatrix4x4>
+#include <QtGui/QQuaternion>
+#include <QtGui/QScreen>
 #include <QtGui/QStyleHints>
+#include <QtGui/QTransform>
+#include <QtGui/QVector2D>
+#include <QtGui/QVector3D>
 #include <QtGui/QVulkanInstance>
 #include <QtGui/rhi/qrhi.h>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
+#include <QtQuick/QSGNode>
 #include <QtQuick/QSGRenderNode>
 #include <QtQuick/QSGRendererInterface>
 #include <QtQuick/QSGTextureProvider>
 #include <QtQuick/QSGTransformNode>
 
-#include <chrono>
+#include <limits>
 #include <memory>
+#include <utility>
 
+#include <cmath>
 #include <cstdint>
 
 using namespace Qt::StringLiterals;
@@ -114,7 +141,8 @@ void checkEngine(QQuickWindow * window, const engine::Context & context)
 class CleanupJob : public QRunnable
 {
 public:
-    explicit CleanupJob(std::unique_ptr<Renderer> && renderer) : renderer{std::move(renderer)}
+    explicit CleanupJob(std::unique_ptr<Renderer> && renderer)
+        : renderer{std::move(renderer)}
     {}
 
     void run() override
@@ -129,7 +157,9 @@ private:
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, Engine * const engine) : window{window}, engine{engine}
+    explicit RenderNode(QQuickWindow * window, Engine * const engine)
+        : window{window}
+        , engine{engine}
     {}
 
     void setScene(std::shared_ptr<const Scene> scene)
@@ -172,15 +202,17 @@ private:
             renderer->setScene(std::move(scene));
         }
 
+        // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
+
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
-            //static_assert(!kUseRenderNode, "Not implemented");
+            // static_assert(!kUseRenderNode, "Not implemented");
             auto mvp = *projectionMatrix() * *matrix();
             auto m = glm::make_mat4x4(mvp.constData());
             m = glm::scale(m, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
             m = glm::translate(m, glm::vec3{1.0f, 1.0f, 0.0f});
-            qCDebug(viewerCategory) << QString::fromStdString(glm::to_string(m));
-            qCDebug(viewerCategory) << QString::fromStdString(glm::to_string(frameSettings.transform2D));
+            qCDebug(viewerCategory) << "m" << QString::fromStdString(glm::to_string(glm::mat2{m}));
+            qCDebug(viewerCategory) << "t2d" << QString::fromStdString(glm::to_string(frameSettings.transform2D));
 
             // qDebug() << frameSettings.alpha << inheritedOpacity();
 
@@ -262,7 +294,9 @@ private:
 
 }  // namespace
 
-Viewer::Viewer(QQuickItem * parent) : QQuickItem{parent}, frameSettings{std::make_unique<FrameSettings>()}
+Viewer::Viewer(QQuickItem * parent)
+    : QQuickItem{parent}
+    , frameSettings{std::make_unique<FrameSettings>()}
 {
     setFlag(QQuickItem::Flag::ItemHasContents);
 

@@ -3,8 +3,6 @@
 #include <tuple>
 #include <vector>
 
-#include <cstdlib>
-
 namespace fuzzer
 {
 using U = unsigned int;

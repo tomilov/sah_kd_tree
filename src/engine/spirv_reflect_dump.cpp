@@ -5,18 +5,13 @@
 
 #include <../SPIRV-Reflect/common/output_stream.h>
 #include <../SPIRV-Reflect/spirv_reflect.h>
-#include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
-#include <charconv>
-#include <iterator>
-#include <ostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
-#include <string_view>
 
 #include <cstddef>
 #include <cstdint>
@@ -329,7 +324,8 @@ struct Nullable
 {
     T * value;
 
-    explicit Nullable(T * value) : value{value}
+    explicit Nullable(T * value)
+        : value{value}
     {}
 };
 
@@ -342,7 +338,9 @@ struct List
     T * p;
     uint32_t count;
 
-    List(T * p, uint32_t count) : p{p}, count{count}
+    List(T * p, uint32_t count)
+        : p{p}
+        , count{count}
     {}
 };
 

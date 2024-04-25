@@ -42,7 +42,6 @@
 #include <memory>
 #include <optional>
 
-#include <cstdint>
 #include <cstdlib>
 
 using namespace Qt::StringLiterals;

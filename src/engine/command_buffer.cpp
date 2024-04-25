@@ -1,17 +1,19 @@
 #include <engine/command_buffer.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
-#include <engine/library.hpp>
 #include <format/vulkan.hpp>
 
 #include <fmt/format.h>
+
+#include <iterator>
 
 #include <cstddef>
 
 namespace engine
 {
 
-CommandBuffers::CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo) : name{name}
+CommandBuffers::CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
+    : name{name}
 {
     const auto & device = context.getDevice();
 
