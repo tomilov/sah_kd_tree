@@ -90,7 +90,7 @@ constexpr float kMinDepth = 0.0f;
 constexpr float kMinDepth = -1.0f;
 #endif
 
-constexpr bool kUseRenderNode = true;
+constexpr bool kUseRenderNode = false;
 
 void checkEngine(QQuickWindow * window, const engine::Context & context)
 {
@@ -204,6 +204,7 @@ private:
 
         // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
 
+        // TODO: and rect() != renderTarget()->pixelSize()
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
             // static_assert(!kUseRenderNode, "Not implemented");
@@ -245,7 +246,7 @@ private:
                     auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
                     Q_CHECK_PTR(renderPassNativeHandles);
                     vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
-                    if (renderer->updateRenderPass(renderPass)) {
+                    if (renderer->updateRenderPass(renderPass, frameSettings)) {
                         device.setDebugUtilsObjectName(renderPass, "Qt render pass");
                     }
                 }
@@ -500,7 +501,7 @@ void Viewer::beforeRenderPassRecording()
             const auto & device = engine->getContext().getDevice();
             device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
 
-            if (renderer->updateRenderPass(*renderPass)) {
+            if (renderer->updateRenderPass(*renderPass, *frameSettings)) {
                 device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
             }
 

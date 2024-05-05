@@ -108,6 +108,8 @@ qt6_add_resources(
         "qml/components/CenteredDialog.qml"
         "qml/ui.qml")
 
+set(QML_IMPORT_PATH ${CMAKE_SOURCE_DIR}/qml ${CMAKE_CURRENT_BINARY_DIR}/SahKdTree CACHE STRING "" FORCE)
+
 source_group(
     "UI Files"
     REGULAR_EXPRESSION

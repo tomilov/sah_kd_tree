@@ -1,5 +1,7 @@
 #include <codegen/vulkan_utils.hpp>
 #include <common/version.hpp>
+#include <engine/command_buffer.hpp>
+#include <engine/command_pool.hpp>
 #include <engine/context.hpp>
 #include <engine/debug_utils.hpp>
 #include <engine/device.hpp>
@@ -8,6 +10,7 @@
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/queue.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
@@ -201,15 +204,19 @@ struct Renderer::Impl : utils::NonCopyable
     const engine::Context & context;
     const uint32_t framesInFlight;
 
+    const engine::CommandPool graphicsQueueCommandPool{"graphics"sv, context, context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex};
+    const engine::Queue graphisQueue{context, context.getPhysicalDevice().graphicsQueueCreateInfo, graphicsQueueCommandPool};
+
     std::shared_ptr<const Scene> scene;
     utils::CheckedPtr<const std::vector<vk::PushConstantRange>> pushConstantRanges = nullptr;
     std::shared_ptr<const Scene::SceneDescriptors> sceneDescriptors;
-    std::shared_ptr<const Scene::GraphicsPipeline> sceneGraphicsPipeline;
+    std::shared_ptr<const Scene::GraphicsPipeline> outputPipeline;
+    ResourceStack<std::shared_ptr<const Framebuffer>> framebufferPool;
     ResourceStack<std::shared_ptr<const Scene::FrameDescriptors>> frameDescriptorsPool;
     std::shared_ptr<const Scene::FrameDescriptors> frameDescriptors;
 
     std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
-    ResourceStack<std::shared_ptr<const Framebuffer>> framebufferPool;
+    std::shared_ptr<const Scene::GraphicsPipeline> offscreenGraphicsPipeline;
 
     // revocation lists should be the last members
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
@@ -219,8 +226,12 @@ struct Renderer::Impl : utils::NonCopyable
     [[nodiscard]] static vk::Format findDepthImageFormat(const engine::Context & context, vk::ImageTiling imageTiling);
 
     void setScene(std::shared_ptr<const Scene> scene);
+    void setSceneDescriptors(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings, const Scene::GraphicsPipeline & scenePipeline) const;
+    void drawScene(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const;
+    void offscreenPass(const FrameSettings & frameSettings) const;
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings);
+    void drawDisplay(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const;
     void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
 
     std::shared_ptr<const Framebuffer> getFramebuffer(const vk::Extent2D & size);
@@ -258,9 +269,9 @@ void Renderer::advance(uint32_t currentFrameSlot, const FrameSettings & frameSet
     return impl_->advance(currentFrameSlot, frameSettings);
 }
 
-bool Renderer::updateRenderPass(vk::RenderPass renderPass)
+bool Renderer::updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings)
 {
-    return impl_->updateRenderPass(renderPass);
+    return impl_->updateRenderPass(renderPass, frameSettings);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const
@@ -483,8 +494,9 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-    sceneGraphicsPipeline.reset();
+    outputPipeline.reset();
     framebufferPool.clear();
+    offscreenGraphicsPipeline.reset();
     offscreenRenderPass.reset();
     frameDescriptors.reset();
     frameDescriptorsPool.clear();
@@ -493,76 +505,13 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings)
+void Renderer::Impl::setSceneDescriptors(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings, const Scene::GraphicsPipeline & scenePipeline) const
 {
-    ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
-    if (!scene) {
-        return;
-    }
+    vk::Pipeline pipeline = scenePipeline.pipelines.getPipelines().at(0);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, context.getDispatcher());
 
-    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-
-    deleteDeferred(currentFrameSlot);
-
-    if (!pushConstantRanges) {
-        pushConstantRanges = &scene->getPushConstantRanges();
-    }
-    if (!sceneDescriptors) {
-        sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
-    }
-    if (frameDescriptors) {
-        uint32_t previousFrame = utils::modDown(currentFrameSlot, framesInFlight);
-        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // 'this' captured, Renderer::Impl should be NonCopyable
-        deferDeletion(previousFrame, std::move(recycler));
-    }
-    frameDescriptors = getFrameDescriptors();
-
-    if (frameSettings.useOffscreenTexture) {
-        if (!offscreenRenderPass) {
-            offscreenRenderPass = std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context));
-        }
-    } else {
-        framebufferPool.clear();
-        offscreenRenderPass.reset();
-    }
-
-    fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
-}
-
-bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
-{
-    if (sceneGraphicsPipeline) {
-        if (sceneGraphicsPipeline->pipelineLayout.getAssociatedRenderPass() == renderPass) {
-            return false;
-        }
-        sceneGraphicsPipeline.reset();
-    }
-    sceneGraphicsPipeline = scene->createGraphicsPipeline(renderPass, Scene::PipelineKind::kScenePipeline);
-    return true;
-}
-
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const
-{
-    ASSERT(currentFrameSlot < framesInFlight);
-    if (!scene) {
-        return;
-    }
-
-    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-
-    constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
-    auto commandBufferLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Renderer::render"sv, kGreenColor);
-
+    vk::PipelineLayout pipelineLayout = scenePipeline.pipelineLayout.getPipelineLayout();
     ASSERT(sceneDescriptors);
-
-    auto scenePipelineLayout = sceneGraphicsPipeline->pipelineLayout.getPipelineLayout();
-    auto scenePipeline = sceneGraphicsPipeline->pipelines.getPipelines().at(0);
-
-    constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
-    auto rasterizationLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Rasterization"sv, kMagentaColor);
-
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, scenePipeline, context.getDispatcher());
-
     constexpr uint32_t kFirstSet = 0;
     if (scene->isDescriptorBufferEnabled()) {
         vk::DescriptorBufferBindingInfoEXT descriptorBufferBindingInfos[] = {
@@ -575,14 +524,14 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
         std::iota(std::begin(bufferIndices), std::end(bufferIndices), uint32_t{0});
         vk::DeviceSize offsets[std::size(descriptorBufferBindingInfos)];
         std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize{0});
-        commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
+        commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
     } else {
         vk::DescriptorSet descriptorSets[] = {
             sceneDescriptors->getDescriptorSet(),
             frameDescriptors->getDescriptorSet(),
         };
         constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, scenePipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
     {
@@ -590,9 +539,15 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
         ASSERT(pushConstantRanges);
         for (const auto & pushConstantRange : *pushConstantRanges) {
             const void * p = utils::safeCast<const std::byte *>(&pushConstants) + pushConstantRange.offset;
-            commandBuffer.pushConstants(scenePipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
+            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
         }
     }
+}
+
+void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const
+{
+    constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
+    auto drawSceneLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Draw scene"sv, kMagentaColor);
 
     constexpr uint32_t kFirstViewport = 0;
     std::initializer_list<vk::Viewport> viewports = {
@@ -606,6 +561,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
     };
     commandBuffer.setScissor(kFirstScissor, scissors, context.getDispatcher());
 
+    ASSERT(sceneDescriptors);
     const auto & sceneResources = sceneDescriptors->resources;
 
     constexpr uint32_t kFirstBinding = 0;
@@ -655,6 +611,99 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
+    }
+}
+
+void Renderer::Impl::offscreenPass(const FrameSettings & frameSettings) const
+{
+    auto commandBuffers = graphisQueue.allocateCommandBuffers("Offscreen scene draw"sv);
+    auto commandBuffer = commandBuffers.getCommandBuffer();
+
+    constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
+    auto offscreenPassLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Offscreen pass"sv, kGreenColor);
+
+    // bind framefuffer
+    setSceneDescriptors(commandBuffer, frameSettings, *offscreenGraphicsPipeline);
+    drawScene(commandBuffer, frameSettings);
+    // framebuffer barrier
+    // submit command buffer and sink used resources
+}
+
+void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings)
+{
+    ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
+    if (!scene) {
+        return;
+    }
+
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+
+    deleteDeferred(currentFrameSlot);
+
+    if (!pushConstantRanges) {
+        pushConstantRanges = &scene->getPushConstantRanges();
+    }
+    if (!sceneDescriptors) {
+        sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
+    }
+    if (frameDescriptors) {
+        uint32_t previousFrame = utils::modDown(currentFrameSlot, framesInFlight);
+        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // 'this' captured, Renderer::Impl should be NonCopyable
+        deferDeletion(previousFrame, std::move(recycler));
+    }
+    frameDescriptors = getFrameDescriptors();
+
+    if (frameSettings.useOffscreenTexture) {
+        if (!offscreenRenderPass) {
+            offscreenRenderPass = std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context));
+            ASSERT(!offscreenGraphicsPipeline);
+            offscreenGraphicsPipeline = scene->createGraphicsPipeline(*offscreenRenderPass->renderPass, Scene::PipelineKind::kScenePipeline);
+        }
+    } else {
+        framebufferPool.clear();
+        offscreenGraphicsPipeline.reset();
+        offscreenRenderPass.reset();
+    }
+
+    fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
+}
+
+bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings)
+{
+    if (outputPipeline) {
+        if (outputPipeline->pipelineLayout.getAssociatedRenderPass() == renderPass) {
+            return false;
+        }
+        outputPipeline.reset();
+    }
+    auto outputPipelineKind = frameSettings.useOffscreenTexture ? Scene::PipelineKind::kDisplayPipeline : Scene::PipelineKind::kScenePipeline;
+    outputPipeline = scene->createGraphicsPipeline(renderPass, outputPipelineKind);
+    return true;
+}
+
+void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const
+{
+    // bind sampler image
+    commandBuffer.draw(4, 1, 0, 0, context.getDispatcher());
+}
+
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const
+{
+    ASSERT(currentFrameSlot < framesInFlight);
+    if (!scene) {
+        return;
+    }
+
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+
+    if (frameSettings.useOffscreenTexture) {
+        offscreenPass(frameSettings);
+        setSceneDescriptors(commandBuffer, frameSettings, *outputPipeline);
+        drawDisplay(commandBuffer, frameSettings);
+        // sink sampled image at currentFrameSlot
+    } else {
+        setSceneDescriptors(commandBuffer, frameSettings, *outputPipeline);
+        drawScene(commandBuffer, frameSettings);
     }
 }
 

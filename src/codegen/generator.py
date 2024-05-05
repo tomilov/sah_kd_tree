@@ -1,3 +1,5 @@
+# mypy: disallow-untyped-defs
+
 import argparse
 import difflib
 import re
@@ -5,6 +7,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
+from typing import Any, Callable
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from termcolor import colored
@@ -75,7 +78,7 @@ VK_FORMAT
 )
 
 
-def _print_diff(unformatted, formatted, /, *, file_name=""):
+def _print_diff(unformatted: str, formatted: str, /, *, file_name: str = "") -> None:
     a = unformatted.splitlines(keepends=False)
     b = formatted.splitlines(keepends=False)
     for line in difflib.unified_diff(
@@ -96,14 +99,14 @@ def _print_diff(unformatted, formatted, /, *, file_name=""):
             color = "cyan"
         else:
             color = None
-        print(colored(line, color), file=sys.stderr)
+        print(colored(line, color), file=sys.stderr)  # type: ignore
 
 
-def _gen_spirv_format_context(args):
+def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     sys.path.append(str(args.spirv_headers))
     import spirv.unified1.spirv  # type: ignore
 
-    def _prefix_to_lower(m):
+    def _prefix_to_lower(m: re.Match[str]) -> str:
         g1 = m.group(1)
         if g1:
             return g1[:-1].lower() + g1[-1]
@@ -111,7 +114,7 @@ def _gen_spirv_format_context(args):
 
     split_typename_regex = re.compile(r"^(?:([A-Z]{2,})|([A-Z]))")
 
-    def _to_variable_name(name):
+    def _to_variable_name(name: str) -> str:
         return split_typename_regex.sub(_prefix_to_lower, name)
 
     spv_enums = list()
@@ -125,14 +128,14 @@ def _gen_spirv_format_context(args):
             continue
         if not isinstance(value, dict):
             continue
-        spv_enum = dict()
+        spv_enum: dict[str, str | list[Any]] = dict()
 
         spv_enum["enum_typename"] = f"Spv{key}"
         spv_enum["variable_name"] = _to_variable_name(key)
 
         enum_values = sorted(value.items(), key=lambda item: (item[1], item[0]))
         unique_enum_underlying_values = set()
-        unique_enum_values = list()
+        unique_enum_values: list[dict[str, int | str]] = list()
         for enum_value_name, enum_underlying_value in enum_values:
             assert isinstance(enum_underlying_value, int), type(
                 enum_underlying_value
@@ -148,19 +151,19 @@ def _gen_spirv_format_context(args):
 
         spv_enums.append(spv_enum)
 
-    filters = {
-        "to_variable_name": _to_variable_name,
-    }
-    context = {
+    context: dict[str, Any] = {
         "spv_enums": spv_enums,
+    }
+    filters: dict[str, Callable] = {
+        "to_variable_name": _to_variable_name,
     }
     return context, filters
 
 
-def _gen_vulkan_utils_context(args):
+def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
     registry = ElementTree.parse(args.vulkan_registry).getroot()
 
-    def _cpp_case(m):
+    def _cpp_case(m: re.Match[str]) -> str:
         g1 = m.group(1)
         if g1:
             return g1
@@ -171,13 +174,13 @@ def _gen_vulkan_utils_context(args):
 
     tags = registry.findall("tags")
     assert len(tags) == 1, len(tags)
-    vendors = "|".join(tag.get("name") for tag in tags[0].findall("tag"))
+    vendors = "|".join(str(tag.get("name")) for tag in tags[0].findall("tag"))
     split_c_regex = re.compile(f"_({vendors})$|(_)|([A-Z]+)")
 
-    def _to_cpp_case(identifier):
+    def _to_cpp_case(identifier: str) -> str:
         return split_c_regex.sub(_cpp_case, identifier)
 
-    def _c_enum_to_cpp(identifier, prefix):
+    def _c_enum_to_cpp(identifier: str, prefix: str) -> str:
         vk_len = len("VK_")
         assert prefix[:vk_len] == "VK_", prefix
         assert identifier[: len(prefix)] == prefix, identifier[: len(prefix)]
@@ -187,14 +190,15 @@ def _gen_vulkan_utils_context(args):
 
     reformat_identifier_regex = re.compile(r"[_ \-]|\bASTC_(\d+x\d+)\b|([A-Za-z]+)")
 
-    def _reformat_identifier(identifier):
-        def _reformat(m):
+    def _reformat_identifier(identifier: str) -> str:
+        def _reformat(m: re.Match[str]) -> str:
             g1 = m.group(1)
             if g1:
                 return f"Astc{g1}"
             g2 = m.group(2)
             if g2:
                 return g2[0].upper() + g2[1:].lower()
+            return str()
 
         return reformat_identifier_regex.sub(_reformat, identifier)
 
@@ -302,7 +306,7 @@ def _gen_vulkan_utils_context(args):
             max_plane_count = max(max_plane_count, len(planes))
             output_planes = list()
             for plane in planes:
-                output_plane = dict()
+                output_plane: dict[str, Any] = dict()
                 for key, value in plane.attrib.items():
                     if key == "index":
                         output_plane["index"] = int(value)
@@ -349,7 +353,7 @@ def _gen_vulkan_utils_context(args):
     assert max_plane_count > 0
     assert output_formats
 
-    context = {
+    context: dict[str, Any] = {
         "compatibility_classes": sorted(compatibility_classes),
         "component_types": sorted(component_types),
         "max_component_count": max_component_count,
@@ -359,24 +363,28 @@ def _gen_vulkan_utils_context(args):
         "max_plane_count": max_plane_count,
         "formats": sorted(output_formats, key=lambda x: x["format_name"]),
     }
-    filters = {
+    filters: dict[str, Callable] = {
         "c_enum_to_cpp": _c_enum_to_cpp,
     }
     return context, filters
 
 
-def _clang_format(args, unformatted):
+def _clang_format(args: argparse.Namespace, unformatted: str) -> str:
     popenargs = [
         str(args.clang_format_executable),
         f"-style=file:{args.clang_format_config}",
     ]
     completed_process = subprocess.run(
-        popenargs, input=unformatted.encode(), stdout=subprocess.PIPE, check=True
+        popenargs,
+        input=unformatted,
+        check=True,
+        text=True,
+        capture_output=True,
     )
-    return completed_process.stdout.decode()
+    return completed_process.stdout
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser("Tool to generate sources")
     parser.add_argument("--source-dir", required=True, help="Source directory")
     parser.add_argument(

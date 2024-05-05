@@ -20,6 +20,7 @@ struct ENGINE_EXPORT CommandBuffers final : utils::NonCopyable
     CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
 
     [[nodiscard]] const std::vector<vk::CommandBuffer> & getCommandBuffers() const &;
+    [[nodiscard]] vk::CommandBuffer getCommandBuffer() const &;
 
 private:
     std::string name;

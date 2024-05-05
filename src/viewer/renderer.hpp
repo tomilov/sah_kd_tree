@@ -47,13 +47,13 @@ public:
 
     void setScene(std::shared_ptr<const Scene> scene);
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings);
     void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 184;
+    static constexpr size_t kSize = 200;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

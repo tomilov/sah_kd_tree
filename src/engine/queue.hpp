@@ -27,7 +27,6 @@ struct ENGINE_EXPORT Queue final : utils::NonCopyable
     void waitIdle() const;
 
     [[nodiscard]] CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
-    [[nodiscard]] CommandBuffers allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 
 private:
     const Context & context;
@@ -43,10 +42,6 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
     Queue compute;
     Queue transferHostToDevice;
     Queue transferDeviceToHost;
-
-    Queues(const Context & context, const CommandPool & commandPool);
-
-    void waitIdle() const;
 };
 
 }  // namespace engine

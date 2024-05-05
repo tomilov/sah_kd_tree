@@ -122,6 +122,7 @@ public:
         struct Resources
         {
             engine::Buffer<UniformBuffer> uniformBuffer;
+            // TODO: add optional sampled image for just rendered framebuffer
 
             [[nodiscard]] DescriptorSetInfos getDescriptorSetInfos() const;
             [[nodiscard]] DescriptorBufferInfos getDescriptorBufferInfos() const;

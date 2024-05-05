@@ -22,7 +22,7 @@ Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, c
 
 Queue::~Queue()
 {
-    waitIdle();
+    // waitIdle();
 }
 
 void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
@@ -63,28 +63,6 @@ CommandBuffers Queue::allocateCommandBuffers(std::string_view name, uint32_t cou
         .commandBufferCount = count,
     };
     return {name, context, commandBufferAllocateInfo};
-}
-
-CommandBuffers Queue::allocateCommandBuffer(std::string_view name, vk::CommandBufferLevel level) const
-{
-    return allocateCommandBuffers(name, 1, level);
-}
-
-Queues::Queues(const Context & context, const CommandPool & commandPool)
-    : externalGraphics{context, context.getPhysicalDevice().externalGraphicsQueueCreateInfo, commandPool}
-    , graphics{context, context.getPhysicalDevice().graphicsQueueCreateInfo, commandPool}
-    , compute{context, context.getPhysicalDevice().computeQueueCreateInfo, commandPool}
-    , transferHostToDevice{context, context.getPhysicalDevice().transferHostToDeviceQueueCreateInfo, commandPool}
-    , transferDeviceToHost{context, context.getPhysicalDevice().transferDeviceToHostQueueCreateInfo, commandPool}
-{}
-
-void Queues::waitIdle() const
-{
-    externalGraphics.waitIdle();
-    graphics.waitIdle();
-    compute.waitIdle();
-    transferHostToDevice.waitIdle();
-    transferDeviceToHost.waitIdle();
 }
 
 }  // namespace engine

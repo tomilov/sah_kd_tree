@@ -162,7 +162,7 @@ format:
 	. .venv/bin/activate
 	black src/
 	isort --profile black src/
-	mypy src/
+	MYPYPATH=$(ROOT_DIR)/external/SPIRV-Headers/include mypy src/
 
 .PHONY: pytest
 pytest:

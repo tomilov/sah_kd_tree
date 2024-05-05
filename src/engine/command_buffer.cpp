@@ -2,6 +2,7 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <format/vulkan.hpp>
+#include <utils/assert.hpp>
 
 #include <fmt/format.h>
 
@@ -36,6 +37,12 @@ CommandBuffers::CommandBuffers(std::string_view name, const Context & context, c
 const std::vector<vk::CommandBuffer> & CommandBuffers::getCommandBuffers() const &
 {
     return commandBuffers;
+}
+
+[[nodiscard]] vk::CommandBuffer CommandBuffers::getCommandBuffer() const &
+{
+    INVARIANT(std::size(commandBuffers) == 1, "{}", std::size(commandBuffers));
+    return commandBuffers.at(0);
 }
 
 }  // namespace engine
