@@ -25,9 +25,7 @@ target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC
         "gli"
-        "libutils"
-        "tinygltf"
-        "tinyexr")
+        "libutils")
 
 add_executable("${PROJECT_NAME}")
 target_sources(

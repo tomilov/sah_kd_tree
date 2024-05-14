@@ -77,6 +77,14 @@ target_include_directories(
     "SPIRV-Reflect"
     SYSTEM PUBLIC
         "SPIRV-Reflect")
+target_compile_definitions(
+    "SPIRV-Reflect"
+    PUBLIC
+        SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
+target_link_libraries(
+    "SPIRV-Reflect"
+    PUBLIC
+        "SPIRV-Headers")
 
 
 add_subdirectory("nlohmann")

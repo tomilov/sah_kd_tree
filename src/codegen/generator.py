@@ -17,7 +17,7 @@ FORMAT_REGEX = re.compile(
 VK_FORMAT
 (?:
         # NVIDIA optical flow
-        _R16G16_S10_5_NV
+        _R16G16_(?P<optical_flow>SFIXED5|S10_5)_NV
     |
         # PVRTC
         _(?P<pvrtc>PVRTC[12])

@@ -96,7 +96,7 @@ private:
     const vk::ShaderStageFlagBits shaderStage;
     const std::string entryPointName;
 
-    static constexpr size_t kSize = 1208;
+    static constexpr size_t kSize = 1224;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<spv_reflect::ShaderModule, kSize, kAlignment> reflectionModule;
 
