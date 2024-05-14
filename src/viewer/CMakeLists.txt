@@ -1,5 +1,7 @@
 project("viewer")
 
+set(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree" CACHE STRING "" FORCE)
+
 qt6_add_qml_module(
     "${PROJECT_NAME}_item"
     URI
@@ -9,9 +11,10 @@ qt6_add_qml_module(
     RESOURCE_PREFIX
         "/${CMAKE_PROJECT_NAME}/imports"
     OUTPUT_DIRECTORY
+        "SahKdTree"
+    IMPORT_PATH
         "SahKdTree")
-#set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
-set(QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree" CACHE STRING "" FORCE)
+set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
 
 generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")
 if(NOT BUILD_SHARED_LIBS)
@@ -107,8 +110,6 @@ qt6_add_resources(
         "qml/qmldir"
         "qml/components/CenteredDialog.qml"
         "qml/ui.qml")
-
-set(QML_IMPORT_PATH ${CMAKE_SOURCE_DIR}/qml ${CMAKE_CURRENT_BINARY_DIR}/SahKdTree CACHE STRING "" FORCE)
 
 source_group(
     "UI Files"
