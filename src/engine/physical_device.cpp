@@ -233,11 +233,15 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         // presentModes = physicalDevice.getSurfacePresentModesKHR(surface, library.getDispatcher());
     }
 
-    externalGraphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
-    graphicsQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics);
+    uint32_t graphicsQueueFamilyIndex = findQueueFamily(vk::QueueFlagBits::eGraphics, surface);
+    externalGraphicsQueueCreateInfo.familyIndex = graphicsQueueFamilyIndex;
+    graphicsQueueCreateInfo.familyIndex = graphicsQueueFamilyIndex;
+
     computeQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eCompute);
-    transferHostToDeviceQueueCreateInfo.familyIndex = findQueueFamily(vk::QueueFlagBits::eTransfer);
-    transferDeviceToHostQueueCreateInfo.familyIndex = transferHostToDeviceQueueCreateInfo.familyIndex;
+
+    uint32_t transferQueueFamilyIndex = findQueueFamily(vk::QueueFlagBits::eTransfer);
+    transferHostToDeviceQueueCreateInfo.familyIndex = transferQueueFamilyIndex;
+    transferDeviceToHostQueueCreateInfo.familyIndex = transferQueueFamilyIndex;
 
     const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool
     {

@@ -598,10 +598,10 @@ struct Image::Impl final : utils::OneTime<Impl>
     vk::MemoryPropertyFlags memoryPropertyFlags;
     uint32_t memoryTypeIndex = VK_MAX_MEMORY_TYPES;
 
-    vk::PipelineStageFlags2 stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-    vk::AccessFlags2 accessMask = vk::AccessFlagBits2::eNone;
-    vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-    uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    mutable vk::PipelineStageFlags2 stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
+    mutable vk::AccessFlags2 accessMask = vk::AccessFlagBits2::eNone;
+    mutable vk::ImageLayout layout = vk::ImageLayout::eUndefined;
+    mutable uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
     Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask);
 
@@ -665,7 +665,27 @@ Image::operator vk::Image() const &
     return getImage();
 }
 
-bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+vk::PipelineStageFlags2 Image::getStageMask() const
+{
+    return impl_->stageMask;
+}
+
+vk::AccessFlags2 Image::getAccessMask() const
+{
+    return impl_->accessMask;
+}
+
+vk::ImageLayout Image::getLayout() const
+{
+    return impl_->layout;
+}
+
+uint32_t Image::getQueueFamilyIndex() const
+{
+    return impl_->queueFamilyIndex;
+}
+
+bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags) const
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->layout, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, layout, queueFamilyIndex)) {
         return false;

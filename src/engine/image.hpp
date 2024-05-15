@@ -37,7 +37,11 @@ public:
     [[nodiscard]] vk::Image getImage() const &;
     [[nodiscard]] operator vk::Image() const &;  // NOLINT: google-explicit-constructor
 
-    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {});
+    vk::PipelineStageFlags2 getStageMask() const;
+    vk::AccessFlags2 getAccessMask() const;
+    vk::ImageLayout getLayout() const;
+    uint32_t getQueueFamilyIndex() const;
+    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {}) const;
 
     [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const;
 
