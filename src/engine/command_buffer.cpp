@@ -39,7 +39,7 @@ const std::vector<vk::CommandBuffer> & CommandBuffers::getCommandBuffers() const
     return commandBuffers;
 }
 
-[[nodiscard]] vk::CommandBuffer CommandBuffers::getCommandBuffer() const &
+[[nodiscard]] const vk::CommandBuffer & CommandBuffers::getCommandBuffer() const &
 {
     INVARIANT(std::size(commandBuffers) == 1, "{}", std::size(commandBuffers));
     return commandBuffers.at(0);

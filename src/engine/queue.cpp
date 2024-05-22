@@ -1,28 +1,24 @@
 #include <engine/command_buffer.hpp>
-#include <engine/command_pool.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/queue.hpp>
 
+#include <fmt/format.h>
+
 #include <string_view>
 
 namespace engine
 {
 
-Queue::Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool)
-    : context{context}
-    , commandPool{commandPool}
+Queue::Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo)
+    : name{fmt::format("{} {}", queueCreateInfo.name, name)}
+    , context{context}
+    , commandPool{this->name, context, queueCreateInfo.familyIndex}
+    , queue{context.getDevice().getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
 {
-    const auto & device = context.getDevice();
-    queue = device.getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher());
-    device.setDebugUtilsObjectName(queue, queueCreateInfo.name);
-}
-
-Queue::~Queue()
-{
-    // waitIdle();
+    context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);
 }
 
 void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const

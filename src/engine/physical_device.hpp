@@ -101,11 +101,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
     };
 
-    QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics queue"};
-    QueueCreateInfo graphicsQueueCreateInfo{"Graphics queue"};
-    QueueCreateInfo computeQueueCreateInfo{"Compute queue"};
-    QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer queue"};
-    QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer queue"};
+    QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics"};
+    QueueCreateInfo graphicsQueueCreateInfo{"Graphics"};
+    QueueCreateInfo computeQueueCreateInfo{"Compute"};
+    QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer"};
+    QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer"};
 
     PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice);
 
@@ -125,6 +125,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     [[nodiscard]] const std::vector<const char *> & getEnabledExtensions() const &;
     [[nodiscard]] bool isExtensionEnabled(const char * extension) const;
+
+    [[nodiscard]] vk::Format findDepthImageFormat(vk::ImageTiling imageTiling) const;
 
 private:
     const Context & context;

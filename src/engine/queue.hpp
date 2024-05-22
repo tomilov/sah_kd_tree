@@ -1,11 +1,13 @@
 #pragma once
 
+#include <engine/command_pool.hpp>
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
+#include <string>
 #include <string_view>
 
 #include <cstdint>
@@ -15,10 +17,9 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT Queue final : utils::NonCopyable
+struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
 {
-    Queue(const Context & context, const QueueCreateInfo & queueCreateInfo, const CommandPool & commandPool);
-    ~Queue();
+    Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo);
 
     void submit(vk::CommandBuffer commandBuffer, vk::Fence fence = {}) const;
     void submit(const vk::SubmitInfo & submitInfo, vk::Fence fence = {}) const;
@@ -29,10 +30,16 @@ struct ENGINE_EXPORT Queue final : utils::NonCopyable
     [[nodiscard]] CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 
 private:
+    std::string name;
     const Context & context;
-    const CommandPool & commandPool;
 
+    CommandPool commandPool;
     vk::Queue queue;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 struct ENGINE_EXPORT Queues final : utils::NonCopyable

@@ -1,3 +1,4 @@
+#include <codegen/vulkan_utils.hpp>
 #include <common/config.hpp>
 #include <engine/context.hpp>
 #include <engine/exception.hpp>
@@ -336,6 +337,53 @@ const std::vector<const char *> & PhysicalDevice::getEnabledExtensions() const &
 bool PhysicalDevice::isExtensionEnabled(const char * extension) const
 {
     return enabledExtensionSet.contains(extension);
+}
+
+vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) const
+{
+    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
+    if (imageTiling == vk::ImageTiling::eLinear) {
+        p = &vk::FormatProperties3::linearTilingFeatures;
+    } else if (imageTiling == vk::ImageTiling::eOptimal) {
+        p = &vk::FormatProperties3::optimalTilingFeatures;
+    } else {
+        INVARIANT(false, "{}", imageTiling);
+    }
+
+    constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
+    auto physicalDevice = getPhysicalDevice();
+    vk::Format depthFormat = vk::Format::eUndefined;
+    for (vk::Format format : codegen::vulkan::kAllFormats) {
+        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
+        if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
+            continue;
+        }
+        const auto & formatDescription = codegen::vulkan::kFormatDescriptions.at(format);
+        const auto * depthComponent = formatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        if (!depthComponent) {
+            continue;
+        }
+        if (depthFormat == vk::Format::eUndefined) {
+            depthFormat = format;
+            continue;
+        }
+        const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
+        const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
+        ASSERT(bestDepthComponent);
+        if (depthComponent->bitsize < bestDepthComponent->bitsize) {
+            continue;
+        }
+        if (depthComponent->bitsize == bestDepthComponent->bitsize) {
+            if (formatDescription.componentCount() > bestFormatDescription.componentCount()) {
+                continue;
+            }
+            if (formatDescription.componentCount() == bestFormatDescription.componentCount()) {
+                SPDLOG_WARN("{} is equivalent to {}", depthFormat, format);
+            }
+        }
+        depthFormat = format;
+    }
+    return depthFormat;
 }
 
 PhysicalDevices::PhysicalDevices(const Context & context)

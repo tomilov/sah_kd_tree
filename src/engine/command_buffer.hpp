@@ -15,18 +15,23 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT CommandBuffers final : utils::NonCopyable
+struct ENGINE_EXPORT CommandBuffers final : utils::OneTime<CommandBuffers>
 {
     CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
 
     [[nodiscard]] const std::vector<vk::CommandBuffer> & getCommandBuffers() const &;
-    [[nodiscard]] vk::CommandBuffer getCommandBuffer() const &;
+    [[nodiscard]] const vk::CommandBuffer & getCommandBuffer() const &;
 
 private:
     std::string name;
 
     std::vector<vk::UniqueCommandBuffer> commandBuffersHolder;
     std::vector<vk::CommandBuffer> commandBuffers;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

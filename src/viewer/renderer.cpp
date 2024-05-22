@@ -21,6 +21,7 @@
 #include <viewer/renderer.hpp>
 #include <viewer/scene_manager.hpp>
 
+#include <fmt/format.h>
 #include <fmt/std.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -33,6 +34,7 @@
 #include <algorithm>
 #include <initializer_list>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <memory>
 #include <stack>
@@ -55,7 +57,7 @@ namespace
 using Resource = std::shared_ptr<const void>;
 
 template<typename T>
-class ResourceStack : std::stack<T, std::vector<T>>
+class ResourceStack final : std::stack<T, std::vector<T>>
 {
     using base = std::stack<T, std::vector<T>>;
 
@@ -73,7 +75,7 @@ public:
 };
 
 template<typename T>
-class ResourceQueue : std::queue<T, std::list<T>>
+class ResourceQueue final : std::queue<T, std::list<T>>
 {
     using base = std::queue<T, std::list<T>>;
 
@@ -95,8 +97,8 @@ class Recycler final : utils::OneTime<Recycler>
 {
 public:
     template<typename F, typename... Args>
-    Recycler(F && f, Args &&... args)
-        : holder{makeHolder<F, Args...>(f, args..., std::index_sequence_for<Args...>{})}  // NOLINT: google-explicit-constructor
+    Recycler(F && f, Args &&... args)  // NOLINT: google-explicit-constructor
+        : holder{makeHolder<F, Args...>(f, args..., std::index_sequence_for<Args...>{})}
     {}
 
     [[nodiscard]] operator Resource() && noexcept  // NOLINT: google-explicit-constructor
@@ -121,6 +123,149 @@ private:
         };
         return {new Storage{std::forward<F>(f), std::forward<Args>(args)...}, recycle};
     }
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
+
+class DisplayDescriptorPool final : utils::NonCopyable
+{
+public:
+    explicit DisplayDescriptorPool(const engine::Context & context, std::shared_ptr<const Scene> scene)
+        : context{context}
+        , offscreenRenderPass{std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context))}
+        , scene{std::move(scene)}
+        , offscreenGraphicsPipeline{scene->createGraphicsPipeline(*offscreenRenderPass->renderPass, Scene::PipelineKind::kScenePipeline)}
+    {
+        float maxSamplerAnisotropy = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxSamplerAnisotropy;
+        vk::SamplerCreateInfo samplerCreateInfo = {
+            .flags = {},
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eNearest,
+            .addressModeU = vk::SamplerAddressMode::eRepeat,
+            .addressModeV = vk::SamplerAddressMode::eRepeat,
+            .addressModeW = vk::SamplerAddressMode::eRepeat,
+            .mipLodBias = 0.0f,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = maxSamplerAnisotropy,
+            .compareEnable = VK_FALSE,
+            .compareOp = vk::CompareOp::eNever,
+            .minLod = 0.0f,
+            .maxLod = 0.0f,
+            .borderColor = vk::BorderColor::eFloatTransparentBlack,
+            .unnormalizedCoordinates = VK_FALSE,
+        };
+        sampler = std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+    }
+
+    [[nodiscard]] const GraphicsPipeline & getOffscreenGraphicsPipeline() const &
+    {
+        return *offscreenGraphicsPipeline;
+    }
+
+    [[nodiscard]] std::shared_ptr<const ResourcesAndDescriptors<DisplayResources>> getDisplayDescriptors(const Scene & scene, const vk::Extent2D & size) &
+    {
+        while (!displayDescriptorPool.empty()) {
+            auto displayDescriptors = std::move(displayDescriptorPool.top());
+            displayDescriptorPool.pop();
+            const auto & framebuffer = displayDescriptors->resources.framebuffer;
+            if ((framebuffer.associatedRenderPass == offscreenRenderPass) && (framebuffer.size == size)) {
+                return displayDescriptors;
+            } else {
+                // mb reuse framebuffer?
+            }
+        }
+        return std::make_shared<ResourcesAndDescriptors<DisplayResources>>(scene.makeDisplayDescriptors(context, sampler, size, *offscreenRenderPass));
+    }
+
+    void putDisplayDescriptors(std::shared_ptr<const ResourcesAndDescriptors<DisplayResources>> displayDescriptors) &
+    {
+        ASSERT_MSG(displayDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", displayDescriptors.use_count());
+        displayDescriptorPool.push(std::move(displayDescriptors));
+    }
+
+private:
+    const engine::Context & context;
+    std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
+    const std::shared_ptr<const Scene> scene;
+    std::shared_ptr<const GraphicsPipeline> offscreenGraphicsPipeline;
+    std::shared_ptr<const vk::UniqueSampler> sampler;
+    ResourceStack<std::shared_ptr<const ResourcesAndDescriptors<DisplayResources>>> displayDescriptorPool;
+};
+
+class RenderGraphNode final : utils::OneTime<RenderGraphNode>
+{
+public:
+    explicit RenderGraphNode(std::string_view name, const engine::Context & context, const engine::Queue & queue)
+        : name{name}
+        , context{context}
+        , queue{queue}
+        , commandBuffers{std::make_shared<engine::CommandBuffers>(queue.allocateCommandBuffers(name))}
+    {}
+
+    RenderGraphNode(RenderGraphNode && rhs) noexcept = default;
+
+    ~RenderGraphNode()
+    {
+        if (!commandBuffers) {
+            return;
+        }
+
+        auto commandBuffer = commandBuffers->getCommandBuffer();
+        commandBuffer.end(context.getDispatcher());
+
+        vk::SubmitInfo submitInfo;
+        submitInfo.setWaitSemaphores(waitSemaphores);
+        submitInfo.setWaitDstStageMask(waitDstStageMasks);
+        submitInfo.setSignalSemaphores(signalSemaphores);
+        submitInfo.setCommandBuffers(commandBuffer);
+        queue.submit(submitInfo, completionFence);
+
+        if (waitIdle) {
+            if (completionFence) {
+                auto result = context.getDevice().getDevice().waitForFences(completionFence, VK_TRUE, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+                INVARIANT(result == vk::Result::eSuccess, "{}: {}", name, result);
+            } else {
+                queue.waitIdle();
+            }
+        }
+    }
+
+    void setCompletionFence(vk::Fence completionFence)
+    {
+        this->completionFence = completionFence;
+    }
+
+    void setWaitCompletion(bool waitIdle = true)
+    {
+        this->waitIdle = waitIdle;
+    }
+
+    void setWaitCompletion(vk::Fence completionFence)
+    {
+        setCompletionFence(completionFence);
+        setWaitCompletion();
+    }
+
+    const std::shared_ptr<const engine::CommandBuffers> & getCommandBuffers() const &
+    {
+        return commandBuffers;
+    }
+
+private:
+    std::string name;
+    const engine::Context & context;
+    const engine::Queue & queue;
+
+    bool waitIdle = false;
+    vk::Fence completionFence;
+    std::shared_ptr<const engine::CommandBuffers> commandBuffers;
+    std::vector<vk::Semaphore> waitSemaphores;
+    std::vector<vk::PipelineStageFlags> waitDstStageMasks;
+    std::vector<vk::Semaphore> signalSemaphores;
 
     static constexpr void completeClassContext()
     {
@@ -171,116 +316,35 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 struct Renderer::Impl : utils::NonCopyable
 {
-    struct OffscreenRenderPass
-    {
-        vk::Format depthFormat = vk::Format::eUndefined;
-        vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
-
-        vk::UniqueRenderPass renderPass;
-
-        [[nodiscard]] static OffscreenRenderPass make(const engine::Context & context);
-    };
-
-    struct Framebuffer
-    {
-        static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
-
-        std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
-        vk::Extent2D size;
-
-        vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eNone;
-
-        engine::Image colorImage;
-        vk::UniqueImageView colorImageView;
-
-        engine::Image depthImage;
-        vk::UniqueImageView depthImageView;
-
-        vk::UniqueFramebuffer framebuffer;
-
-        [[nodiscard]] static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
-    };
-
-    class FramebufferPool : public ResourceStack<std::shared_ptr<const Framebuffer>>
-    {
-    public:
-        FramebufferPool(const engine::Context & context)
-            : context{context}
-            , offscreenRenderPass{std::make_shared<OffscreenRenderPass>(OffscreenRenderPass::make(context))}
-        {
-            ASSERT(this->offscreenRenderPass);
-        }
-
-        std::shared_ptr<const OffscreenRenderPass> getOffscreenRenderPass() const &
-        {
-            return offscreenRenderPass;
-        }
-
-        auto getFramebuffer(const vk::Extent2D & size) & -> std::shared_ptr<const Framebuffer>
-        {
-            while (!empty()) {
-                auto framebuffer = std::move(top());
-                pop();
-                if ((framebuffer->offscreenRenderPass == offscreenRenderPass) && (framebuffer->size == size)) {
-                    ASSERT(offscreenRenderPass->renderPass);
-                    return framebuffer;
-                }
-            }
-            return std::make_shared<Framebuffer>(Framebuffer::make(context, size, *offscreenRenderPass));
-        }
-
-        void putFramebuffer(std::shared_ptr<const Framebuffer> framebuffer) &
-        {
-            ASSERT_MSG(framebuffer.use_count() == 1, "Non-unique use in single-threaded context: {}", framebuffer.use_count());
-            if (framebuffer->offscreenRenderPass != offscreenRenderPass) {
-                return;
-            }
-            push(std::move(framebuffer));
-        }
-
-    private:
-        const engine::Context & context;
-        std::shared_ptr<const OffscreenRenderPass> offscreenRenderPass;
-    };
-
-    struct FrameDescriptorsPool : ResourceStack<std::shared_ptr<const Scene::FrameDescriptors>>
-    {
-    };
-
     const engine::Context & context;
     const uint32_t framesInFlight;
 
-    const engine::CommandPool graphicsQueueCommandPool{"graphics"sv, context, context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex};
-    const engine::Queue graphisQueue{context, context.getPhysicalDevice().graphicsQueueCreateInfo, graphicsQueueCommandPool};
+    const engine::Queue graphisQueue{"renderer", context, context.getPhysicalDevice().graphicsQueueCreateInfo};
 
     std::shared_ptr<const Scene> scene;
     utils::CheckedPtr<const std::vector<vk::PushConstantRange>> pushConstantRanges = nullptr;
-    std::shared_ptr<const Scene::SceneDescriptors> sceneDescriptors;
-    std::shared_ptr<const Scene::GraphicsPipeline> outputPipeline;
-    mutable std::optional<FramebufferPool> framebufferPool;
-    FrameDescriptorsPool frameDescriptorsPool;
-    std::shared_ptr<const Scene::FrameDescriptors> frameDescriptors;
-
-    std::shared_ptr<const Scene::GraphicsPipeline> offscreenGraphicsPipeline;
+    std::shared_ptr<const ResourcesAndDescriptors<SceneResources>> sceneResourcesAndDescriptors;
+    std::shared_ptr<const GraphicsPipeline> outputPipeline;
+    mutable std::optional<DisplayDescriptorPool> displayDescriptorPool;
+    ResourceStack<std::shared_ptr<const ResourcesAndDescriptors<FrameResources>>> frameDescriptorsPool;
+    std::shared_ptr<const ResourcesAndDescriptors<FrameResources>> frameResourcesAndDescriptors;
 
     // revocation lists should be the last members
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
     Impl(const engine::Context & context, uint32_t framesInFlight);
 
-    [[nodiscard]] static vk::Format findDepthImageFormat(const engine::Context & context, vk::ImageTiling imageTiling);
-
     void setScene(std::shared_ptr<const Scene> scene);
-    void setSceneDescriptors(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings, const Scene::GraphicsPipeline & scenePipeline) const;
+    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline, std::initializer_list<const Descriptors *> descriptors, const FrameSettings & frameSettings) const;
     void drawScene(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const;
-    void offscreenPass(const FrameSettings & frameSettings) const;
+    [[nodiscard]] std::shared_ptr<const ResourcesAndDescriptors<DisplayResources>> offscreenPass(const FrameSettings & frameSettings) const;
     void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
     [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings);
     void drawDisplay(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const;
     void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
 
-    std::shared_ptr<const Scene::FrameDescriptors> getFrameDescriptors();
-    void putFrameDescriptors(std::shared_ptr<const Scene::FrameDescriptors> && frameDescriptors);
+    std::shared_ptr<const ResourcesAndDescriptors<FrameResources>> getFrameDescriptors();
+    void putFrameDescriptors(std::shared_ptr<const ResourcesAndDescriptors<FrameResources>> && frameDescriptors);
 
     template<typename... Resources>
     void deferDeletion(uint32_t previousFrameSlot, Resources &&... resources)
@@ -321,216 +385,10 @@ void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot
     return impl_->render(commandBuffer, currentFrameSlot, frameSettings);
 }
 
-auto Renderer::Impl::OffscreenRenderPass::make(const engine::Context & context) -> OffscreenRenderPass
-{
-    vk::Format depthFormat = findDepthImageFormat(context, vk::ImageTiling::eOptimal);
-    INVARIANT(depthFormat != vk::Format::eUndefined, "");
-    vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
-    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
-        depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-    } else {
-        depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-    }
-
-    const vk::AttachmentDescription2 attachmentDecriptions[] = {
-        {
-            .format = Framebuffer::kFormat,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-            .finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-        },
-        {
-            .format = depthFormat,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eDontCare,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = depthImageLayout,
-            .finalLayout = depthImageLayout,
-        },
-    };
-
-    const vk::AttachmentReference2 colorAttachmentReferences[] = {
-        {
-            .attachment = 0,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        },
-    };
-
-    const vk::AttachmentReference2 depthAttachmentReference = {
-        .attachment = 1,
-        .layout = depthImageLayout,
-    };
-
-    vk::SubpassDescription2 subpassDescriptions[] = {
-        {
-            .flags = {},
-            .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-            .pDepthStencilAttachment = &depthAttachmentReference,
-        },
-    };
-    subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
-
-    const vk::SubpassDependency2 subpassDependencies[] = {
-        {
-            .srcSubpass = VK_SUBPASS_EXTERNAL,
-            .dstSubpass = 0,
-            .srcStageMask = vk::PipelineStageFlagBits::eFragmentShader,
-            .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            .srcAccessMask = vk::AccessFlagBits::eShaderRead,
-            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-            .viewOffset = 0,
-        },
-        {
-            .srcSubpass = 0,
-            .dstSubpass = VK_SUBPASS_EXTERNAL,
-            .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            .dstStageMask = vk::PipelineStageFlagBits::eFragmentShader,
-            .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .dstAccessMask = vk::AccessFlagBits::eShaderRead,
-            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-            .viewOffset = 0,
-        },
-        {
-            .srcSubpass = VK_SUBPASS_EXTERNAL,
-            .dstSubpass = 0,
-            .srcStageMask = vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-            .dstStageMask = vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-            .srcAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            .dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-            .viewOffset = 0,
-        },
-        {
-            .srcSubpass = 0,
-            .dstSubpass = VK_SUBPASS_EXTERNAL,
-            .srcStageMask = vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-            .dstStageMask = vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-            .srcAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            .dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-            .viewOffset = 0,
-        },
-    };
-
-    vk::RenderPassCreateInfo2 renderPassCreateInfo = {
-        .flags = {},
-    };
-    renderPassCreateInfo.setAttachments(attachmentDecriptions);
-    renderPassCreateInfo.setSubpasses(subpassDescriptions);
-    renderPassCreateInfo.setDependencies(subpassDependencies);
-
-    vk::UniqueRenderPass renderPass = context.getDevice().getDevice().createRenderPass2Unique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    context.getDevice().setDebugUtilsObjectName(*renderPass, "Offscreen renderpass"s);
-    return {
-        .depthFormat = depthFormat,
-        .depthImageLayout = depthImageLayout,
-        .renderPass = std::move(renderPass),
-    };
-}
-
-auto Renderer::Impl::Framebuffer::make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) -> Framebuffer
-{
-    ASSERT(offscreenRenderPass.renderPass);
-    auto renderPass = *offscreenRenderPass.renderPass;
-
-    vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
-    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
-        depthImageAspectMask |= vk::ImageAspectFlagBits::eStencil;
-    }
-
-    auto colorImageName = "offscreen framebuffer color image"s;
-    constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
-    constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
-    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage, kColorImageAspectMask);
-    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
-
-    auto depthImageName = "offscreen framebuffer depth image"s;
-    constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, size, kDepthImageUsage, depthImageAspectMask);
-    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspectMask);
-
-    const vk::ImageView attachments[] = {
-        *colorImageView,
-        *depthImageView,
-    };
-    vk::FramebufferCreateInfo framebufferCreateInfo = {
-        .flags = {},
-        .renderPass = renderPass,
-        .width = size.width,
-        .height = size.height,
-        .layers = 1,
-    };
-    framebufferCreateInfo.setAttachments(attachments);
-
-    return {
-        .size = size,
-        .depthImageAspectMask = depthImageAspectMask,
-        .colorImage = std::move(colorImage),
-        .colorImageView = std::move(colorImageView),
-        .depthImage = std::move(depthImage),
-        .depthImageView = std::move(depthImageView),
-        .framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()),
-    };
-}
-
 Renderer::Impl::Impl(const engine::Context & context, uint32_t framesInFlight)
     : context{context}
     , framesInFlight{framesInFlight}
 {}
-
-vk::Format Renderer::Impl::findDepthImageFormat(const engine::Context & context, vk::ImageTiling imageTiling)
-{
-    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
-    if (imageTiling == vk::ImageTiling::eLinear) {
-        p = &vk::FormatProperties3::linearTilingFeatures;
-    } else if (imageTiling == vk::ImageTiling::eOptimal) {
-        p = &vk::FormatProperties3::optimalTilingFeatures;
-    } else {
-        INVARIANT(false, "{}", imageTiling);
-    }
-
-    constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
-    auto physicalDevice = context.getPhysicalDevice().getPhysicalDevice();
-    vk::Format depthFormat = vk::Format::eUndefined;
-    for (vk::Format format : codegen::vulkan::kAllFormats) {
-        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
-        if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
-            continue;
-        }
-        const auto & formatDescription = codegen::vulkan::kFormatDescriptions.at(format);
-        const auto * depthComponent = formatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        if (!depthComponent) {
-            continue;
-        }
-        if (depthFormat == vk::Format::eUndefined) {
-            depthFormat = format;
-            continue;
-        }
-        const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
-        const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        ASSERT(bestDepthComponent);
-        if (depthComponent->bitsize < bestDepthComponent->bitsize) {
-            continue;
-        }
-        if (depthComponent->bitsize == bestDepthComponent->bitsize) {
-            if (formatDescription.componentCount() > bestFormatDescription.componentCount()) {
-                continue;
-            }
-            if (formatDescription.componentCount() == bestFormatDescription.componentCount()) {
-                SPDLOG_WARN("{} is equivalent to {}", depthFormat, format);
-            }
-        }
-        depthFormat = format;
-    }
-    return depthFormat;
-}
 
 void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 {
@@ -539,40 +397,42 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     outputPipeline.reset();
-    offscreenGraphicsPipeline.reset();
-    framebufferPool.reset();
-    frameDescriptors.reset();
+    displayDescriptorPool.reset();
+    frameResourcesAndDescriptors.reset();
     frameDescriptorsPool.clear();
-    sceneDescriptors.reset();
+    sceneResourcesAndDescriptors.reset();
     pushConstantRanges = nullptr;
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::setSceneDescriptors(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings, const Scene::GraphicsPipeline & scenePipeline) const
+void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline, std::initializer_list<const Descriptors *> descriptors, const FrameSettings & frameSettings) const
 {
     vk::Pipeline pipeline = scenePipeline.pipelines.getPipelines().at(0);
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline, context.getDispatcher());
 
-    vk::PipelineLayout pipelineLayout = scenePipeline.pipelineLayout.getPipelineLayout();
-    ASSERT(sceneDescriptors);
     constexpr uint32_t kFirstSet = 0;
+    vk::PipelineLayout pipelineLayout = scenePipeline.pipelineLayout.getPipelineLayout();
     if (scene->isDescriptorBufferEnabled()) {
-        vk::DescriptorBufferBindingInfoEXT descriptorBufferBindingInfos[] = {
-            sceneDescriptors->getDescriptorBuffer().getDescriptorBufferBindingInfo(),
-            frameDescriptors->getDescriptorBuffer().getDescriptorBufferBindingInfo(),
-        };
+        std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
+        descriptorBufferBindingInfos.reserve(std::size(descriptors));
+        for (const Descriptors * d : descriptors) {
+            descriptorBufferBindingInfos.push_back(d->getDescriptorBuffer().getDescriptorBufferBindingInfo());
+        }
         commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
 
-        uint32_t bufferIndices[std::size(descriptorBufferBindingInfos)];
+        std::vector<uint32_t> bufferIndices(std::size(descriptorBufferBindingInfos));
         std::iota(std::begin(bufferIndices), std::end(bufferIndices), uint32_t{0});
-        vk::DeviceSize offsets[std::size(descriptorBufferBindingInfos)];
+
+        std::vector<vk::DeviceSize> offsets(std::size(descriptorBufferBindingInfos));
         std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize{0});
+
         commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
     } else {
-        vk::DescriptorSet descriptorSets[] = {
-            sceneDescriptors->getDescriptorSet(),
-            frameDescriptors->getDescriptorSet(),
-        };
+        std::vector<vk::DescriptorSet> descriptorSets;
+        descriptorSets.reserve(std::size(descriptors));
+        for (const Descriptors * d : descriptors) {
+            descriptorSets.push_back(d->getDescriptorSet());
+        }
         constexpr auto kDynamicOffsets = nullptr;
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
@@ -604,8 +464,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const FrameSetti
     };
     commandBuffer.setScissor(kFirstScissor, scissors, context.getDispatcher());
 
-    ASSERT(sceneDescriptors);
-    const auto & sceneResources = sceneDescriptors->resources;
+    ASSERT(sceneResourcesAndDescriptors);
+    const auto & sceneResources = sceneResourcesAndDescriptors->resources;
 
     constexpr uint32_t kFirstBinding = 0;
     const auto bufferOrNull = [this](const auto & wrapper) -> vk::Buffer
@@ -657,36 +517,37 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const FrameSetti
     }
 }
 
-void Renderer::Impl::offscreenPass(const FrameSettings & frameSettings) const
+std::shared_ptr<const ResourcesAndDescriptors<DisplayResources>> Renderer::Impl::offscreenPass(const FrameSettings & frameSettings) const
 {
-    auto commandBuffers = graphisQueue.allocateCommandBuffers("Offscreen scene draw"sv);
-    auto commandBuffer = commandBuffers.getCommandBuffer();
+    RenderGraphNode renderGraphNode{"Offscreen scene draw"sv, context, graphisQueue};
+    auto commandBuffers = renderGraphNode.getCommandBuffers();
+    auto commandBuffer = commandBuffers->getCommandBuffer();
 
     constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
     auto offscreenPassLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Offscreen pass"sv, kGreenColor);
 
-    // bind framefuffer
-    auto framebuffer = framebufferPool.value().getFramebuffer(frameSettings.scissor.extent);
-    if (!framebuffer->colorImage.barrier(commandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eColorAttachmentRead, vk::ImageLayout::eShaderReadOnlyOptimal)) {
+    vk::Extent2D frameSize = frameSettings.scissor.extent;  // TODO: ¡do invent something better
+
+    auto displayResourcesAndDescriptors = displayDescriptorPool->getDisplayDescriptors(*scene, frameSettings.scissor.extent);  // TODO: use another size instead
+    const auto & framebuffer = displayResourcesAndDescriptors->resources.framebuffer;
+    if (!framebuffer.colorImage.barrier(commandBuffer, OffscreenRenderPass::kExternalColorStageMask, OffscreenRenderPass::kExternalColorAccessMask, OffscreenRenderPass::kExternalColorImageLayout)) {
         //
     }
-    constexpr auto kStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests | vk::PipelineStageFlagBits2::eEarlyFragmentTests;
-    constexpr auto kAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    const auto & offscreenRenderPass = *framebuffer->offscreenRenderPass;
+    const auto & offscreenRenderPass = *framebuffer.associatedRenderPass;
     const auto depthImageLayout = offscreenRenderPass.depthImageLayout;
-    if (!framebuffer->depthImage.barrier(commandBuffer, kStageMask, kAccessMask, depthImageLayout)) {
+    if (!framebuffer.depthImage.barrier(commandBuffer, OffscreenRenderPass::kDepthStageMask, OffscreenRenderPass::kDepthAccessMask, depthImageLayout)) {
         //
     }
 
     vk::RenderPassBeginInfo renderPassBeginInfo = {
         .renderPass = *offscreenRenderPass.renderPass,
-        .framebuffer = *framebuffer->framebuffer,
+        .framebuffer = *framebuffer.framebuffer,
         .renderArea = {
             .offset = {
                 .x = 0,
                 .y = 0,
             },
-            .extent = frameSettings.scissor.extent,
+            .extent = frameSize,
         },
     };
     std::initializer_list<vk::ClearValue> clearValues = {
@@ -712,14 +573,18 @@ void Renderer::Impl::offscreenPass(const FrameSettings & frameSettings) const
         .contents = vk::SubpassContents::eInline,
     };
     commandBuffer.beginRenderPass2(renderPassBeginInfo, subpassBeginInfo, context.getDispatcher());
-    setSceneDescriptors(commandBuffer, frameSettings, *offscreenGraphicsPipeline);
+    auto descriptors = {
+        &sceneResourcesAndDescriptors->descriptors,
+        &frameResourcesAndDescriptors->descriptors,
+    };
+    bindGraphicsPipeline(commandBuffer, displayDescriptorPool.value().getOffscreenGraphicsPipeline(), descriptors, frameSettings);
     drawScene(commandBuffer, frameSettings);
     vk::SubpassEndInfo subpassEndInfo;
     commandBuffer.endRenderPass2(subpassEndInfo, context.getDispatcher());
 
-    // framebuffer barrier
-    // submit command buffer and sink used resources
-    // graphisQueue.submit(commandBuffer, fence);
+    // framebuffer barrier is not needed after wait fence
+    // extend life time of displayResourcesAndDescriptors and other resources
+    return displayResourcesAndDescriptors;
 }
 
 void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings)
@@ -736,28 +601,24 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot, const FrameSettings & fr
     if (!pushConstantRanges) {
         pushConstantRanges = &scene->getPushConstantRanges();
     }
-    if (!sceneDescriptors) {
-        sceneDescriptors = std::make_shared<const Scene::SceneDescriptors>(scene->makeSceneDescriptors());
+    if (!sceneResourcesAndDescriptors) {
+        sceneResourcesAndDescriptors = std::make_shared<const ResourcesAndDescriptors<SceneResources>>(scene->makeSceneDescriptors());
     }
-    if (frameDescriptors) {
+    if (frameResourcesAndDescriptors) {
         uint32_t previousFrame = utils::modDown(currentFrameSlot, framesInFlight);
-        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameDescriptors)};  // 'this' captured, Renderer::Impl should be NonCopyable
+        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameResourcesAndDescriptors)};  // 'this' captured, Renderer::Impl should be NonCopyable
         deferDeletion(previousFrame, std::move(recycler));
     }
-    frameDescriptors = getFrameDescriptors();
+    frameResourcesAndDescriptors = getFrameDescriptors();
+    fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
 
     if (frameSettings.useOffscreenTexture) {
-        if (!framebufferPool) {
-            auto renderPass = *framebufferPool.emplace(context).getOffscreenRenderPass()->renderPass;
-            ASSERT(!offscreenGraphicsPipeline);
-            offscreenGraphicsPipeline = scene->createGraphicsPipeline(renderPass, Scene::PipelineKind::kScenePipeline);
+        if (!displayDescriptorPool) {
+            displayDescriptorPool.emplace(context, scene);
         }
     } else {
-        offscreenGraphicsPipeline.reset();
-        framebufferPool.reset();
+        displayDescriptorPool.reset();
     }
-
-    fillUniformBuffer(frameSettings, frameDescriptors->resources.uniformBuffer.map().at(0));
 }
 
 bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings)
@@ -768,7 +629,7 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, const FrameSett
         }
         outputPipeline.reset();
     }
-    auto outputPipelineKind = frameSettings.useOffscreenTexture ? Scene::PipelineKind::kDisplayPipeline : Scene::PipelineKind::kScenePipeline;
+    auto outputPipelineKind = frameSettings.useOffscreenTexture ? Scene::PipelineKind::kDisplayPipeline : Scene::PipelineKind::kScenePipeline;  // what if pipelineKind is changed?
     outputPipeline = scene->createGraphicsPipeline(renderPass, outputPipelineKind);
     return true;
 }
@@ -776,6 +637,7 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, const FrameSett
 void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const FrameSettings & frameSettings) const
 {
     // bind sampler image
+    (void)frameSettings;
     commandBuffer.draw(4, 1, 0, 0, context.getDispatcher());
 }
 
@@ -785,21 +647,26 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
     if (!scene) {
         return;
     }
-
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-
     if (frameSettings.useOffscreenTexture) {
-        offscreenPass(frameSettings);
-        setSceneDescriptors(commandBuffer, frameSettings, *outputPipeline);
+        auto displayResourcesAndDescriptors = offscreenPass(frameSettings);
+        auto descriptors = {
+            &displayResourcesAndDescriptors->descriptors,
+        };
+        bindGraphicsPipeline(commandBuffer, *outputPipeline, descriptors, frameSettings);
         drawDisplay(commandBuffer, frameSettings);
         // sink sampled image at currentFrameSlot
     } else {
-        setSceneDescriptors(commandBuffer, frameSettings, *outputPipeline);
+        auto descriptors = {
+            &sceneResourcesAndDescriptors->descriptors,
+            &frameResourcesAndDescriptors->descriptors,
+        };
+        bindGraphicsPipeline(commandBuffer, *outputPipeline, descriptors, frameSettings);
         drawScene(commandBuffer, frameSettings);
     }
 }
 
-auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const Scene::FrameDescriptors>
+auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const ResourcesAndDescriptors<FrameResources>>
 {
     while (!std::empty(frameDescriptorsPool)) {
         auto frameDescriptors = std::move(frameDescriptorsPool.top());
@@ -808,10 +675,10 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const Scene::Frame
             return frameDescriptors;
         }
     }
-    return std::make_shared<Scene::FrameDescriptors>(scene->makeFrameDescriptors());
+    return std::make_shared<ResourcesAndDescriptors<FrameResources>>(scene->makeFrameDescriptors());
 }
 
-void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const Scene::FrameDescriptors> && frameDescriptors)
+void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const ResourcesAndDescriptors<FrameResources>> && frameDescriptors)
 {
     ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
     frameDescriptorsPool.push(std::move(frameDescriptors));

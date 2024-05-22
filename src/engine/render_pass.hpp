@@ -14,9 +14,9 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT RenderPass final : utils::NonCopyable
+struct ENGINE_EXPORT RenderPass final : utils::OneTime<RenderPass>
 {
-    RenderPass(std::string_view name, const Context & context);
+    explicit RenderPass(std::string_view name, const Context & context);
 
 private:
     std::string name;
@@ -28,6 +28,11 @@ private:
     vk::RenderPassCreateInfo renderPassCreateInfo;
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace engine

@@ -92,35 +92,243 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
 
 }  // namespace
 
-auto Scene::SceneDescriptors::Resources::getDescriptorSetInfos() const -> DescriptorSetInfos
+OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
+{
+    vk::Format depthFormat = context.getPhysicalDevice().findDepthImageFormat(vk::ImageTiling::eOptimal);
+    INVARIANT(depthFormat != vk::Format::eUndefined, "");
+    vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+        depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    } else {
+        depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    }
+
+    const vk::AttachmentDescription2 attachmentDecriptions[] = {
+        {
+            .format = Framebuffer::kFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = kExternalColorImageLayout,
+            .finalLayout = kExternalColorImageLayout,
+        },
+        {
+            .format = depthFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eDontCare,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = depthImageLayout,
+            .finalLayout = depthImageLayout,
+        },
+    };
+
+    const vk::AttachmentReference2 colorAttachmentReferences[] = {
+        {
+            .attachment = 0,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        },
+    };
+
+    const vk::AttachmentReference2 depthAttachmentReference = {
+        .attachment = 1,
+        .layout = depthImageLayout,
+    };
+
+    vk::SubpassDescription2 subpassDescriptions[] = {
+        {
+            .flags = {},
+            .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+            .pDepthStencilAttachment = &depthAttachmentReference,
+        },
+    };
+    subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
+
+    const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
+        {
+            {
+                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kExternalColorStageMask,
+                .srcAccessMask = kExternalColorAccessMask,
+                .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+            },
+        },
+        {
+            {
+                .srcSubpass = 0,
+                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .dstStageMask = kExternalColorStageMask,
+                .dstAccessMask = kExternalColorAccessMask,
+            },
+        },
+        {
+            {
+                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
+        {
+            {
+                .srcSubpass = 0,
+                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
+    };
+
+    const vk::SubpassDependency2 subpassDependencies[std::extent_v<decltype(subpassDependencyChain)>] = {
+        subpassDependencyChain[0].get<vk::SubpassDependency2>(),
+        subpassDependencyChain[1].get<vk::SubpassDependency2>(),
+        subpassDependencyChain[2].get<vk::SubpassDependency2>(),
+        subpassDependencyChain[3].get<vk::SubpassDependency2>(),
+    };
+
+    vk::RenderPassCreateInfo2 renderPassCreateInfo = {
+        .flags = {},
+    };
+    renderPassCreateInfo.setAttachments(attachmentDecriptions);
+    renderPassCreateInfo.setSubpasses(subpassDescriptions);
+    renderPassCreateInfo.setDependencies(subpassDependencies);
+    vk::UniqueRenderPass renderPass = context.getDevice().getDevice().createRenderPass2Unique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*renderPass, "Offscreen renderpass"s);
+
+    return {
+        .depthFormat = depthFormat,
+        .depthImageLayout = depthImageLayout,
+        .renderPass = std::move(renderPass),
+    };
+}
+
+Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass)
+{
+    ASSERT(offscreenRenderPass.renderPass);
+    auto renderPass = *offscreenRenderPass.renderPass;
+
+    vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+        depthImageAspectMask |= vk::ImageAspectFlagBits::eStencil;
+    }
+
+    auto colorImageName = "offscreen framebuffer color image"s;
+    constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
+    constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage, kColorImageAspectMask);
+    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
+
+    auto depthImageName = "offscreen framebuffer depth image"s;
+    constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, size, kDepthImageUsage, depthImageAspectMask);
+    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspectMask);
+
+    const vk::ImageView attachments[] = {
+        *colorImageView,
+        *depthImageView,
+    };
+    vk::FramebufferCreateInfo framebufferCreateInfo = {
+        .flags = {},
+        .renderPass = renderPass,
+        .width = size.width,
+        .height = size.height,
+        .layers = 1,
+    };
+    framebufferCreateInfo.setAttachments(attachments);
+    auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*framebuffer, "Offscreen framebuffer"s);
+
+    return {
+        .size = size,
+        .depthImageAspectMask = depthImageAspectMask,
+        .colorImage = std::move(colorImage),
+        .colorImageView = std::move(colorImageView),
+        .depthImage = std::move(depthImage),
+        .depthImageView = std::move(depthImageView),
+        .framebuffer = std::move(framebuffer),
+    };
+}
+
+auto SceneResources::getDescriptorSetInfos() const -> DescriptorSetInfos
 {
     return {
         {kTransformBuferName, vk::DescriptorType::eStorageBuffer, transformBuffer.base().getDescriptorBufferInfo()},
     };
 }
 
-auto Scene::SceneDescriptors::Resources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
+auto SceneResources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
 {
     return {
         {kTransformBuferName, vk::DescriptorType::eStorageBuffer, transformBuffer.base().getDescriptorAddressInfo()},
     };
 }
 
-auto Scene::FrameDescriptors::Resources::getDescriptorSetInfos() const -> DescriptorSetInfos
+auto FrameResources::getDescriptorSetInfos() const -> DescriptorSetInfos
 {
     return {
         {kUniformBufferName, vk::DescriptorType::eUniformBuffer, uniformBuffer.base().getDescriptorBufferInfo()},
     };
 }
 
-auto Scene::FrameDescriptors::Resources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
+auto FrameResources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
 {
     return {
         {kUniformBufferName, vk::DescriptorType::eUniformBuffer, uniformBuffer.base().getDescriptorAddressInfo()},
     };
 }
 
-Scene::GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
+auto DisplayResources::getDescriptorSetInfos() const -> DescriptorSetInfos
+{
+    vk::DescriptorImageInfo descriptorImageInfo = {
+        .sampler = **sampler,
+        .imageView = *framebuffer.colorImageView,
+        .imageLayout = framebuffer.colorImage.getLayout(),
+    };
+    return {
+        {kDisplaySampler, vk::DescriptorType::eCombinedImageSampler, std::move(descriptorImageInfo)},
+    };
+}
+
+auto DisplayResources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
+{
+    vk::DescriptorImageInfo descriptorImageInfo = {
+        .sampler = **sampler,
+        .imageView = *framebuffer.colorImageView,
+        .imageLayout = framebuffer.colorImage.getLayout(),
+    };
+    return {
+        {kDisplaySampler, vk::DescriptorType::eCombinedImageSampler, std::move(descriptorImageInfo)},
+    };
+}
+
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
     : pipelineLayout{name, context, shaderStages, renderPass}
     , pipelines{context, pipelineCache}
 {
@@ -143,7 +351,7 @@ const scene_data::SceneData & Scene::getScenedData() const
     return sceneData;
 }
 
-auto Scene::makeSceneDescriptors() const -> SceneDescriptors
+auto Scene::makeSceneDescriptors() const -> ResourcesAndDescriptors<SceneResources>
 {
     std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
@@ -300,7 +508,7 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
 
     auto transformBuffer = createTransformBuffer(totalInstanceCount, transforms);
 
-    SceneDescriptors::Resources resources = {
+    SceneResources resources = {
         .transforms = std::move(transforms),
         .instances = std::move(instances),
         .indexTypes = std::move(indexTypes),
@@ -311,46 +519,28 @@ auto Scene::makeSceneDescriptors() const -> SceneDescriptors
         .transformBuffer = std::move(transformBuffer),
         .vertexBuffer = createVertexBuffer(),
     };
-    if (descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer(sceneShaderStages, SceneDescriptors::kSet);
-        fillDescriptorBuffer(descriptorBuffer, sceneShaderStages, SceneDescriptors::kSet, resources.getDescriptorBufferInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorBuffer),
-        };
-    } else {
-        auto descriptorSet = createDescriptorSet(sceneShaderStages, SceneDescriptors::kSet);
-        fillDescriptorSet(descriptorSet, sceneShaderStages, SceneDescriptors::kSet, resources.getDescriptorSetInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorSet),
-        };
-    }
+    return makeDescriptors(std::move(resources));
 }
 
-auto Scene::makeFrameDescriptors() const -> FrameDescriptors
+auto Scene::makeFrameDescriptors() const -> ResourcesAndDescriptors<FrameResources>
 {
     for (const auto & [set, bindings] : sceneShaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor set ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
-    FrameDescriptors::Resources resources = {
+    FrameResources resources = {
         .uniformBuffer = createUniformBuffer(),
     };
-    if (descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer(sceneShaderStages, FrameDescriptors::kSet);
-        fillDescriptorBuffer(descriptorBuffer, sceneShaderStages, FrameDescriptors::kSet, resources.getDescriptorBufferInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorBuffer),
-        };
-    } else {
-        auto descriptorSet = createDescriptorSet(sceneShaderStages, FrameDescriptors::kSet);
-        fillDescriptorSet(descriptorSet, sceneShaderStages, FrameDescriptors::kSet, resources.getDescriptorSetInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorSet),
-        };
-    }
+    return makeDescriptors(std::move(resources));
+}
+
+ResourcesAndDescriptors<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const
+{
+    auto framebuffer = Framebuffer::make(context, size, offscreenRenderPass);
+    DisplayResources resources = {
+        .framebuffer = std::move(framebuffer),
+        .sampler = std::move(sampler),
+    };
+    return makeDescriptors(std::move(resources));
 }
 
 const std::vector<vk::PushConstantRange> & Scene::getPushConstantRanges() const
@@ -423,11 +613,11 @@ void Scene::addShaders()
         const auto & [vertexShader, vertexShaderReflection] = addShader("identity.vert");
         {
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(SceneDescriptors::kSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(SceneDescriptors::kSet);
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(SceneResources::kSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(SceneResources::kSet);
             INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
             {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(SceneDescriptors::kTransformBuferName);
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(SceneResources::kTransformBuferName);
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eStorageBuffer, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
@@ -435,7 +625,7 @@ void Scene::addShaders()
                 // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(glm::mat4), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(glm::mat4));
             }
             if ((false)) {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameDescriptors::kUniformBufferName);
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
@@ -456,10 +646,10 @@ void Scene::addShaders()
         const auto & [fragmentShader, fragmentShaderReflection] = addShader("barycentric_color.frag");
         {
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameDescriptors::kSet), "");
-            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameDescriptors::kSet);
+            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
             INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameDescriptors::kUniformBufferName);
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
             INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
             INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
             INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
@@ -476,11 +666,11 @@ void Scene::addShaders()
         const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
         {
             INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(FrameDescriptors::kSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(FrameDescriptors::kSet);
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
             INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
             {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameDescriptors::kUniformBufferName);
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
                 INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
@@ -502,11 +692,11 @@ void Scene::addShaders()
         {
             INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
             {
-                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameDescriptors::kSet), "");
-                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameDescriptors::kSet);
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
                 INVARIANT(std::size(descriptorSetLayoutBindings) == 2, "{}", std::size(descriptorSetLayoutBindings));
                 {
-                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameDescriptors::kUniformBufferName);
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
@@ -753,31 +943,105 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStag
     return std::move(descriptorBuffer);
 }
 
+template<typename Resources>
+auto Scene::makeDescriptors(Resources && resources) const -> ResourcesAndDescriptors<Resources>
+{
+    if (descriptorBufferEnabled) {
+        auto descriptorBuffer = createDescriptorBuffer(sceneShaderStages, Resources::kSet);
+        fillDescriptorBuffer(descriptorBuffer, sceneShaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = {
+                .descriptors = std::move(descriptorBuffer),
+            },
+        };
+    } else {
+        auto descriptorSet = createDescriptorSet(sceneShaderStages, Resources::kSet);
+        fillDescriptorSet(descriptorSet, sceneShaderStages, Resources::kSet, resources.getDescriptorSetInfos());
+        return {
+            .resources = std::move(resources),
+            .descriptors = {
+                .descriptors = std::move(descriptorSet),
+            },
+        };
+    }
+}
+
 void Scene::fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & descriptorSetInfos) const
 {
-    std::vector<vk::DescriptorBufferInfo> descriptorBufferInfos;
-    descriptorBufferInfos.reserve(std::size(descriptorSetInfos));
-    std::vector<vk::WriteDescriptorSet> descriptorWrites;
-    descriptorWrites.reserve(std::size(descriptorSetInfos));
+    std::vector<vk::StructureChain<vk::WriteDescriptorSet, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>> writeDescriptorSetChains;
+    writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
     const auto & setBindings = shaderStages.setBindings.at(set);
     INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorSetInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorSetInfos));
-    for (const auto & [symbol, descriptorType, descriptorBufferInfo] : descriptorSetInfos) {
+    for (const auto & [symbol, descriptorType, descriptorSetData] : descriptorSetInfos) {
         const auto * binding = setBindings.getBinding(symbol);
         ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
         ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
-        descriptorBufferInfos.push_back(descriptorBufferInfo);
-        auto & writeDescriptorSet = descriptorWrites.emplace_back();
+        auto & writeDescriptorSetChain = writeDescriptorSetChains.emplace_back();
+        auto & writeDescriptorSet = writeDescriptorSetChain.get<vk::WriteDescriptorSet>();
         writeDescriptorSet = {
             .dstSet = descriptorSet,
             .dstBinding = binding->binding,
             .dstArrayElement = 0,  // not an array
             .descriptorType = descriptorType,
         };
-        writeDescriptorSet.setBufferInfo(descriptorBufferInfo);
+        switch (descriptorType) {
+        case vk::DescriptorType::eInlineUniformBlock: {
+            auto & writeDescriptorSetInlineUniformBlock = writeDescriptorSetChain.get<vk::WriteDescriptorSetInlineUniformBlock>();
+            // writeDescriptorSet.dstArrayElement can be used for offset
+            writeDescriptorSet.descriptorCount = writeDescriptorSetInlineUniformBlock.dataSize;
+            break;
+        }
+        case vk::DescriptorType::eUniformTexelBuffer:
+        case vk::DescriptorType::eStorageTexelBuffer: {
+            writeDescriptorSet.setTexelBufferView(std::get<vk::BufferView>(descriptorSetData));
+            break;
+        }
+        case vk::DescriptorType::eUniformBuffer:
+        case vk::DescriptorType::eUniformBufferDynamic: {
+            writeDescriptorSet.setBufferInfo(std::get<vk::DescriptorBufferInfo>(descriptorSetData));
+            break;
+        }
+        case vk::DescriptorType::eStorageBuffer:
+        case vk::DescriptorType::eStorageBufferDynamic: {
+            writeDescriptorSet.setBufferInfo(std::get<vk::DescriptorBufferInfo>(descriptorSetData));
+            uint32_t minStorageBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minStorageBufferOffsetAlignment;
+            INVARIANT((writeDescriptorSet.pBufferInfo->offset % minStorageBufferOffsetAlignment) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, minStorageBufferOffsetAlignment);
+            uint32_t maxStorageBufferRange = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxStorageBufferRange;
+            INVARIANT((writeDescriptorSet.pBufferInfo->range % maxStorageBufferRange) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, maxStorageBufferRange);
+            break;
+        }
+        case vk::DescriptorType::eSampler:
+        case vk::DescriptorType::eCombinedImageSampler:
+        case vk::DescriptorType::eSampledImage:
+        case vk::DescriptorType::eStorageImage:
+        case vk::DescriptorType::eInputAttachment: {
+            writeDescriptorSet.setImageInfo(std::get<vk::DescriptorImageInfo>(descriptorSetData));
+            break;
+        }
+        case vk::DescriptorType::eAccelerationStructureKHR: {
+            auto & writeDescriptorSetAccelerationStructure = writeDescriptorSetChain.get<vk::WriteDescriptorSetAccelerationStructureKHR>();
+            writeDescriptorSet.descriptorCount = writeDescriptorSetAccelerationStructure.accelerationStructureCount;
+            break;
+        }
+        case vk::DescriptorType::eMutableEXT:
+        case vk::DescriptorType::eAccelerationStructureNV:
+        case vk::DescriptorType::eSampleWeightImageQCOM:
+        case vk::DescriptorType::eBlockMatchImageQCOM: {
+            INVARIANT(false, "{}", descriptorType);
+            break;
+        }
+        }
+    }
+
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
+    writeDescriptorSets.reserve(std::size(writeDescriptorSetChains));
+    for (const auto & writeDescriptorSetChain : writeDescriptorSetChains) {
+        writeDescriptorSets.push_back(writeDescriptorSetChain.get<vk::WriteDescriptorSet>());
     }
 
     constexpr auto kDescriptorCopies = nullptr;
-    context.getDevice().getDevice().updateDescriptorSets(descriptorWrites, kDescriptorCopies, context.getDispatcher());
+    context.getDevice().getDevice().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }
 
 void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const
@@ -805,7 +1069,7 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
                     break;
                 }
                 default: {
-                    ASSERT_MSG(false, "{}", descriptorType);
+                    INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DescriptorImageInfo>) {
@@ -827,7 +1091,7 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
                     break;
                 }
                 default: {
-                    ASSERT_MSG(false, "{}", descriptorType);
+                    INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DeviceAddress>) {
@@ -837,7 +1101,7 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
                     break;
                 }
                 default: {
-                    ASSERT_MSG(false, "{}", descriptorType);
+                    INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DescriptorAddressInfoEXT>) {
@@ -859,7 +1123,7 @@ void Scene::fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, c
                     break;
                 }
                 default: {
-                    ASSERT_MSG(false, "{}", descriptorType);
+                    INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else {
