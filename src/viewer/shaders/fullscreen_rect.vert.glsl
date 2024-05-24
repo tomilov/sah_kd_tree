@@ -13,26 +13,7 @@ out gl_PerVertex { vec4 gl_Position; };
 
 void main()
 {
-    vec2 uv;
-    switch (gl_VertexIndex % 4) {
-    case 0: {
-        uv = vec2(-1.0f, -1.0f);
-        break;
-    }
-    case 1: {
-        uv = vec2(-1.0f, 1.0f);
-        break;
-    }
-    case 2: {
-        uv = vec2(1.0f, -1.0f);
-        break;
-    }
-    case 3: {
-        uv = vec2(1.0f, 1.0f);
-        break;
-    }
-    }
-    gl_Position = vec4(uniformBuffer.transform2D * uv, 0.0f, 1.0f);
     //debugPrintfEXT("%i\n", gl_VertexIndex);
-    outUv = uv;
+    outUv = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
+    gl_Position = vec4(uniformBuffer.transform2D * outUv * 2.0f - 1.0f, 0.0f, 1.0f);
 }

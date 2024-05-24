@@ -46,14 +46,15 @@ public:
     ~Renderer();
 
     void setScene(std::shared_ptr<const Scene> scene);
-    void advance(uint32_t currentFrameSlot, const FrameSettings & frameSettings);
-    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass, const FrameSettings & frameSettings);
-    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot, const FrameSettings & frameSettings) const;
+    void setFrameSettings(const FrameSettings & frameSettings);
+    void advance(uint32_t currentFrameSlot);
+    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot) const;
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 360;
+    static constexpr size_t kSize = 496;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

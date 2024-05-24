@@ -147,25 +147,24 @@ plan 3d: $(CRASH_FILE)
 		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
-.PHONY: venv
 venv:
 	cd $(ROOT_DIR)
-	$(PYTHON) -m venv .venv/
-	. .venv/bin/activate
+	$(PYTHON) -m venv venv/
+	. venv/bin/activate
 	pip install -r requirements.txt
 
 .PHONY: format
-format:
+format: venv
 	cd $(ROOT_DIR)
 	git add .
 	git clang-format $(shell git rev-list --max-parents=0 HEAD) || true
-	. .venv/bin/activate
+	. venv/bin/activate
 	black src/
 	isort --profile black src/
 	MYPYPATH=$(ROOT_DIR)/external/SPIRV-Headers/include mypy src/
 
 .PHONY: pytest
-pytest:
+pytest: venv
 	cd $(ROOT_DIR)
-	. .venv/bin/activate
+	. venv/bin/activate
 	pytest src/

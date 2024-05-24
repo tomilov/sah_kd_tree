@@ -74,7 +74,7 @@ struct Descriptors final
 };
 
 template<typename Resources>
-struct ResourcesAndDescriptors
+struct DescriptorSetResources
 {
     Resources resources;
     Descriptors descriptors;
@@ -146,7 +146,7 @@ using DescriptorSetInfos = std::vector<std::tuple<std::string, vk::DescriptorTyp
 using DescriptorBufferData = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
 using DescriptorBufferInfos = std::vector<std::tuple<std::string, vk::DescriptorType, DescriptorBufferData>>;
 
-struct SceneResources : utils::OneTime<ResourcesAndDescriptors<SceneResources>>
+struct SceneResources : utils::OneTime<DescriptorSetResources<SceneResources>>
 {
     static constexpr uint32_t kSet = 0;
     static inline const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
@@ -171,7 +171,7 @@ struct SceneResources : utils::OneTime<ResourcesAndDescriptors<SceneResources>>
     }
 };
 
-struct FrameResources : utils::OneTime<ResourcesAndDescriptors<SceneResources>>
+struct FrameResources : utils::OneTime<DescriptorSetResources<SceneResources>>
 {
     static constexpr uint32_t kSet = 1;
     static inline const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
@@ -187,7 +187,7 @@ struct FrameResources : utils::OneTime<ResourcesAndDescriptors<SceneResources>>
     }
 };
 
-struct DisplayResources : utils::OneTime<ResourcesAndDescriptors<SceneResources>>
+struct DisplayResources : utils::OneTime<DescriptorSetResources<SceneResources>>
 {
     static constexpr uint32_t kSet = 2;
     static inline const std::string kDisplaySampler = "display";  // clazy:exclude=non-pod-global-static
@@ -220,9 +220,9 @@ public:
     [[nodiscard]] const std::filesystem::path & getScenePath() const;
     [[nodiscard]] const scene_data::SceneData & getScenedData() const;
 
-    [[nodiscard]] ResourcesAndDescriptors<SceneResources> makeSceneDescriptors() const;
-    [[nodiscard]] ResourcesAndDescriptors<FrameResources> makeFrameDescriptors() const;
-    [[nodiscard]] ResourcesAndDescriptors<DisplayResources> makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const;
+    [[nodiscard]] DescriptorSetResources<SceneResources> makeSceneDescriptors() const;
+    [[nodiscard]] DescriptorSetResources<FrameResources> makeFrameDescriptors() const;
+    [[nodiscard]] DescriptorSetResources<DisplayResources> makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const;
     [[nodiscard]] const std::vector<vk::PushConstantRange> & getPushConstantRanges() const;
     [[nodiscard]] std::unique_ptr<GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
 
@@ -289,7 +289,7 @@ private:
     [[nodiscard]] engine::Buffer<std::byte> createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
 
     template<typename Resources>
-    [[nodiscard]] ResourcesAndDescriptors<Resources> makeDescriptors(Resources && resources) const;
+    [[nodiscard]] DescriptorSetResources<Resources> makeDescriptors(Resources && resources) const;
 
     void fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
     void fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;

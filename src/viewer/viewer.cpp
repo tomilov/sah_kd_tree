@@ -218,7 +218,8 @@ private:
             // qDebug() << frameSettings.alpha << inheritedOpacity();
 
             int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
-            renderer->advance(utils::autoCast(currentFrameSlot), frameSettings);
+            renderer->setFrameSettings(frameSettings);
+            renderer->advance(utils::autoCast(currentFrameSlot));
         }
     }
 
@@ -246,13 +247,13 @@ private:
                     auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
                     Q_CHECK_PTR(renderPassNativeHandles);
                     vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
-                    if (renderer->updateRenderPass(renderPass, frameSettings)) {
+                    if (renderer->updateRenderPass(renderPass)) {
                         device.setDebugUtilsObjectName(renderPass, "Qt render pass");
                     }
                 }
 
                 int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
-                renderer->render(cb, utils::autoCast(currentFrameSlot), frameSettings);
+                renderer->render(cb, utils::autoCast(currentFrameSlot));
             }
             commandBuffer()->endExternal();
         }
@@ -472,7 +473,8 @@ void Viewer::beforeRendering()
     }
 
     if (!boundingRect().isEmpty()) {
-        renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot), *frameSettings);
+        renderer->setFrameSettings(*frameSettings);
+        renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }
 }
 
@@ -501,12 +503,12 @@ void Viewer::beforeRenderPassRecording()
             const auto & device = engine->getContext().getDevice();
             device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
 
-            if (renderer->updateRenderPass(*renderPass, *frameSettings)) {
+            if (renderer->updateRenderPass(*renderPass)) {
                 device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
             }
 
             int currentFrameSlot = w->graphicsStateInfo().currentFrameSlot;
-            renderer->render(*commandBuffer, utils::autoCast(currentFrameSlot), *frameSettings);
+            renderer->render(*commandBuffer, utils::autoCast(currentFrameSlot));
         }
         w->endExternalCommands();
     }

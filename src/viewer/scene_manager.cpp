@@ -45,7 +45,6 @@ template<vk::IndexType indexType>
 using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
 
 const auto kRasterization = "rasterization"sv;
-const auto kDisplaySamplerName = "display"s;  // clazy:exclude=non-pod-global-static
 
 vk::Format indexTypeToFormat(vk::IndexType indexType)
 {
@@ -351,7 +350,7 @@ const scene_data::SceneData & Scene::getScenedData() const
     return sceneData;
 }
 
-auto Scene::makeSceneDescriptors() const -> ResourcesAndDescriptors<SceneResources>
+auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResources>
 {
     std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
@@ -522,7 +521,7 @@ auto Scene::makeSceneDescriptors() const -> ResourcesAndDescriptors<SceneResourc
     return makeDescriptors(std::move(resources));
 }
 
-auto Scene::makeFrameDescriptors() const -> ResourcesAndDescriptors<FrameResources>
+auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResources>
 {
     for (const auto & [set, bindings] : sceneShaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor set ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
@@ -533,7 +532,7 @@ auto Scene::makeFrameDescriptors() const -> ResourcesAndDescriptors<FrameResourc
     return makeDescriptors(std::move(resources));
 }
 
-ResourcesAndDescriptors<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const
+DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const
 {
     auto framebuffer = Framebuffer::make(context, size, offscreenRenderPass);
     DisplayResources resources = {
@@ -633,8 +632,8 @@ void Scene::addShaders()
                 // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
             }
 
-            INVARIANT(vertexShaderReflection.pushConstantRange, "");
-            {
+            INVARIANT(vertexShaderReflection.pushConstantRange, "used");
+            if (vertexShaderReflection.pushConstantRange) {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
                 INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
@@ -656,7 +655,7 @@ void Scene::addShaders()
             INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
             // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
 
-            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
         }
         sceneShaderStages.append(fragmentShader, fragmentShaderReflection);
     }
@@ -678,7 +677,7 @@ void Scene::addShaders()
                 // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
             }
 
-            INVARIANT(!vertexShaderReflection.pushConstantRange, "");
+            INVARIANT(!vertexShaderReflection.pushConstantRange, "not used");
             if ((false)) {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
@@ -690,11 +689,11 @@ void Scene::addShaders()
 
         const auto & [fragmentShader, fragmentShaderReflection] = addShader("offscreen.frag");
         {
-            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 2, "");
             {
                 INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
                 auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
-                INVARIANT(std::size(descriptorSetLayoutBindings) == 2, "{}", std::size(descriptorSetLayoutBindings));
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
                 {
                     auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
@@ -703,16 +702,21 @@ void Scene::addShaders()
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
                     // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
                 }
+            }
+            {
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(DisplayResources::kSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(DisplayResources::kSet);
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
                 {
-                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(kDisplaySamplerName);
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 1, "");
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(DisplayResources::kDisplaySampler);
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eCombinedImageSampler, "");
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
                     INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
                 }
             }
 
-            INVARIANT(!fragmentShaderReflection.pushConstantRange, "");
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
             if (fragmentShaderReflection.pushConstantRange) {
                 const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
@@ -944,7 +948,7 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStag
 }
 
 template<typename Resources>
-auto Scene::makeDescriptors(Resources && resources) const -> ResourcesAndDescriptors<Resources>
+auto Scene::makeDescriptors(Resources && resources) const -> DescriptorSetResources<Resources>
 {
     if (descriptorBufferEnabled) {
         auto descriptorBuffer = createDescriptorBuffer(sceneShaderStages, Resources::kSet);
