@@ -67,6 +67,7 @@
 #include <QtQuick/QSGRendererInterface>
 #include <QtQuick/QSGTextureProvider>
 #include <QtQuick/QSGTransformNode>
+#include <QtQml/QQmlProperty>
 
 #include <limits>
 #include <memory>
@@ -602,12 +603,16 @@ FrameSettings Viewer::getFrameSettings() const
             };
         }
 
-        // should be calculated relative to the first parent rendertarget Item (layer.enabled: true)
         qreal scaleFactor = scale();
         qreal rotationAngle = rotation();
-        for (auto p = parentItem(); p; p = p->parentItem()) {
-            scaleFactor *= p->scale();
-            rotationAngle += p->rotation();
+        if (QQmlProperty::read(this, "layer.enabled").toBool()) {
+            for (auto p = parentItem(); p; p = p->parentItem()) {
+                if (QQmlProperty::read(p, "layer.enabled").toBool()) {
+                    break;
+                }
+                scaleFactor *= p->scale();
+                rotationAngle += p->rotation();
+            }
         }
 
         qreal aspectRatio = viewportRect.height() / viewportRect.width();

@@ -352,78 +352,83 @@ ApplicationWindow {
 
     Item {
         anchors.fill: parent
-
-        SahKdTreeViewer {
-            id: mainSahKdTreeViewer
-            objectName: "Main"
-
-            engine: SahKdTreeEngine
-
+        rotation: -30.0
+        Item {
             anchors.fill: parent
+            rotation: 30.0
 
-            //layer.enabled: true
-            //clip: true
+            SahKdTreeViewer {
+                id: mainSahKdTreeViewer
+                objectName: "Main"
 
-            scale: 0.5
-            //transformOrigin: Item.TopLeft
+                engine: SahKdTreeEngine
 
-            //opacity: 0.2
-
-            MouseArea {
                 anchors.fill: parent
 
-                acceptedButtons: Qt.RightButton | Qt.LeftButton
+                //layer.enabled: true
+                //clip: true
 
-                cursorShape: parent.cursor
+                scale: 0.5
+                //transformOrigin: Item.TopLeft
 
-                onPressed: (mouse) => {
-                    parent.forceActiveFocus()
-                    switch (mouse.button) {
-                    case Qt.LeftButton: {
-                        mouse.accepted = false
-                        break
+                //opacity: 0.2
+
+                MouseArea {
+                    anchors.fill: parent
+
+                    acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                    cursorShape: parent.cursor
+
+                    onPressed: (mouse) => {
+                        parent.forceActiveFocus()
+                        switch (mouse.button) {
+                        case Qt.LeftButton: {
+                            mouse.accepted = false
+                            break
+                        }
+                        case Qt.RightButton: {
+                            mouse.accepted = true
+                            break
+                        }
+                        }
                     }
-                    case Qt.RightButton: {
-                        mouse.accepted = true
-                        break
-                    }
+
+                    onClicked: (mouse) => {
+                        switch (mouse.button) {
+                        case Qt.RightButton: {
+                            mouse.accepted = true
+
+                            contextMenu.item = parent
+                            contextMenu.x = mouse.x
+                            contextMenu.y = mouse.y
+                            contextMenu.popup()
+                            break
+                        }
+                        }
                     }
                 }
 
-                onClicked: (mouse) => {
-                    switch (mouse.button) {
-                    case Qt.RightButton: {
-                        mouse.accepted = true
-
-                        contextMenu.item = parent
-                        contextMenu.x = mouse.x
-                        contextMenu.y = mouse.y
-                        contextMenu.popup()
-                        break
-                    }
-                    }
+                Settings {
+                    category: "%1".arg(mainSahKdTreeViewer.objectName)
+                    property alias scenePath: mainSahKdTreeViewer.scenePath
+                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
+                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
+                    property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
                 }
             }
 
-            Settings {
-                category: "%1".arg(mainSahKdTreeViewer.objectName)
-                property alias scenePath: mainSahKdTreeViewer.scenePath
-                property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
-                property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
-                property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
+            Rectangle {
+                color: "transparent"
+
+                anchors.fill: parent
+                anchors.margins: -4
+                border.color: "red"
+                border.width: 3
+
+                scale: mainSahKdTreeViewer.scale
+                transformOrigin: mainSahKdTreeViewer.transformOrigin
             }
-        }
-
-        Rectangle {
-            color: "transparent"
-
-            anchors.fill: parent
-            anchors.margins: -4
-            border.color: "red"
-            border.width: 3
-
-            scale: mainSahKdTreeViewer.scale
-            transformOrigin: mainSahKdTreeViewer.transformOrigin
         }
     }
 
