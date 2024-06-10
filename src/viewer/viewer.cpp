@@ -60,6 +60,7 @@
 #include <QtGui/QVector3D>
 #include <QtGui/QVulkanInstance>
 #include <QtGui/rhi/qrhi.h>
+#include <QtQml/QQmlProperty>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGNode>
@@ -67,7 +68,6 @@
 #include <QtQuick/QSGRendererInterface>
 #include <QtQuick/QSGTextureProvider>
 #include <QtQuick/QSGTransformNode>
-#include <QtQml/QQmlProperty>
 
 #include <limits>
 #include <memory>
@@ -84,12 +84,6 @@ namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
-
-#if GLM_FORCE_DEPTH_ZERO_TO_ONE
-constexpr float kMinDepth = 0.0f;
-#else
-constexpr float kMinDepth = -1.0f;
-#endif
 
 constexpr bool kUseRenderNode = false;
 
@@ -558,8 +552,17 @@ FrameSettings Viewer::getFrameSettings() const
     frameSettings.t = t;
 
     qreal alpha = opacity();
-    for (auto p = parentItem(); p; p = p->parentItem()) {
-        alpha *= p->opacity();
+    qreal scaleFactor = scale();
+    qreal rotationAngle = rotation();
+    if (QQmlProperty::read(this, "layer.enabled").toBool()) {
+        for (auto p = parentItem(); p; p = p->parentItem()) {
+            if (QQmlProperty::read(p, "layer.enabled").toBool()) {
+                break;
+            }
+            alpha *= p->opacity();
+            scaleFactor *= p->scale();
+            rotationAngle += p->rotation();
+        }
     }
     frameSettings.alpha = utils::autoCast(alpha);
 
@@ -598,21 +601,9 @@ FrameSettings Viewer::getFrameSettings() const
                 .y = utils::autoCast(y),
                 .width = utils::autoCast(w),
                 .height = utils::autoCast(h),
-                .minDepth = kMinDepth,
+                .minDepth = engine::kMinDepth,
                 .maxDepth = 1.0f,
             };
-        }
-
-        qreal scaleFactor = scale();
-        qreal rotationAngle = rotation();
-        if (QQmlProperty::read(this, "layer.enabled").toBool()) {
-            for (auto p = parentItem(); p; p = p->parentItem()) {
-                if (QQmlProperty::read(p, "layer.enabled").toBool()) {
-                    break;
-                }
-                scaleFactor *= p->scale();
-                rotationAngle += p->rotation();
-            }
         }
 
         qreal aspectRatio = viewportRect.height() / viewportRect.width();

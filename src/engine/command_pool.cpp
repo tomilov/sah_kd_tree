@@ -1,6 +1,7 @@
 #include <engine/command_pool.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
+#include <engine/instance.hpp>
 #include <utils/assert.hpp>
 
 #include <string_view>
@@ -17,7 +18,10 @@ CommandPool::CommandPool(std::string_view name, const Context & context, uint32_
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = queueFamilyIndex,
     };
-    commandPoolHolder = context.getDevice().getDevice().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    {
+        auto muteMessageGuard = context.getInstance().muteDebugUtilsMessages({0x8728e724u});
+        commandPoolHolder = context.getDevice().getDevice().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    }
 
     context.getDevice().setDebugUtilsObjectName(*commandPoolHolder, name);
 }

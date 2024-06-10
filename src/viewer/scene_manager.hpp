@@ -50,13 +50,20 @@ struct UniformBuffer
 static_assert(std::is_standard_layout_v<UniformBuffer>);
 
 #pragma pack(push, 1)
-struct PushConstants
+struct ScenePushConstants
 {
     glm::mat4 mvp{1.0f};
+};
+#pragma pack(pop)
+static_assert(std::is_standard_layout_v<ScenePushConstants>);
+
+#pragma pack(push, 1)
+struct DisplayPushConstants
+{
     float x = 1E-5f;
 };
 #pragma pack(pop)
-static_assert(std::is_standard_layout_v<PushConstants>);
+static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
 struct Descriptors final
 {
@@ -106,7 +113,6 @@ struct Framebuffer : utils::OneTime<Framebuffer>
 {
     static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
 
-    std::shared_ptr<const OffscreenRenderPass> associatedRenderPass;
     vk::Extent2D size;
 
     vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eNone;
@@ -217,14 +223,15 @@ public:
 
     [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
-    [[nodiscard]] const std::filesystem::path & getScenePath() const;
-    [[nodiscard]] const scene_data::SceneData & getScenedData() const;
+    [[nodiscard]] const std::filesystem::path & getScenePath() const &;
+    [[nodiscard]] const scene_data::SceneData & getScenedData() const &;
 
     [[nodiscard]] DescriptorSetResources<SceneResources> makeSceneDescriptors() const;
     [[nodiscard]] DescriptorSetResources<FrameResources> makeFrameDescriptors() const;
     [[nodiscard]] DescriptorSetResources<DisplayResources> makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const;
-    [[nodiscard]] const std::vector<vk::PushConstantRange> & getPushConstantRanges() const;
-    [[nodiscard]] std::unique_ptr<GraphicsPipeline> createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const;
+    [[nodiscard]] const std::vector<vk::PushConstantRange> & getScenePushConstantRanges() const &;
+    [[nodiscard]] const std::vector<vk::PushConstantRange> & getDisplayPushConstantRanges() const &;
+    [[nodiscard]] GraphicsPipeline createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const &;
 
     [[nodiscard]] bool isDescriptorBufferEnabled() const
     {
@@ -268,7 +275,7 @@ private:
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
     static constexpr uint32_t kVertexBufferBinding = 0;
     engine::ShaderStages sceneShaderStages;
-    engine::ShaderStages offscreenShaderStages;
+    engine::ShaderStages displayShaderStages;
 
     void check();
 
@@ -281,7 +288,7 @@ private:
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
     [[nodiscard]] engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
-    [[nodiscard]] std::optional<engine::Buffer<scene_data::VertexAttributes>> createVertexBuffer() const;
+    [[nodiscard]] std::optional<engine::Buffer<scene_data::VertexAttributes>> createSceneVertexBuffer() const;
 
     [[nodiscard]] engine::Buffer<UniformBuffer> createUniformBuffer() const;
 
@@ -289,7 +296,7 @@ private:
     [[nodiscard]] engine::Buffer<std::byte> createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const;
 
     template<typename Resources>
-    [[nodiscard]] DescriptorSetResources<Resources> makeDescriptors(Resources && resources) const;
+    [[nodiscard]] DescriptorSetResources<Resources> makeDescriptors(const engine::ShaderStages & shaderStages, Resources && resources) const;
 
     void fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
     void fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;

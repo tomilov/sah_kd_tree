@@ -21,6 +21,7 @@ class Scene;
 
 struct FrameSettings
 {
+    // bool clipByDiscard = false;
     bool useOffscreenTexture = false;
     glm::mat2 transform2D{1.0f};
     float alpha = 1.0f;
@@ -45,16 +46,16 @@ public:
     Renderer(const engine::Context & context, uint32_t framesInFlight);
     ~Renderer();
 
-    void setScene(std::shared_ptr<const Scene> scene);
     void setFrameSettings(const FrameSettings & frameSettings);
+    void setScene(std::shared_ptr<const Scene> scene);
     void advance(uint32_t currentFrameSlot);
     [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
-    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot) const;
+    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 496;
+    static constexpr size_t kSize = 1112;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

@@ -5,20 +5,17 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
-out gl_PerVertex {
-    vec4 gl_Position;
-};
 layout(location = 0) out float y;
-
-layout(push_constant, scalar) uniform PushConstants
-{
-    mat4 mvp;
-} pushConstants;
 
 layout(std140, set = 0, binding = 0) restrict readonly buffer TransformBuffer
 {
     mat4 transforms[];
 } transformBuffer;
+
+layout(push_constant, scalar) uniform PushConstants
+{
+    mat4 mvp;
+} pushConstants;
 
 void main()
 {

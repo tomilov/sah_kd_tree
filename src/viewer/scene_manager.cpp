@@ -228,11 +228,8 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     };
 }
 
-Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass)
+Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass)
 {
-    ASSERT(offscreenRenderPass.renderPass);
-    auto renderPass = *offscreenRenderPass.renderPass;
-
     vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
         depthImageAspectMask |= vk::ImageAspectFlagBits::eStencil;
@@ -241,12 +238,12 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     auto colorImageName = "offscreen framebuffer color image"s;
     constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
-    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, size, kColorImageUsage, kColorImageAspectMask);
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, framebufferSize, kColorImageUsage, kColorImageAspectMask);
     auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
 
     auto depthImageName = "offscreen framebuffer depth image"s;
     constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, size, kDepthImageUsage, depthImageAspectMask);
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, framebufferSize, kDepthImageUsage, depthImageAspectMask);
     auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspectMask);
 
     const vk::ImageView attachments[] = {
@@ -255,9 +252,9 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     };
     vk::FramebufferCreateInfo framebufferCreateInfo = {
         .flags = {},
-        .renderPass = renderPass,
-        .width = size.width,
-        .height = size.height,
+        .renderPass = *offscreenRenderPass.renderPass,
+        .width = framebufferSize.width,
+        .height = framebufferSize.height,
         .layers = 1,
     };
     framebufferCreateInfo.setAttachments(attachments);
@@ -265,7 +262,7 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     context.getDevice().setDebugUtilsObjectName(*framebuffer, "Offscreen framebuffer"s);
 
     return {
-        .size = size,
+        .size = framebufferSize,
         .depthImageAspectMask = depthImageAspectMask,
         .colorImage = std::move(colorImage),
         .colorImageView = std::move(colorImageView),
@@ -340,12 +337,12 @@ std::unique_ptr<Scene> Scene::make(const engine::Context & context, const FileIo
     return std::unique_ptr<Scene>{new Scene{context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(sceneData)}};
 }
 
-const std::filesystem::path & Scene::getScenePath() const
+const std::filesystem::path & Scene::getScenePath() const &
 {
     return scenePath;
 }
 
-const scene_data::SceneData & Scene::getScenedData() const
+const scene_data::SceneData & Scene::getScenedData() const &
 {
     return sceneData;
 }
@@ -516,9 +513,9 @@ auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResource
         .drawCountBuffer = std::move(drawCountBuffer),
         .instanceBuffer = std::move(instanceBuffer),
         .transformBuffer = std::move(transformBuffer),
-        .vertexBuffer = createVertexBuffer(),
+        .vertexBuffer = createSceneVertexBuffer(),
     };
-    return makeDescriptors(std::move(resources));
+    return makeDescriptors(sceneShaderStages, std::move(resources));
 }
 
 auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResources>
@@ -529,25 +526,30 @@ auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResource
     FrameResources resources = {
         .uniformBuffer = createUniformBuffer(),
     };
-    return makeDescriptors(std::move(resources));
+    return makeDescriptors(sceneShaderStages, std::move(resources));
 }
 
-DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const
+DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass) const
 {
-    auto framebuffer = Framebuffer::make(context, size, offscreenRenderPass);
+    auto framebuffer = Framebuffer::make(context, framebufferSize, offscreenRenderPass);
     DisplayResources resources = {
         .framebuffer = std::move(framebuffer),
         .sampler = std::move(sampler),
     };
-    return makeDescriptors(std::move(resources));
+    return makeDescriptors(displayShaderStages, std::move(resources));
 }
 
-const std::vector<vk::PushConstantRange> & Scene::getPushConstantRanges() const
+const std::vector<vk::PushConstantRange> & Scene::getScenePushConstantRanges() const &
 {
     return sceneShaderStages.pushConstantRanges;
 }
 
-auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const -> std::unique_ptr<GraphicsPipeline>
+const std::vector<vk::PushConstantRange> & Scene::getDisplayPushConstantRanges() const &
+{
+    return displayShaderStages.pushConstantRanges;
+}
+
+auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const & -> GraphicsPipeline
 {
     const engine::ShaderStages * shaderStages = nullptr;
     switch (pipelineKind) {
@@ -556,12 +558,12 @@ auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipel
         break;
     }
     case PipelineKind::kDisplayPipeline: {
-        shaderStages = &offscreenShaderStages;
+        shaderStages = &displayShaderStages;
         break;
     }
     }
     ASSERT(shaderStages);
-    return std::make_unique<GraphicsPipeline>(kRasterization, context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled);
+    return {kRasterization, context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled};
 }
 
 void Scene::check()
@@ -569,7 +571,7 @@ void Scene::check()
     ASSERT(!std::empty(scenePath));
 
     uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
-    INVARIANT(sizeof(PushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(PushConstants), maxPushConstantsSize);
+    INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
 
     const auto & device = context.getDevice();
     if (indexTypeUint8Enabled) {
@@ -636,8 +638,8 @@ void Scene::addShaders()
             if (vertexShaderReflection.pushConstantRange) {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
             }
         }
         sceneShaderStages.append(vertexShader, vertexShaderReflection);
@@ -681,11 +683,11 @@ void Scene::addShaders()
             if ((false)) {
                 const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::mvp), "");
+                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
             }
         }
-        offscreenShaderStages.append(vertexShader, vertexShaderReflection);
+        displayShaderStages.append(vertexShader, vertexShaderReflection);
 
         const auto & [fragmentShader, fragmentShaderReflection] = addShader("offscreen.frag");
         {
@@ -720,13 +722,13 @@ void Scene::addShaders()
             if (fragmentShaderReflection.pushConstantRange) {
                 const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
                 INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-                INVARIANT(pushConstantRange.offset == offsetof(PushConstants, x), "");
-                INVARIANT(pushConstantRange.size == sizeof(PushConstants::x), "");
+                // INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, x), "");
+                // INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::x), "");
             }
         }
-        offscreenShaderStages.append(fragmentShader, fragmentShaderReflection);
+        displayShaderStages.append(fragmentShader, fragmentShaderReflection);
     }
-    offscreenShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
+    displayShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
@@ -736,7 +738,7 @@ Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared
     , scenePath{std::move(scenePath)}
     , sceneData{std::move(sceneData)}
     , sceneShaderStages{context, kVertexBufferBinding}
-    , offscreenShaderStages{context, kVertexBufferBinding}
+    , displayShaderStages{context, kVertexBufferBinding}
 {
     check();
     addShaders();
@@ -852,7 +854,7 @@ engine::Buffer<glm::mat4> Scene::createTransformBuffer(uint32_t totalInstanceCou
     return transformBuffer;
 }
 
-std::optional<engine::Buffer<scene_data::VertexAttributes>> Scene::createVertexBuffer() const
+std::optional<engine::Buffer<scene_data::VertexAttributes>> Scene::createSceneVertexBuffer() const
 {
     if (!sceneShaderStages.vertexInputState) {
         return std::nullopt;
@@ -948,11 +950,11 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStag
 }
 
 template<typename Resources>
-auto Scene::makeDescriptors(Resources && resources) const -> DescriptorSetResources<Resources>
+auto Scene::makeDescriptors(const engine::ShaderStages & shaderStages, Resources && resources) const -> DescriptorSetResources<Resources>
 {
     if (descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer(sceneShaderStages, Resources::kSet);
-        fillDescriptorBuffer(descriptorBuffer, sceneShaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
+        auto descriptorBuffer = createDescriptorBuffer(shaderStages, Resources::kSet);
+        fillDescriptorBuffer(descriptorBuffer, shaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
         return {
             .resources = std::move(resources),
             .descriptors = {
@@ -960,8 +962,8 @@ auto Scene::makeDescriptors(Resources && resources) const -> DescriptorSetResour
             },
         };
     } else {
-        auto descriptorSet = createDescriptorSet(sceneShaderStages, Resources::kSet);
-        fillDescriptorSet(descriptorSet, sceneShaderStages, Resources::kSet, resources.getDescriptorSetInfos());
+        auto descriptorSet = createDescriptorSet(shaderStages, Resources::kSet);
+        fillDescriptorSet(descriptorSet, shaderStages, Resources::kSet, resources.getDescriptorSetInfos());
         return {
             .resources = std::move(resources),
             .descriptors = {
