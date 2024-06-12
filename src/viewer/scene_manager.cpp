@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <array>
 
 #include <cstddef>
 #include <cstdint>
@@ -89,6 +90,28 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
     return indexTypeRank(lhs) < indexTypeRank(rhs);
 }
 
+template<typename Head, typename ...Tail, size_t N>
+std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&chains)[N])
+{
+    std::array<Head, N> heads;
+    size_t i = 0;
+    for (const vk::StructureChain<Head, Tail...> & chain : chains) {
+        heads[i++] = chain.get();
+    }
+    return heads;
+}
+
+template<typename Head, typename ...Tail>
+std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> & chains)
+{
+    std::vector<Head> heads;
+    heads.reserve(std::size(chains));
+    for (const vk::StructureChain<Head, Tail...> & chain : chains) {
+        heads.push_back(chain.get());
+    }
+    return heads;
+}
+
 }  // namespace
 
 OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
@@ -104,13 +127,13 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 
     const vk::AttachmentDescription2 attachmentDecriptions[] = {
         {
-            .format = Framebuffer::kFormat,
+            .format = OffscreenRenderPass::kColorFormat,
             .samples = vk::SampleCountFlagBits::e1,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = kExternalColorImageLayout,
+            .initialLayout = vk::ImageLayout::eUndefined,
             .finalLayout = kExternalColorImageLayout,
         },
         {
@@ -120,7 +143,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
             .storeOp = vk::AttachmentStoreOp::eDontCare,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = depthImageLayout,
+            .initialLayout = vk::ImageLayout::eUndefined,
             .finalLayout = depthImageLayout,
         },
     };
@@ -146,6 +169,8 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     };
     subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
 
+    constexpr auto kInternalColorStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+    constexpr auto kInternalColorAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
     const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
         {
             {
@@ -157,8 +182,8 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
             {
                 .srcStageMask = kExternalColorStageMask,
                 .srcAccessMask = kExternalColorAccessMask,
-                .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .dstStageMask = kInternalColorStageMask,
+                .dstAccessMask = kInternalColorAccessMask,
             },
         },
         {
@@ -169,8 +194,8 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
                 .viewOffset = 0,
             },
             {
-                .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .srcStageMask = kInternalColorStageMask,
+                .srcAccessMask = kInternalColorAccessMask,
                 .dstStageMask = kExternalColorStageMask,
                 .dstAccessMask = kExternalColorAccessMask,
             },
@@ -205,12 +230,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
         },
     };
 
-    const vk::SubpassDependency2 subpassDependencies[std::extent_v<decltype(subpassDependencyChain)>] = {
-        subpassDependencyChain[0].get<vk::SubpassDependency2>(),
-        subpassDependencyChain[1].get<vk::SubpassDependency2>(),
-        subpassDependencyChain[2].get<vk::SubpassDependency2>(),
-        subpassDependencyChain[3].get<vk::SubpassDependency2>(),
-    };
+    auto subpassDependencies = getHeads(subpassDependencyChain);
 
     vk::RenderPassCreateInfo2 renderPassCreateInfo = {
         .flags = {},
@@ -238,7 +258,7 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     auto colorImageName = "offscreen framebuffer color image"s;
     constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
-    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, Framebuffer::kFormat, framebufferSize, kColorImageUsage, kColorImageAspectMask);
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, OffscreenRenderPass::kColorFormat, framebufferSize, kColorImageUsage, kColorImageAspectMask);
     auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
 
     auto depthImageName = "offscreen framebuffer depth image"s;
@@ -305,7 +325,7 @@ auto DisplayResources::getDescriptorSetInfos() const -> DescriptorSetInfos
     vk::DescriptorImageInfo descriptorImageInfo = {
         .sampler = **sampler,
         .imageView = *framebuffer.colorImageView,
-        .imageLayout = framebuffer.colorImage.getLayout(),
+        .imageLayout = OffscreenRenderPass::kExternalColorImageLayout,
     };
     return {
         {kDisplaySampler, vk::DescriptorType::eCombinedImageSampler, std::move(descriptorImageInfo)},
@@ -317,7 +337,7 @@ auto DisplayResources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
     vk::DescriptorImageInfo descriptorImageInfo = {
         .sampler = **sampler,
         .imageView = *framebuffer.colorImageView,
-        .imageLayout = framebuffer.colorImage.getLayout(),
+        .imageLayout = OffscreenRenderPass::kExternalColorImageLayout,
     };
     return {
         {kDisplaySampler, vk::DescriptorType::eCombinedImageSampler, std::move(descriptorImageInfo)},
@@ -529,7 +549,7 @@ auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResource
     return makeDescriptors(sceneShaderStages, std::move(resources));
 }
 
-DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass) const
+DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const
 {
     auto framebuffer = Framebuffer::make(context, framebufferSize, offscreenRenderPass);
     DisplayResources resources = {
@@ -551,19 +571,22 @@ const std::vector<vk::PushConstantRange> & Scene::getDisplayPushConstantRanges()
 
 auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const & -> GraphicsPipeline
 {
+    std::string_view name;
     const engine::ShaderStages * shaderStages = nullptr;
     switch (pipelineKind) {
-    case PipelineKind::kScenePipeline: {
+    case PipelineKind::kScene: {
         shaderStages = &sceneShaderStages;
+        name = "scene";
         break;
     }
-    case PipelineKind::kDisplayPipeline: {
+    case PipelineKind::kDisplay: {
         shaderStages = &displayShaderStages;
+        name = "display";
         break;
     }
     }
     ASSERT(shaderStages);
-    return {kRasterization, context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled};
+    return {name, context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled};
 }
 
 void Scene::check()
@@ -661,7 +684,7 @@ void Scene::addShaders()
         }
         sceneShaderStages.append(fragmentShader, fragmentShaderReflection);
     }
-    sceneShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
+    sceneShaderStages.createDescriptorSetLayouts("scene"sv, descriptorSetLayoutCreateFlags);
 
     {
         const auto & [vertexShader, vertexShaderReflection] = addShader("fullscreen_rect.vert");
@@ -728,7 +751,7 @@ void Scene::addShaders()
         }
         displayShaderStages.append(fragmentShader, fragmentShaderReflection);
     }
-    displayShaderStages.createDescriptorSetLayouts(kRasterization, descriptorSetLayoutCreateFlags);
+    displayShaderStages.createDescriptorSetLayouts("display"sv, descriptorSetLayoutCreateFlags);
 }
 
 Scene::Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
@@ -957,18 +980,14 @@ auto Scene::makeDescriptors(const engine::ShaderStages & shaderStages, Resources
         fillDescriptorBuffer(descriptorBuffer, shaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
         return {
             .resources = std::move(resources),
-            .descriptors = {
-                .descriptors = std::move(descriptorBuffer),
-            },
+            .descriptors = std::move(descriptorBuffer),
         };
     } else {
         auto descriptorSet = createDescriptorSet(shaderStages, Resources::kSet);
         fillDescriptorSet(descriptorSet, shaderStages, Resources::kSet, resources.getDescriptorSetInfos());
         return {
             .resources = std::move(resources),
-            .descriptors = {
-                .descriptors = std::move(descriptorSet),
-            },
+            .descriptors = std::move(descriptorSet),
         };
     }
 }
@@ -1014,7 +1033,7 @@ void Scene::fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engin
             uint32_t minStorageBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minStorageBufferOffsetAlignment;
             INVARIANT((writeDescriptorSet.pBufferInfo->offset % minStorageBufferOffsetAlignment) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, minStorageBufferOffsetAlignment);
             uint32_t maxStorageBufferRange = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxStorageBufferRange;
-            INVARIANT((writeDescriptorSet.pBufferInfo->range % maxStorageBufferRange) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, maxStorageBufferRange);
+            INVARIANT(writeDescriptorSet.pBufferInfo->range <= maxStorageBufferRange, "{}, {}", writeDescriptorSet.pBufferInfo->offset, maxStorageBufferRange);
             break;
         }
         case vk::DescriptorType::eSampler:
@@ -1040,12 +1059,7 @@ void Scene::fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engin
         }
     }
 
-    std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-    writeDescriptorSets.reserve(std::size(writeDescriptorSetChains));
-    for (const auto & writeDescriptorSetChain : writeDescriptorSetChains) {
-        writeDescriptorSets.push_back(writeDescriptorSetChain.get<vk::WriteDescriptorSet>());
-    }
-
+    std::vector<vk::WriteDescriptorSet> writeDescriptorSets = getHeads(writeDescriptorSetChains);
     constexpr auto kDescriptorCopies = nullptr;
     context.getDevice().getDevice().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }

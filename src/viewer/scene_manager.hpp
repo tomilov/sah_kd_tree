@@ -65,20 +65,17 @@ struct DisplayPushConstants
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
-struct Descriptors final
+using Descriptors = std::variant<engine::DescriptorSet, engine::Buffer<std::byte>>;
+
+[[nodiscard]] inline const engine::DescriptorSet & getDescriptorSet(const Descriptors & descriptors)
 {
-    std::variant<engine::DescriptorSet, engine::Buffer<std::byte>> descriptors;
+    return std::get<engine::DescriptorSet>(descriptors);
+}
 
-    [[nodiscard]] const engine::DescriptorSet & getDescriptorSet() const &
-    {
-        return std::get<engine::DescriptorSet>(descriptors);
-    }
-
-    [[nodiscard]] const engine::Buffer<std::byte> & getDescriptorBuffer() const &
-    {
-        return std::get<engine::Buffer<std::byte>>(descriptors);
-    }
-};
+[[nodiscard]] inline const engine::Buffer<std::byte> & getDescriptorBuffer(const Descriptors & descriptors)
+{
+    return std::get<engine::Buffer<std::byte>>(descriptors);
+}
 
 template<typename Resources>
 struct DescriptorSetResources
@@ -89,14 +86,14 @@ struct DescriptorSetResources
 
 struct OffscreenRenderPass : utils::OneTime<OffscreenRenderPass>
 {
+    static constexpr auto kColorFormat = vk::Format::eR8G8B8A8Unorm;
     static constexpr auto kExternalColorStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
     static constexpr auto kExternalColorAccessMask = vk::AccessFlagBits2::eShaderSampledRead;
     static constexpr auto kExternalColorImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
+    vk::Format depthFormat = vk::Format::eUndefined;
     static constexpr auto kDepthStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests | vk::PipelineStageFlagBits2::eEarlyFragmentTests;
     static constexpr auto kDepthAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-
-    vk::Format depthFormat = vk::Format::eUndefined;
     vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
 
     vk::UniqueRenderPass renderPass;
@@ -111,8 +108,6 @@ struct OffscreenRenderPass : utils::OneTime<OffscreenRenderPass>
 
 struct Framebuffer : utils::OneTime<Framebuffer>
 {
-    static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
-
     vk::Extent2D size;
 
     vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eNone;
@@ -152,7 +147,7 @@ using DescriptorSetInfos = std::vector<std::tuple<std::string, vk::DescriptorTyp
 using DescriptorBufferData = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
 using DescriptorBufferInfos = std::vector<std::tuple<std::string, vk::DescriptorType, DescriptorBufferData>>;
 
-struct SceneResources : utils::OneTime<DescriptorSetResources<SceneResources>>
+struct SceneResources : utils::OneTime<SceneResources>
 {
     static constexpr uint32_t kSet = 0;
     static inline const std::string kTransformBuferName = "transformBuffer";  // clazy:exclude=non-pod-global-static
@@ -177,7 +172,7 @@ struct SceneResources : utils::OneTime<DescriptorSetResources<SceneResources>>
     }
 };
 
-struct FrameResources : utils::OneTime<DescriptorSetResources<SceneResources>>
+struct FrameResources : utils::OneTime<FrameResources>
 {
     static constexpr uint32_t kSet = 1;
     static inline const std::string kUniformBufferName = "uniformBuffer";  // clazy:exclude=non-pod-global-static
@@ -193,7 +188,7 @@ struct FrameResources : utils::OneTime<DescriptorSetResources<SceneResources>>
     }
 };
 
-struct DisplayResources : utils::OneTime<DescriptorSetResources<SceneResources>>
+struct DisplayResources : utils::OneTime<DisplayResources>
 {
     static constexpr uint32_t kSet = 2;
     static inline const std::string kDisplaySampler = "display";  // clazy:exclude=non-pod-global-static
@@ -217,8 +212,8 @@ class Scene
 public:
     enum class PipelineKind
     {
-        kScenePipeline,
-        kDisplayPipeline,
+        kScene,
+        kDisplay,
     };
 
     [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
@@ -228,7 +223,7 @@ public:
 
     [[nodiscard]] DescriptorSetResources<SceneResources> makeSceneDescriptors() const;
     [[nodiscard]] DescriptorSetResources<FrameResources> makeFrameDescriptors() const;
-    [[nodiscard]] DescriptorSetResources<DisplayResources> makeDisplayDescriptors(const engine::Context & context, std::shared_ptr<const vk::UniqueSampler> sampler, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass) const;
+    [[nodiscard]] DescriptorSetResources<DisplayResources> makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const;
     [[nodiscard]] const std::vector<vk::PushConstantRange> & getScenePushConstantRanges() const &;
     [[nodiscard]] const std::vector<vk::PushConstantRange> & getDisplayPushConstantRanges() const &;
     [[nodiscard]] GraphicsPipeline createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const &;
@@ -269,7 +264,7 @@ private:
 
     // TODO: put in Settings and set in constructor
     const bool indexTypeUint8Enabled = true;
-    const bool descriptorBufferEnabled = true;
+    const bool descriptorBufferEnabled = false;
     const bool multiDrawIndirectEnabled = true;
     const bool drawIndirectCountEnabled = true;
     std::unordered_map<std::string /* shaderName */, Shader> shaders;
