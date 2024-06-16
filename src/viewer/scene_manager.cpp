@@ -362,154 +362,10 @@ Shader::Shader(std::string_view name, const engine::Context & context, const Fil
     shaderStages.createDescriptorSetLayouts(name, descriptorSetLayoutCreateFlags);
 }
 
-Shaders::Shaders(const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled)
-    : sceneShaders{"scene"sv, context, fileIo, descriptorBufferEnabled, {{"identity.vert"sv, "main"sv}, {"barycentric_color.frag"sv, "main"sv}}}
-    , displayShaders{"display"sv, context, fileIo, descriptorBufferEnabled, {{"fullscreen_rect.vert"sv, "main"sv}, {"offscreen.frag"sv, "main"sv}}}
-{
-    verify();
-}
-
-const Shader & Shaders::getSceneShaders() const &
-{
-    return sceneShaders;
-}
-
-const Shader & Shaders::getDisplayShaders() const &
-{
-    return displayShaders;
-}
-
-void Shaders::verify() const
-{
-    {
-        const auto & shaderResources = sceneShaders.getShaderResources();
-        INVARIANT(std::size(shaderResources) == 2, "{}", std::size(shaderResources));
-
-        const auto & vertexShaderReflection = shaderResources.at(0).shaderReflection;
-        {
-            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(SceneResources::kSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(SceneResources::kSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(SceneResources::kTransformBuferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eStorageBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(glm::mat4), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(glm::mat4));
-            }
-            if ((false)) {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
-            }
-
-            INVARIANT(vertexShaderReflection.pushConstantRange, "used");
-            if (vertexShaderReflection.pushConstantRange) {
-                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
-            }
-        }
-
-        const auto & fragmentShaderReflection = shaderResources.at(1).shaderReflection;
-        {
-            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
-            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
-            INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-            INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-            // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
-
-            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
-        }
-    }
-
-    {
-        const auto & shaderResources = displayShaders.getShaderResources();
-        INVARIANT(std::size(shaderResources) == 2, "{}", std::size(shaderResources));
-
-        const auto & vertexShaderReflection = shaderResources.at(0).shaderReflection;
-        {
-            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
-            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
-            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
-            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-            {
-                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
-            }
-
-            INVARIANT(!vertexShaderReflection.pushConstantRange, "not used");
-            if ((false)) {
-                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
-                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
-                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
-                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
-            }
-        }
-
-        const auto & fragmentShaderReflection = shaderResources.at(1).shaderReflection;
-        {
-            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 2, "");
-            {
-                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
-                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
-                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-                {
-                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-                    // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
-                }
-            }
-            {
-                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(DisplayResources::kSet), "");
-                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(DisplayResources::kSet);
-                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
-                {
-                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(DisplayResources::kDisplaySampler);
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eCombinedImageSampler, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
-                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-                }
-            }
-
-            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
-            if (fragmentShaderReflection.pushConstantRange) {
-                const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
-                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
-                // INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, x), "");
-                // INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::x), "");
-            }
-        }
-    }
-}
-
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass, bool useDescriptorBuffer)
-    : shaderStages{shaderStages}
-    , pipelineLayout{name, context, shaderStages, renderPass}
-    , pipelines{context, pipelineCache}
-{
-    pipelines.add(pipelineLayout, useDescriptorBuffer);
-    pipelines.create();
-}
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass)
+    : pipelineLayout{name, context, shaderStages, renderPass}
+    , pipeline{name, context, useDescriptorBuffer, pipelineCache, pipelineLayout}
+{}
 
 std::unique_ptr<Scene> Scene::make(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
 {
@@ -690,11 +546,12 @@ SceneResources Scene::makeSceneResources() const
 
     auto createSceneVertexBuffer = [this](const scene_data::SceneData & sceneData) -> std::optional<engine::Buffer<scene_data::VertexAttributes>>
     {
-        if (!shaders.getSceneShaders().getShaderStages().vertexInputState) {
+        const auto & shaderStages = sceneShaders.getShaderStages();
+        if (!shaderStages.vertexInputState) {
             return std::nullopt;
         }
         vk::DeviceSize vertexSize = 0;
-        for (const auto & vertexInputAttributeDescription : shaders.getSceneShaders().getShaderStages().vertexInputState.value().vertexInputAttributeDescriptions) {
+        for (const auto & vertexInputAttributeDescription : shaderStages.vertexInputState.value().vertexInputAttributeDescriptions) {
             vertexSize += vk::blockSize(vertexInputAttributeDescription.format);
         }
 
@@ -738,7 +595,7 @@ SceneResources Scene::makeSceneResources() const
 
 FrameResources Scene::makeFrameResources() const
 {
-    for (const auto & [set, bindings] : shaders.getSceneShaders().getShaderStages().setBindings) {
+    for (const auto & [set, bindings] : sceneShaders.getShaderStages().setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor set ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
     return {
@@ -755,20 +612,43 @@ DisplayResources Scene::makeDisplayResources(const vk::Extent2D & framebufferSiz
     };
 }
 
-auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResources>
+auto Scene::makeSceneDescriptors() const -> DescriptorSetResourcesAndDescriptors<SceneResources>
 {
-    return makeDescriptors("scene"sv, shaders.getSceneShaders().getShaderStages(), makeSceneResources());
+    uint32_t set = SceneResources::kSet;
+    auto resources = makeSceneResources();
+    const auto & shaderStages = sceneShaders.getShaderStages();
+    auto descriptors = makeDescriptors("scene"sv, set, shaderStages);
+    fillDescriptors(shaderStages, set, descriptors, resources);
+    return {
+        .resources = std::move(resources),
+        .descriptors = std::move(descriptors),
+    };
 }
 
-auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResources>
+auto Scene::makeFrameDescriptors() const -> DescriptorSetResourcesAndDescriptors<FrameResources>
 {
-    return makeDescriptors("frame"sv, shaders.getSceneShaders().getShaderStages(), makeFrameResources());
+    uint32_t set = FrameResources::kSet;
+    auto resources = makeFrameResources();
+    const auto & shaderStages = sceneShaders.getShaderStages();
+    auto descriptors = makeDescriptors("frame"sv, set, shaderStages);
+    fillDescriptors(shaderStages, set, descriptors, resources);
+    return {
+        .resources = std::move(resources),
+        .descriptors = std::move(descriptors),
+    };
 }
 
-DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const
+DescriptorSetResourcesAndDescriptors<DisplayResources> Scene::makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const
 {
+    uint32_t set = DisplayResources::kSet;
     auto resources = makeDisplayResources(framebufferSize, offscreenRenderPass, std::move(sampler));
-    return makeDescriptors("display"sv, shaders.getDisplayShaders().getShaderStages(), std::move(resources));
+    const auto & shaderStages = displayShaders.getShaderStages();
+    auto descriptors = makeDescriptors("display"sv, set, shaderStages);
+    fillDescriptors(shaderStages, set, descriptors, resources);
+    return {
+        .resources = std::move(resources),
+        .descriptors = std::move(descriptors),
+    };
 }
 
 auto Scene::createGraphicsPipeline(std::string_view name, vk::RenderPass renderPass, PipelineKind pipelineKind) const & -> GraphicsPipeline
@@ -777,21 +657,21 @@ auto Scene::createGraphicsPipeline(std::string_view name, vk::RenderPass renderP
     const engine::ShaderStages * shaderStages = nullptr;
     switch (pipelineKind) {
     case PipelineKind::kScene: {
-        shaderStages = &shaders.getSceneShaders().getShaderStages();
+        shaderStages = &sceneShaders.getShaderStages();
         kind = "scene";
         break;
     }
     case PipelineKind::kDisplay: {
-        shaderStages = &shaders.getDisplayShaders().getShaderStages();
+        shaderStages = &displayShaders.getShaderStages();
         kind = "display";
         break;
     }
     }
     ASSERT(shaderStages);
-    return {fmt::format("{} {}", name, kind), context, *pipelineCache, *shaderStages, renderPass, settings.descriptorBufferEnabled};
+    return {fmt::format("{} {}", name, kind), context, settings.descriptorBufferEnabled, *pipelineCache, *shaderStages, renderPass};
 }
 
-void Scene::checkSettings()
+void Scene::checkSettings() const
 {
     ASSERT(!std::empty(scenePath));
 
@@ -821,15 +701,140 @@ void Scene::checkSettings()
     }
 }
 
+void Scene::verifyShaders() const
+{
+    {
+        const auto & shaderResources = sceneShaders.getShaderResources();
+        INVARIANT(std::size(shaderResources) == 2, "{}", std::size(shaderResources));
+
+        const auto & vertexShaderReflection = shaderResources.at(0).shaderReflection;
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(SceneResources::kSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(SceneResources::kSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(SceneResources::kTransformBuferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eStorageBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(glm::mat4), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(glm::mat4));
+            }
+            if ((false)) {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+            }
+
+            INVARIANT(vertexShaderReflection.pushConstantRange, "used");
+            if (vertexShaderReflection.pushConstantRange) {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
+            }
+        }
+
+        const auto & fragmentShaderReflection = shaderResources.at(1).shaderReflection;
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+            auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+            INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+            // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
+        }
+    }
+
+    {
+        const auto & shaderResources = displayShaders.getShaderResources();
+        INVARIANT(std::size(shaderResources) == 2, "{}", std::size(shaderResources));
+
+        const auto & vertexShaderReflection = shaderResources.at(0).shaderReflection;
+        {
+            INVARIANT(std::size(vertexShaderReflection.descriptorSetLayoutSetBindings) == 1, "");
+            INVARIANT(vertexShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+            auto & descriptorSetLayoutBindings = vertexShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
+            INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+            {
+                auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+            }
+
+            INVARIANT(!vertexShaderReflection.pushConstantRange, "not used");
+            if ((false)) {
+                const auto & pushConstantRange = vertexShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eVertex, "");
+                INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, mvp), "");
+                INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::mvp), "");
+            }
+        }
+
+        const auto & fragmentShaderReflection = shaderResources.at(1).shaderReflection;
+        {
+            INVARIANT(std::size(fragmentShaderReflection.descriptorSetLayoutSetBindings) == 2, "");
+            {
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(FrameResources::kSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(FrameResources::kSet);
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+                {
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(FrameResources::kUniformBufferName);
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eUniformBuffer, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                    // INVARIANT(descriptorSetLayoutBindingReflection.size == sizeof(UniformBuffer), "{} ^ {}", descriptorSetLayoutBindingReflection.size, sizeof(UniformBuffer));
+                }
+            }
+            {
+                INVARIANT(fragmentShaderReflection.descriptorSetLayoutSetBindings.contains(DisplayResources::kSet), "");
+                auto & descriptorSetLayoutBindings = fragmentShaderReflection.descriptorSetLayoutSetBindings.at(DisplayResources::kSet);
+                INVARIANT(std::size(descriptorSetLayoutBindings) == 1, "{}", std::size(descriptorSetLayoutBindings));
+                {
+                    auto & descriptorSetLayoutBindingReflection = descriptorSetLayoutBindings.at(DisplayResources::kDisplaySampler);
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.binding == 0, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorType == vk::DescriptorType::eCombinedImageSampler, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.descriptorCount == 1, "");
+                    INVARIANT(descriptorSetLayoutBindingReflection.binding.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                }
+            }
+
+            INVARIANT(!fragmentShaderReflection.pushConstantRange, "not used");
+            if (fragmentShaderReflection.pushConstantRange) {
+                const auto & pushConstantRange = fragmentShaderReflection.pushConstantRange.value();
+                INVARIANT(pushConstantRange.stageFlags == vk::ShaderStageFlagBits::eFragment, "");
+                // INVARIANT(pushConstantRange.offset == offsetof(ScenePushConstants, x), "");
+                // INVARIANT(pushConstantRange.size == sizeof(ScenePushConstants::x), "");
+            }
+        }
+    }
+}
+
 Scene::Scene(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
     : settings{settings}
     , context{context}
     , pipelineCache{std::move(pipelineCache)}
     , scenePath{std::move(scenePath)}
     , sceneData{std::move(sceneData)}
-    , shaders{context, fileIo, settings.descriptorBufferEnabled}
+    , sceneShaders{"scene"sv, context, fileIo, settings.descriptorBufferEnabled, {{"identity.vert"sv, "main"sv}, {"barycentric_color.frag"sv, "main"sv}}}
+    , displayShaders{"display"sv, context, fileIo, settings.descriptorBufferEnabled, {{"fullscreen_rect.vert"sv, "main"sv}, {"offscreen.frag"sv, "main"sv}}}
 {
     checkSettings();
+    verifyShaders();
 }
 
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const
@@ -1000,26 +1005,6 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(std::string_view name, c
     INVARIANT((memoryPropertyFlags & kRequiredMemoryPropertyFlags) == kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
 
     return std::move(descriptorBuffer);
-}
-
-template<typename Resources>
-auto Scene::makeDescriptors(std::string_view name, const engine::ShaderStages & shaderStages, Resources && resources) const -> DescriptorSetResources<Resources>
-{
-    if (settings.descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer(name, shaderStages, Resources::kSet);
-        fillDescriptorBuffer(descriptorBuffer, shaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorBuffer),
-        };
-    } else {
-        auto descriptorSet = createDescriptorSet(name, shaderStages, Resources::kSet);
-        fillDescriptorSet(descriptorSet, shaderStages, Resources::kSet, resources.getDescriptorSetInfos());
-        return {
-            .resources = std::move(resources),
-            .descriptors = std::move(descriptorSet),
-        };
-    }
 }
 
 void Scene::fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & descriptorSetInfos) const

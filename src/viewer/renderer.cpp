@@ -215,7 +215,7 @@ public:
         return graphicsPipeline;
     }
 
-    [[nodiscard]] std::shared_ptr<const DescriptorSetResources<DisplayResources>> getDisplayDescriptors(const Scene & scene, const vk::Extent2D & framebufferSize) &
+    [[nodiscard]] std::shared_ptr<const DescriptorSetResourcesAndDescriptors<DisplayResources>> getDisplayDescriptors(const Scene & scene, const vk::Extent2D & framebufferSize) &
     {
         while (!displayDescriptorPool.empty()) {
             auto displayDescriptors = std::move(displayDescriptorPool.top());
@@ -231,10 +231,11 @@ public:
                 // mb reuse framebuffer?
             }
         }
-        return std::make_shared<DescriptorSetResources<DisplayResources>>(scene.makeDisplayDescriptors(framebufferSize, offscreenRenderPass, sampler));
+        // DisplayResources displayResources = scene.makeDisplayResources(framebufferSize, offscreenRenderPass, sampler);
+        return std::make_shared<DescriptorSetResourcesAndDescriptors<DisplayResources>>(scene.makeDisplayDescriptors(framebufferSize, offscreenRenderPass, sampler));
     }
 
-    void putDisplayDescriptors(std::shared_ptr<const DescriptorSetResources<DisplayResources>> displayDescriptors) &
+    void putDisplayDescriptors(std::shared_ptr<const DescriptorSetResourcesAndDescriptors<DisplayResources>> displayDescriptors) &
     {
         ASSERT_MSG(displayDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", displayDescriptors.use_count());
         displayDescriptorPool.push(std::move(displayDescriptors));
@@ -245,7 +246,7 @@ private:
     const std::shared_ptr<const Scene> scene;
     const GraphicsPipeline graphicsPipeline;
     const std::shared_ptr<const vk::UniqueSampler> sampler;
-    ResourceStack<std::shared_ptr<const DescriptorSetResources<DisplayResources>>> displayDescriptorPool;
+    ResourceStack<std::shared_ptr<const DescriptorSetResourcesAndDescriptors<DisplayResources>>> displayDescriptorPool;
 
     DisplayPool(const engine::Context & context, std::shared_ptr<const Scene> scene)
         : offscreenRenderPass{OffscreenRenderPass::make(context)}
@@ -428,15 +429,15 @@ struct Renderer::Impl : utils::NonCopyable
 
     std::optional<const GraphicsPipeline> directGraphicsPipeline;  // TODO: make shared and prolongate lifetime
     std::optional<const GraphicsPipeline> displayGraphicsPipeline;
-    std::shared_ptr<const DescriptorSetResources<SceneResources>> sceneResourcesAndDescriptors;
-    ResourceStack<std::shared_ptr<const DescriptorSetResources<FrameResources>>> frameDescriptorsPool;
-    std::shared_ptr<const DescriptorSetResources<FrameResources>> frameResourcesAndDescriptors;
+    std::shared_ptr<const DescriptorSetResourcesAndDescriptors<SceneResources>> sceneResourcesAndDescriptors;
+    ResourceStack<std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>>> frameDescriptorsPool;
+    std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>> frameResourcesAndDescriptors;
 
     std::shared_ptr<DisplayPool> displayPool;
 
     Fence displayFence;
     std::shared_ptr<const engine::CommandBuffers> displayCommandBuffers;
-    std::shared_ptr<const DescriptorSetResources<DisplayResources>> displayResourcesAndDescriptors;
+    std::shared_ptr<const DescriptorSetResourcesAndDescriptors<DisplayResources>> displayResourcesAndDescriptors;
 
     // revocation lists should be the last members
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
@@ -457,8 +458,8 @@ struct Renderer::Impl : utils::NonCopyable
 
     void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
 
-    std::shared_ptr<const DescriptorSetResources<FrameResources>> getFrameDescriptors();
-    void putFrameDescriptors(std::shared_ptr<const DescriptorSetResources<FrameResources>> && frameDescriptors);
+    std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>> getFrameDescriptors();
+    void putFrameDescriptors(std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>> && frameDescriptors);
 
     template<typename... Resources>
     void deferDeletion(uint32_t frameSlot, Resources &&... resources)
@@ -531,7 +532,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants) const
 {
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipelines.getPipelines().at(0), context.getDispatcher());
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline, context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
     vk::PipelineLayout pipelineLayout = pipeline.pipelineLayout.getPipelineLayout();
@@ -560,7 +561,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
-    for (const auto & pushConstantRange : pipeline.shaderStages.pushConstantRanges) {
+    for (const auto & pushConstantRange : pipeline.pipelineLayout.getShaderStages().pushConstantRanges) {
         const void * p = pushConstants + pushConstantRange.offset;
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
     }
@@ -746,7 +747,11 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     deleteDeferred(currentFrameSlot);
 
     if (!sceneResourcesAndDescriptors) {
-        sceneResourcesAndDescriptors = std::make_shared<const DescriptorSetResources<SceneResources>>(scene->makeSceneDescriptors());
+        if (displayResourcesAndDescriptors) {
+            sceneResourcesAndDescriptors = std::make_shared<const DescriptorSetResourcesAndDescriptors<SceneResources>>(scene->makeSceneDescriptors());
+        } else {  // TODO:
+            sceneResourcesAndDescriptors = std::make_shared<const DescriptorSetResourcesAndDescriptors<SceneResources>>(scene->makeSceneDescriptors());
+        }
     }
 
     uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
@@ -801,7 +806,7 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
 {
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayGraphicsPipeline : directGraphicsPipeline;
     if (graphicsPipeline) {
-        if (graphicsPipeline.value().pipelineLayout.getAssociatedRenderPass() == renderPass) {
+        if (graphicsPipeline.value().pipelineLayout.getRenderPass() == renderPass) {
             return false;
         }
         graphicsPipeline.reset();
@@ -828,7 +833,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
     }
 }
 
-auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const DescriptorSetResources<FrameResources>>
+auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>>
 {
     while (!std::empty(frameDescriptorsPool)) {
         auto frameDescriptors = std::move(frameDescriptorsPool.top());
@@ -837,10 +842,10 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<const DescriptorSe
             return frameDescriptors;
         }
     }
-    return std::make_shared<DescriptorSetResources<FrameResources>>(scene->makeFrameDescriptors());
+    return std::make_shared<DescriptorSetResourcesAndDescriptors<FrameResources>>(scene->makeFrameDescriptors());
 }
 
-void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const DescriptorSetResources<FrameResources>> && frameDescriptors)
+void Renderer::Impl::putFrameDescriptors(std::shared_ptr<const DescriptorSetResourcesAndDescriptors<FrameResources>> && frameDescriptors)
 {
     ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
     frameDescriptorsPool.push(std::move(frameDescriptors));

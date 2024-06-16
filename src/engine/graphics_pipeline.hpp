@@ -15,17 +15,19 @@
 namespace engine
 {
 
-struct GraphicsPipelines;
+struct GraphicsPipeline;
 
 struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
 {
     GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
 
-    [[nodiscard]] vk::RenderPass getAssociatedRenderPass() const &;
+    [[nodiscard]] const ShaderStages & getShaderStages() const &;
+    [[nodiscard]] vk::RenderPass getRenderPass() const &;
     [[nodiscard]] vk::PipelineLayout getPipelineLayout() const &;
+    [[nodiscard]] operator vk::PipelineLayout() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    friend GraphicsPipelines;
+    friend GraphicsPipeline;
 
     std::string name;
 
@@ -44,9 +46,9 @@ private:
 
     vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 
-    vk::UniquePipelineLayout pipelineLayoutHolder;
+    vk::UniquePipelineLayout pipelineLayout;
 
-    void fill(std::string & name, vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const;
+    void fill(vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const;
 
     static constexpr void completeClassContext()
     {
@@ -54,24 +56,20 @@ private:
     }
 };
 
-struct ENGINE_EXPORT GraphicsPipelines final : utils::OneTime<GraphicsPipelines>
+struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 {
-    GraphicsPipelines(const Context & context, vk::PipelineCache pipelineCache);
+    GraphicsPipeline(std::string_view name, const Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, const GraphicsPipelineLayout & graphicsPipelineLayout);
 
-    void add(const GraphicsPipelineLayout & graphicsPipelineLayout, bool useDescriptorBuffer);
-    void create();
-
-    [[nodiscard]] const std::vector<vk::Pipeline> & getPipelines() const &;
+    [[nodiscard]] bool getUseDescriptorBuffer() const;
+    [[nodiscard]] vk::Pipeline getPipeline() const &;
+    [[nodiscard]] operator vk::Pipeline() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    const Context & context;
-    const vk::PipelineCache pipelineCache;
+    std::string name;
+    const bool useDescriptorBuffer;
 
-    std::vector<std::string> names;
-    std::vector<vk::GraphicsPipelineCreateInfo> graphicsPipelineCreateInfos;
-
-    std::vector<vk::UniquePipeline> pipelineHolders;
-    std::vector<vk::Pipeline> pipelines;
+    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
+    vk::UniquePipeline pipeline;
 
     static constexpr void completeClassContext()
     {
