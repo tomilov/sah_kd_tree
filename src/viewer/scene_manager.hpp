@@ -130,6 +130,7 @@ struct Framebuffer : utils::OneTime<Framebuffer>
 
 struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 {
+    const engine::ShaderStages & shaderStages;
     engine::GraphicsPipelineLayout pipelineLayout;
     engine::GraphicsPipelines pipelines;
 
@@ -205,6 +206,49 @@ struct DisplayResources : utils::OneTime<DisplayResources>
     }
 };
 
+class Shader
+{
+public:
+    struct ShaderResource
+    {
+        engine::ShaderModule shaderModule;
+        engine::ShaderModuleReflection shaderReflection;
+    };
+
+    Shader(std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled, std::initializer_list<std::tuple<std::string_view /*shaderName*/, std::string_view /*entryPoint*/>> shaderNameAndEntryPoint);
+
+    [[nodiscard]] const std::vector<ShaderResource> & getShaderResources() const &
+    {
+        return shaderResources;
+    }
+
+    [[nodiscard]] const engine::ShaderStages & getShaderStages() const &
+    {
+        return shaderStages;
+    }
+
+private:
+    static constexpr uint32_t kVertexBufferBinding = 0;
+
+    std::vector<ShaderResource> shaderResources;
+    engine::ShaderStages shaderStages;
+};
+
+class Shaders : utils::OneTime<Shaders>
+{
+public:
+    Shaders(const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled);
+
+    const Shader & getSceneShaders() const &;
+    const Shader & getDisplayShaders() const &;
+
+private:
+    Shader sceneShaders;
+    Shader displayShaders;
+
+    void verify() const;
+};
+
 class Scene
     : utils::NonCopyable
     , public std::enable_shared_from_this<Scene>
@@ -216,7 +260,18 @@ public:
         kDisplay,
     };
 
-    [[nodiscard]] static std::unique_ptr<Scene> make(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
+    struct Settings
+    {
+        bool indexTypeUint8Enabled = true;
+        bool descriptorBufferEnabled = false;
+        bool multiDrawIndirectEnabled = true;
+        bool drawIndirectCountEnabled = true;
+    };
+
+    [[nodiscard]] static std::unique_ptr<Scene> make(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath,
+                                                     scene_data::SceneData && sceneData);
+
+    [[nodiscard]] const Settings & getSettings() const &;
 
     [[nodiscard]] const std::filesystem::path & getScenePath() const &;
     [[nodiscard]] const scene_data::SceneData & getScenedData() const &;
@@ -228,66 +283,26 @@ public:
     [[nodiscard]] DescriptorSetResources<SceneResources> makeSceneDescriptors() const;
     [[nodiscard]] DescriptorSetResources<FrameResources> makeFrameDescriptors() const;
     [[nodiscard]] DescriptorSetResources<DisplayResources> makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const;
-    [[nodiscard]] const std::vector<vk::PushConstantRange> & getScenePushConstantRanges() const &;
-    [[nodiscard]] const std::vector<vk::PushConstantRange> & getDisplayPushConstantRanges() const &;
     [[nodiscard]] GraphicsPipeline createGraphicsPipeline(std::string_view name, vk::RenderPass renderPass, PipelineKind pipelineKind) const &;
 
-    [[nodiscard]] bool isDescriptorBufferEnabled() const
-    {
-        return descriptorBufferEnabled;
-    }
-
-    [[nodiscard]] bool isMultiDrawIndirectEnabled() const
-    {
-        return multiDrawIndirectEnabled;
-    }
-
-    [[nodiscard]] bool isDrawIndirectCountEnabled() const
-    {
-        return drawIndirectCountEnabled;
-    }
-
 private:
-    struct Shader
-    {
-        Shader(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
-            : shader{shaderName, context, fileIo}
-            , shaderReflection{context, shader, entryPoint}
-        {}
-
-        engine::ShaderModule shader;
-        engine::ShaderModuleReflection shaderReflection;
-    };
-
+    const Settings settings;
     const engine::Context & context;
-    const FileIo & fileIo;
     const std::shared_ptr<const engine::PipelineCache> pipelineCache;
     const std::filesystem::path scenePath;
 
     scene_data::SceneData sceneData;
+    Shaders shaders;
 
-    // TODO: put in Settings and set in constructor
-    const bool indexTypeUint8Enabled = true;
-    const bool descriptorBufferEnabled = false;
-    const bool multiDrawIndirectEnabled = true;
-    const bool drawIndirectCountEnabled = true;
-    std::unordered_map<std::string /* shaderName */, Shader> shaders;
-    static constexpr uint32_t kVertexBufferBinding = 0;
-    engine::ShaderStages sceneShaderStages;
-    engine::ShaderStages displayShaderStages;
+    void checkSettings();
 
-    void check();
-
-    [[nodiscard]] const Shader & addShader(std::string_view shaderName, std::string_view entryPoint = "main");
-    void addShaders();
-
-    Scene(const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
+    Scene(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
     [[nodiscard]] engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
-    [[nodiscard]] std::optional<engine::Buffer<scene_data::VertexAttributes>> createSceneVertexBuffer() const;
+    // [[nodiscard]] std::optional<engine::Buffer<scene_data::VertexAttributes>> createSceneVertexBuffer() const;
 
     [[nodiscard]] engine::Buffer<UniformBuffer> createUniformBuffer() const;
 

@@ -446,11 +446,10 @@ struct Renderer::Impl : utils::NonCopyable
     void setFrameSettings(const FrameSettings & frameSettings);
     void setScene(std::shared_ptr<const Scene> scene);
 
-    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants,
-                              const std::vector<vk::PushConstantRange> & pushConstantRanges) const;
-    void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline) const;
+    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants) const;
+    void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const Framebuffer & framebuffer);
-    void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline) const;
+    void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
 
     void advance(uint32_t currentFrameSlot);
 
@@ -530,14 +529,13 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants,
-                                          const std::vector<vk::PushConstantRange> & pushConstantRanges) const
+void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants) const
 {
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipelines.getPipelines().at(0), context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
     vk::PipelineLayout pipelineLayout = pipeline.pipelineLayout.getPipelineLayout();
-    if (scene->isDescriptorBufferEnabled()) {
+    if (scene->getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
         for (const Descriptors * d : descriptors) {
@@ -562,15 +560,13 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
-    {
-        for (const auto & pushConstantRange : pushConstantRanges) {
-            const void * p = pushConstants + pushConstantRange.offset;
-            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
-        }
+    for (const auto & pushConstantRange : pipeline.shaderStages.pushConstantRanges) {
+        const void * p = pushConstants + pushConstantRange.offset;
+        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
     }
 }
 
-void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & scenePipeline) const
+void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
         std::initializer_list<const Descriptors *> descriptors = {
@@ -578,7 +574,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             &sceneResourcesAndDescriptors->descriptors,
         };
         ScenePushConstants scenePushConstants = getScenePushConstants(frameSettings);
-        bindGraphicsPipeline(commandBuffer, scenePipeline, descriptors, utils::autoCast(&scenePushConstants), scene->getScenePushConstantRanges());
+        bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&scenePushConstants));
     }
 
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
@@ -646,7 +642,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
-    if (scene->isMultiDrawIndirectEnabled()) {
+    if (scene->getSettings().multiDrawIndirectEnabled) {
         auto indexType = sceneResources.indexTypes.at(0);
         commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
@@ -654,7 +650,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         uint32_t drawCount = sceneResources.drawCount;
         const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
-        if (scene->isDrawIndirectCountEnabled()) {
+        if (scene->getSettings().drawIndirectCountEnabled) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
             commandBuffer.drawIndexedIndirectCount(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, sceneResources.drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());
@@ -724,7 +720,7 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
             &displayResourcesAndDescriptors->descriptors,
         };
         DisplayPushConstants displayPushConstants = getDisplayPushConstants(frameSettings);
-        bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants), scene->getDisplayPushConstantRanges());
+        bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants));
     }
 
     {
