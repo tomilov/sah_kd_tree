@@ -110,7 +110,7 @@ private:
     QUrl scenePath;
     float t = 0.0;
 
-    bool useOffscreenTexture = false;
+    bool useOffscreenTexture = true;
 
     QUrl currentScenePath;
     std::shared_ptr<const Scene> scene;

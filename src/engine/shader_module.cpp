@@ -611,13 +611,14 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
 void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
 {
     size_t setCount = std::size(setBindings);
+    descriptorSetLayoutCreateInfoChains.reserve(setCount);
     descriptorSetLayoutHolders.reserve(setCount);
     descriptorSetLayouts.reserve(setCount);
 
     const auto & device = context.getDevice();
 
     for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
-        vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> descriptorSetLayoutCreateInfoChain;
+        auto & descriptorSetLayoutCreateInfoChain = descriptorSetLayoutCreateInfoChains.emplace_back();
         auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutCreateInfo>();
         descriptorSetLayoutCreateInfo.flags = descriptorSetLayoutCreateFlags;
         descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
@@ -627,6 +628,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
         for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
+            SPDLOG_INFO("BINDING ({}): set={} binding={} type={} stages={}", name, set, descriptorSetLayoutBinding.binding, descriptorSetLayoutBinding.descriptorType, descriptorSetLayoutBinding.stageFlags);
             if (descriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eUniformBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eStorageBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");

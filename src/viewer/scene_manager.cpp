@@ -22,13 +22,13 @@
 #include <QStandardPaths>
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <array>
 
 #include <cstddef>
 #include <cstdint>
@@ -90,7 +90,7 @@ bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
     return indexTypeRank(lhs) < indexTypeRank(rhs);
 }
 
-template<typename Head, typename ...Tail, size_t N>
+template<typename Head, typename... Tail, size_t N>
 std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&chains)[N])
 {
     std::array<Head, N> heads;
@@ -101,7 +101,7 @@ std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&chains)[N
     return heads;
 }
 
-template<typename Head, typename ...Tail>
+template<typename Head, typename... Tail>
 std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> & chains)
 {
     std::vector<Head> heads;
@@ -367,7 +367,7 @@ const scene_data::SceneData & Scene::getScenedData() const &
     return sceneData;
 }
 
-auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResources>
+SceneResources Scene::makeSceneResources() const
 {
     std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
@@ -524,7 +524,7 @@ auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResource
 
     auto transformBuffer = createTransformBuffer(totalInstanceCount, transforms);
 
-    SceneResources resources = {
+    return {
         .transforms = std::move(transforms),
         .instances = std::move(instances),
         .indexTypes = std::move(indexTypes),
@@ -535,28 +535,41 @@ auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResource
         .transformBuffer = std::move(transformBuffer),
         .vertexBuffer = createSceneVertexBuffer(),
     };
-    return makeDescriptors(sceneShaderStages, std::move(resources));
 }
 
-auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResources>
+FrameResources Scene::makeFrameResources() const
 {
     for (const auto & [set, bindings] : sceneShaderStages.setBindings) {
         INVARIANT(set == bindings.setIndex, "Descriptor set ids are not sequential non-negative numbers: {}, {}", set, bindings.setIndex);
     }
-    FrameResources resources = {
+    return {
         .uniformBuffer = createUniformBuffer(),
     };
-    return makeDescriptors(sceneShaderStages, std::move(resources));
+}
+
+DisplayResources Scene::makeDisplayResources(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const
+{
+    auto framebuffer = Framebuffer::make(context, framebufferSize, offscreenRenderPass);
+    return {
+        .framebuffer = std::move(framebuffer),
+        .sampler = std::move(sampler),
+    };
+}
+
+auto Scene::makeSceneDescriptors() const -> DescriptorSetResources<SceneResources>
+{
+    return makeDescriptors("scene"sv, sceneShaderStages, makeSceneResources());
+}
+
+auto Scene::makeFrameDescriptors() const -> DescriptorSetResources<FrameResources>
+{
+    return makeDescriptors("frame"sv, sceneShaderStages, makeFrameResources());
 }
 
 DescriptorSetResources<DisplayResources> Scene::makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const
 {
-    auto framebuffer = Framebuffer::make(context, framebufferSize, offscreenRenderPass);
-    DisplayResources resources = {
-        .framebuffer = std::move(framebuffer),
-        .sampler = std::move(sampler),
-    };
-    return makeDescriptors(displayShaderStages, std::move(resources));
+    auto resources = makeDisplayResources(framebufferSize, offscreenRenderPass, std::move(sampler));
+    return makeDescriptors("display"sv, displayShaderStages, std::move(resources));
 }
 
 const std::vector<vk::PushConstantRange> & Scene::getScenePushConstantRanges() const &
@@ -569,24 +582,24 @@ const std::vector<vk::PushConstantRange> & Scene::getDisplayPushConstantRanges()
     return displayShaderStages.pushConstantRanges;
 }
 
-auto Scene::createGraphicsPipeline(vk::RenderPass renderPass, PipelineKind pipelineKind) const & -> GraphicsPipeline
+auto Scene::createGraphicsPipeline(std::string_view name, vk::RenderPass renderPass, PipelineKind pipelineKind) const & -> GraphicsPipeline
 {
-    std::string_view name;
+    std::string_view kind;
     const engine::ShaderStages * shaderStages = nullptr;
     switch (pipelineKind) {
     case PipelineKind::kScene: {
         shaderStages = &sceneShaderStages;
-        name = "scene";
+        kind = "scene";
         break;
     }
     case PipelineKind::kDisplay: {
         shaderStages = &displayShaderStages;
-        name = "display";
+        kind = "display";
         break;
     }
     }
     ASSERT(shaderStages);
-    return {name, context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled};
+    return {fmt::format("{} {}", name, kind), context, *pipelineCache, *shaderStages, renderPass, descriptorBufferEnabled};
 }
 
 void Scene::check()
@@ -930,13 +943,13 @@ auto Scene::createUniformBuffer() const -> engine::Buffer<UniformBuffer>
     return uniformBuffer;
 }
 
-engine::DescriptorSet Scene::createDescriptorSet(const engine::ShaderStages & shaderStages, uint32_t set) const
+engine::DescriptorSet Scene::createDescriptorSet(std::string_view name, const engine::ShaderStages & shaderStages, uint32_t set) const
 {
     constexpr uint32_t kFramesInFlight = 1;
-    return {kRasterization, context, kFramesInFlight, set, shaderStages};
+    return {name, context, kFramesInFlight, set, shaderStages};
 }
 
-engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStages & shaderStages, uint32_t set) const
+engine::Buffer<std::byte> Scene::createDescriptorBuffer(std::string_view name, const engine::ShaderStages & shaderStages, uint32_t set) const
 {
     constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
@@ -963,7 +976,7 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStag
         }
         }
     }
-    auto descriptorBufferName = fmt::format("Descriptor buffer for set #{}", set);
+    auto descriptorBufferName = fmt::format("{} (set #{})", name, set);
     auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, alignment);
 
     auto memoryPropertyFlags = descriptorBuffer.getMemoryPropertyFlags();
@@ -973,17 +986,17 @@ engine::Buffer<std::byte> Scene::createDescriptorBuffer(const engine::ShaderStag
 }
 
 template<typename Resources>
-auto Scene::makeDescriptors(const engine::ShaderStages & shaderStages, Resources && resources) const -> DescriptorSetResources<Resources>
+auto Scene::makeDescriptors(std::string_view name, const engine::ShaderStages & shaderStages, Resources && resources) const -> DescriptorSetResources<Resources>
 {
     if (descriptorBufferEnabled) {
-        auto descriptorBuffer = createDescriptorBuffer(shaderStages, Resources::kSet);
+        auto descriptorBuffer = createDescriptorBuffer(name, shaderStages, Resources::kSet);
         fillDescriptorBuffer(descriptorBuffer, shaderStages, Resources::kSet, resources.getDescriptorBufferInfos());
         return {
             .resources = std::move(resources),
             .descriptors = std::move(descriptorBuffer),
         };
     } else {
-        auto descriptorSet = createDescriptorSet(shaderStages, Resources::kSet);
+        auto descriptorSet = createDescriptorSet(name, shaderStages, Resources::kSet);
         fillDescriptorSet(descriptorSet, shaderStages, Resources::kSet, resources.getDescriptorSetInfos());
         return {
             .resources = std::move(resources),

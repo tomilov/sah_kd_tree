@@ -237,7 +237,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
                 SPDLOG_WARN(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
             }
         }
-        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
+        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {  // TODO: replace with VK_EXT_layer_settings
             auto & validationFeatures = instanceCreateInfoChain.get<vk::ValidationFeaturesEXT>();
 
             // both branches has bad interference with VK_EXT_descriptor_buffer
@@ -373,7 +373,17 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
                 std::move(queues), std::move(buffers), */
                 messageIdNumber, callbackData.pMessage);
-    if (messageIdNumber == 0x215f02cd) {
+    static const std::unordered_set<uint32_t> messageIdNumbers = {
+        0x215f02cd,
+        0xe1b89b63,
+        // 0x23dfd876,
+        0x4768cf39,
+        // 0x675dc32e,
+        // 0x86974c1,
+        // 0xda8260ba,
+        0xef65bb29,
+    };
+    if (messageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");
     }
     return VK_FALSE;

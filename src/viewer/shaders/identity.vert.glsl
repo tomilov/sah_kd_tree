@@ -7,7 +7,7 @@ layout(location = 0) in vec3 vertexPosition;
 
 layout(location = 0) out float y;
 
-layout(std140, set = 0, binding = 0) restrict readonly buffer TransformBuffer
+layout(std140, set = 1, binding = 0) restrict readonly buffer TransformBuffer
 {
     mat4 transforms[];
 } transformBuffer;
