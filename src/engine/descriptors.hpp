@@ -18,7 +18,7 @@ namespace engine
 
 struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 {
-    DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, uint32_t set, const ShaderStages & shaderStages);
+    DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages, uint32_t set);
 
     [[nodiscard]] uint32_t getSet() const;
     [[nodiscard]] vk::DescriptorPool getDescriptorPool() const &;

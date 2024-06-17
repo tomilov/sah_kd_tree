@@ -19,7 +19,7 @@
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, uint32_t set, const ShaderStages & shaderStages)
+DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages, uint32_t set)
     : name{name}
     , set{set}
 {

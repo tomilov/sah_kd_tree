@@ -12,11 +12,13 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass)
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, vk::RenderPass renderPass)
     : name{name}
     , shaderStages{shaderStages}
     , renderPass{renderPass}
 {
+    ASSERT(!std::empty(name));
+    ASSERT(shaderStages);
     ASSERT(renderPass);
 
     pipelineInputAssemblyStateCreateInfo.flags = {};
@@ -90,14 +92,14 @@ GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Cont
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
     pipelineLayoutCreateInfo.flags = {};
-    pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
-    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
+    pipelineLayoutCreateInfo.setSetLayouts(shaderStages->descriptorSetLayouts);
+    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages->pushConstantRanges);
 
     pipelineLayout = context.getDevice().getDevice().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*pipelineLayout, name);
 }
 
-const ShaderStages & GraphicsPipelineLayout::getShaderStages() const &
+std::shared_ptr<const ShaderStages> GraphicsPipelineLayout::getShaderStages() const
 {
     return shaderStages;
 }
@@ -124,9 +126,9 @@ void GraphicsPipelineLayout::fill(vk::GraphicsPipelineCreateInfo & graphicsPipel
     if (useDescriptorBuffer) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
-    graphicsPipelineCreateInfo.setStages(shaderStages.shaderStages.ref());
-    if (shaderStages.vertexInputState) {
-        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.value().pipelineVertexInputStateCreateInfo;
+    graphicsPipelineCreateInfo.setStages(shaderStages->shaderStages.ref());
+    if (shaderStages->vertexInputState) {
+        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages->vertexInputState.value().pipelineVertexInputStateCreateInfo;
     }
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;

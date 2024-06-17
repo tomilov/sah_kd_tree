@@ -65,33 +65,70 @@ struct DisplayPushConstants
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
-using Descriptors = std::variant<engine::DescriptorSet, engine::Buffer<std::byte>>;
-
-[[nodiscard]] inline const engine::DescriptorSet & getDescriptorSet(const Descriptors & descriptors)
+class Shaders
+    : utils::NonCopyable
+    , public std::enable_shared_from_this<Shaders>
 {
-    return std::get<engine::DescriptorSet>(descriptors);
-}
+    struct Private
+    {
+        explicit Private() = default;
+    };
 
-[[nodiscard]] inline const engine::Buffer<std::byte> & getDescriptorBuffer(const Descriptors & descriptors)
-{
-    return std::get<engine::Buffer<std::byte>>(descriptors);
-}
+public:
+    struct ShaderResource
+    {
+        engine::ShaderModule shaderModule;
+        engine::ShaderModuleReflection shaderReflection;
+    };
 
-[[nodiscard]] inline engine::DescriptorSet & getDescriptorSet(Descriptors & descriptors)
-{
-    return std::get<engine::DescriptorSet>(descriptors);
-}
+    Shaders(Private, std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled,
+            std::initializer_list<std::tuple<std::string_view /*shaderName*/, std::string_view /*entryPoint*/>> shaderNameAndEntryPoint);
 
-[[nodiscard]] inline engine::Buffer<std::byte> & getDescriptorBuffer(Descriptors & descriptors)
-{
-    return std::get<engine::Buffer<std::byte>>(descriptors);
-}
+    [[nodiscard]] static std::shared_ptr<Shaders> make(std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled,
+                                                       std::initializer_list<std::tuple<std::string_view /*shaderName*/, std::string_view /*entryPoint*/>> shaderNameAndEntryPoint)
+    {
+        return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorBufferEnabled, shaderNameAndEntryPoint);
+    }
 
-template<typename Resources>
-struct DescriptorSetResourcesAndDescriptors
+    [[nodiscard]] bool getDescriptorBufferEnabled() const
+    {
+        return descriptorBufferEnabled;
+    }
+
+    [[nodiscard]] const std::vector<ShaderResource> & getShaderResources() const &
+    {
+        return shaderResources;
+    }
+
+    [[nodiscard]] const engine::ShaderStages & getShaderStages() const &
+    {
+        return shaderStages;
+    }
+
+    [[nodiscard]] std::shared_ptr<const engine::ShaderStages> getShaderStagesPtr() const
+    {
+        return {shared_from_this(), &shaderStages};
+    }
+
+private:
+    static constexpr uint32_t kVertexBufferBinding = 0;
+
+    const bool descriptorBufferEnabled;
+    std::vector<ShaderResource> shaderResources;
+    engine::ShaderStages shaderStages;
+};
+
+struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 {
-    Resources resources;
-    Descriptors descriptors;
+    engine::GraphicsPipelineLayout pipelineLayout;
+    engine::GraphicsPipeline pipeline;
+
+    GraphicsPipeline(std::string_view name, const engine::Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, std::shared_ptr<const engine::ShaderStages> shaderStages, vk::RenderPass renderPass);
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 struct OffscreenRenderPass : utils::OneTime<OffscreenRenderPass>
@@ -131,19 +168,6 @@ struct Framebuffer : utils::OneTime<Framebuffer>
     vk::UniqueFramebuffer framebuffer;
 
     [[nodiscard]] static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
-
-    static constexpr void completeClassContext()
-    {
-        checkTraits();
-    }
-};
-
-struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
-{
-    engine::GraphicsPipelineLayout pipelineLayout;
-    engine::GraphicsPipeline pipeline;
-
-    GraphicsPipeline(std::string_view name, const engine::Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, const engine::ShaderStages & shaderStages, vk::RenderPass renderPass);
 
     static constexpr void completeClassContext()
     {
@@ -215,32 +239,37 @@ struct DisplayResources : utils::OneTime<DisplayResources>
     }
 };
 
-class Shader
+struct Descriptors : utils::OneTime<Descriptors>
 {
-public:
-    struct ShaderResource
-    {
-        engine::ShaderModule shaderModule;
-        engine::ShaderModuleReflection shaderReflection;
-    };
+    const std::shared_ptr<const engine::ShaderStages> shaderStages;
+    const uint32_t set;
+    std::variant<engine::DescriptorSet, engine::Buffer<std::byte>> descriptors;
 
-    Shader(std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled, std::initializer_list<std::tuple<std::string_view /*shaderName*/, std::string_view /*entryPoint*/>> shaderNameAndEntryPoint);
-
-    [[nodiscard]] const std::vector<ShaderResource> & getShaderResources() const &
+    [[nodiscard]] bool operator==(const Descriptors & rhs) const noexcept
     {
-        return shaderResources;
+        return std::forward_as_tuple(descriptors.index(), shaderStages, set) == std::forward_as_tuple(rhs.descriptors.index(), rhs.shaderStages, rhs.set);
     }
 
-    [[nodiscard]] const engine::ShaderStages & getShaderStages() const &
+    [[nodiscard]] bool operator<(const Descriptors & rhs) const noexcept
     {
-        return shaderStages;
+        return std::forward_as_tuple(descriptors.index(), shaderStages, set) < std::forward_as_tuple(rhs.descriptors.index(), rhs.shaderStages, rhs.set);
     }
 
-private:
-    static constexpr uint32_t kVertexBufferBinding = 0;
+    [[nodiscard]] const engine::DescriptorSet & getDescriptorSet() const &
+    {
+        return std::get<engine::DescriptorSet>(descriptors);
+    }
 
-    std::vector<ShaderResource> shaderResources;
-    engine::ShaderStages shaderStages;
+    [[nodiscard]] const engine::Buffer<std::byte> & getDescriptorBuffer() const &
+    {
+        return std::get<engine::Buffer<std::byte>>(descriptors);
+    }
+
+    static constexpr void completeClassContext()
+    {
+        static_assert(!std::is_default_constructible_v<Descriptors>);
+        checkTraits();
+    }
 };
 
 class Scene
@@ -248,12 +277,6 @@ class Scene
     , public std::enable_shared_from_this<Scene>
 {
 public:
-    enum class PipelineKind
-    {
-        kScene,
-        kDisplay,
-    };
-
     struct Settings
     {
         bool indexTypeUint8Enabled = true;
@@ -267,6 +290,9 @@ public:
 
     [[nodiscard]] const Settings & getSettings() const &;
 
+    [[nodiscard]] GraphicsPipeline createDisplayGraphicsPipeline(std::string_view name, vk::RenderPass renderPass) const &;
+    [[nodiscard]] GraphicsPipeline createSceneGraphicsPipeline(std::string_view name, vk::RenderPass renderPass) const &;
+
     [[nodiscard]] const std::filesystem::path & getScenePath() const &;
     [[nodiscard]] const scene_data::SceneData & getScenedData() const &;
 
@@ -274,10 +300,26 @@ public:
     [[nodiscard]] FrameResources makeFrameResources() const;
     [[nodiscard]] DisplayResources makeDisplayResources(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const;
 
-    [[nodiscard]] DescriptorSetResourcesAndDescriptors<SceneResources> makeSceneDescriptors() const;
-    [[nodiscard]] DescriptorSetResourcesAndDescriptors<FrameResources> makeFrameDescriptors() const;
-    [[nodiscard]] DescriptorSetResourcesAndDescriptors<DisplayResources> makeDisplayDescriptors(const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler) const;
-    [[nodiscard]] GraphicsPipeline createGraphicsPipeline(std::string_view name, vk::RenderPass renderPass, PipelineKind pipelineKind) const &;
+    [[nodiscard]] Descriptors makeDescriptors(const SceneResources & sceneResources) const;
+    [[nodiscard]] Descriptors makeDescriptors(const FrameResources & frameResources, bool display) const;
+    [[nodiscard]] Descriptors makeDescriptors(const DisplayResources & displayResources) const;
+
+    template<typename Resources>
+    void fillDescriptors(const Resources & resources, const Descriptors & descriptors) const
+    {
+        ASSERT(descriptors.shaderStages);
+        const auto fillDescriptors = [this, &shaderStages = *descriptors.shaderStages, set = descriptors.set, &resources]<typename T>(const T & descriptors)
+        {
+            if constexpr (std::is_same_v<T, engine::DescriptorSet>) {
+                fillDescriptorSet(descriptors, shaderStages, set, resources.getDescriptorSetInfos());
+            } else if constexpr (std::is_same_v<T, engine::Buffer<std::byte>>) {
+                fillDescriptorBuffer(descriptors, shaderStages, set, resources.getDescriptorBufferInfos());
+            } else {
+                static_assert(sizeof(T) == 0);
+            }
+        };
+        std::visit(fillDescriptors, descriptors.descriptors);
+    }
 
 private:
     const Settings settings;
@@ -286,11 +328,12 @@ private:
     const std::filesystem::path scenePath;
 
     scene_data::SceneData sceneData;
-    Shader sceneShaders;
-    Shader displayShaders;
+    std::shared_ptr<const Shaders> sceneShaders;
+    std::shared_ptr<const Shaders> displayShaders;
 
     void checkSettings() const;
     void verifyShaders() const;
+    void checkSceneVertexFormat() const;
 
     Scene(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
@@ -305,27 +348,10 @@ private:
     [[nodiscard]] engine::DescriptorSet createDescriptorSet(std::string_view name, const engine::ShaderStages & shaderStages, uint32_t set) const;
     [[nodiscard]] engine::Buffer<std::byte> createDescriptorBuffer(std::string_view name, const engine::ShaderStages & shaderStages, uint32_t set) const;
 
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, uint32_t set, const engine::ShaderStages & shaderStages) const
-    {
-        if (settings.descriptorBufferEnabled) {
-            return createDescriptorBuffer(name, shaderStages, set);
-        } else {
-            return createDescriptorSet(name, shaderStages, set);
-        }
-    }
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set) const;
 
-    void fillDescriptorSet(engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
-    void fillDescriptorBuffer(engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
-
-    template<typename Resources>
-    void fillDescriptors(const engine::ShaderStages & shaderStages, uint32_t set, Descriptors & descriptors, const Resources & resources) const
-    {
-        if (settings.descriptorBufferEnabled) {
-            fillDescriptorBuffer(getDescriptorBuffer(descriptors), shaderStages, set, resources.getDescriptorBufferInfos());
-        } else {
-            fillDescriptorSet(getDescriptorSet(descriptors), shaderStages, set, resources.getDescriptorSetInfos());
-        }
-    }
+    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorSetInfos & sescriptorSetInfos) const;
+    void fillDescriptorBuffer(const engine::Buffer<std::byte> & descriptorBuffer, const engine::ShaderStages & shaderStages, uint32_t set, const DescriptorBufferInfos & descriptorBufferInfos) const;
 };
 
 class SceneManager

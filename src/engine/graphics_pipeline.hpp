@@ -19,9 +19,9 @@ struct GraphicsPipeline;
 
 struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
 {
-    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages, vk::RenderPass renderPass);
+    GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, vk::RenderPass renderPass);  // TODO: move render pass to GraphicsPipeline
 
-    [[nodiscard]] const ShaderStages & getShaderStages() const &;
+    [[nodiscard]] std::shared_ptr<const ShaderStages> getShaderStages() const;
     [[nodiscard]] vk::RenderPass getRenderPass() const &;
     [[nodiscard]] vk::PipelineLayout getPipelineLayout() const &;
     [[nodiscard]] operator vk::PipelineLayout() const &;  // NOLINT: google-explicit-constructor
@@ -31,7 +31,7 @@ private:
 
     std::string name;
 
-    const ShaderStages & shaderStages;
+    std::shared_ptr<const ShaderStages> shaderStages;
     const vk::RenderPass renderPass;
 
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
