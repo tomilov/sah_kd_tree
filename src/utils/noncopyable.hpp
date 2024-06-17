@@ -32,4 +32,22 @@ struct OneTime
     }
 };
 
+template<typename Derived>
+struct Copyable
+{
+    Copyable() = default;
+    Copyable(const Copyable &) = default;
+    Copyable & operator=(const Copyable &) = default;
+    Copyable(Copyable &&) noexcept = default;
+    Copyable & operator=(Copyable &&) noexcept = default;
+
+    static constexpr void checkTraits()
+    {
+        static_assert(std::is_copy_constructible_v<Derived>);
+        static_assert(std::is_copy_assignable_v<Derived>);
+        static_assert(std::is_nothrow_move_constructible_v<Derived>);
+        static_assert(std::is_nothrow_move_assignable_v<Derived>);
+    }
+};
+
 }  // namespace utils

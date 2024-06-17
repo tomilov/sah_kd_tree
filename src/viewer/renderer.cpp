@@ -130,41 +130,31 @@ private:
     }
 };
 
-struct Fence
+using Fence = std::shared_ptr<vk::UniqueFence>;
+
+[[nodiscard]] inline Fence makeFence(const engine::Context & context, vk::FenceCreateFlags flags = {})
 {
-    std::shared_ptr<vk::UniqueFence> fence;
+    auto device = context.getDevice().getDevice();
+    vk::FenceCreateInfo fenceCreateInfo = {
+        .flags = flags,
+    };
+    return std::make_shared<vk::UniqueFence>(device.createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+}
 
-    [[nodiscard]] static Fence make(const engine::Context & context, vk::FenceCreateFlags flags = {})
-    {
-        vk::FenceCreateInfo fenceCreateInfo = {
-            .flags = flags,
-        };
-        return {std::make_shared<vk::UniqueFence>(context.getDevice().getDevice().createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()))};
-    }
+inline void waitFence(const engine::Context & context, const Fence & fence)
+{
+    ASSERT(fence);
+    ASSERT(*fence);
+    auto device = context.getDevice().getDevice();
+    auto result = device.waitForFences(**fence, VK_TRUE, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+    INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
+    device.resetFences(**fence, context.getDispatcher());
+}
 
-    [[nodiscard]] const vk::Fence & get() const &
-    {
-        return **fence;
-    }
-
-    [[nodiscard]] operator const vk::Fence &() const &
-    {
-        return get();
-    }
-
-    [[nodiscard]] operator bool() const &
-    {
-        return !!fence;
-    }
-
-    void wait(const engine::Context & context) const
-    {
-        ASSERT(fence);
-        auto result = context.getDevice().getDevice().waitForFences(get(), VK_TRUE, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
-        INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
-        context.getDevice().getDevice().resetFences(get(), context.getDispatcher());
-    }
-};
+inline void checkFenceUnique(const Fence & fence)
+{
+    ASSERT_MSG(fence.use_count() == 1, "Non-unique use in single-threaded context: {}", fence.use_count());
+}
 
 class FencePool final : utils::NonCopyable
 {
@@ -180,13 +170,13 @@ public:
             fencePool.pop();
             return fence;
         }
-        return Fence::make(context);
+        return makeFence(context);
     }
 
-    void waitAndPut(Fence fence)
+    void waitAndPut(Fence && fence)
     {
-        ASSERT_MSG(fence.fence.use_count() == 1, "Non-unique use in single-threaded context: {}", fence.fence.use_count());
-        fence.wait(context);
+        checkFenceUnique(fence);
+        waitFence(context, fence);
         fencePool.push(std::move(fence));
     }
 
@@ -794,7 +784,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
             offscreenPass(displayCommandBuffer.getCommandBuffer(), *offscreenRenderPass.renderPass, displayResourcesAndDescriptors->resources.framebuffer);
             INVARIANT(!displayFence, "");
             displayFence = fencePool.get();
-            displayCommandBuffer.setCompletionFence(displayFence);
+            displayCommandBuffer.setCompletionFence(**displayFence);
             displayCommandBuffers = displayCommandBuffer.getCommandBuffers();
         }
     } else {
@@ -811,7 +801,7 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
         }
         graphicsPipeline.reset();
     }
-    const auto pipelineKind = frameSettings.useOffscreenTexture ? Scene::PipelineKind::kDisplay : Scene::PipelineKind::kScene;
+    const Scene::PipelineKind pipelineKind = frameSettings.useOffscreenTexture ? Scene::PipelineKind::kDisplay : Scene::PipelineKind::kScene;
     graphicsPipeline.emplace(scene->createGraphicsPipeline("direct"sv, renderPass, pipelineKind));
     return true;
 }
