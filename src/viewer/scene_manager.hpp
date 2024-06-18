@@ -276,14 +276,21 @@ class Scene
     : utils::NonCopyable
     , public std::enable_shared_from_this<Scene>
 {
+    struct Private
+    {
+        explicit Private() = default;
+    };
+
 public:
     struct Settings
     {
         bool indexTypeUint8Enabled = true;
-        bool descriptorBufferEnabled = false;
+        bool descriptorBufferEnabled = true;
         bool multiDrawIndirectEnabled = true;
         bool drawIndirectCountEnabled = true;
     };
+
+    Scene(Private, const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
     [[nodiscard]] static std::unique_ptr<Scene> make(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath,
                                                      scene_data::SceneData && sceneData);
@@ -334,8 +341,6 @@ private:
     void checkSettings() const;
     void verifyShaders() const;
     void checkSceneVertexFormat() const;
-
-    Scene(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData);
 
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;

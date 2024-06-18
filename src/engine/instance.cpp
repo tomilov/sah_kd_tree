@@ -237,17 +237,60 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
                 SPDLOG_WARN(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
             }
         }
-        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {  // TODO: replace with VK_EXT_layer_settings
+        if (enableExtensionIfAvailable(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)) {
+            auto & layerSettingsCreateInfo = instanceCreateInfoChain.get<vk::LayerSettingsCreateInfoEXT>();
+
+            vk::LayerSettingEXT layerSetting = {
+                .pLayerName = "VK_LAYER_KHRONOS_validation",
+            };
+            const auto setValues = [&layerSetting]<typename T>(const T & value)  // TODO: https://github.com/KhronosGroup/Vulkan-Hpp/issues/1907
+            {
+                if constexpr (std::is_array_v<T>) {
+                    layerSetting.valueCount = utils::autoCast(std::size(value));
+                    layerSetting.pValues = std::data(value);
+                } else {
+                    layerSetting.valueCount = 1;
+                    layerSetting.pValues = &value;
+                }
+            };
+            layerSetting.type = vk::LayerSettingTypeEXT::eString;
+            {
+                layerSetting.pSettingName = "validate_gpu_based";
+                static constexpr auto kValidateGpuBasedSetting = "GPU_BASED_NONE";  // "GPU_BASED_GPU_ASSISTED", "GPU_BASED_DEBUG_PRINTF"
+                setValues(kValidateGpuBasedSetting);
+                layerSettings.push_back(layerSetting);
+            }
+            layerSetting.type = vk::LayerSettingTypeEXT::eBool32;
+            {
+                layerSetting.pSettingName = "validate_best_practices";
+                static constexpr vk::Bool32 kValidateBestPracticesSetting = VK_TRUE;
+                setValues(kValidateBestPracticesSetting);
+                layerSettings.push_back(layerSetting);
+            }
+            {
+                layerSetting.pSettingName = "validate_best_practices_nvidia";
+                static constexpr vk::Bool32 kValidateBestPracticesNvidiaSetting = VK_TRUE;
+                setValues(kValidateBestPracticesNvidiaSetting);
+                layerSettings.push_back(layerSetting);
+            }
+
+            layerSettingsCreateInfo.setSettings(layerSettings);
+        } else {
+            instanceCreateInfoChain.unlink<vk::LayerSettingsCreateInfoEXT>();
+            SPDLOG_WARN("Layer settings instance extension is not available in debug build");
+        }
+#if 0
+        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
             auto & validationFeatures = instanceCreateInfoChain.get<vk::ValidationFeaturesEXT>();
 
             // both branches has bad interference with VK_EXT_descriptor_buffer
             if ((false)) {
-                enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eGpuAssisted, vk::ValidationFeatureEnableEXT::eGpuAssistedReserveBindingSlot});
+                enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eGpuAssisted, vk::ValidationFeatureEnableEXT::eGpuAssistedReserveBindingSlot});
             } else {
-                enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
+                enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
             }
-            enableValidationFeatures.insert(std::cend(enableValidationFeatures), {vk::ValidationFeatureEnableEXT::eBestPractices, vk::ValidationFeatureEnableEXT::eSynchronizationValidation});
-            validationFeatures.setEnabledValidationFeatures(enableValidationFeatures);
+            enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eBestPractices, vk::ValidationFeatureEnableEXT::eSynchronizationValidation});
+            validationFeatures.setEnabledValidationFeatures(enabledValidationFeatures);
 
             disabledValidationFeatures.insert(std::cend(disabledValidationFeatures), {vk::ValidationFeatureDisableEXT::eApiParameters});
             validationFeatures.setDisabledValidationFeatures(disabledValidationFeatures);
@@ -255,6 +298,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
             instanceCreateInfoChain.unlink<vk::ValidationFeaturesEXT>();
             SPDLOG_WARN("Validation features instance extension is not available in debug build");
         }
+#endif
     }
     for (const char * requiredExtension : requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
@@ -294,7 +338,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     instanceCreateInfo.setPEnabledExtensionNames(enabledExtensions);
 
     {
-        auto mute0x822806FA = muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
+        // auto mute0x822806FA = muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
     }
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
@@ -303,6 +347,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 
     if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
         instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
+        debugUtilsMessengerCreateInfo.pNext = nullptr;
         debugUtilsMessenger = instanceHolder->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
         instanceCreateInfoChain.relink<vk::DebugUtilsMessengerCreateInfoEXT>();
     }
@@ -373,17 +418,21 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
                 std::move(queues), std::move(buffers), */
                 messageIdNumber, callbackData.pMessage);
-    static const std::unordered_set<uint32_t> messageIdNumbers = {
-        0x215f02cd,
-        0xe1b89b63,
+    static const std::unordered_set<uint32_t> kMessageIdNumbers = {
+        // 0x215f02cd,
+        // 0xe1b89b63,
+        // 0x4768cf39,
+        // 0xef65bb29,
+        //
         // 0x23dfd876,
-        0x4768cf39,
         // 0x675dc32e,
         // 0x86974c1,
         // 0xda8260ba,
-        0xef65bb29,
+        // 0x2f637ff,
+        // 0xa96ad8,
+        // 0xc714b932,
     };
-    if (messageIdNumbers.contains(messageIdNumber)) {
+    if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");
     }
     return VK_FALSE;
@@ -391,6 +440,10 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
 
 vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
+    static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {};
+    if (kMutedMessageIdNumbers.contains(callbackData.messageIdNumber)) {
+        return VK_FALSE;
+    }
     if (shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
         return VK_FALSE;
     }

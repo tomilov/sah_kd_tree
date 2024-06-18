@@ -59,7 +59,7 @@ vk::Format indexTypeToFormat(vk::IndexType indexType)
     case vk::IndexType::eNoneKHR: {
         INVARIANT(false, "{} is not supported", indexType);
     }
-    case vk::IndexType::eUint8EXT: {
+    case vk::IndexType::eUint8KHR: {
         return vk::Format::eR8Uint;
     }
     }
@@ -72,7 +72,7 @@ uint32_t indexTypeRank(vk::IndexType indexType)
     case vk::IndexType::eNoneKHR: {
         return 0;
     }
-    case vk::IndexType::eUint8EXT: {
+    case vk::IndexType::eUint8KHR: {
         return 1;
     }
     case vk::IndexType::eUint16: {
@@ -368,9 +368,24 @@ auto DisplayResources::getDescriptorBufferInfos() const -> DescriptorBufferInfos
     };
 }
 
+Scene::Scene(Private, const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
+    : settings{settings}
+    , context{context}
+    , pipelineCache{std::move(pipelineCache)}
+    , scenePath{std::move(scenePath)}
+    , sceneData{std::move(sceneData)}
+{
+    checkSettings();
+
+    sceneShaders = Shaders::make("scene"sv, context, fileIo, settings.descriptorBufferEnabled, {{"identity.vert"sv, "main"sv}, {"barycentric_color.frag"sv, "main"sv}});
+    displayShaders = Shaders::make("display"sv, context, fileIo, settings.descriptorBufferEnabled, {{"fullscreen_rect.vert"sv, "main"sv}, {"offscreen.frag"sv, "main"sv}});
+    verifyShaders();
+    checkSceneVertexFormat();
+}
+
 std::unique_ptr<Scene> Scene::make(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
 {
-    return std::unique_ptr<Scene>{new Scene{settings, context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(sceneData)}};
+    return std::make_unique<Scene>(Private{}, settings, context, fileIo, std::move(pipelineCache), std::move(scenePath), std::move(sceneData));
 }
 
 auto Scene::getSettings() const & -> const Settings &
@@ -439,7 +454,7 @@ SceneResources Scene::makeSceneResources() const
             auto firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
             uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
             if (settings.indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
-                indexType = vk::IndexType::eUint8EXT;
+                indexType = vk::IndexType::eUint8KHR;
             } else if (maxIndex <= std::numeric_limits<IndexCppType<vk::IndexType::eUint16>>::max()) {
                 indexType = vk::IndexType::eUint16;
             } else {
@@ -508,8 +523,8 @@ SceneResources Scene::makeSceneResources() const
                     // no indices have to be copied
                     break;
                 }
-                case vk::IndexType::eUint8EXT: {
-                    convertCopy(static_cast<IndexCppType<vk::IndexType::eUint8EXT> *>(indices));
+                case vk::IndexType::eUint8KHR: {
+                    convertCopy(static_cast<IndexCppType<vk::IndexType::eUint8KHR> *>(indices));
                     break;
                 }
                 case vk::IndexType::eUint16: {
@@ -556,7 +571,7 @@ SceneResources Scene::makeSceneResources() const
     auto transformBuffer = createTransformBuffer(totalInstanceCount, transforms);
 
     std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
-    if ((true)) {  // TODO: can scene be empty?
+    if (!sceneData.vertices.isEmpty()) {
         vk::BufferCreateInfo vertexBufferCreateInfo;
         vertexBufferCreateInfo.size = sceneData.vertices.getCount() * sizeof(scene_data::VertexAttributes);
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
@@ -643,7 +658,7 @@ void Scene::checkSettings() const
 
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesEXT>().indexTypeUint8 == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesKHR>().indexTypeUint8 == VK_FALSE) {
             INVARIANT(false, "");
         }
     }
@@ -797,21 +812,6 @@ void Scene::checkSceneVertexFormat() const
     }
     ASSERT(vertexSize != 0);
     INVARIANT(sizeof(scene_data::VertexAttributes) == vertexSize, "{} != {}", sizeof(scene_data::VertexAttributes), vertexSize);
-}
-
-Scene::Scene(const Settings & settings, const engine::Context & context, const FileIo & fileIo, std::shared_ptr<const engine::PipelineCache> pipelineCache, std::filesystem::path scenePath, scene_data::SceneData && sceneData)
-    : settings{settings}
-    , context{context}
-    , pipelineCache{std::move(pipelineCache)}
-    , scenePath{std::move(scenePath)}
-    , sceneData{std::move(sceneData)}
-{
-    checkSettings();
-
-    sceneShaders = Shaders::make("scene"sv, context, fileIo, settings.descriptorBufferEnabled, {{"identity.vert"sv, "main"sv}, {"barycentric_color.frag"sv, "main"sv}});
-    displayShaders = Shaders::make("display"sv, context, fileIo, settings.descriptorBufferEnabled, {{"fullscreen_rect.vert"sv, "main"sv}, {"offscreen.frag"sv, "main"sv}});
-    verifyShaders();
-    checkSceneVertexFormat();
 }
 
 size_t Scene::getDescriptorSize(vk::DescriptorType descriptorType) const

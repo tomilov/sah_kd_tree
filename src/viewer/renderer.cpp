@@ -221,14 +221,26 @@ struct DisplayResourcesAndDescriptors
     {}
 };
 
-class DisplayPool final
+class DisplayResourcesAndDescriptorsPool final
     : utils::NonCopyable
-    , public std::enable_shared_from_this<DisplayPool>
+    , public std::enable_shared_from_this<DisplayResourcesAndDescriptorsPool>
 {
-public:
-    [[nodiscard]] static std::shared_ptr<DisplayPool> make(const engine::Context & context, std::shared_ptr<const Scene> scene)
+    struct Private
     {
-        return std::shared_ptr<DisplayPool>{new DisplayPool{context, std::move(scene)}};
+        explicit Private() = default;
+    };
+
+public:
+    DisplayResourcesAndDescriptorsPool(Private, const engine::Context & context, std::shared_ptr<const Scene> scene)
+        : offscreenRenderPass{OffscreenRenderPass::make(context)}
+        , scene{std::move(scene)}
+        , graphicsPipeline{this->scene->createSceneGraphicsPipeline("offscreen"sv, *offscreenRenderPass.renderPass)}
+        , sampler{makeSampler(context)}
+    {}
+
+    [[nodiscard]] static std::shared_ptr<DisplayResourcesAndDescriptorsPool> make(const engine::Context & context, std::shared_ptr<const Scene> scene)
+    {
+        return std::make_shared<DisplayResourcesAndDescriptorsPool>(Private{}, context, std::move(scene));
     }
 
     const OffscreenRenderPass & getOffscreenRenderPass() const &
@@ -241,31 +253,38 @@ public:
         return graphicsPipeline;
     }
 
-    [[nodiscard]] std::shared_ptr<DisplayResourcesAndDescriptors> getDisplayDescriptors(const vk::Extent2D & framebufferSize) &
+    [[nodiscard]] std::shared_ptr<DisplayResourcesAndDescriptors> get(const vk::Extent2D & framebufferSize) &
     {
         std::shared_ptr<DisplayResourcesAndDescriptors> resourcesAndDescriptors;
-        while (!resourcesAndDescriptorsPool.empty()) {
-            resourcesAndDescriptors = std::move(resourcesAndDescriptorsPool.top());
-            resourcesAndDescriptorsPool.pop();
+        while (!pool.empty()) {
+            resourcesAndDescriptors = std::move(pool.top());
+            pool.pop();
             const auto & framebuffer = resourcesAndDescriptors->resources.framebuffer;
-            constexpr auto framebufferNotGreater = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
+            constexpr auto isIncludes = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
             {
                 return lhs.width <= rhs.width && lhs.height <= rhs.height;
             };
-            if (!framebufferNotGreater(framebuffer.size, framebufferSize)) {
+            if (!isIncludes(framebufferSize, framebuffer.size)) {
                 break;
             }
             return resourcesAndDescriptors;
         }
-        auto resources = scene->makeDisplayResources(framebufferSize, offscreenRenderPass, sampler);
-        auto descriptors = resourcesAndDescriptors ? std::move(resourcesAndDescriptors->descriptors) : scene->makeDescriptors(resources);
-        return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
+        if (resourcesAndDescriptors) {
+            auto resources = scene->makeDisplayResources(framebufferSize, offscreenRenderPass, std::move(resourcesAndDescriptors->resources.sampler));
+            auto descriptors = std::move(resourcesAndDescriptors->descriptors);
+            scene->fillDescriptors(resources, descriptors);
+            return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
+        } else {
+            auto resources = scene->makeDisplayResources(framebufferSize, offscreenRenderPass, sampler);
+            auto descriptors = scene->makeDescriptors(resources);
+            return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
+        }
     }
 
-    void putDisplayDescriptors(std::shared_ptr<DisplayResourcesAndDescriptors> resourcesAndDescriptors) &
+    void put(std::shared_ptr<DisplayResourcesAndDescriptors> resourcesAndDescriptors) &
     {
         ASSERT_MSG(resourcesAndDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", resourcesAndDescriptors.use_count());
-        resourcesAndDescriptorsPool.push(std::move(resourcesAndDescriptors));
+        pool.push(std::move(resourcesAndDescriptors));
     }
 
 private:
@@ -273,14 +292,7 @@ private:
     const std::shared_ptr<const Scene> scene;
     const GraphicsPipeline graphicsPipeline;
     const std::shared_ptr<const vk::UniqueSampler> sampler;
-    ResourceStack<std::shared_ptr<DisplayResourcesAndDescriptors>> resourcesAndDescriptorsPool;
-
-    DisplayPool(const engine::Context & context, std::shared_ptr<const Scene> scene)
-        : offscreenRenderPass{OffscreenRenderPass::make(context)}
-        , scene{std::move(scene)}
-        , graphicsPipeline{this->scene->createSceneGraphicsPipeline("offscreen"sv, *offscreenRenderPass.renderPass)}
-        , sampler{makeSampler(context)}
-    {}
+    ResourceStack<std::shared_ptr<DisplayResourcesAndDescriptors>> pool;
 
     static std::shared_ptr<const vk::UniqueSampler> makeSampler(const engine::Context & context)
     {
@@ -408,6 +420,11 @@ template<typename T, typename U>
 constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
     0x5C0EC5D6,
     0xE4D96472,
+    0x6d0c146d,
+    0xb302c33b,
+    0x2f637ff,
+    // 0xa96ad8,  // TODO: implement vkBindBufferMemory wrapper in VMA?
+    0xc714b932,
 };
 
 void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
@@ -454,13 +471,13 @@ struct Renderer::Impl : utils::NonCopyable
 
     FencePool fencePool{context};
 
-    std::shared_ptr<const GraphicsPipeline> directGraphicsPipeline;  // TODO: make shared and prolongate lifetime
+    std::shared_ptr<const GraphicsPipeline> directGraphicsPipeline;
     std::shared_ptr<const GraphicsPipeline> displayGraphicsPipeline;
-    std::shared_ptr<const SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
+    std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
 
-    std::shared_ptr<DisplayPool> displayPool;
+    std::shared_ptr<DisplayResourcesAndDescriptorsPool> displayPool;
 
     Fence displayFence;
     std::shared_ptr<const engine::CommandBuffers> displayCommandBuffers;
@@ -613,6 +630,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         vk::Rect2D scissor;
         if (frameSettings.useOffscreenTexture) {
             vk::Extent2D extent = displayResourcesAndDescriptors->resources.framebuffer.size;
+            SPDLOG_INFO("{}x{}", extent.width, extent.height);
             viewport = {
                 .x = 0.0f,
                 .y = 0.0f,
@@ -789,12 +807,12 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
 
     if (displayResourcesAndDescriptors) {
-        Recycler recycler = [this, displayPool = displayPool, displaySetResources = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers), displayFence = std::move(displayFence)]() mutable
+        Recycler recycler = [this, displayPool = displayPool, displayResourcesAndDescriptors = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers), displayFence = std::move(displayFence)]() mutable
         {
             if (displayFence) {
                 fencePool.waitAndPut(std::move(displayFence));
             }
-            displayPool->putDisplayDescriptors(std::move(displaySetResources));
+            displayPool->put(std::move(displayResourcesAndDescriptors));
             displayCommandBuffers.reset();
         };
         deferDeletion(previousFrameSlot, std::move(recycler));
@@ -803,7 +821,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
     if (frameSettings.useOffscreenTexture) {
         if (!displayPool) {
-            displayPool = DisplayPool::make(context, scene);
+            displayPool = DisplayResourcesAndDescriptorsPool::make(context, scene);
         }
         float width = std::ceil(frameSettings.width);
         float height = std::ceil(frameSettings.height);
@@ -812,7 +830,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
             .height = utils::autoCast(height),
         };
 
-        displayResourcesAndDescriptors = displayPool->getDisplayDescriptors(framebufferSize);
+        displayResourcesAndDescriptors = displayPool->get(framebufferSize);
         {
             ScopedCommandBuffer displayCommandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
             const OffscreenRenderPass & offscreenRenderPass = displayPool->getOffscreenRenderPass();

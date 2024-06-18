@@ -120,10 +120,12 @@ private:
 
     vk::ApplicationInfo applicationInfo;
 
-    std::vector<vk::ValidationFeatureEnableEXT> enableValidationFeatures;
+    std::vector<vk::ValidationFeatureEnableEXT> enabledValidationFeatures;
     std::vector<vk::ValidationFeatureDisableEXT> disabledValidationFeatures;
 
-    vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT, vk::ValidationFeaturesEXT> instanceCreateInfoChain;
+    std::vector<vk::LayerSettingEXT> layerSettings;
+
+    vk::StructureChain<vk::InstanceCreateInfo, vk::DebugUtilsMessengerCreateInfoEXT, vk::LayerSettingsCreateInfoEXT> instanceCreateInfoChain;
     vk::UniqueInstance instanceHolder;
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;

@@ -49,15 +49,15 @@ public:
 
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
-    [[nodiscard]] Buffer<void> createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::DeviceSize minAlignment) const &;
-    [[nodiscard]] Buffer<void> createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment) const &;
-    [[nodiscard]] Buffer<void> createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment) const &;
+    [[nodiscard]] Buffer<void> createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority = 0.5f) const &;
+    [[nodiscard]] Buffer<void> createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, float priority = 0.5f) const &;
+    [[nodiscard]] Buffer<void> createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, float priority = 0.5f) const &;
 
-    [[nodiscard]] Image createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask) const &;
-    [[nodiscard]] Image createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const &;
-    [[nodiscard]] Image createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask) const &;
+    [[nodiscard]] Image createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority = 0.5f) const &;
+    [[nodiscard]] Image createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, float priority = 0.5f) const &;
+    [[nodiscard]] Image createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, float priority = 0.5f) const &;
 
-    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask) const &;
+    [[nodiscard]] Image createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask, float priority = 0.5f) const &;
 
 private:
     friend class MappedMemory<void>;

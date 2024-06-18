@@ -146,8 +146,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
             }
         }
         using MaskType = vk::QueueFlags::MaskType;
-        // auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags); // TODO: change at fix
-        auto currentExtraQueueFlags = (queueFlags & vk::QueueFlags(utils::safeCast<MaskType>(desiredQueueFlags) ^ utils::safeCast<MaskType>(vk::FlagTraits<vk::QueueFlagBits>::allFlags)));
+        auto currentExtraQueueFlags = (queueFlags & ~desiredQueueFlags);
         if (!currentExtraQueueFlags) {
             bestMatchQueueFamily = queueFamilyIndex;
             bestMatchQueueFalgs = queueFlags;

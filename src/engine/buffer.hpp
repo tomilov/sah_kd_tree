@@ -171,7 +171,7 @@ private:
 
     [[nodiscard]] void * getMappedData() const &;
 
-    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment);
+    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority);
 
     static constexpr void completeClassContext()
     {

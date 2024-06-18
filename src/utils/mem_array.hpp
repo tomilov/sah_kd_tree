@@ -18,6 +18,11 @@ public:
         , p{std::make_unique<T[]>(size)}
     {}
 
+    [[nodiscard]] bool isEmpty() const
+    {
+        return !p;
+    }
+
     [[nodiscard]] size_t getCount() const
     {
         return size;
