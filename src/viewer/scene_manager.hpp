@@ -346,7 +346,6 @@ private:
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
 
     [[nodiscard]] engine::Buffer<glm::mat4> createTransformBuffer(uint32_t totalInstanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const;
-    // [[nodiscard]] std::optional<engine::Buffer<scene_data::VertexAttributes>> createSceneVertexBuffer() const;
 
     [[nodiscard]] engine::Buffer<UniformBuffer> createUniformBuffer() const;
 

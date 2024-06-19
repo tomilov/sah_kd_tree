@@ -73,7 +73,7 @@ ApplicationWindow {
         Action {
             text: qsTr("Open")
             onTriggered: {
-                sceneOpenDialog.item = item
+                sceneOpenDialog.item = contextMenu.item
                 sceneOpenDialog.open()
             }
         }
@@ -306,6 +306,7 @@ ApplicationWindow {
                 property alias cameraPosition: sahKdTreeViewer.cameraPosition
                 property alias eulerAngles: sahKdTreeViewer.eulerAngles
                 property alias fieldOfView: sahKdTreeViewer.fieldOfView
+                property alias useOffscreenTexture: sahKdTreeViewer.useOffscreenTexture
             }
 
             Component.onCompleted: console.log("created")
@@ -415,6 +416,7 @@ ApplicationWindow {
                     property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
                     property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
                     property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
+                    property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
                 }
             }
 

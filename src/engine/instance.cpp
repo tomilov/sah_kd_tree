@@ -243,62 +243,42 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
             vk::LayerSettingEXT layerSetting = {
                 .pLayerName = "VK_LAYER_KHRONOS_validation",
             };
-            const auto setValues = [&layerSetting]<typename T>(const T & value)  // TODO: https://github.com/KhronosGroup/Vulkan-Hpp/issues/1907
+            const auto setValues = [&]<typename T = const char *>(const char * settingName, std::initializer_list<T> value)
             {
-                if constexpr (std::is_array_v<T>) {
-                    layerSetting.valueCount = utils::autoCast(std::size(value));
-                    layerSetting.pValues = std::data(value);
+                layerSetting.pSettingName = settingName;
+                if constexpr (std::is_same_v<T, vk::Bool32>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eBool32;
+                } else if constexpr (std::is_same_v<T, int32_t>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eInt32;
+                } else if constexpr (std::is_same_v<T, int64_t>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eInt64;
+                } else if constexpr (std::is_same_v<T, uint32_t>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eUint32;
+                } else if constexpr (std::is_same_v<T, uint64_t>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eUint64;
+                } else if constexpr (std::is_same_v<T, float>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eFloat32;
+                } else if constexpr (std::is_same_v<T, double>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eFloat64;
+                } else if constexpr (std::is_same_v<T, const char *>) {
+                    layerSetting.type = vk::LayerSettingTypeEXT::eString;
                 } else {
-                    layerSetting.valueCount = 1;
-                    layerSetting.pValues = &value;
+                    static_assert(sizeof(T) == 0, "Type is not supported");
                 }
+                layerSetting.valueCount = utils::autoCast(std::size(value));  // TODO: https://github.com/KhronosGroup/Vulkan-Hpp/issues/1907
+                layerSetting.pValues = std::data(value);
+                layerSettings.push_back(layerSetting);
             };
-            layerSetting.type = vk::LayerSettingTypeEXT::eString;
-            {
-                layerSetting.pSettingName = "validate_gpu_based";
-                static constexpr auto kValidateGpuBasedSetting = "GPU_BASED_NONE";  // "GPU_BASED_GPU_ASSISTED", "GPU_BASED_DEBUG_PRINTF"
-                setValues(kValidateGpuBasedSetting);
-                layerSettings.push_back(layerSetting);
-            }
-            layerSetting.type = vk::LayerSettingTypeEXT::eBool32;
-            {
-                layerSetting.pSettingName = "validate_best_practices";
-                static constexpr vk::Bool32 kValidateBestPracticesSetting = VK_TRUE;
-                setValues(kValidateBestPracticesSetting);
-                layerSettings.push_back(layerSetting);
-            }
-            {
-                layerSetting.pSettingName = "validate_best_practices_nvidia";
-                static constexpr vk::Bool32 kValidateBestPracticesNvidiaSetting = VK_TRUE;
-                setValues(kValidateBestPracticesNvidiaSetting);
-                layerSettings.push_back(layerSetting);
-            }
+            // setValues("validate_gpu_based", {"GPU_BASED_DEBUG_PRINTF"});  // "GPU_BASED_GPU_ASSISTED"
+            setValues("validate_sync", {vk::Bool32{VK_TRUE}});
+            // setValues("validate_best_practices", {vk::Bool32{VK_TRUE}});
+            // setValues("validate_best_practices_nvidia", {vk::Bool32{VK_TRUE}});
 
             layerSettingsCreateInfo.setSettings(layerSettings);
         } else {
             instanceCreateInfoChain.unlink<vk::LayerSettingsCreateInfoEXT>();
             SPDLOG_WARN("Layer settings instance extension is not available in debug build");
         }
-#if 0
-        if (enableExtensionIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
-            auto & validationFeatures = instanceCreateInfoChain.get<vk::ValidationFeaturesEXT>();
-
-            // both branches has bad interference with VK_EXT_descriptor_buffer
-            if ((false)) {
-                enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eGpuAssisted, vk::ValidationFeatureEnableEXT::eGpuAssistedReserveBindingSlot});
-            } else {
-                enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eDebugPrintf});
-            }
-            enabledValidationFeatures.insert(std::cend(enabledValidationFeatures), {vk::ValidationFeatureEnableEXT::eBestPractices, vk::ValidationFeatureEnableEXT::eSynchronizationValidation});
-            validationFeatures.setEnabledValidationFeatures(enabledValidationFeatures);
-
-            disabledValidationFeatures.insert(std::cend(disabledValidationFeatures), {vk::ValidationFeatureDisableEXT::eApiParameters});
-            validationFeatures.setDisabledValidationFeatures(disabledValidationFeatures);
-        } else {
-            instanceCreateInfoChain.unlink<vk::ValidationFeaturesEXT>();
-            SPDLOG_WARN("Validation features instance extension is not available in debug build");
-        }
-#endif
     }
     for (const char * requiredExtension : requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredExtension)) {
@@ -431,6 +411,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
         // 0x2f637ff,
         // 0xa96ad8,
         // 0xc714b932,
+        0xa4164ba5,
     };
     if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");

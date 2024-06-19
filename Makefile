@@ -162,6 +162,7 @@ format: venv
 	black src/
 	isort --profile black src/
 	MYPYPATH=$(ROOT_DIR)/external/SPIRV-Headers/include mypy src/
+	git status
 
 .PHONY: pytest
 pytest: venv

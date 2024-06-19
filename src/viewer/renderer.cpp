@@ -243,7 +243,7 @@ public:
         return std::make_shared<DisplayResourcesAndDescriptorsPool>(Private{}, context, std::move(scene));
     }
 
-    const OffscreenRenderPass & getOffscreenRenderPass() const &
+    [[nodiscard]] const OffscreenRenderPass & getOffscreenRenderPass() const &
     {
         return offscreenRenderPass;
     }
@@ -265,6 +265,13 @@ public:
                 return lhs.width <= rhs.width && lhs.height <= rhs.height;
             };
             if (!isIncludes(framebufferSize, framebuffer.size)) {
+                break;
+            }
+            constexpr auto tooLess = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
+            {
+                return (lhs.width <= rhs.width / 2) || (lhs.height <= rhs.height / 2);
+            };
+            if (tooLess(framebufferSize, framebuffer.size)) {
                 break;
             }
             return resourcesAndDescriptors;
@@ -565,11 +572,11 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-    displayGraphicsPipeline.reset();
-    directGraphicsPipeline.reset();
+    // displayGraphicsPipeline.reset();
+    // directGraphicsPipeline.reset();
     displayPool.reset();
-    frameResourcesAndDescriptors.reset();
-    frameResourcesAndDescriptorsPool.clear();
+    // frameResourcesAndDescriptors.reset();
+    // frameResourcesAndDescriptorsPool.clear();
     sceneResourcesAndDescriptors.reset();
     this->scene = std::move(scene);
 }
@@ -630,7 +637,6 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         vk::Rect2D scissor;
         if (frameSettings.useOffscreenTexture) {
             vk::Extent2D extent = displayResourcesAndDescriptors->resources.framebuffer.size;
-            SPDLOG_INFO("{}x{}", extent.width, extent.height);
             viewport = {
                 .x = 0.0f,
                 .y = 0.0f,
@@ -649,6 +655,12 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         } else {
             viewport = frameSettings.viewport;
             scissor = frameSettings.scissor;
+        }
+        if (viewport.width == 0.0f) {
+            viewport.width = 1.0f;
+        }
+        if (viewport.height == 0.0f) {
+            viewport.height = 1.0f;
         }
 
         constexpr uint32_t kFirstViewport = 0;
@@ -854,7 +866,7 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
         }
         graphicsPipeline.reset();
     }
-    const auto createGraphicsPipeline = [&]
+    const auto createGraphicsPipeline = [this, &renderPass]
     {
         if (frameSettings.useOffscreenTexture) {
             return scene->createDisplayGraphicsPipeline("direct"sv, renderPass);
@@ -887,12 +899,14 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
 
 auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndDescriptors>
 {
-    while (!std::empty(frameResourcesAndDescriptorsPool)) {
-        auto frameDescriptors = std::move(frameResourcesAndDescriptorsPool.top());
+    std::shared_ptr<FrameResourcesAndDescriptors> resourcesAndDescriptors;
+    if (!std::empty(frameResourcesAndDescriptorsPool)) {
+        resourcesAndDescriptors = std::move(frameResourcesAndDescriptorsPool.top());
         frameResourcesAndDescriptorsPool.pop();
-        if (true) {
-            return frameDescriptors;
+        if (frameSettings.useOffscreenTexture && !resourcesAndDescriptors->displayDescriptors) {
+            resourcesAndDescriptors->displayDescriptors.emplace(scene->makeDescriptors(resourcesAndDescriptors->resources, true));
         }
+        return resourcesAndDescriptors;
     }
     auto resources = scene->makeFrameResources();
     auto sceneDescriptors = scene->makeDescriptors(resources, false);
