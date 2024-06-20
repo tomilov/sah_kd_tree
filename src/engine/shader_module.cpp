@@ -556,8 +556,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     entryPointNames.emplace_back(entryPointName);
     const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getName(), entryPointName));
 
-    shaderStages.emplace_back();
-    auto & pipelineShaderStageCreateInfo = shaderStages.back<vk::PipelineShaderStageCreateInfo>();
+    auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo = {
         .flags = {},
         .stage = shaderModule.getShaderStage(),
@@ -565,10 +564,11 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
         .pName = entryPointNames.back().c_str(),
         .pSpecializationInfo = nullptr,
     };
-    auto & debugUtilsObjectNameInfo = shaderStages.back<vk::DebugUtilsObjectNameInfoEXT>();
     debugUtilsObjectNameInfo.objectType = shaderModule.getShaderModule().objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getShaderModule()));
     debugUtilsObjectNameInfo.pObjectName = name.c_str();
+
+    pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 
     if (shaderModule.getShaderStage() == vk::ShaderStageFlagBits::eVertex) {
         vertexInputState.emplace(shaderModuleReflection.getVertexInputState(vertexBufferBinding));

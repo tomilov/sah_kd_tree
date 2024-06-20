@@ -44,7 +44,6 @@ struct UniformBuffer
     float zNear = 1E-2f;
     float zFar = 1E4;
     glm::vec3 position{0.0f};
-    float t = 0.0f;
 };
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<UniformBuffer>);

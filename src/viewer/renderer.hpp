@@ -29,7 +29,6 @@ struct FrameSettings
     float zFar = 1E3f;
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
-    float t = 0.0f;
     vk::Rect2D scissor = {};
     vk::Viewport viewport = {};
     float width = 0.0f;
@@ -55,7 +54,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 472;
+    static constexpr size_t kSize = 464;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

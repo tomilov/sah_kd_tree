@@ -353,10 +353,8 @@ ApplicationWindow {
 
     Item {
         anchors.fill: parent
-        rotation: -30.0
-        Item {
+        RowLayout {
             anchors.fill: parent
-            rotation: 30.0
 
             SahKdTreeViewer {
                 id: mainSahKdTreeViewer
@@ -364,7 +362,8 @@ ApplicationWindow {
 
                 engine: SahKdTreeEngine
 
-                anchors.fill: parent
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
                 //layer.enabled: true
                 //clip: true

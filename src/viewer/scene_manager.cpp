@@ -134,8 +134,8 @@ Shaders::Shaders(Private, std::string_view name, const engine::Context & context
 }
 
 GraphicsPipeline::GraphicsPipeline(std::string_view name, const engine::Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, std::shared_ptr<const engine::ShaderStages> shaderStages, vk::RenderPass renderPass)
-    : pipelineLayout{name, context, shaderStages, renderPass}
-    , pipeline{name, context, useDescriptorBuffer, pipelineCache, pipelineLayout}
+    : pipelineLayout{name, context, shaderStages}
+    , pipeline{name, context, useDescriptorBuffer, pipelineCache, pipelineLayout, renderPass}
 {}
 
 OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)

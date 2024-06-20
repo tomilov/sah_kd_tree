@@ -43,7 +43,6 @@ class Viewer : public QQuickItem
     Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
     Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
-    Q_PROPERTY(float t MEMBER t NOTIFY tChanged)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
 
@@ -68,7 +67,6 @@ Q_SIGNALS:
     void engineChanged(Engine * engine);
 
     void scenePathChanged(QUrl scenePath);
-    void tChanged(qreal t);
 
     void useOffscreenTextureChanged(bool useOffscreenTexture);
 
@@ -108,7 +106,6 @@ private:
     Engine * engine = nullptr;
 
     QUrl scenePath;
-    float t = 0.0;
 
     bool useOffscreenTexture = false;
 

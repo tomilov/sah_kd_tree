@@ -183,9 +183,9 @@ template<typename T>
 class ENGINE_EXPORT Buffer final : utils::OneTime<Buffer<T>>
 {
 public:
-    Buffer(Buffer<void> && buffer) noexcept
+    Buffer(Buffer<void> && buffer) noexcept  // NOLINT: google-explicit-constructor
         : buffer{std::move(buffer)}
-        , count{base().getSize() / sizeof(T)}  // NOLINT: google-explicit-constructor
+        , count{base().getSize() / sizeof(T)}
     {
         ASSERT(count > 0);
         ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);

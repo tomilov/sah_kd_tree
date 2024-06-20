@@ -770,7 +770,7 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
     const auto & context = memoryAllocator.impl_->context;
     const auto & dispatcher = context.getDispatcher();
-    if (dispatcher.vkSetDeviceMemoryPriorityEXT) {  // TODO: remove
+    if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
         context.getDevice().getDevice().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
     }
 

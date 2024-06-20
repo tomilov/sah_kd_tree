@@ -442,7 +442,6 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
         .position = frameSettings.position,
-        .t = frameSettings.t,
     };
 }
 
@@ -478,8 +477,8 @@ struct Renderer::Impl : utils::NonCopyable
 
     FencePool fencePool{context};
 
-    std::shared_ptr<const GraphicsPipeline> directGraphicsPipeline;
-    std::shared_ptr<const GraphicsPipeline> displayGraphicsPipeline;
+    std::shared_ptr<GraphicsPipeline> directGraphicsPipeline;
+    std::shared_ptr<GraphicsPipeline> displayGraphicsPipeline;
     std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
@@ -749,7 +748,7 @@ void Renderer::Impl::offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPa
                     0.0f,
                     0.0f,
                     0.0f,
-                    1.0f,
+                    0.0f,
                 }},
             },
         },
@@ -861,10 +860,10 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
 {
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayGraphicsPipeline : directGraphicsPipeline;
     if (graphicsPipeline) {
-        if (graphicsPipeline->pipelineLayout.getRenderPass() == renderPass) {
+        if (graphicsPipeline->pipeline.getRenderPass() == renderPass) {
             return false;
         }
-        graphicsPipeline.reset();
+        graphicsPipeline.reset();  // TODO: reuse layout
     }
     const auto createGraphicsPipeline = [this, &renderPass]
     {

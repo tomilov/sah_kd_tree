@@ -7,5 +7,4 @@ layout(set = 0, binding = 0, scalar) uniform UniformBuffer
     float zNear;
     float zFar;
     vec3 position;
-    float t;
 } uniformBuffer;

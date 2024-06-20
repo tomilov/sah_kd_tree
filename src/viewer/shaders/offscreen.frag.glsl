@@ -11,5 +11,10 @@ layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-    fragColor = vec4(texture(display, uv).rgb, uniformBuffer.alpha);
+    vec4 color = texture(display, uv);
+    if (color.a == 0.0f) {
+        discard;
+    } else {
+        fragColor = vec4(color.rgb, uniformBuffer.alpha);
+    }
 }

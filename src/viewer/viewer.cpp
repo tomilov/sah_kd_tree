@@ -549,7 +549,6 @@ FrameSettings Viewer::getFrameSettings() const
     frameSettings.position = glm::vec3{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
     auto orientation = QQuaternion::fromEulerAngles(eulerAngles);
     frameSettings.orientation = glm::quat{orientation.scalar(), orientation.x(), orientation.y(), orientation.z()};
-    frameSettings.t = t;
 
     qreal alpha = opacity();
     qreal scaleFactor = scale();

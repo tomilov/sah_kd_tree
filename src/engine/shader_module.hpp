@@ -110,8 +110,6 @@ private:
 
 struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 {
-    using PipelineShaderStageCreateInfoChains = StructureChains<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>;
-
     struct SetBindings
     {
         uint32_t setIndex = std::numeric_limits<uint32_t>::max();
@@ -131,7 +129,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     std::deque<std::string> entryPointNames;
     std::deque<std::string> names;
-    PipelineShaderStageCreateInfoChains shaderStages;
+    std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>> pipelineShaderStageCreateInfoChains;
+    std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
     std::optional<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;

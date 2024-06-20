@@ -12,14 +12,12 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, vk::RenderPass renderPass)
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages)
     : name{name}
     , shaderStages{shaderStages}
-    , renderPass{renderPass}
 {
     ASSERT(!std::empty(name));
     ASSERT(shaderStages);
-    ASSERT(renderPass);
 
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
@@ -104,11 +102,6 @@ std::shared_ptr<const ShaderStages> GraphicsPipelineLayout::getShaderStages() co
     return shaderStages;
 }
 
-vk::RenderPass GraphicsPipelineLayout::getRenderPass() const &
-{
-    return renderPass;
-}
-
 vk::PipelineLayout GraphicsPipelineLayout::getPipelineLayout() const &
 {
     ASSERT(pipelineLayout);
@@ -120,13 +113,13 @@ GraphicsPipelineLayout::operator vk::PipelineLayout() const &
     return getPipelineLayout();
 }
 
-void GraphicsPipelineLayout::fill(vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer) const
+void GraphicsPipelineLayout::fill(vk::GraphicsPipelineCreateInfo & graphicsPipelineCreateInfo, bool useDescriptorBuffer, vk::RenderPass renderPass) const
 {
     graphicsPipelineCreateInfo.flags = {};
     if (useDescriptorBuffer) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
-    graphicsPipelineCreateInfo.setStages(shaderStages->shaderStages.ref());
+    graphicsPipelineCreateInfo.setStages(shaderStages->pipelineShaderStageCreateInfos);
     if (shaderStages->vertexInputState) {
         graphicsPipelineCreateInfo.pVertexInputState = &shaderStages->vertexInputState.value().pipelineVertexInputStateCreateInfo;
     }
@@ -145,11 +138,14 @@ void GraphicsPipelineLayout::fill(vk::GraphicsPipelineCreateInfo & graphicsPipel
     graphicsPipelineCreateInfo.basePipelineIndex = 0;
 }
 
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, const GraphicsPipelineLayout & graphicsPipelineLayout)
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, bool useDescriptorBuffer, vk::PipelineCache pipelineCache, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass)
     : name{name}
     , useDescriptorBuffer{useDescriptorBuffer}
+    , renderPass{renderPass}
 {
-    graphicsPipelineLayout.fill(graphicsPipelineCreateInfo, useDescriptorBuffer);
+    ASSERT(renderPass);
+
+    graphicsPipelineLayout.fill(graphicsPipelineCreateInfo, useDescriptorBuffer, renderPass);
     auto result = context.getDevice().getDevice().createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value.at(0));
@@ -159,6 +155,11 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
 bool GraphicsPipeline::getUseDescriptorBuffer() const
 {
     return useDescriptorBuffer;
+}
+
+vk::RenderPass GraphicsPipeline::getRenderPass() const
+{
+    return renderPass;
 }
 
 [[nodiscard]] vk::Pipeline GraphicsPipeline::getPipeline() const &
