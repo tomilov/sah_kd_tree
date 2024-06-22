@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/mem_array.hpp>
+#include <utils/noncopyable.hpp>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
@@ -59,7 +60,7 @@ struct SCENE_DATA_EXPORT Mesh
     AABB aabb;
 };
 
-struct SCENE_DATA_EXPORT SceneData
+struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 {
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
@@ -74,7 +75,11 @@ struct SCENE_DATA_EXPORT SceneData
 
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles() const;
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles(size_t rootNodeIndex) const;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
-static_assert(std::is_nothrow_move_constructible_v<SceneData>);
 
 }  // namespace scene_data

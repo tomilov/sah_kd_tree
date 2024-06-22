@@ -20,9 +20,27 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 {
     DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages, uint32_t set);
 
-    [[nodiscard]] uint32_t getSet() const;
-    [[nodiscard]] vk::DescriptorPool getDescriptorPool() const &;
-    [[nodiscard]] operator vk::DescriptorSet() const &;  // NOLINT: google-explicit-constructor
+    [[nodiscard]] uint32_t getSet() const
+    {
+        return set;
+    }
+
+    [[nodiscard]] vk::DescriptorPool getDescriptorPool() const &
+    {
+        ASSERT(descriptorPool);
+        return *descriptorPool;
+    }
+
+    [[nodiscard]] vk::DescriptorSet getDescriptorSet() const &
+    {
+        ASSERT(descriptorSet);
+        return *descriptorSet;
+    }
+
+    [[nodiscard]] operator vk::DescriptorSet() const &  // NOLINT: google-explicit-constructor
+    {
+        return getDescriptorSet();
+    }
 
 private:
     std::string name;

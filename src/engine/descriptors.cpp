@@ -50,21 +50,4 @@ DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uin
     device.setDebugUtilsObjectName(*descriptorSet, descriptorSetName);
 }
 
-uint32_t DescriptorSet::getSet() const
-{
-    return set;
-}
-
-vk::DescriptorPool DescriptorSet::getDescriptorPool() const &
-{
-    ASSERT(descriptorPool);
-    return *descriptorPool;
-}
-
-DescriptorSet::operator vk::DescriptorSet() const &
-{
-    ASSERT(descriptorSet);
-    return *descriptorSet;
-}
-
 }  // namespace engine

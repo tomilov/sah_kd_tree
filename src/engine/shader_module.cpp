@@ -329,25 +329,25 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo)
-    : name{name}
-    , context{context}
+ShaderModule::ShaderModule(const Context & context, const FileIo & fileIo, std::string_view shaderName)
+    : context{context}
     , fileIo{fileIo}
+    , shaderName{shaderName}
 {
-    shaderStage = shaderNameToStage(name);
-    spirv = fileIo.loadShader(name);
-    INVARIANT(!std::empty(spirv), "{}", name);
+    shaderStage = shaderNameToStage(shaderName);
+    spirv = fileIo.loadShader(shaderName);
+    INVARIANT(!std::empty(spirv), "{}", shaderName);
 
     vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
     shaderModuleCreateInfo.setCode(spirv);
     shaderModuleHolder = context.getDevice().getDevice().createShaderModuleUnique(shaderModuleCreateInfo, context.getLibrary().getAllocationCallbacks(), context.getDispatcher());
 
-    context.getDevice().setDebugUtilsObjectName(*shaderModuleHolder, name);
+    context.getDevice().setDebugUtilsObjectName(*shaderModuleHolder, shaderName);
 }
 
 const std::string & ShaderModule::getName() const &
 {
-    return name;
+    return shaderName;
 }
 
 const std::vector<uint32_t> & ShaderModule::getSpirv() const &
@@ -355,7 +355,7 @@ const std::vector<uint32_t> & ShaderModule::getSpirv() const &
     return spirv;
 }
 
-vk::ShaderStageFlagBits ShaderModule::getShaderStage() const
+vk::ShaderStageFlagBits ShaderModule::getStage() const
 {
     return shaderStage;
 }
@@ -374,7 +374,7 @@ ShaderModule::operator vk::ShaderModule() const &
 ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
     : context{context}
     , shaderModuleName{shaderModule.getName()}
-    , shaderStage{shaderModule.getShaderStage()}
+    , shaderStage{shaderModule.getStage()}
     , entryPointName{entryPointName}
     , reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
@@ -550,7 +550,7 @@ ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding
     , vertexBufferBinding{vertexBufferBinding}
 {}
 
-void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
+void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.emplace_back(entryPointName);
@@ -559,7 +559,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo = {
         .flags = {},
-        .stage = shaderModule.getShaderStage(),
+        .stage = shaderModule.getStage(),
         .module = shaderModule,
         .pName = entryPointNames.back().c_str(),
         .pSpecializationInfo = nullptr,
@@ -570,7 +570,7 @@ void ShaderStages::append(const ShaderModule & shaderModule, const ShaderModuleR
 
     pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 
-    if (shaderModule.getShaderStage() == vk::ShaderStageFlagBits::eVertex) {
+    if (shaderModule.getStage() == vk::ShaderStageFlagBits::eVertex) {
         vertexInputState.emplace(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
     }
 
@@ -647,6 +647,16 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
     }
 
     pushConstantRanges = mergePushConstantRanges(pushConstantRanges);
+}
+
+size_t ShaderStages::findSetByBindingName(const std::string & bindingName) const
+{
+    for (const auto & [set, setBindings] : setBindings) {
+        if (setBindings.bindingIndices.contains(bindingName)) {
+            return set;
+        }
+    }
+    INVARIANT(false, "{}", bindingName);
 }
 
 }  // namespace engine

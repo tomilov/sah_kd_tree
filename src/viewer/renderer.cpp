@@ -19,7 +19,7 @@
 #include <utils/math.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/renderer.hpp>
-#include <viewer/scene_manager.hpp>
+#include <viewer/scenes.hpp>
 
 #include <fmt/format.h>
 #include <fmt/std.h>
@@ -186,12 +186,42 @@ private:
     ResourceStack<Fence> fencePool;
 };
 
+struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
+{
+    engine::Buffer<UniformBuffer> uniformBuffer;
+
+    [[nodiscard]] static std::string getName()
+    {
+        return "uniformBuffer"s;
+    }
+
+    [[nodiscard]] DescriptorInfos getDescriptorInfos(bool descriptorBufferEnabled) const
+    {
+        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+        {
+            if (descriptorBufferEnabled) {
+                return uniformBuffer.base().getDescriptorAddressInfo();
+            } else {
+                return uniformBuffer.base().getDescriptorBufferInfo();
+            }
+        };
+        return {
+            {getName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()},
+        };
+    }
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
+
 struct SceneResourcesAndDescriptors
 {
     SceneResources resources;
-    Descriptors descriptors;
+    DescriptorSet descriptors;
 
-    SceneResourcesAndDescriptors(SceneResources && resources, Descriptors && descriptors)
+    SceneResourcesAndDescriptors(SceneResources && resources, DescriptorSet && descriptors)
         : resources{std::move(resources)}
         , descriptors{std::move(descriptors)}
     {}
@@ -199,12 +229,12 @@ struct SceneResourcesAndDescriptors
 
 struct FrameResourcesAndDescriptors
 {
-    FrameResources resources;
-    Descriptors sceneDescriptors;
-    std::optional<Descriptors> displayDescriptors;
+    UniformBufferResource uniformBuffer;
+    DescriptorSet sceneDescriptors;
+    std::optional<DescriptorSet> displayDescriptors;
 
-    FrameResourcesAndDescriptors(FrameResources && resources, Descriptors && sceneDescriptors, std::optional<Descriptors> && displayDescriptors)
-        : resources{std::move(resources)}
+    FrameResourcesAndDescriptors(UniformBufferResource && uniformBuffer, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
+        : uniformBuffer{std::move(uniformBuffer)}
         , sceneDescriptors{std::move(sceneDescriptors)}
         , displayDescriptors{std::move(displayDescriptors)}
     {}
@@ -213,9 +243,9 @@ struct FrameResourcesAndDescriptors
 struct DisplayResourcesAndDescriptors
 {
     DisplayResources resources;
-    Descriptors descriptors;
+    DescriptorSet descriptors;
 
-    DisplayResourcesAndDescriptors(DisplayResources && resources, Descriptors && descriptors)
+    DisplayResourcesAndDescriptors(DisplayResources && resources, DescriptorSet && descriptors)
         : resources{std::move(resources)}
         , descriptors{std::move(descriptors)}
     {}
@@ -463,6 +493,51 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     };
 }
 
+class Engine final : utils::NonCopyable
+{
+public:
+    struct Settings
+    {
+        bool indexTypeUint8Enabled = true;
+        bool descriptorBufferEnabled = true;
+        bool multiDrawIndirectEnabled = true;
+        bool drawIndirectCountEnabled = true;
+    };
+
+    Engine(const engine::Context & context, const Settings & settings)
+        : context{context}
+        , settings{settings}
+    {}
+
+    template<typename UniformBuffer>
+    auto createUniformBuffer() const -> engine::Buffer<UniformBuffer>
+    {
+        return createUniformBuffer(sizeof(UniformBuffer));
+    }
+
+private:
+    const engine::Context & context;
+    const Settings settings;
+
+    auto createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>
+    {
+        vk::BufferCreateInfo uniformBufferCreateInfo;
+        uniformBufferCreateInfo.size = uniformBufferSize;
+        uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+        if (settings.descriptorBufferEnabled) {
+            uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
+        }
+        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        auto uniformBufferName = fmt::format("Uniform buffer");
+        auto uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment());
+
+        auto memoryPropertyFlags = uniformBuffer.getMemoryPropertyFlags();
+        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+        return uniformBuffer;
+    }
+};
+
 }  // namespace
 
 struct Renderer::Impl : utils::NonCopyable
@@ -497,7 +572,7 @@ struct Renderer::Impl : utils::NonCopyable
     void setFrameSettings(const FrameSettings & frameSettings);
     void setScene(std::shared_ptr<const Scene> scene);
 
-    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants) const;
+    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const DescriptorSet *> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const Framebuffer & framebuffer);
     void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -580,7 +655,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const Descriptors *> descriptors, const std::byte * pushConstants) const
+void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const DescriptorSet *> descriptors, const std::byte * pushConstants) const
 {
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline, context.getDispatcher());
 
@@ -589,7 +664,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     if (scene->getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
-        for (const Descriptors * d : descriptors) {
+        for (const DescriptorSet * d : descriptors) {
             descriptorBufferBindingInfos.push_back(d->getDescriptorBuffer().getDescriptorBufferBindingInfo());
         }
         commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
@@ -604,7 +679,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     } else {
         std::vector<vk::DescriptorSet> descriptorSets;
         descriptorSets.reserve(std::size(descriptors));
-        for (const Descriptors * d : descriptors) {
+        for (const DescriptorSet * d : descriptors) {
             descriptorSets.push_back(d->getDescriptorSet());
         }
         constexpr auto kDynamicOffsets = nullptr;
@@ -620,7 +695,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
 void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
-        std::initializer_list<const Descriptors *> descriptors = {
+        std::initializer_list<const DescriptorSet *> descriptors = {
             &frameResourcesAndDescriptors->sceneDescriptors,
             &sceneResourcesAndDescriptors->descriptors,
         };
@@ -772,7 +847,7 @@ void Renderer::Impl::offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPa
 void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
-        std::initializer_list<const Descriptors *> descriptors = {
+        std::initializer_list<const DescriptorSet *> descriptors = {
             &frameResourcesAndDescriptors->displayDescriptors.value(),
             &displayResourcesAndDescriptors->descriptors,
         };
@@ -909,7 +984,7 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
     }
     auto resources = scene->makeFrameResources();
     auto sceneDescriptors = scene->makeDescriptors(resources, false);
-    std::optional<Descriptors> displayDescriptors;
+    std::optional<DescriptorSet> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
         displayDescriptors.emplace(scene->makeDescriptors(resources, true));
     }

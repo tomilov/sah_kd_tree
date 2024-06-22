@@ -4,7 +4,7 @@
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/engine_wrapper.hpp>
-#include <viewer/scene_manager.hpp>
+#include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 
 #include <QtCore/QDir>

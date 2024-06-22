@@ -1,16 +1,11 @@
 #pragma once
 
-#include <utils/assert.hpp>
-
 #include <vulkan/vulkan.hpp>
 
-#include <bit>
+#include <array>
 #include <deque>
 #include <functional>
 #include <iterator>
-#include <tuple>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 #include <cstddef>
@@ -114,11 +109,34 @@ std::vector<ChainHead> toChainHeads(const std::vector<vk::StructureChain<ChainHe
     return chainHeads;
 }
 
-[[nodiscard]] inline vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
+template<typename Head, typename... Tail, size_t N>
+std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&structureChains)[N])
 {
-    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
-    --alignment;
-    return (size + alignment) & ~alignment;
+    std::array<Head, N> heads;
+    size_t i = 0;
+    for (const vk::StructureChain<Head, Tail...> & chain : structureChains) {
+        heads[i++] = chain.get();
+    }
+    return heads;
 }
+
+template<typename Head, typename... Tail>
+std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> & structureChains)
+{
+    std::vector<Head> heads;
+    heads.reserve(std::size(structureChains));
+    for (const vk::StructureChain<Head, Tail...> & chain : structureChains) {
+        heads.push_back(chain.get());
+    }
+    return heads;
+}
+
+template<vk::IndexType indexType>
+using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
+
+[[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment);
+vk::Format indexTypeToFormat(vk::IndexType indexType);
+uint32_t indexTypeRank(vk::IndexType indexType);
+bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs);
 
 }  // namespace engine

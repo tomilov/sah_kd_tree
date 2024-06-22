@@ -385,6 +385,88 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
     return depthFormat;
 }
 
+vk::DeviceSize PhysicalDevice::getMinAlignment() const
+{
+    const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    return physicalDeviceLimits.nonCoherentAtomSize;
+}
+
+size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) const
+{
+    const vk::Bool32 robustBufferAccess = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
+    const auto & physicalDeviceDescriptorBufferProperties = properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();
+    switch (descriptorType) {
+    case vk::DescriptorType::eSampler: {
+        return physicalDeviceDescriptorBufferProperties.samplerDescriptorSize;
+    }
+    case vk::DescriptorType::eCombinedImageSampler: {
+        return physicalDeviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+    }
+    case vk::DescriptorType::eSampledImage: {
+        return physicalDeviceDescriptorBufferProperties.sampledImageDescriptorSize;
+    }
+    case vk::DescriptorType::eStorageImage: {
+        return physicalDeviceDescriptorBufferProperties.storageImageDescriptorSize;
+    }
+    case vk::DescriptorType::eUniformTexelBuffer: {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.uniformTexelBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustUniformTexelBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eStorageTexelBuffer: {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.storageTexelBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustStorageTexelBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eUniformBuffer: {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.uniformBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustUniformBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eStorageBuffer: {
+        if (robustBufferAccess == VK_FALSE) {
+            return physicalDeviceDescriptorBufferProperties.storageBufferDescriptorSize;
+        } else {
+            return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
+        }
+    }
+    case vk::DescriptorType::eUniformBufferDynamic: {
+        INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::eStorageBufferDynamic: {
+        INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::eInputAttachment: {
+        return physicalDeviceDescriptorBufferProperties.inputAttachmentDescriptorSize;
+    }
+    case vk::DescriptorType::eInlineUniformBlock: {
+        INVARIANT(false, "Inline uniform block descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::eAccelerationStructureKHR: {
+        return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
+    }
+    case vk::DescriptorType::eAccelerationStructureNV: {
+        return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
+    }
+    case vk::DescriptorType::eSampleWeightImageQCOM: {
+        INVARIANT(false, "Sample weight image descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::eBlockMatchImageQCOM: {
+        INVARIANT(false, "Block match image descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::eMutableEXT: {
+        INVARIANT(false, "Mutable type descriptor cannot be stored in descriptor buffer");
+    }
+    }
+    INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
+}
+
 PhysicalDevices::PhysicalDevices(const Context & context)
     : context{context}
 {

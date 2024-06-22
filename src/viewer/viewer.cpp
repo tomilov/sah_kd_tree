@@ -7,7 +7,7 @@
 #include <utils/auto_cast.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/renderer.hpp>
-#include <viewer/scene_manager.hpp>
+#include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
 

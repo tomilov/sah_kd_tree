@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: rename to shaders.*
+
 #include <engine/fwd.hpp>
 #include <engine/utils.hpp>
 #include <utils/assert.hpp>
@@ -33,20 +35,19 @@ namespace engine
 
 struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
 {
-    ShaderModule(std::string_view name, const Context & context, const FileIo & fileIo);
+    ShaderModule(const Context & context, const FileIo & fileIo, std::string_view shaderName);
 
     [[nodiscard]] const std::string & getName() const &;
     [[nodiscard]] const std::vector<uint32_t> & getSpirv() const &;
-    [[nodiscard]] vk::ShaderStageFlagBits getShaderStage() const;
+    [[nodiscard]] vk::ShaderStageFlagBits getStage() const;
 
     [[nodiscard]] vk::ShaderModule getShaderModule() const &;
     [[nodiscard]] operator vk::ShaderModule() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    std::string name;
-
     const Context & context;
     const FileIo & fileIo;
+    std::string shaderName;
 
     vk::ShaderStageFlagBits shaderStage;
     std::vector<uint32_t> spirv;
@@ -143,8 +144,10 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     ShaderStages(const Context & context, uint32_t vertexBufferBinding);
 
-    void append(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
+    void add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
+
+    size_t findSetByBindingName(const std::string & bindingName) const;
 
     // TODO: descriptor update template?
 

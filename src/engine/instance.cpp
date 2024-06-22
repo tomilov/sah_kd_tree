@@ -238,6 +238,8 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
             }
         }
         if (enableExtensionIfAvailable(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)) {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_layer_settings.html
+            // https://vulkan.lunarg.com/doc/view/1.3.283.0/linux/layer_configuration.html
             auto & layerSettingsCreateInfo = instanceCreateInfoChain.get<vk::LayerSettingsCreateInfoEXT>();
 
             vk::LayerSettingEXT layerSetting = {

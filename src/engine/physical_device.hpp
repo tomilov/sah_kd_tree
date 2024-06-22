@@ -125,6 +125,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     [[nodiscard]] bool isExtensionEnabled(const char * extension) const;
 
     [[nodiscard]] vk::Format findDepthImageFormat(vk::ImageTiling imageTiling) const;
+    [[nodiscard]] vk::DeviceSize getMinAlignment() const;
+    [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
 
 private:
     const Context & context;
