@@ -19,13 +19,21 @@
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, const ShaderStages & shaderStages, uint32_t set)
+DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set)
     : name{name}
+    , context{context}
+    , framesInFlight{framesInFlight}
+    , shaderStages{std::move(shaderStages)}
     , set{set}
+{
+    init();
+}
+
+void DescriptorSet::init()
 {
     const Device & device = context.getDevice();
 
-    const auto & descriptorCounts = shaderStages.setDescriptorCounts.at(set);
+    const auto & descriptorCounts = shaderStages->setDescriptorCounts.at(set);
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
     descriptorPoolSizes.reserve(std::size(descriptorPoolSizes));
     for (const auto & [descriptorType, descriptorCount] : descriptorCounts) {
@@ -39,8 +47,8 @@ DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uin
     descriptorPool = device.getDevice().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     device.setDebugUtilsObjectName(*descriptorPool, name);
 
-    const auto & setBindings = shaderStages.setBindings.at(set);
-    const auto & descriptorSetLayout = shaderStages.descriptorSetLayouts.at(setBindings.setIndex);
+    const auto & setBindings = shaderStages->setBindings.at(set);
+    const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
 
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
     descriptorSetAllocateInfo.descriptorPool = *descriptorPool;

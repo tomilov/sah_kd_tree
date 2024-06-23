@@ -20,28 +20,31 @@ class Context;
 
 namespace viewer
 {
-class SceneManager;
+class Scenes;
+class Engine;
 
-class VIEWER_EXPORT Engine : public QObject
+class VIEWER_EXPORT EngineWrapper : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QStringList supportedSceneFileExtensions READ getSupportedSceneFileExtensions CONSTANT)
 
 public:
-    explicit Engine(QObject * parent = nullptr);
-    ~Engine() override;
+    explicit EngineWrapper(QObject * parent = nullptr);
+    ~EngineWrapper() override;
 
     [[nodiscard]] engine::Context & getContext();
     [[nodiscard]] static std::initializer_list<uint32_t> getMutedMessageIdNumbers();
-    [[nodiscard]] const SceneManager & getSceneManager();
+
+    void init();
+    [[nodiscard]] const Engine & getEngine() const;
 
     [[nodiscard]] QStringList getSupportedSceneFileExtensions() const;
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 208;
+    static constexpr size_t kSize = 352;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
@@ -49,17 +52,17 @@ private:
 class EngineSingletonForeign
 {
     Q_GADGET
-    QML_FOREIGN(Engine)
+    QML_FOREIGN(EngineWrapper)
     QML_SINGLETON
     QML_NAMED_ELEMENT(SahKdTreeEngine)
 
 public:
-    static void setEngine(Engine * engine) VIEWER_EXPORT;
+    static void setEngine(EngineWrapper * engine) VIEWER_EXPORT;
 
-    [[nodiscard]] static Engine * create(QQmlEngine * qmlEngine, QJSEngine * jsEngine);
+    [[nodiscard]] static EngineWrapper * create(QQmlEngine * qmlEngine, QJSEngine * jsEngine);
 
 private:
-    inline static utils::CheckedPtr<Engine> engine = nullptr;
+    inline static utils::CheckedPtr<EngineWrapper> engine = nullptr;
     inline static QJSEngine * jsEngine = nullptr;
 };
 

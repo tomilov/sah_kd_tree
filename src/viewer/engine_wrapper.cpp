@@ -3,8 +3,8 @@
 #include <scene_loader/scene_loader.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
+#include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
-#include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 
 #include <QtCore/QDir>
@@ -39,17 +39,15 @@ constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
 };
 // clang-format on
 
-const auto kUri = u"SahKdTree"_s;
-
 }  // namespace
 
-struct Engine::Impl final : utils::NonCopyable
+struct EngineWrapper::Impl final : utils::NonCopyable
 {
     engine::Context context;
-    SceneManager sceneManager{context};
+    std::optional<Engine> engine;
 };
 
-Engine::Engine(QObject * parent)
+EngineWrapper::EngineWrapper(QObject * parent)
     : QObject{parent}
 {
     auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
@@ -57,36 +55,41 @@ Engine::Engine(QObject * parent)
     QDir::addSearchPath(u"shaders"_s, shaderLocation);
 }
 
-Engine::~Engine() = default;
+EngineWrapper::~EngineWrapper() = default;
 
-engine::Context & Engine::getContext()
+engine::Context & EngineWrapper::getContext()
 {
     return impl_->context;
 }
 
-std::initializer_list<uint32_t> Engine::getMutedMessageIdNumbers()
+std::initializer_list<uint32_t> EngineWrapper::getMutedMessageIdNumbers()
 {
     return kMutedMessageIdNumbers;
 }
 
-const SceneManager & Engine::getSceneManager()
+void EngineWrapper::init()
 {
-    return impl_->sceneManager;
+    impl_->engine.emplace(impl_->context, Engine::Settings{});
 }
 
-QStringList Engine::getSupportedSceneFileExtensions() const
+const Engine & EngineWrapper::getEngine() const
+{
+    return impl_->engine.value();
+}
+
+QStringList EngineWrapper::getSupportedSceneFileExtensions() const
 {
     return scene_loader::getSupportedExtensions();
 }
 
-void EngineSingletonForeign::setEngine(Engine * engine)
+void EngineSingletonForeign::setEngine(EngineWrapper * engine)
 {
     INVARIANT(!EngineSingletonForeign::engine, "engine should not be set twice");
     EngineSingletonForeign::engine = engine;
     INVARIANT(EngineSingletonForeign::engine, "Nullptr should not be passed");
 }
 
-Engine * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngine)
+EngineWrapper * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngine)
 {
     INVARIANT(jsEngine->thread() == engine->thread(), "The engine has to have the same thread affinity as the singleton");
     if (EngineSingletonForeign::jsEngine) {

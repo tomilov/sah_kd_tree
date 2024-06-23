@@ -18,6 +18,9 @@
 #include <utils/checked_ptr.hpp>
 #include <utils/math.hpp>
 #include <utils/noncopyable.hpp>
+#include <viewer/descriptor_set.hpp>
+#include <viewer/engine.hpp>
+#include <viewer/pipelines.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
 
@@ -32,11 +35,13 @@
 #include <queue>
 
 #include <algorithm>
+#include <functional>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <list>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <stack>
 #include <string_view>
@@ -46,7 +51,6 @@
 #include <cstddef>
 #include <cstdint>
 
-using namespace Qt::StringLiterals;
 using namespace std::string_literals;
 using namespace std::string_view_literals;
 
@@ -186,34 +190,65 @@ private:
     ResourceStack<Fence> fencePool;
 };
 
+#pragma pack(push, 1)
+struct UniformBuffer
+{
+    glm::mat2 transform2D{1.0f};
+    float alpha = 0.0f;
+    float zNear = 1E-2f;
+    float zFar = 1E4;
+    glm::vec3 position{0.0f};
+};
+#pragma pack(pop)
+static_assert(std::is_standard_layout_v<UniformBuffer>);
+
+#pragma pack(push, 1)
+struct ScenePushConstants
+{
+    glm::mat4 mvp{1.0f};
+};
+#pragma pack(pop)
+static_assert(std::is_standard_layout_v<ScenePushConstants>);
+
+#pragma pack(push, 1)
+struct DisplayPushConstants
+{
+    float x = 1E-5f;
+};
+#pragma pack(pop)
+static_assert(std::is_standard_layout_v<DisplayPushConstants>);
+
 struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
 {
     engine::Buffer<UniformBuffer> uniformBuffer;
 
-    [[nodiscard]] static std::string getName()
+    [[nodiscard]] static std::string getBindingName()
     {
         return "uniformBuffer"s;
     }
 
-    [[nodiscard]] DescriptorInfos getDescriptorInfos(bool descriptorBufferEnabled) const
+    [[nodiscard]] DescriptorInfo getDescriptorInfo() const
     {
-        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
-        {
-            if (descriptorBufferEnabled) {
-                return uniformBuffer.base().getDescriptorAddressInfo();
-            } else {
-                return uniformBuffer.base().getDescriptorBufferInfo();
-            }
-        };
-        return {
-            {getName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()},
-        };
+        return {getBindingName(), vk::DescriptorType::eUniformBuffer, {uniformBuffer.getDescriptorBufferInfo(), uniformBuffer.getDescriptorAddressInfo()}};
     }
 
     static constexpr void completeClassContext()
     {
         checkTraits();
     }
+};
+
+struct FrameResourcesAndDescriptors
+{
+    UniformBufferResource uniformBufferResource;
+    DescriptorSet sceneDescriptors;
+    std::optional<DescriptorSet> displayDescriptors;
+
+    FrameResourcesAndDescriptors(UniformBufferResource && uniformBufferResource, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
+        : uniformBufferResource{std::move(uniformBufferResource)}
+        , sceneDescriptors{std::move(sceneDescriptors)}
+        , displayDescriptors{std::move(displayDescriptors)}
+    {}
 };
 
 struct SceneResourcesAndDescriptors
@@ -224,19 +259,6 @@ struct SceneResourcesAndDescriptors
     SceneResourcesAndDescriptors(SceneResources && resources, DescriptorSet && descriptors)
         : resources{std::move(resources)}
         , descriptors{std::move(descriptors)}
-    {}
-};
-
-struct FrameResourcesAndDescriptors
-{
-    UniformBufferResource uniformBuffer;
-    DescriptorSet sceneDescriptors;
-    std::optional<DescriptorSet> displayDescriptors;
-
-    FrameResourcesAndDescriptors(UniformBufferResource && uniformBuffer, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
-        : uniformBuffer{std::move(uniformBuffer)}
-        , sceneDescriptors{std::move(sceneDescriptors)}
-        , displayDescriptors{std::move(displayDescriptors)}
     {}
 };
 
@@ -261,16 +283,17 @@ class DisplayResourcesAndDescriptorsPool final
     };
 
 public:
-    DisplayResourcesAndDescriptorsPool(Private, const engine::Context & context, std::shared_ptr<const Scene> scene)
-        : offscreenRenderPass{OffscreenRenderPass::make(context)}
-        , scene{std::move(scene)}
-        , graphicsPipeline{this->scene->createSceneGraphicsPipeline("offscreen"sv, *offscreenRenderPass.renderPass)}
-        , sampler{makeSampler(context)}
+    DisplayResourcesAndDescriptorsPool(Private, const engine::Context & context, const Engine & engine)
+        : context{context}
+        , engine{engine}
+        , offscreenRenderPass{OffscreenRenderPass::make(context)}
+        , graphicsPipeline{makeGraphicsPipeline()}
+        , sampler{makeSampler()}
     {}
 
-    [[nodiscard]] static std::shared_ptr<DisplayResourcesAndDescriptorsPool> make(const engine::Context & context, std::shared_ptr<const Scene> scene)
+    [[nodiscard]] static std::shared_ptr<DisplayResourcesAndDescriptorsPool> make(const engine::Context & context, const Engine & engine)
     {
-        return std::make_shared<DisplayResourcesAndDescriptorsPool>(Private{}, context, std::move(scene));
+        return std::make_shared<DisplayResourcesAndDescriptorsPool>(Private{}, context, engine);
     }
 
     [[nodiscard]] const OffscreenRenderPass & getOffscreenRenderPass() const &
@@ -307,13 +330,14 @@ public:
             return resourcesAndDescriptors;
         }
         if (resourcesAndDescriptors) {
-            auto resources = scene->makeDisplayResources(framebufferSize, offscreenRenderPass, std::move(resourcesAndDescriptors->resources.sampler));
+            DisplayResources resources{context, framebufferSize, offscreenRenderPass, std::move(resourcesAndDescriptors->resources.sampler)};
             auto descriptors = std::move(resourcesAndDescriptors->descriptors);
-            scene->fillDescriptors(resources, descriptors);
+            auto descriptorInfos = {resources.getDescriptorInfo()};
+            descriptors.fill(descriptorInfos);
             return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         } else {
-            auto resources = scene->makeDisplayResources(framebufferSize, offscreenRenderPass, sampler);
-            auto descriptors = scene->makeDescriptors(resources);
+            DisplayResources resources{context, framebufferSize, offscreenRenderPass, sampler};
+            auto descriptors = engine.makeDescriptors(graphicsPipeline, resources);
             return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         }
     }
@@ -325,13 +349,15 @@ public:
     }
 
 private:
-    const OffscreenRenderPass offscreenRenderPass;
-    const std::shared_ptr<const Scene> scene;
-    const GraphicsPipeline graphicsPipeline;
-    const std::shared_ptr<const vk::UniqueSampler> sampler;
+    const engine::Context & context;
+    const Engine & engine;
+
+    OffscreenRenderPass offscreenRenderPass;
+    GraphicsPipeline graphicsPipeline;
+    std::shared_ptr<const vk::UniqueSampler> sampler;
     ResourceStack<std::shared_ptr<DisplayResourcesAndDescriptors>> pool;
 
-    static std::shared_ptr<const vk::UniqueSampler> makeSampler(const engine::Context & context)
+    [[nodiscard]] std::shared_ptr<const vk::UniqueSampler> makeSampler() const
     {
         float maxSamplerAnisotropy = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxSamplerAnisotropy;
         vk::SamplerCreateInfo samplerCreateInfo = {
@@ -353,6 +379,11 @@ private:
             .unnormalizedCoordinates = VK_FALSE,
         };
         return std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+    }
+
+    [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
+    {
+        return engine.getPipelines().createSceneGraphicsPipeline("offscreen"sv, *offscreenRenderPass.renderPass);
     }
 };
 
@@ -444,16 +475,6 @@ private:
     }
 };
 
-template<typename T, typename U>
-[[nodiscard]] std::vector<T> concatenate(const std::vector<U> & first, const std::vector<U> & second)
-{
-    std::vector<T> result;
-    result.reserve(std::size(first) + std::size(second));
-    result.insert(std::cend(result), std::cbegin(first), std::cend(first));
-    result.insert(std::cend(result), std::cbegin(second), std::cend(second));
-    return result;
-}
-
 constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
     0x5C0EC5D6,
     0xE4D96472,
@@ -493,59 +514,15 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     };
 }
 
-class Engine final : utils::NonCopyable
-{
-public:
-    struct Settings
-    {
-        bool indexTypeUint8Enabled = true;
-        bool descriptorBufferEnabled = true;
-        bool multiDrawIndirectEnabled = true;
-        bool drawIndirectCountEnabled = true;
-    };
-
-    Engine(const engine::Context & context, const Settings & settings)
-        : context{context}
-        , settings{settings}
-    {}
-
-    template<typename UniformBuffer>
-    auto createUniformBuffer() const -> engine::Buffer<UniformBuffer>
-    {
-        return createUniformBuffer(sizeof(UniformBuffer));
-    }
-
-private:
-    const engine::Context & context;
-    const Settings settings;
-
-    auto createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>
-    {
-        vk::BufferCreateInfo uniformBufferCreateInfo;
-        uniformBufferCreateInfo.size = uniformBufferSize;
-        uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-        if (settings.descriptorBufferEnabled) {
-            uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
-        }
-        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto uniformBufferName = fmt::format("Uniform buffer");
-        auto uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment());
-
-        auto memoryPropertyFlags = uniformBuffer.getMemoryPropertyFlags();
-        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
-
-        return uniformBuffer;
-    }
-};
-
 }  // namespace
 
 struct Renderer::Impl : utils::NonCopyable
 {
     const engine::Context & context;
+    const Engine & engine;
     const uint32_t framesInFlight;
 
-    const engine::Queue graphicsQueue{"renderer", context, context.getPhysicalDevice().graphicsQueueCreateInfo};
+    const engine::Queue graphicsQueue{"renderer"sv, context, context.getPhysicalDevice().graphicsQueueCreateInfo};
 
     FrameSettings frameSettings;
     std::shared_ptr<const Scene> scene;
@@ -567,12 +544,12 @@ struct Renderer::Impl : utils::NonCopyable
     // revocation lists should be the last members
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
-    Impl(const engine::Context & context, uint32_t framesInFlight);
+    Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
 
     void setFrameSettings(const FrameSettings & frameSettings);
     void setScene(std::shared_ptr<const Scene> scene);
 
-    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const DescriptorSet *> descriptors, const std::byte * pushConstants) const;
+    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const Framebuffer & framebuffer);
     void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -599,8 +576,8 @@ struct Renderer::Impl : utils::NonCopyable
     }
 };
 
-Renderer::Renderer(const engine::Context & context, uint32_t framesInFlight)
-    : impl_{context, framesInFlight}
+Renderer::Renderer(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
+    : impl_{context, engine, framesInFlight}
 {}
 
 Renderer::~Renderer() = default;
@@ -630,10 +607,14 @@ void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot
     return impl_->render(commandBuffer, currentFrameSlot);
 }
 
-Renderer::Impl::Impl(const engine::Context & context, uint32_t framesInFlight)
+Renderer::Impl::Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
     : context{context}
+    , engine{engine}
     , framesInFlight{framesInFlight}
-{}
+{
+    uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
+    INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
+}
 
 void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)
 {
@@ -655,17 +636,17 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<const DescriptorSet *> descriptors, const std::byte * pushConstants) const
+void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors, const std::byte * pushConstants) const
 {
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline, context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
     vk::PipelineLayout pipelineLayout = pipeline.pipelineLayout.getPipelineLayout();
-    if (scene->getSettings().descriptorBufferEnabled) {
+    if (engine.getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
-        for (const DescriptorSet * d : descriptors) {
-            descriptorBufferBindingInfos.push_back(d->getDescriptorBuffer().getDescriptorBufferBindingInfo());
+        for (const DescriptorSet & d : descriptors) {
+            descriptorBufferBindingInfos.push_back(d.getDescriptorBuffer().getDescriptorBufferBindingInfo());
         }
         commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
 
@@ -679,8 +660,8 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     } else {
         std::vector<vk::DescriptorSet> descriptorSets;
         descriptorSets.reserve(std::size(descriptors));
-        for (const DescriptorSet * d : descriptors) {
-            descriptorSets.push_back(d->getDescriptorSet());
+        for (const DescriptorSet & d : descriptors) {
+            descriptorSets.push_back(d.getDescriptorSet());
         }
         constexpr auto kDynamicOffsets = nullptr;
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
@@ -695,9 +676,9 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
 void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
-        std::initializer_list<const DescriptorSet *> descriptors = {
-            &frameResourcesAndDescriptors->sceneDescriptors,
-            &sceneResourcesAndDescriptors->descriptors,
+        std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors = {
+            std::cref(frameResourcesAndDescriptors->sceneDescriptors),
+            std::cref(sceneResourcesAndDescriptors->descriptors),
         };
         ScenePushConstants scenePushConstants = getScenePushConstants(frameSettings);
         bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&scenePushConstants));
@@ -772,9 +753,10 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         const auto & features2Chain = context.getPhysicalDevice().features2Chain;
         ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
         ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
+        // TODO: draw
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
-    if (scene->getSettings().multiDrawIndirectEnabled) {
+    if (engine.getSettings().multiDrawIndirectEnabled) {
         auto indexType = sceneResources.indexTypes.at(0);
         commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
@@ -782,7 +764,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         uint32_t drawCount = sceneResources.drawCount;
         const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
         INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
-        if (scene->getSettings().drawIndirectCountEnabled) {
+        if (engine.getSettings().drawIndirectCountEnabled) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
             commandBuffer.drawIndexedIndirectCount(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, sceneResources.drawCountBuffer.value(), kDrawCountBufferOffset, maxDrawCount, kStride, context.getDispatcher());
@@ -847,9 +829,10 @@ void Renderer::Impl::offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPa
 void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
-        std::initializer_list<const DescriptorSet *> descriptors = {
-            &frameResourcesAndDescriptors->displayDescriptors.value(),
-            &displayResourcesAndDescriptors->descriptors,
+        ASSERT(frameResourcesAndDescriptors->displayDescriptors);
+        std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors = {
+            std::cref(frameResourcesAndDescriptors->displayDescriptors.value()),
+            std::cref(displayResourcesAndDescriptors->descriptors),
         };
         DisplayPushConstants displayPushConstants = getDisplayPushConstants(frameSettings);
         bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants));
@@ -877,12 +860,6 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
 
     deleteDeferred(currentFrameSlot);
 
-    if (!sceneResourcesAndDescriptors) {
-        auto resources = scene->makeSceneResources();
-        auto descriptors = scene->makeDescriptors(resources);
-        sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
-    }
-
     uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
 
     if (frameResourcesAndDescriptors) {
@@ -890,7 +867,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
         deferDeletion(previousFrameSlot, std::move(recycler));
     }
     frameResourcesAndDescriptors = getFrameDescriptors();
-    fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
+    fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->uniformBufferResource.uniformBuffer.map().at(0));
 
     if (displayResourcesAndDescriptors) {
         Recycler recycler = [this, displayPool = displayPool, displayResourcesAndDescriptors = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers), displayFence = std::move(displayFence)]() mutable
@@ -907,7 +884,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
     if (frameSettings.useOffscreenTexture) {
         if (!displayPool) {
-            displayPool = DisplayResourcesAndDescriptorsPool::make(context, scene);
+            displayPool = DisplayResourcesAndDescriptorsPool::make(context, engine);
         }
         float width = std::ceil(frameSettings.width);
         float height = std::ceil(frameSettings.height);
@@ -929,6 +906,14 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     } else {
         displayPool.reset();
     }
+
+    if (!sceneResourcesAndDescriptors) {
+        INVARIANT(frameSettings.useOffscreenTexture || directGraphicsPipeline, "");
+        auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayPool->getGraphicsPipeline() : *directGraphicsPipeline;
+        auto resources = engine.makeResources(*scene);
+        auto descriptors = engine.makeDescriptors(graphicsPipeline, resources);
+        sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
+    }
 }
 
 bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
@@ -943,9 +928,9 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
     const auto createGraphicsPipeline = [this, &renderPass]
     {
         if (frameSettings.useOffscreenTexture) {
-            return scene->createDisplayGraphicsPipeline("direct"sv, renderPass);
+            return engine.getPipelines().createDisplayGraphicsPipeline("direct"sv, renderPass);
         } else {
-            return scene->createSceneGraphicsPipeline("direct"sv, renderPass);
+            return engine.getPipelines().createSceneGraphicsPipeline("direct"sv, renderPass);
         }
     };
     graphicsPipeline = std::make_shared<GraphicsPipeline>(createGraphicsPipeline());
@@ -978,15 +963,22 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
         resourcesAndDescriptors = std::move(frameResourcesAndDescriptorsPool.top());
         frameResourcesAndDescriptorsPool.pop();
         if (frameSettings.useOffscreenTexture && !resourcesAndDescriptors->displayDescriptors) {
-            resourcesAndDescriptors->displayDescriptors.emplace(scene->makeDescriptors(resourcesAndDescriptors->resources, true));
+            ASSERT(displayGraphicsPipeline);
+            const auto & resources = resourcesAndDescriptors->uniformBufferResource;
+            auto displayDescriptors = engine.makeDescriptors("scene"sv, *displayGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()});
+            resourcesAndDescriptors->displayDescriptors.emplace(std::move(displayDescriptors));
         }
         return resourcesAndDescriptors;
     }
-    auto resources = scene->makeFrameResources();
-    auto sceneDescriptors = scene->makeDescriptors(resources, false);
+    UniformBufferResource resources = {
+        .uniformBuffer = engine.createUniformBuffer(sizeof(UniformBuffer)),
+    };
+    ASSERT(directGraphicsPipeline);
+    auto sceneDescriptors = engine.makeDescriptors("scene"sv, *directGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()});
     std::optional<DescriptorSet> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
-        displayDescriptors.emplace(scene->makeDescriptors(resources, true));
+        ASSERT(displayGraphicsPipeline);
+        displayDescriptors.emplace(engine.makeDescriptors("display"sv, *displayGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()}));
     }
     return std::make_shared<FrameResourcesAndDescriptors>(std::move(resources), std::move(sceneDescriptors), std::move(displayDescriptors));
 }

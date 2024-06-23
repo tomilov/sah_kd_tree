@@ -284,7 +284,7 @@ int main(int argc, char * argv[])
 
     constexpr bool kUseEngine = true;
 
-    viewer::Engine engine;
+    viewer::EngineWrapper engine;
     viewer::EngineSingletonForeign::setEngine(&engine);
 
     QVulkanInstance vulkanInstance;
@@ -373,6 +373,7 @@ int main(int argc, char * argv[])
         } else {
             applicationWindow->setGraphicsConfiguration(quickGraphicsConfiguration);
         }
+        engine.init();
     };
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreated, qApp, onObjectCreated)) {
         qFatal("unreachable");

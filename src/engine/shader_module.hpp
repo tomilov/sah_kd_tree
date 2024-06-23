@@ -37,9 +37,20 @@ struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
 {
     ShaderModule(const Context & context, const FileIo & fileIo, std::string_view shaderName);
 
-    [[nodiscard]] const std::string & getName() const &;
-    [[nodiscard]] const std::vector<uint32_t> & getSpirv() const &;
-    [[nodiscard]] vk::ShaderStageFlagBits getStage() const;
+    [[nodiscard]] const std::string & getShaderName() const &
+    {
+        return shaderName;
+    }
+
+    [[nodiscard]] vk::ShaderStageFlagBits getStage() const
+    {
+        return shaderStage;
+    }
+
+    [[nodiscard]] const std::vector<uint32_t> & getSpirv() const &
+    {
+        return spirv;
+    }
 
     [[nodiscard]] vk::ShaderModule getShaderModule() const &;
     [[nodiscard]] operator vk::ShaderModule() const &;  // NOLINT: google-explicit-constructor

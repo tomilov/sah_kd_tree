@@ -1,0 +1,534 @@
+#include <engine/device.hpp>
+#include <engine/physical_device.hpp>
+#include <engine/vma.hpp>
+#include <format/vulkan.hpp>
+#include <viewer/engine.hpp>
+
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <fmt/std.h>
+#include <glm/ext/matrix_transform.hpp>
+#include <spdlog/spdlog.h>
+#include <vulkan/vulkan_format_traits.hpp>
+
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <optional>
+#include <utility>
+#include <vector>
+
+using namespace std::string_literals;
+using namespace std::string_view_literals;
+
+namespace viewer
+{
+
+std::string SceneResources::getBindingName()
+{
+    return "transformBuffer"s;
+}
+
+[[nodiscard]] DescriptorInfo SceneResources::getDescriptorInfo() const
+{
+    const auto getDescriptorData = [this]() -> DescriptorData
+    {
+        if (!transformBuffer) {
+            return {vk::DescriptorBufferInfo{}, {}};  // requires nullDescriptor
+        }
+        const auto & t = transformBuffer.value().base();
+        return {t.getDescriptorBufferInfo(), t.getDescriptorAddressInfo()};
+    };
+    return {getBindingName(), vk::DescriptorType::eStorageBuffer, getDescriptorData()};
+}
+
+OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
+{
+    vk::Format depthFormat = context.getPhysicalDevice().findDepthImageFormat(vk::ImageTiling::eOptimal);
+    INVARIANT(depthFormat != vk::Format::eUndefined, "");
+    vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+        depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    } else {
+        depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    }
+
+    const vk::AttachmentDescription2 attachmentDecriptions[] = {
+        {
+            .format = OffscreenRenderPass::kColorFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = kExternalColorImageLayout,
+        },
+        {
+            .format = depthFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eDontCare,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = depthImageLayout,
+        },
+    };
+
+    const vk::AttachmentReference2 colorAttachmentReferences[] = {
+        {
+            .attachment = 0,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        },
+    };
+
+    const vk::AttachmentReference2 depthAttachmentReference = {
+        .attachment = 1,
+        .layout = depthImageLayout,
+    };
+
+    vk::SubpassDescription2 subpassDescriptions[] = {
+        {
+            .flags = {},
+            .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+            .pDepthStencilAttachment = &depthAttachmentReference,
+        },
+    };
+    subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
+
+    constexpr auto kInternalColorStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+    constexpr auto kInternalColorAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
+    const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
+        {
+            {
+                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kExternalColorStageMask,
+                .srcAccessMask = kExternalColorAccessMask,
+                .dstStageMask = kInternalColorStageMask,
+                .dstAccessMask = kInternalColorAccessMask,
+            },
+        },
+        {
+            {
+                .srcSubpass = 0,
+                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kInternalColorStageMask,
+                .srcAccessMask = kInternalColorAccessMask,
+                .dstStageMask = kExternalColorStageMask,
+                .dstAccessMask = kExternalColorAccessMask,
+            },
+        },
+        {
+            {
+                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
+        {
+            {
+                .srcSubpass = 0,
+                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
+    };
+
+    auto subpassDependencies = engine::getHeads(subpassDependencyChain);
+
+    vk::RenderPassCreateInfo2 renderPassCreateInfo = {
+        .flags = {},
+    };
+    renderPassCreateInfo.setAttachments(attachmentDecriptions);
+    renderPassCreateInfo.setSubpasses(subpassDescriptions);
+    renderPassCreateInfo.setDependencies(subpassDependencies);
+    vk::UniqueRenderPass renderPass = context.getDevice().getDevice().createRenderPass2Unique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*renderPass, "Offscreen renderpass"s);
+
+    return {
+        .depthFormat = depthFormat,
+        .depthImageLayout = depthImageLayout,
+        .renderPass = std::move(renderPass),
+    };
+}
+
+Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass)
+{
+    vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+        depthImageAspectMask |= vk::ImageAspectFlagBits::eStencil;
+    }
+
+    constexpr auto colorImageName = "offscreen framebuffer color image"sv;
+    constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
+    constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, OffscreenRenderPass::kColorFormat, framebufferSize, kColorImageUsage, kColorImageAspectMask);
+    auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
+
+    constexpr auto depthImageName = "offscreen framebuffer depth image"sv;
+    constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, framebufferSize, kDepthImageUsage, depthImageAspectMask);
+    auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspectMask);
+
+    const vk::ImageView attachments[] = {
+        *colorImageView,
+        *depthImageView,
+    };
+    vk::FramebufferCreateInfo framebufferCreateInfo = {
+        .flags = {},
+        .renderPass = *offscreenRenderPass.renderPass,
+        .width = framebufferSize.width,
+        .height = framebufferSize.height,
+        .layers = 1,
+    };
+    framebufferCreateInfo.setAttachments(attachments);
+    auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*framebuffer, "Offscreen framebuffer"s);
+
+    return {
+        .size = framebufferSize,
+        .depthImageAspectMask = depthImageAspectMask,
+        .colorImage = std::move(colorImage),
+        .colorImageView = std::move(colorImageView),
+        .depthImage = std::move(depthImage),
+        .depthImageView = std::move(depthImageView),
+        .framebuffer = std::move(framebuffer),
+    };
+}
+
+std::string DisplayResources::getBindingName()
+{
+    return "display"s;
+}
+
+[[nodiscard]] DescriptorInfo DisplayResources::getDescriptorInfo() const
+{
+    ASSERT(sampler);
+    ASSERT(*sampler);
+    ASSERT(framebuffer.colorImageView);
+    vk::DescriptorImageInfo descriptorImageInfo = {
+        .sampler = **sampler,
+        .imageView = *framebuffer.colorImageView,
+        .imageLayout = OffscreenRenderPass::kExternalColorImageLayout,
+    };
+    return {getBindingName(), vk::DescriptorType::eCombinedImageSampler, {descriptorImageInfo, descriptorImageInfo}};
+}
+
+Engine::Engine(const engine::Context & context, const Settings & settings)
+    : context{context}
+    , settings{settings}
+    , pipelines{context, settings.descriptorBufferEnabled}
+{
+    const auto & device = context.getDevice();
+    if (settings.indexTypeUint8Enabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesKHR>().indexTypeUint8 == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (settings.descriptorBufferEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (settings.multiDrawIndirectEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+    if (settings.drawIndirectCountEnabled) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+            INVARIANT(false, "");
+        }
+    }
+}
+
+auto Engine::createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>
+{
+    vk::BufferCreateInfo uniformBufferCreateInfo;
+    uniformBufferCreateInfo.size = uniformBufferSize;
+    uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+    if (settings.descriptorBufferEnabled) {
+        uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
+    }
+    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    auto uniformBufferName = fmt::format("Uniform buffer");
+    auto uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment());
+
+    auto memoryPropertyFlags = uniformBuffer.getMemoryPropertyFlags();
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+    return uniformBuffer;
+}
+
+SceneResources Engine::makeResources(const Scene & scene) const
+{
+    const scene_data::SceneData & sceneData = scene.sceneData;
+
+    std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
+    std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
+    {
+        const auto collectNodeInfos = [&sceneData, &transforms, &instances](const auto & collectNodeInfos, const scene_data::Node & sceneNode, glm::mat4 transform) -> void
+        {
+            transform *= sceneNode.transform;
+            for (size_t m : sceneNode.meshes) {
+                transforms.at(m).push_back(transform);
+                ++instances.at(m).instanceCount;
+            }
+            for (size_t sceneNodeChild : sceneNode.children) {
+                collectNodeInfos(collectNodeInfos, sceneData.nodes.at(sceneNodeChild), transform);
+            }
+        };
+        collectNodeInfos(collectNodeInfos, sceneData.nodes.front(), glm::identity<glm::mat4>());
+    }
+
+    std::vector<vk::IndexType> indexTypes;
+    vk::DeviceSize indexBufferSize = 0;
+    uint32_t totalInstanceCount = 0;
+    {
+        vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
+        for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
+            const scene_data::Mesh & sceneMesh = sceneData.meshes.at(m);
+            auto & instance = instances.at(m);
+
+            instance.vertexOffset = utils::autoCast(sceneMesh.vertexOffset);
+
+            auto & indexType = indexTypes.emplace_back();
+            if (sceneMesh.indexCount == 0) {
+                indexType = vk::IndexType::eNoneKHR;
+                continue;
+            }
+
+            instance.indexCount = utils::autoCast(sceneMesh.indexCount);
+
+            auto firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
+            uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
+            if (settings.indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<engine::IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
+                indexType = vk::IndexType::eUint8KHR;
+            } else if (maxIndex <= std::numeric_limits<engine::IndexCppType<vk::IndexType::eUint16>>::max()) {
+                indexType = vk::IndexType::eUint16;
+            } else {
+                indexType = vk::IndexType::eUint32;
+            }
+            if (engine::indexTypeLess(maxIndexType, indexType)) {
+                maxIndexType = indexType;
+            }
+        }
+
+        if (maxIndexType != vk::IndexType::eNoneKHR) {
+            for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
+                auto & indexType = indexTypes.at(m);
+                if (indexType == vk::IndexType::eNoneKHR) {
+                    continue;
+                }
+                if (settings.multiDrawIndirectEnabled) {
+                    indexType = maxIndexType;
+                }
+                vk::DeviceSize formatSize = vk::blockSize(engine::indexTypeToFormat(indexType));
+                indexBufferSize = engine::alignedSize(indexBufferSize, formatSize);
+                auto & instance = instances.at(m);
+                instance.firstIndex = utils::autoCast(indexBufferSize / formatSize);
+                indexBufferSize += instance.indexCount * formatSize;
+            }
+        }
+
+        for (auto & instance : instances) {
+            instance.firstInstance = totalInstanceCount;
+            totalInstanceCount += instance.instanceCount;
+        }
+    }
+
+    std::optional<engine::Buffer<void>> indexBuffer;
+    if (indexBufferSize != 0) {
+        {
+            vk::BufferCreateInfo indexBufferCreateInfo;
+            indexBufferCreateInfo.size = indexBufferSize;
+            indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
+            indexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Indices"sv, indexBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+
+            constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+            auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
+            INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+        }
+
+        {
+            auto mappedIndexBuffer = indexBuffer.value().map();
+            auto indices = mappedIndexBuffer.data();
+            for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
+                const auto & instance = instances.at(m);
+
+                ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
+
+                uint32_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
+                const auto convertCopy = [&sceneData, &instance, sceneIndexOffset](auto indices)
+                {
+                    auto indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
+                    auto indexOut = std::next(indices, instance.firstIndex);
+                    for (uint32_t i = 0; i < instance.indexCount; ++i) {
+                        *indexOut++ = utils::autoCast(*indexIn++);
+                    }
+                };
+                switch (indexTypes.at(m)) {
+                case vk::IndexType::eNoneKHR: {
+                    // no indices have to be copied
+                    break;
+                }
+                case vk::IndexType::eUint8KHR: {
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint8KHR> *>(indices));
+                    break;
+                }
+                case vk::IndexType::eUint16: {
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint16> *>(indices));
+                    break;
+                }
+                case vk::IndexType::eUint32: {
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint32> *>(indices));
+                    break;
+                }
+                }
+            }
+        }
+    }
+
+    uint32_t drawCount = utils::autoCast(std::size(instances));
+
+    std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
+    std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
+    if (settings.multiDrawIndirectEnabled) {
+        if (settings.drawIndirectCountEnabled) {
+            vk::BufferCreateInfo drawCountBufferCreateInfo;
+            drawCountBufferCreateInfo.size = sizeof(uint32_t);
+            drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
+            drawCountBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("DrawCount"sv, drawCountBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+
+            auto mappedDrawCountBuffer = drawCountBuffer.value().map();
+            mappedDrawCountBuffer.at(0) = drawCount;
+        }
+
+        {
+            vk::BufferCreateInfo instanceBufferCreateInfo;
+            constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
+            instanceBufferCreateInfo.size = drawCount * kSize;
+            instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
+            instanceBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Instances"sv, instanceBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+
+            auto mappedInstanceBuffer = instanceBuffer.value().map();
+            auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
+            INVARIANT(end == mappedInstanceBuffer.end(), "");
+        }
+    }
+
+    auto transformBuffer = createTransformBuffer(totalInstanceCount, transforms);
+
+    std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
+    if (!sceneData.vertices.isEmpty()) {
+        vk::BufferCreateInfo vertexBufferCreateInfo;
+        vertexBufferCreateInfo.size = sceneData.vertices.getCount() * sizeof(scene_data::VertexAttributes);
+        vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+        vertexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Vertices"sv, vertexBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+
+        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+        auto memoryPropertyFlags = vertexBuffer.value().base().getMemoryPropertyFlags();
+        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+        {
+            auto mappedVertexBuffer = vertexBuffer.value().map();
+            ASSERT(sceneData.vertices.getCount() == mappedVertexBuffer.getCount());
+            if (std::copy_n(sceneData.vertices.begin(), sceneData.vertices.getCount(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
+                ASSERT(false);
+            }
+        }
+    }
+
+    return {
+        .transforms = std::move(transforms),
+        .instances = std::move(instances),
+        .indexTypes = std::move(indexTypes),
+        .indexBuffer = std::move(indexBuffer),
+        .drawCount = drawCount,
+        .drawCountBuffer = std::move(drawCountBuffer),
+        .instanceBuffer = std::move(instanceBuffer),
+        .transformBuffer = std::move(transformBuffer),
+        .vertexBuffer = std::move(vertexBuffer),
+    };
+}
+
+DescriptorSet Engine::makeDescriptors(std::string_view name, const GraphicsPipeline & graphicsPipeline, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
+{
+    ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
+    auto shaderStages = graphicsPipeline.pipelineLayout.getShaderStages();
+    const uint32_t set = shaderStages->findSetByBindingName(bindingNames.at(0));
+    const auto & shaderBindingNames = shaderStages->setBindings.at(set).bindingNames;
+    if (!std::equal(std::cbegin(bindingNames), std::cend(bindingNames), std::cbegin(shaderBindingNames))) {
+        INVARIANT(false, "{} ^ {}", bindingNames, shaderBindingNames);
+    }
+    DescriptorSet descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
+    descriptors.fill(descriptorInfos);
+    return descriptors;
+}
+
+DescriptorSet Engine::makeDescriptors(const GraphicsPipeline & graphicsPipeline, const SceneResources & sceneResources) const
+{
+    return makeDescriptors("scene"sv, graphicsPipeline, {sceneResources.getBindingName()}, {sceneResources.getDescriptorInfo()});
+}
+
+DescriptorSet Engine::makeDescriptors(const GraphicsPipeline & graphicsPipeline, const DisplayResources & displayResources) const
+{
+    return makeDescriptors("display"sv, graphicsPipeline, {displayResources.getBindingName()}, {displayResources.getDescriptorInfo()});
+}
+
+auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>
+{
+    if (instanceCount == 0) {
+        return {};
+    }
+
+    vk::BufferCreateInfo transformBufferCreateInfo;
+    transformBufferCreateInfo.size = instanceCount * sizeof(glm::mat4);
+    transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    if (settings.descriptorBufferEnabled) {
+        transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
+    }
+    engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("transforms"sv, transformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment())};
+
+    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    auto memoryPropertyFlags = transformBuffer.base().getMemoryPropertyFlags();
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags, memoryPropertyFlags);
+
+    {
+        auto mappedTransformBuffer = transformBuffer.map();
+        auto t = mappedTransformBuffer.begin();
+        for (const auto & instanceTransforms : transforms) {
+            ASSERT(mappedTransformBuffer.end() != t);
+            t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);
+        }
+        ASSERT(t == mappedTransformBuffer.end());
+    }
+
+    return transformBuffer;
+}
+
+}  // namespace viewer

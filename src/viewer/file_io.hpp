@@ -2,8 +2,7 @@
 
 #include <engine/file_io.hpp>
 
-#include <QtCore/QString>
-
+#include <filesystem>
 #include <string_view>
 #include <vector>
 
@@ -15,7 +14,7 @@ namespace viewer
 class FileIo final : public engine::FileIo
 {
 public:
-    explicit FileIo(QString shaderLocation);
+    explicit FileIo(const std::filesystem::path & shaderLocation);
 
     [[nodiscard]] std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override;
     [[nodiscard]] bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override;
@@ -23,7 +22,7 @@ public:
     [[nodiscard]] std::vector<uint32_t> loadShader(std::string_view shaderName) const override;
 
 private:
-    QString shaderLocation;
+    std::filesystem::path shaderLocation;
 };
 
 }  // namespace viewer

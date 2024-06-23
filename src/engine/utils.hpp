@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utils/assert.hpp>
+
 #include <vulkan/vulkan.hpp>
 
 #include <array>
@@ -9,6 +11,8 @@
 #include <vector>
 
 #include <cstddef>
+
+#include <engine/engine_export.h>
 
 template<typename BitType>
 struct std::hash<vk::Flags<BitType>>
@@ -134,9 +138,9 @@ std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> 
 template<vk::IndexType indexType>
 using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
 
-[[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment);
-vk::Format indexTypeToFormat(vk::IndexType indexType);
-uint32_t indexTypeRank(vk::IndexType indexType);
-bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs);
+[[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment) ENGINE_EXPORT;
+[[nodiscard]] vk::Format indexTypeToFormat(vk::IndexType indexType) ENGINE_EXPORT;
+[[nodiscard]] uint32_t indexTypeRank(vk::IndexType indexType) ENGINE_EXPORT;
+[[nodiscard]] bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs) ENGINE_EXPORT;
 
 }  // namespace engine

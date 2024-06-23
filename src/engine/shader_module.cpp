@@ -345,21 +345,6 @@ ShaderModule::ShaderModule(const Context & context, const FileIo & fileIo, std::
     context.getDevice().setDebugUtilsObjectName(*shaderModuleHolder, shaderName);
 }
 
-const std::string & ShaderModule::getName() const &
-{
-    return shaderName;
-}
-
-const std::vector<uint32_t> & ShaderModule::getSpirv() const &
-{
-    return spirv;
-}
-
-vk::ShaderStageFlagBits ShaderModule::getStage() const
-{
-    return shaderStage;
-}
-
 vk::ShaderModule ShaderModule::getShaderModule() const &
 {
     ASSERT(shaderModuleHolder);
@@ -373,7 +358,7 @@ ShaderModule::operator vk::ShaderModule() const &
 
 ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
     : context{context}
-    , shaderModuleName{shaderModule.getName()}
+    , shaderModuleName{shaderModule.getShaderName()}
     , shaderStage{shaderModule.getStage()}
     , entryPointName{entryPointName}
     , reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
@@ -554,7 +539,7 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.emplace_back(entryPointName);
-    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getName(), entryPointName));
+    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getShaderName(), entryPointName));
 
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo = {

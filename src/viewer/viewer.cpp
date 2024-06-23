@@ -5,6 +5,7 @@
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
@@ -152,7 +153,7 @@ private:
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, Engine * const engine)
+    explicit RenderNode(QQuickWindow * window, EngineWrapper * const engine)
         : window{window}
         , engine{engine}
     {}
@@ -173,7 +174,7 @@ public:
 
 private:
     QQuickWindow * const window;
-    Engine * const engine = nullptr;
+    EngineWrapper * const engine = nullptr;
 
     std::shared_ptr<const Scene> scene;
 
@@ -190,7 +191,7 @@ private:
         if (!renderer) {
             const auto & context = engine->getContext();
             checkEngine(window, context);
-            renderer = std::make_unique<Renderer>(context, utils::autoCast(graphicsStateInfo.framesInFlight));
+            renderer = std::make_unique<Renderer>(context, engine->getEngine(), utils::autoCast(graphicsStateInfo.framesInFlight));
         }
 
         if (scene) {
@@ -460,7 +461,7 @@ void Viewer::beforeRendering()
     if (!renderer) {
         const auto & context = engine->getContext();
         checkEngine(w, context);
-        renderer = std::make_unique<Renderer>(context, utils::autoCast(graphicsStateInfo.framesInFlight));
+        renderer = std::make_unique<Renderer>(context, engine->getEngine(), utils::autoCast(graphicsStateInfo.framesInFlight));
     }
 
     if (scene) {
@@ -526,16 +527,15 @@ void Viewer::setScene()
         return;
     }
 
-    const auto & sceneManager = engine->getSceneManager();
-    auto filesystemScenePath = QFileInfo{scenePath.toLocalFile()}.filesystemFilePath();
-    scene = sceneManager.getOrCreateScene(filesystemScenePath);
+    QFileInfo filesystemScenePath{scenePath.toLocalFile()};
+    scene = engine->getEngine().getScenes().getScene(filesystemScenePath.filesystemCanonicalFilePath());
     if (!scene) {
         return;
     }
 
-    const auto & aabb = scene->getScenedData().aabb;
+    const auto & aabb = scene->sceneData.aabb;
     characteristicSize = glm::distance(aabb.min, aabb.max);
-    if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 5.0f))) {
+    if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 10.0f))) {
         qFatal("unreachable");
     }
 }

@@ -20,7 +20,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipel
 {
     GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages);
 
-    [[nodiscard]] const std::shared_ptr<const ShaderStages> & getShaderStages() const
+    [[nodiscard]] const std::shared_ptr<const ShaderStages> & getShaderStages() const &
     {
         return shaderStages;
     }

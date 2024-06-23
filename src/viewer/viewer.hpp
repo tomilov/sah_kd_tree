@@ -21,8 +21,8 @@
 
 namespace viewer
 {
-class Engine;
-class Scene;
+class EngineWrapper;
+struct Scene;
 struct FrameSettings;
 class Renderer;
 
@@ -40,7 +40,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
     Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
 
-    Q_PROPERTY(Engine * engine MEMBER engine NOTIFY engineChanged REQUIRED)
+    Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
     Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
 
@@ -64,7 +64,7 @@ Q_SIGNALS:
     void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
     void linearSpeedChanged(qreal linearSpeed);
 
-    void engineChanged(Engine * engine);
+    void engineChanged(EngineWrapper * engine);
 
     void scenePathChanged(QUrl scenePath);
 
@@ -103,7 +103,7 @@ private:
     QHash<Qt::Key, int> pressedKeys;
     QTimer * const handleInputTimer = new QTimer{this};
 
-    Engine * engine = nullptr;
+    EngineWrapper * engine = nullptr;
 
     QUrl scenePath;
 

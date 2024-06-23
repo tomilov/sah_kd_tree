@@ -26,7 +26,7 @@ DescriptorSet::DescriptorSet(std::string_view name, const engine::Context & cont
     , descriptors{createDescriptors()}
 {}
 
-void DescriptorSet::fill(const DescriptorInfos & descriptorInfos) const
+void DescriptorSet::fill(std::span<const DescriptorInfo> descriptorInfos) const
 {
     if (descriptorBufferEnabled) {
         fillDescriptorBuffer(std::get<DescriptorBuffer>(descriptors), descriptorInfos);
@@ -37,13 +37,13 @@ void DescriptorSet::fill(const DescriptorInfos & descriptorInfos) const
 
 size_t DescriptorSet::getHash() const
 {
-    return utils::getHash(descriptors.index(), shaderStages, set);
+    return utils::getHash(descriptorBufferEnabled, shaderStages, set);
 }
 
 engine::DescriptorSet DescriptorSet::createDescriptorSet() const
 {
     constexpr uint32_t kFramesInFlight = 1;
-    return {name, context, kFramesInFlight, *shaderStages, set};
+    return {name, context, kFramesInFlight, shaderStages, set};
 }
 
 DescriptorBuffer DescriptorSet::createDescriptorBuffer() const
@@ -91,7 +91,7 @@ auto DescriptorSet::createDescriptors() const -> std::variant<engine::Descriptor
     }
 }
 
-void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, const DescriptorInfos & descriptorSetInfos) const
+void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const
 {
     std::vector<vk::StructureChain<vk::WriteDescriptorSet, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>> writeDescriptorSetChains;
     writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
@@ -119,7 +119,11 @@ void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSe
         }
         case vk::DescriptorType::eUniformTexelBuffer:
         case vk::DescriptorType::eStorageTexelBuffer: {
-            writeDescriptorSet.setTexelBufferView(std::get<vk::BufferView>(descriptorSetData));
+            const vk::BufferView & bufferView = std::get<vk::BufferView>(descriptorSetData);
+            if (!bufferView) {
+                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+            }
+            writeDescriptorSet.setTexelBufferView(bufferView);
             break;
         }
         case vk::DescriptorType::eUniformBuffer:
@@ -141,7 +145,21 @@ void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSe
         case vk::DescriptorType::eSampledImage:
         case vk::DescriptorType::eStorageImage:
         case vk::DescriptorType::eInputAttachment: {
-            writeDescriptorSet.setImageInfo(std::get<vk::DescriptorImageInfo>(descriptorSetData));
+            const vk::DescriptorImageInfo & descriptorImageInfo = std::get<vk::DescriptorImageInfo>(descriptorSetData);
+            if (!descriptorImageInfo.imageView) {
+                switch (descriptorType) {
+                case vk::DescriptorType::eCombinedImageSampler:
+                case vk::DescriptorType::eSampledImage:
+                case vk::DescriptorType::eStorageImage: {
+                    INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                    break;
+                }
+                default: {
+                    INVARIANT(false, "{}", descriptorType);
+                }
+                }
+            }
+            writeDescriptorSet.setImageInfo(descriptorImageInfo);
             break;
         }
         case vk::DescriptorType::eAccelerationStructureKHR: {
@@ -164,7 +182,7 @@ void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSe
     context.getDevice().getDevice().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }
 
-void DescriptorSet::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, const DescriptorInfos & descriptorBufferInfos) const
+void DescriptorSet::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const
 {
     const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
@@ -183,9 +201,25 @@ void DescriptorSet::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuff
             .type = descriptorType,
         };
         vk::DescriptorDataEXT & data = descriptorGetInfo.data;
-        const auto setDescriptorInfo = [descriptorType, &data]<typename T>(const T & descriptorBufferData)
+        const auto setDescriptorInfo = [this, descriptorType, &data]<typename T>(const T & descriptorBufferData)
         {
-            if constexpr (std::is_same_v<T, vk::Sampler>) {
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
+                switch (descriptorType) {
+                case vk::DescriptorType::eSampledImage:
+                case vk::DescriptorType::eStorageImage:
+                case vk::DescriptorType::eUniformTexelBuffer:
+                case vk::DescriptorType::eStorageTexelBuffer:
+                case vk::DescriptorType::eUniformBuffer:
+                case vk::DescriptorType::eStorageBuffer: {
+                    // default constructed nullptr
+                    break;
+                }
+                default: {
+                    INVARIANT(false, "{}", descriptorType);
+                }
+                }
+            } else if constexpr (std::is_same_v<T, vk::Sampler>) {
                 switch (descriptorType) {
                 case vk::DescriptorType::eSampler: {
                     data.setPSampler(&descriptorBufferData);

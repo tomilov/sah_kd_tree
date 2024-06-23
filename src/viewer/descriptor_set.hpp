@@ -9,7 +9,9 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <initializer_list>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -23,11 +25,11 @@ namespace viewer
 {
 
 using DescriptorSetData = std::variant<vk::BufferView, vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>;
-using DescriptorBufferData = std::variant<vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
+using DescriptorBufferData = std::variant<std::monostate, vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
 
-using DescriptorData = std::variant<DescriptorSetData, DescriptorBufferData>;
+using DescriptorData = std::tuple<DescriptorSetData, DescriptorBufferData>;
 
-using DescriptorInfo = std::tuple<std::string, vk::DescriptorType, DescriptorData>;
+using DescriptorInfo = std::tuple<std::string /* bindingName */, vk::DescriptorType, DescriptorData>;
 using DescriptorInfos = std::vector<DescriptorInfo>;
 
 using DescriptorBuffer = engine::Buffer<std::byte>;
@@ -42,7 +44,7 @@ public:
         return descriptorBufferEnabled;
     }
 
-    [[nodiscard]] const std::shared_ptr<const engine::ShaderStages> & getShaderStages() const
+    [[nodiscard]] const std::shared_ptr<const engine::ShaderStages> & getShaderStages() const &
     {
         return shaderStages;
     }
@@ -52,7 +54,7 @@ public:
         return set;
     }
 
-    void fill(const DescriptorInfos & descriptorInfos) const;
+    void fill(std::span<const DescriptorInfo> descriptorInfos) const;
 
     [[nodiscard]] const engine::DescriptorSet & getDescriptorSet() const &
     {
@@ -89,8 +91,8 @@ public:
     [[nodiscard]] DescriptorBuffer createDescriptorBuffer() const;
     [[nodiscard]] std::variant<engine::DescriptorSet, DescriptorBuffer> createDescriptors() const;
 
-    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, const DescriptorInfos & sescriptorSetInfos) const;
-    void fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, const DescriptorInfos & descriptorBufferInfos) const;
+    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> sescriptorSetInfos) const;
+    void fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const;
 
     static constexpr void completeClassContext()
     {

@@ -17,7 +17,8 @@
 
 namespace viewer
 {
-class Scene;
+class Engine;
+struct Scene;
 
 struct FrameSettings
 {
@@ -42,7 +43,7 @@ struct FrameSettings
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(const engine::Context & context, uint32_t framesInFlight);
+    Renderer(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
     ~Renderer();
 
     void setFrameSettings(const FrameSettings & frameSettings);
@@ -54,7 +55,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 464;
+    static constexpr size_t kSize = 472;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
