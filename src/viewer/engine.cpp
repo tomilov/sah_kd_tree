@@ -476,10 +476,9 @@ SceneResources Engine::makeResources(const Scene & scene) const
     };
 }
 
-DescriptorSet Engine::makeDescriptors(std::string_view name, const GraphicsPipeline & graphicsPipeline, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
+DescriptorSet Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
 {
     ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
-    auto shaderStages = graphicsPipeline.pipelineLayout.getShaderStages();
     const uint32_t set = shaderStages->findSetByBindingName(bindingNames.at(0));
     const auto & shaderBindingNames = shaderStages->setBindings.at(set).bindingNames;
     if (!std::equal(std::cbegin(bindingNames), std::cend(bindingNames), std::cbegin(shaderBindingNames))) {
@@ -490,14 +489,14 @@ DescriptorSet Engine::makeDescriptors(std::string_view name, const GraphicsPipel
     return descriptors;
 }
 
-DescriptorSet Engine::makeDescriptors(const GraphicsPipeline & graphicsPipeline, const SceneResources & sceneResources) const
+DescriptorSet Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const
 {
-    return makeDescriptors("scene"sv, graphicsPipeline, {sceneResources.getBindingName()}, {sceneResources.getDescriptorInfo()});
+    return makeDescriptors("scene"sv, std::move(shaderStages), {sceneResources.getBindingName()}, {sceneResources.getDescriptorInfo()});
 }
 
-DescriptorSet Engine::makeDescriptors(const GraphicsPipeline & graphicsPipeline, const DisplayResources & displayResources) const
+DescriptorSet Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const
 {
-    return makeDescriptors("display"sv, graphicsPipeline, {displayResources.getBindingName()}, {displayResources.getDescriptorInfo()});
+    return makeDescriptors("display"sv, std::move(shaderStages), {displayResources.getBindingName()}, {displayResources.getDescriptorInfo()});
 }
 
 auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>

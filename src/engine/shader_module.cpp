@@ -538,20 +538,24 @@ ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding
 void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
-    entryPointNames.emplace_back(entryPointName);
-    const auto & name = names.emplace_back(fmt::format("{}:{}", shaderModule.getShaderName(), entryPointName));
+    entryPointNames.emplace_back(std::cbegin(entryPointName), std::cend(entryPointName));
+    entryPointNames.back().push_back({});
+
+    names.emplace_back();
+    fmt::format_to(std::back_inserter(names.back()), "{}:{}", shaderModule.getShaderName(), entryPointName);
+    names.back().emplace_back('\0');
 
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo = {
         .flags = {},
         .stage = shaderModule.getStage(),
         .module = shaderModule,
-        .pName = entryPointNames.back().c_str(),
+        .pName = std::data(entryPointNames.back()),
         .pSpecializationInfo = nullptr,
     };
     debugUtilsObjectNameInfo.objectType = shaderModule.getShaderModule().objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getShaderModule()));
-    debugUtilsObjectNameInfo.pObjectName = name.c_str();
+    debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
 
     pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 

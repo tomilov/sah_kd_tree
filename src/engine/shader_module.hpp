@@ -139,8 +139,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
         }
     };
 
-    std::deque<std::string> entryPointNames;
-    std::deque<std::string> names;
+    std::deque<std::vector<typename std::string::value_type>> entryPointNames;  // suppress SSO
+    std::deque<std::vector<typename std::string::value_type>> names;            // suppress SSO
     std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>> pipelineShaderStageCreateInfoChains;
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 

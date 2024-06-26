@@ -413,7 +413,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
         // 0x2f637ff,
         // 0xa96ad8,
         // 0xc714b932,
-        0xa4164ba5,
+        0xfbdd4d2e,
     };
     if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");

@@ -12,28 +12,29 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages)
+GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages)
     : name{name}
     , context{context}
     , shaderStages{std::move(shaderStages)}
 {
-    ASSERT(!std::empty(name));
-    ASSERT(shaderStages);
+    init();
 }
 
 void GraphicsPipelineLayout::init()
 {
+    ASSERT(!std::empty(name));
+
     pipelineLayoutCreateInfo.flags = {};
-    pipelineLayoutCreateInfo.setSetLayouts(shaderStages->descriptorSetLayouts);
-    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages->pushConstantRanges);
+    pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
+    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
 
     pipelineLayout = context.getDevice().getDevice().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*pipelineLayout, name);
 }
 
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool useDescriptorBuffer, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass)
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass)
     : name{name}
-    , useDescriptorBuffer{useDescriptorBuffer}
+    , descriptorBufferEnabled{descriptorBufferEnabled}
     , renderPass{renderPass}
 {
     ASSERT(renderPass);
@@ -108,9 +109,9 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     };
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
-    const ShaderStages & shaderStages = *graphicsPipelineLayout.getShaderStages();
+    const ShaderStages & shaderStages = graphicsPipelineLayout.getShaderStages();
     graphicsPipelineCreateInfo.flags = {};
-    if (useDescriptorBuffer) {
+    if (descriptorBufferEnabled) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
     graphicsPipelineCreateInfo.setStages(shaderStages.pipelineShaderStageCreateInfos);

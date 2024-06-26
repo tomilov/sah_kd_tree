@@ -240,13 +240,13 @@ struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
 
 struct FrameResourcesAndDescriptors
 {
-    UniformBufferResource uniformBufferResource;
-    DescriptorSet sceneDescriptors;
+    UniformBufferResource resources;
+    DescriptorSet directDescriptors;
     std::optional<DescriptorSet> displayDescriptors;
 
-    FrameResourcesAndDescriptors(UniformBufferResource && uniformBufferResource, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
-        : uniformBufferResource{std::move(uniformBufferResource)}
-        , sceneDescriptors{std::move(sceneDescriptors)}
+    FrameResourcesAndDescriptors(UniformBufferResource && resources, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
+        : resources{std::move(resources)}
+        , directDescriptors{std::move(sceneDescriptors)}
         , displayDescriptors{std::move(displayDescriptors)}
     {}
 };
@@ -286,8 +286,8 @@ public:
     DisplayResourcesAndDescriptorsPool(Private, const engine::Context & context, const Engine & engine)
         : context{context}
         , engine{engine}
-        , offscreenRenderPass{OffscreenRenderPass::make(context)}
-        , graphicsPipeline{makeGraphicsPipeline()}
+        , displayRenderPass{OffscreenRenderPass::make(context)}
+        , displayGraphicsPipeline{makeGraphicsPipeline()}
         , sampler{makeSampler()}
     {}
 
@@ -298,15 +298,15 @@ public:
 
     [[nodiscard]] const OffscreenRenderPass & getOffscreenRenderPass() const &
     {
-        return offscreenRenderPass;
+        return displayRenderPass;
     }
 
     [[nodiscard]] const GraphicsPipeline & getGraphicsPipeline() const &
     {
-        return graphicsPipeline;
+        return displayGraphicsPipeline;
     }
 
-    [[nodiscard]] std::shared_ptr<DisplayResourcesAndDescriptors> get(const vk::Extent2D & framebufferSize) &
+    [[nodiscard]] std::shared_ptr<DisplayResourcesAndDescriptors> get(const vk::Extent2D & framebufferSize, std::shared_ptr<const engine::ShaderStages> shaderStages) &
     {
         std::shared_ptr<DisplayResourcesAndDescriptors> resourcesAndDescriptors;
         while (!pool.empty()) {
@@ -330,14 +330,14 @@ public:
             return resourcesAndDescriptors;
         }
         if (resourcesAndDescriptors) {
-            DisplayResources resources{context, framebufferSize, offscreenRenderPass, std::move(resourcesAndDescriptors->resources.sampler)};
+            DisplayResources resources{context, framebufferSize, displayRenderPass, std::move(resourcesAndDescriptors->resources.sampler)};
             auto descriptors = std::move(resourcesAndDescriptors->descriptors);
             auto descriptorInfos = {resources.getDescriptorInfo()};
             descriptors.fill(descriptorInfos);
             return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         } else {
-            DisplayResources resources{context, framebufferSize, offscreenRenderPass, sampler};
-            auto descriptors = engine.makeDescriptors(graphicsPipeline, resources);
+            DisplayResources resources{context, framebufferSize, displayRenderPass, sampler};
+            auto descriptors = engine.makeDescriptors(std::move(shaderStages), resources);
             return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         }
     }
@@ -352,8 +352,8 @@ private:
     const engine::Context & context;
     const Engine & engine;
 
-    OffscreenRenderPass offscreenRenderPass;
-    GraphicsPipeline graphicsPipeline;
+    OffscreenRenderPass displayRenderPass;
+    GraphicsPipeline displayGraphicsPipeline;
     std::shared_ptr<const vk::UniqueSampler> sampler;
     ResourceStack<std::shared_ptr<DisplayResourcesAndDescriptors>> pool;
 
@@ -383,7 +383,9 @@ private:
 
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
-        return engine.getPipelines().createSceneGraphicsPipeline("offscreen"sv, *offscreenRenderPass.renderPass);
+        GraphicsPipeline graphicsPipeline{engine.getPipelines().getSceneShaders()};
+        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass);
+        return graphicsPipeline;
     }
 };
 
@@ -529,8 +531,9 @@ struct Renderer::Impl : utils::NonCopyable
 
     FencePool fencePool{context};
 
-    std::shared_ptr<GraphicsPipeline> directGraphicsPipeline;
-    std::shared_ptr<GraphicsPipeline> displayGraphicsPipeline;
+    std::shared_ptr<GraphicsPipeline> directGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getSceneShaders());
+    std::shared_ptr<GraphicsPipeline> offscreenGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getDisplayShaders());
+
     std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
@@ -628,7 +631,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
     // displayGraphicsPipeline.reset();
-    // directGraphicsPipeline.reset();
+    // const GraphicsPipeline & graphicsPipeline.reset();
     displayPool.reset();
     // frameResourcesAndDescriptors.reset();
     // frameResourcesAndDescriptorsPool.clear();
@@ -638,10 +641,10 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors, const std::byte * pushConstants) const
 {
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline, context.getDispatcher());
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline.value(), context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
-    vk::PipelineLayout pipelineLayout = pipeline.pipelineLayout.getPipelineLayout();
+    vk::PipelineLayout pipelineLayout = pipeline.shaders->getGraphicsPipelineLayout();
     if (engine.getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
@@ -667,7 +670,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
-    for (const auto & pushConstantRange : pipeline.pipelineLayout.getShaderStages()->pushConstantRanges) {
+    for (const auto & pushConstantRange : pipeline.shaders->getShaderStages().pushConstantRanges) {
         const void * p = pushConstants + pushConstantRange.offset;
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
     }
@@ -677,7 +680,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
 {
     {
         std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors = {
-            std::cref(frameResourcesAndDescriptors->sceneDescriptors),
+            std::cref(frameResourcesAndDescriptors->directDescriptors),
             std::cref(sceneResourcesAndDescriptors->descriptors),
         };
         ScenePushConstants scenePushConstants = getScenePushConstants(frameSettings);
@@ -862,14 +865,8 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
 
     uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
 
-    if (frameResourcesAndDescriptors) {
-        Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameResourcesAndDescriptors)};
-        deferDeletion(previousFrameSlot, std::move(recycler));
-    }
-    frameResourcesAndDescriptors = getFrameDescriptors();
-    fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->uniformBufferResource.uniformBuffer.map().at(0));
-
     if (displayResourcesAndDescriptors) {
+        ASSERT(displayPool);
         Recycler recycler = [this, displayPool = displayPool, displayResourcesAndDescriptors = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers), displayFence = std::move(displayFence)]() mutable
         {
             if (displayFence) {
@@ -886,6 +883,22 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
         if (!displayPool) {
             displayPool = DisplayResourcesAndDescriptorsPool::make(context, engine);
         }
+    }
+    {
+        if (frameResourcesAndDescriptors) {
+            Recycler recycler{&Impl::putFrameDescriptors, this, std::move(frameResourcesAndDescriptors)};
+            deferDeletion(previousFrameSlot, std::move(recycler));
+        }
+        frameResourcesAndDescriptors = getFrameDescriptors();
+        fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
+    }
+    if (!sceneResourcesAndDescriptors) {
+        auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayPool->getGraphicsPipeline() : *directGraphicsPipeline;
+        auto resources = engine.makeResources(*scene);
+        auto descriptors = engine.makeDescriptors(graphicsPipeline.shaders->getShaderStagesPtr(), resources);
+        sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
+    }
+    if (frameSettings.useOffscreenTexture) {
         float width = std::ceil(frameSettings.width);
         float height = std::ceil(frameSettings.height);
         vk::Extent2D framebufferSize = {
@@ -893,11 +906,12 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
             .height = utils::autoCast(height),
         };
 
-        displayResourcesAndDescriptors = displayPool->get(framebufferSize);
+        ASSERT(offscreenGraphicsPipeline->shaders);
+        displayResourcesAndDescriptors = displayPool->get(framebufferSize, offscreenGraphicsPipeline->shaders->getShaderStagesPtr());
         {
             ScopedCommandBuffer displayCommandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
             const OffscreenRenderPass & offscreenRenderPass = displayPool->getOffscreenRenderPass();
-            offscreenPass(displayCommandBuffer.getCommandBuffer(), *offscreenRenderPass.renderPass, displayResourcesAndDescriptors->resources.framebuffer);
+            offscreenPass(displayCommandBuffer.getCommandBuffer(), offscreenRenderPass, displayResourcesAndDescriptors->resources.framebuffer);
             INVARIANT(!displayFence, "");
             displayFence = fencePool.get();
             displayCommandBuffer.setCompletionFence(**displayFence);
@@ -906,34 +920,24 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     } else {
         displayPool.reset();
     }
-
-    if (!sceneResourcesAndDescriptors) {
-        INVARIANT(frameSettings.useOffscreenTexture || directGraphicsPipeline, "");
-        auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayPool->getGraphicsPipeline() : *directGraphicsPipeline;
-        auto resources = engine.makeResources(*scene);
-        auto descriptors = engine.makeDescriptors(graphicsPipeline, resources);
-        sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
-    }
 }
 
 bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
 {
-    auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayGraphicsPipeline : directGraphicsPipeline;
-    if (graphicsPipeline) {
-        if (graphicsPipeline->pipeline.getRenderPass() == renderPass) {
+    auto & graphicsPipeline = frameSettings.useOffscreenTexture ? *offscreenGraphicsPipeline : *directGraphicsPipeline;
+    if (graphicsPipeline.pipeline) {
+        if (graphicsPipeline.pipeline.value().getRenderPass() == renderPass) {
             return false;
         }
-        graphicsPipeline.reset();  // TODO: reuse layout
+        graphicsPipeline.pipeline.reset();
     }
-    const auto createGraphicsPipeline = [this, &renderPass]
-    {
-        if (frameSettings.useOffscreenTexture) {
-            return engine.getPipelines().createDisplayGraphicsPipeline("direct"sv, renderPass);
-        } else {
-            return engine.getPipelines().createSceneGraphicsPipeline("direct"sv, renderPass);
-        }
-    };
-    graphicsPipeline = std::make_shared<GraphicsPipeline>(createGraphicsPipeline());
+    std::string_view name;
+    if (frameSettings.useOffscreenTexture) {
+        name = "offscreen display"sv;
+    } else {
+        name = "direct scene"sv;
+    }
+    graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass);
     return true;
 }
 
@@ -944,14 +948,20 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
         return;
     }
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+
+    // if (!frameResourcesAndDescriptors) {
+    //     frameResourcesAndDescriptors = getFrameDescriptors();
+    //     fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
+    // }
+
     if (frameSettings.useOffscreenTexture) {
         if (displayFence) {
             fencePool.waitAndPut(std::move(displayFence));
         }
-        ASSERT(displayGraphicsPipeline);
-        drawDisplay(commandBuffer, *displayGraphicsPipeline);
+        ASSERT(offscreenGraphicsPipeline->pipeline);
+        drawDisplay(commandBuffer, *offscreenGraphicsPipeline);
     } else {
-        ASSERT(directGraphicsPipeline);
+        ASSERT(directGraphicsPipeline->pipeline);
         drawScene(commandBuffer, *directGraphicsPipeline);
     }
 }
@@ -959,28 +969,33 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
 auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndDescriptors>
 {
     std::shared_ptr<FrameResourcesAndDescriptors> resourcesAndDescriptors;
-    if (!std::empty(frameResourcesAndDescriptorsPool)) {
+    while (!std::empty(frameResourcesAndDescriptorsPool)) {
         resourcesAndDescriptors = std::move(frameResourcesAndDescriptorsPool.top());
         frameResourcesAndDescriptorsPool.pop();
-        if (frameSettings.useOffscreenTexture && !resourcesAndDescriptors->displayDescriptors) {
-            ASSERT(displayGraphicsPipeline);
-            const auto & resources = resourcesAndDescriptors->uniformBufferResource;
-            auto displayDescriptors = engine.makeDescriptors("scene"sv, *displayGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()});
-            resourcesAndDescriptors->displayDescriptors.emplace(std::move(displayDescriptors));
+        if (frameSettings.useOffscreenTexture) {
+            if (!resourcesAndDescriptors->displayDescriptors) {
+                const auto & resources = resourcesAndDescriptors->resources;
+                auto displayDescriptors = engine.makeDescriptors("scene"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), {resources.getBindingName()}, {resources.getDescriptorInfo()});
+                resourcesAndDescriptors->displayDescriptors.emplace(std::move(displayDescriptors));
+            }
         }
         return resourcesAndDescriptors;
     }
     UniformBufferResource resources = {
         .uniformBuffer = engine.createUniformBuffer(sizeof(UniformBuffer)),
     };
-    ASSERT(directGraphicsPipeline);
-    auto sceneDescriptors = engine.makeDescriptors("scene"sv, *directGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()});
+    std::shared_ptr<const engine::ShaderStages> sceneShaderStages;
+    if (frameSettings.useOffscreenTexture) {
+        sceneShaderStages = displayPool->getGraphicsPipeline().shaders->getShaderStagesPtr();
+    } else {
+        sceneShaderStages = directGraphicsPipeline->shaders->getShaderStagesPtr();
+    }
+    auto directDescriptors = engine.makeDescriptors("scene"sv, std::move(sceneShaderStages), {resources.getBindingName()}, {resources.getDescriptorInfo()});
     std::optional<DescriptorSet> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
-        ASSERT(displayGraphicsPipeline);
-        displayDescriptors.emplace(engine.makeDescriptors("display"sv, *displayGraphicsPipeline, {resources.getBindingName()}, {resources.getDescriptorInfo()}));
+        displayDescriptors.emplace(engine.makeDescriptors("display"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), {resources.getBindingName()}, {resources.getDescriptorInfo()}));
     }
-    return std::make_shared<FrameResourcesAndDescriptors>(std::move(resources), std::move(sceneDescriptors), std::move(displayDescriptors));
+    return std::make_shared<FrameResourcesAndDescriptors>(std::move(resources), std::move(directDescriptors), std::move(displayDescriptors));
 }
 
 void Renderer::Impl::putFrameDescriptors(std::shared_ptr<FrameResourcesAndDescriptors> && frameDescriptors)

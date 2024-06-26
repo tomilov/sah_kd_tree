@@ -6,7 +6,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -18,9 +17,9 @@ namespace engine
 
 struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
 {
-    GraphicsPipelineLayout(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages);
+    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages);
 
-    [[nodiscard]] const std::shared_ptr<const ShaderStages> & getShaderStages() const &
+    [[nodiscard]] const ShaderStages & getShaderStages() const &
     {
         return shaderStages;
     }
@@ -39,7 +38,7 @@ struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipel
 private:
     std::string name;
     const Context & context;
-    std::shared_ptr<const ShaderStages> shaderStages;
+    const ShaderStages & shaderStages;
 
     vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
     vk::UniquePipelineLayout pipelineLayout;
@@ -54,11 +53,11 @@ private:
 
 struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 {
-    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool useDescriptorBuffer, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass);
+    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass);
 
     [[nodiscard]] bool getUseDescriptorBuffer() const
     {
-        return useDescriptorBuffer;
+        return descriptorBufferEnabled;
     }
 
     [[nodiscard]] vk::RenderPass getRenderPass() const
@@ -78,7 +77,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 
 private:
     std::string name;
-    const bool useDescriptorBuffer;
+    const bool descriptorBufferEnabled;
     const vk::RenderPass renderPass;
 
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;

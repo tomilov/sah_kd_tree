@@ -62,6 +62,12 @@ struct OffscreenRenderPass final : utils::OneTime<OffscreenRenderPass>
 
     [[nodiscard]] static OffscreenRenderPass make(const engine::Context & context);
 
+    [[nodiscard]] operator vk::RenderPass() const &
+    {
+        ASSERT(renderPass);
+        return *renderPass;
+    }
+
     static constexpr void completeClassContext()
     {
         checkTraits();
@@ -83,6 +89,12 @@ struct Framebuffer final : utils::OneTime<Framebuffer>
     vk::UniqueFramebuffer framebuffer;
 
     [[nodiscard]] static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
+
+    [[nodiscard]] operator vk::Framebuffer() const &
+    {
+        ASSERT(framebuffer);
+        return *framebuffer;
+    }
 
     static constexpr void completeClassContext()
     {
@@ -141,9 +153,9 @@ public:
 
     [[nodiscard]] SceneResources makeResources(const Scene & scene) const;
 
-    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, const GraphicsPipeline & graphicsPipeline, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
-    [[nodiscard]] DescriptorSet makeDescriptors(const GraphicsPipeline & graphicsPipeline, const SceneResources & sceneResources) const;
-    [[nodiscard]] DescriptorSet makeDescriptors(const GraphicsPipeline & graphicsPipeline, const DisplayResources & displayResources) const;
+    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
+    [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const;
+    [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const;
 
 private:
     const engine::Context & context;
