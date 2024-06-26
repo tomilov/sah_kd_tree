@@ -227,9 +227,17 @@ struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
         return "uniformBuffer"s;
     }
 
-    [[nodiscard]] DescriptorInfo getDescriptorInfo() const
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
     {
-        return {getBindingName(), vk::DescriptorType::eUniformBuffer, {uniformBuffer.getDescriptorBufferInfo(), uniformBuffer.getDescriptorAddressInfo()}};
+        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+        {
+            if (descriptorBufferEnabled) {
+                return DescriptorBufferData{uniformBuffer.getDescriptorAddressInfo()};
+            } else {
+                return DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
+            }
+        };
+        return {getBindingName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()};
     }
 
     static constexpr void completeClassContext()
@@ -332,7 +340,7 @@ public:
         if (resourcesAndDescriptors) {
             DisplayResources resources{context, framebufferSize, displayRenderPass, std::move(resourcesAndDescriptors->resources.sampler)};
             auto descriptors = std::move(resourcesAndDescriptors->descriptors);
-            auto descriptorInfos = {resources.getDescriptorInfo()};
+            auto descriptorInfos = {resources.getDescriptorInfo(engine.getSettings().descriptorBufferEnabled)};
             descriptors.fill(descriptorInfos);
             return std::make_shared<DisplayResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         } else {
@@ -563,7 +571,7 @@ struct Renderer::Impl : utils::NonCopyable
 
     void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
 
-    std::shared_ptr<FrameResourcesAndDescriptors> getFrameDescriptors();
+    [[nodiscard]] std::shared_ptr<FrameResourcesAndDescriptors> getFrameDescriptors();
     void putFrameDescriptors(std::shared_ptr<FrameResourcesAndDescriptors> && frameDescriptors);
 
     template<typename... Resources>
@@ -760,7 +768,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (engine.getSettings().multiDrawIndirectEnabled) {
-        auto indexType = sceneResources.indexTypes.at(0);
+        ASSERT(std::empty(sceneResources.indexTypes));
+        auto indexType = sceneResources.maxIndexType;
         commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
@@ -775,6 +784,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             commandBuffer.drawIndexedIndirect(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, context.getDispatcher());
         }
     } else {
+        ASSERT(!std::empty(sceneResources.instances));
+        ASSERT(std::size(sceneResources.indexTypes) == std::size(sceneResources.instances));
         auto indexType = std::cbegin(sceneResources.indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : sceneResources.instances) {
             ASSERT(indexType != std::cend(sceneResources.indexTypes));
@@ -975,7 +986,7 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
         if (frameSettings.useOffscreenTexture) {
             if (!resourcesAndDescriptors->displayDescriptors) {
                 const auto & resources = resourcesAndDescriptors->resources;
-                auto displayDescriptors = engine.makeDescriptors("scene"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), {resources.getBindingName()}, {resources.getDescriptorInfo()});
+                auto displayDescriptors = engine.makeDescriptors("scene"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), resources);
                 resourcesAndDescriptors->displayDescriptors.emplace(std::move(displayDescriptors));
             }
         }
@@ -990,10 +1001,10 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
     } else {
         sceneShaderStages = directGraphicsPipeline->shaders->getShaderStagesPtr();
     }
-    auto directDescriptors = engine.makeDescriptors("scene"sv, std::move(sceneShaderStages), {resources.getBindingName()}, {resources.getDescriptorInfo()});
+    auto directDescriptors = engine.makeDescriptors("scene"sv, std::move(sceneShaderStages), resources);
     std::optional<DescriptorSet> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
-        displayDescriptors.emplace(engine.makeDescriptors("display"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), {resources.getBindingName()}, {resources.getDescriptorInfo()}));
+        displayDescriptors.emplace(engine.makeDescriptors("scene"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), resources));
     }
     return std::make_shared<FrameResourcesAndDescriptors>(std::move(resources), std::move(directDescriptors), std::move(displayDescriptors));
 }

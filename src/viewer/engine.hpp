@@ -26,9 +26,9 @@ namespace viewer
 
 struct SceneResources final : utils::OneTime<SceneResources>
 {
-    std::vector<std::vector<glm::mat4>> transforms;
     std::vector<vk::DrawIndexedIndirectCommand> instances;
     std::vector<vk::IndexType> indexTypes;
+    vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
     std::optional<engine::Buffer<void>> indexBuffer;
     uint32_t drawCount = 0;
     std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
@@ -38,7 +38,7 @@ struct SceneResources final : utils::OneTime<SceneResources>
     std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
 
     [[nodiscard]] static std::string getBindingName();
-    [[nodiscard]] DescriptorInfo getDescriptorInfo() const;
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
     static constexpr void completeClassContext()
     {
@@ -62,7 +62,7 @@ struct OffscreenRenderPass final : utils::OneTime<OffscreenRenderPass>
 
     [[nodiscard]] static OffscreenRenderPass make(const engine::Context & context);
 
-    [[nodiscard]] operator vk::RenderPass() const &
+    [[nodiscard]] operator vk::RenderPass() const &  // NOLINT: google-explicit-constructor
     {
         ASSERT(renderPass);
         return *renderPass;
@@ -90,7 +90,7 @@ struct Framebuffer final : utils::OneTime<Framebuffer>
 
     [[nodiscard]] static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
 
-    [[nodiscard]] operator vk::Framebuffer() const &
+    [[nodiscard]] operator vk::Framebuffer() const &  // NOLINT: google-explicit-constructor
     {
         ASSERT(framebuffer);
         return *framebuffer;
@@ -113,7 +113,7 @@ struct DisplayResources final : utils::OneTime<DisplayResources>
     {}
 
     [[nodiscard]] static std::string getBindingName();
-    [[nodiscard]] DescriptorInfo getDescriptorInfo() const;
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
     static constexpr void completeClassContext()
     {
@@ -153,7 +153,12 @@ public:
 
     [[nodiscard]] SceneResources makeResources(const Scene & scene) const;
 
-    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
+    template<typename Resource>
+    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource) const
+    {
+        return makeDescriptors(name, std::move(shaderStages), {resource.getBindingName()}, {resource.getDescriptorInfo(settings.descriptorBufferEnabled)});
+    }
+
     [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const;
     [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const;
 
@@ -165,6 +170,7 @@ private:
     Pipelines pipelines;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
+    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
 };
 
 }  // namespace viewer

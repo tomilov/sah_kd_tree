@@ -27,7 +27,7 @@ namespace viewer
 using DescriptorSetData = std::variant<vk::BufferView, vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>;
 using DescriptorBufferData = std::variant<std::monostate, vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
 
-using DescriptorData = std::tuple<DescriptorSetData, DescriptorBufferData>;
+using DescriptorData = std::variant<DescriptorSetData, DescriptorBufferData>;
 
 using DescriptorInfo = std::tuple<std::string /* bindingName */, vk::DescriptorType, DescriptorData>;
 using DescriptorInfos = std::vector<DescriptorInfo>;
