@@ -960,11 +960,6 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFra
     }
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
-    // if (!frameResourcesAndDescriptors) {
-    //     frameResourcesAndDescriptors = getFrameDescriptors();
-    //     fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
-    // }
-
     if (frameSettings.useOffscreenTexture) {
         if (displayFence) {
             fencePool.waitAndPut(std::move(displayFence));

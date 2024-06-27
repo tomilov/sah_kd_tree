@@ -55,6 +55,8 @@ Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabl
     init();
 }
 
+Pipelines::~Pipelines() = default;
+
 void Pipelines::init()
 {
     {
@@ -72,7 +74,5 @@ void Pipelines::init()
         displayShaders = std::move(shaders);
     }
 }
-
-Pipelines::~Pipelines() = default;
 
 }  // namespace viewer

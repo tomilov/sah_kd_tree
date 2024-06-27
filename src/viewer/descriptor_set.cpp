@@ -48,7 +48,7 @@ engine::DescriptorSet DescriptorSet::createDescriptorSet() const
 
 DescriptorBuffer DescriptorSet::createDescriptorBuffer() const
 {
-    constexpr vk::MemoryPropertyFlags kRequiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
+    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
     auto alignment = std::max(context.getPhysicalDevice().getMinAlignment(), descriptorBufferOffsetAlignment);
     const auto & setBindings = shaderStages->setBindings.at(set);
@@ -77,7 +77,7 @@ DescriptorBuffer DescriptorSet::createDescriptorBuffer() const
     auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, alignment);
 
     auto memoryPropertyFlags = descriptorBuffer.getMemoryPropertyFlags();
-    INVARIANT((memoryPropertyFlags & kRequiredMemoryPropertyFlags) == kRequiredMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kRequiredMemoryPropertyFlags, memoryPropertyFlags);
+    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
 
     return std::move(descriptorBuffer);
 }
