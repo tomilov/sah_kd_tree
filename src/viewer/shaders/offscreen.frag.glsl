@@ -1,6 +1,7 @@
 #version 460 core
 
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_demote_to_helper_invocation : enable
 
 #include "uniform_buffer.glsl"
 
@@ -13,8 +14,10 @@ void main()
 {
     vec4 color = texture(display, uv);
     if (color.a == 0.0f) {
-        discard;
+        //demote;
+        fragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
     } else {
         fragColor = vec4(color.rgb, uniformBuffer.alpha);
     }
+    fragColor = vec4(uv.x, uv.y, 1.0f - uv.x - uv.y, 1.0f);
 }

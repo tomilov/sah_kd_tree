@@ -133,15 +133,8 @@ public:
         return pipelineCache;
     }
 
-    [[nodiscard]] const std::shared_ptr<const Shaders> & getSceneShaders() const &
-    {
-        return sceneShaders;
-    }
-
-    [[nodiscard]] const std::shared_ptr<const Shaders> & getDisplayShaders() const &
-    {
-        return displayShaders;
-    }
+    [[nodiscard]] std::shared_ptr<const Shaders> getSceneShaders() const;
+    [[nodiscard]] std::shared_ptr<const Shaders> getDisplayShaders() const;
 
 private:
     const engine::Context & context;
@@ -149,10 +142,8 @@ private:
 
     std::unique_ptr<FileIo> fileIo;
     engine::PipelineCache pipelineCache;
-    std::shared_ptr<const Shaders> sceneShaders;
-    std::shared_ptr<const Shaders> displayShaders;
-
-    void init();
+    mutable std::weak_ptr<Shaders> sceneShaders;
+    mutable std::weak_ptr<Shaders> displayShaders;
 
     static constexpr void completeClassContext()
     {

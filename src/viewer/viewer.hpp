@@ -45,6 +45,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
+    Q_PROPERTY(bool useRenderNode MEMBER useRenderNode NOTIFY useRenderNodeChanged)
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
@@ -69,6 +70,7 @@ Q_SIGNALS:
     void scenePathChanged(QUrl scenePath);
 
     void useOffscreenTextureChanged(bool useOffscreenTexture);
+    void useRenderNodeChanged(bool useRenderNode);
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
@@ -108,6 +110,7 @@ private:
     QUrl scenePath;
 
     bool useOffscreenTexture = false;
+    bool useRenderNode = false;
 
     QUrl currentScenePath;
     std::shared_ptr<const Scene> scene;

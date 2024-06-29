@@ -1,10 +1,10 @@
 #include <viewer/pipelines.hpp>
 
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 
 #include <memory>
 #include <string_view>
-#include <utility>
 
 using namespace std::string_view_literals;
 
@@ -51,28 +51,36 @@ Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabl
     , descriptorBufferEnabled{descriptorBufferEnabled}
     , fileIo{std::make_unique<FileIo>("shaders:"sv)}
     , pipelineCache{"rasterization"sv, context, *fileIo}
-{
-    init();
-}
+{}
 
-Pipelines::~Pipelines() = default;
-
-void Pipelines::init()
+std::shared_ptr<const Shaders> Pipelines::getDisplayShaders() const
 {
-    {
-        auto shaders = Shaders::make("scene"sv, context, *fileIo, descriptorBufferEnabled);
-        shaders->addShader("identity.vert"sv);
-        shaders->addShader("barycentric_color.frag"sv);
-        shaders->create();
-        sceneShaders = std::move(shaders);
-    }
-    {
-        auto shaders = Shaders::make("display"sv, context, *fileIo, descriptorBufferEnabled);
+    auto shaders = displayShaders.lock();
+    if (!shaders) {
+        shaders = Shaders::make("display"sv, context, *fileIo, descriptorBufferEnabled);
         shaders->addShader("fullscreen_rect.vert"sv);
         shaders->addShader("offscreen.frag"sv);
         shaders->create();
-        displayShaders = std::move(shaders);
+        displayShaders = shaders;
+        SPDLOG_INFO("displayShaders");
     }
+    return shaders;
 }
+
+std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const
+{
+    auto shaders = sceneShaders.lock();
+    if (!shaders) {
+        shaders = Shaders::make("scene"sv, context, *fileIo, descriptorBufferEnabled);
+        shaders->addShader("identity.vert"sv);
+        shaders->addShader("barycentric_color.frag"sv);
+        shaders->create();
+        sceneShaders = shaders;
+        SPDLOG_INFO("sceneShaders");
+    }
+    return shaders;
+}
+
+Pipelines::~Pipelines() = default;
 
 }  // namespace viewer

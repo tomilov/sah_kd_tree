@@ -81,7 +81,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceIndexTypeUint8FeaturesKHR::indexTypeUint8,
         &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,
         &vk::PhysicalDeviceMaintenance6FeaturesKHR::maintenance6,
-        &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory
+        &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory,
+        &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation
     >;
     // clang-format on
 

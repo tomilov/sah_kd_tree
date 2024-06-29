@@ -197,6 +197,7 @@ struct UniformBuffer
     float alpha = 0.0f;
     float zNear = 1E-2f;
     float zFar = 1E4;
+    vk::Bool32 useOffscreenTexture = VK_FALSE;
     glm::vec3 position{0.0f};
 };
 #pragma pack(pop)
@@ -502,6 +503,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .alpha = frameSettings.alpha,
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
+        .useOffscreenTexture = frameSettings.useOffscreenTexture ? VK_TRUE : VK_FALSE,
         .position = frameSettings.position,
     };
 }
@@ -510,8 +512,10 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 {
     auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
-    glm::mat4 transform2D{frameSettings.transform2D};  // 2D to 4D unit matrix extension
-    auto mvp = transform2D * projection * view;
+    auto mvp = projection * view;
+    if (!frameSettings.useOffscreenTexture) {
+        mvp = glm::mat4{frameSettings.transform2D} * mvp;
+    }
     return {
         .mvp = mvp,
     };
@@ -679,8 +683,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     }
 
     for (const auto & pushConstantRange : pipeline.shaders->getShaderStages().pushConstantRanges) {
-        const void * p = pushConstants + pushConstantRange.offset;
-        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, p, context.getDispatcher());
+        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, std::next(pushConstants, pushConstantRange.offset), context.getDispatcher());
     }
 }
 

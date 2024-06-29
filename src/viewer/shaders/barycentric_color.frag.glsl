@@ -26,6 +26,7 @@ float wireFrame(in vec3 baryCoord, in float thickness)
 void main()
 {
     vec3 baryCoord = gl_BaryCoordEXT;
-    fragColor.rgb = 0.0f < y ? baryCoord : wireFrame(baryCoord, 1.0f).sss;
+    //fragColor.rgb = 0.0f < y ? baryCoord : wireFrame(baryCoord, 1.0f).sss;
+    fragColor.rgb = baryCoord;
     fragColor.a = uniformBuffer.alpha;
 }

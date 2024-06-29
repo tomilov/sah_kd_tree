@@ -67,7 +67,8 @@ ApplicationWindow {
 
         property SahKdTreeViewer item
         onItemChanged: (item) => {
-            actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
+                           actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
+                           actionUseRenderNode.checked = contextMenu.item.useRenderNode
         }
 
         Action {
@@ -84,6 +85,15 @@ ApplicationWindow {
             checkable: true
             onCheckedChanged: (checked) => {
                 contextMenu.item.useOffscreenTexture = checked
+            }
+        }
+        Action {
+            id: actionUseRenderNode
+
+            text: qsTr("Use render node")
+            checkable: true
+            onCheckedChanged: (checked) => {
+                contextMenu.item.useRenderNode = checked
             }
         }
     }
@@ -307,6 +317,7 @@ ApplicationWindow {
                 property alias eulerAngles: sahKdTreeViewer.eulerAngles
                 property alias fieldOfView: sahKdTreeViewer.fieldOfView
                 property alias useOffscreenTexture: sahKdTreeViewer.useOffscreenTexture
+                property alias useRenderNode: sahKdTreeViewer.useRenderNode
             }
 
             Component.onCompleted: console.log("created")
@@ -315,6 +326,7 @@ ApplicationWindow {
     }
 
     header: RowLayout {
+        visible: false
         height: 128
 
         Rectangle {
@@ -327,6 +339,7 @@ ApplicationWindow {
     }
 
     Rectangle {
+        visible: false
         color: Qt.rgba(1, 1, 1, 0.7)
         radius: 10
         border.width: 1
@@ -339,6 +352,7 @@ ApplicationWindow {
 
     Text {
         id: label
+        visible: false
         color: "black"
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter
@@ -353,88 +367,87 @@ ApplicationWindow {
 
     Item {
         anchors.fill: parent
-        RowLayout {
+        SahKdTreeViewer {
+            id: mainSahKdTreeViewer
+            objectName: "Main"
+
+            engine: SahKdTreeEngine
+
             anchors.fill: parent
 
-            SahKdTreeViewer {
-                id: mainSahKdTreeViewer
-                objectName: "Main"
+            //layer.enabled: true
+            //clip: true
 
-                engine: SahKdTreeEngine
+            scale: 0.5
+            rotation: 30
+            //transformOrigin: Item.TopLeft
 
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            //opacity: 0.2
 
-                //layer.enabled: true
-                //clip: true
-
-                scale: 0.5
-                //transformOrigin: Item.TopLeft
-
-                //opacity: 0.2
-
-                MouseArea {
-                    anchors.fill: parent
-
-                    acceptedButtons: Qt.RightButton | Qt.LeftButton
-
-                    cursorShape: parent.cursor
-
-                    onPressed: (mouse) => {
-                        parent.forceActiveFocus()
-                        switch (mouse.button) {
-                        case Qt.LeftButton: {
-                            mouse.accepted = false
-                            break
-                        }
-                        case Qt.RightButton: {
-                            mouse.accepted = true
-                            break
-                        }
-                        }
-                    }
-
-                    onClicked: (mouse) => {
-                        switch (mouse.button) {
-                        case Qt.RightButton: {
-                            mouse.accepted = true
-
-                            contextMenu.item = parent
-                            contextMenu.x = mouse.x
-                            contextMenu.y = mouse.y
-                            contextMenu.popup()
-                            break
-                        }
-                        }
-                    }
-                }
-
-                Settings {
-                    category: "%1".arg(mainSahKdTreeViewer.objectName)
-                    property alias scenePath: mainSahKdTreeViewer.scenePath
-                    property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
-                    property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
-                    property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
-                    property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
-                }
-            }
-
-            Rectangle {
-                color: "transparent"
-
+            MouseArea {
                 anchors.fill: parent
-                anchors.margins: -4
-                border.color: "red"
-                border.width: 3
 
-                scale: mainSahKdTreeViewer.scale
-                transformOrigin: mainSahKdTreeViewer.transformOrigin
+                acceptedButtons: Qt.RightButton | Qt.LeftButton
+
+                cursorShape: parent.cursor
+
+                onPressed: (mouse) => {
+                    parent.forceActiveFocus()
+                    switch (mouse.button) {
+                    case Qt.LeftButton: {
+                        mouse.accepted = false
+                        break
+                    }
+                    case Qt.RightButton: {
+                        mouse.accepted = true
+                        break
+                    }
+                    }
+                }
+
+                onClicked: (mouse) => {
+                    switch (mouse.button) {
+                    case Qt.RightButton: {
+                        mouse.accepted = true
+
+                        contextMenu.item = parent
+                        contextMenu.x = mouse.x
+                        contextMenu.y = mouse.y
+                        contextMenu.popup()
+                        break
+                    }
+                    }
+                }
             }
+
+            Settings {
+                category: "%1".arg(mainSahKdTreeViewer.objectName)
+                property alias scenePath: mainSahKdTreeViewer.scenePath
+                property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
+                property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
+                property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
+                property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
+                property alias useRenderNode: mainSahKdTreeViewer.useRenderNode
+            }
+        }
+
+        Rectangle {
+            color: "transparent"
+
+            anchors.fill: parent
+            anchors.margins: -4
+            border.color: "red"
+            border.width: 3
+
+            scale: mainSahKdTreeViewer.scale
+            transformOrigin: mainSahKdTreeViewer.transformOrigin
+            rotation: mainSahKdTreeViewer.rotation
         }
     }
 
     footer: RowLayout {
         height: 128
+        visible: false
 
         Rectangle {
             Layout.fillWidth: true

@@ -86,8 +86,6 @@ namespace
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
-constexpr bool kUseRenderNode = false;
-
 void checkEngine(QQuickWindow * window, const engine::Context & context)
 {
     Q_CHECK_PTR(window);
@@ -203,7 +201,7 @@ private:
         // TODO: and rect() != renderTarget()->pixelSize()
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
-            // static_assert(!kUseRenderNode, "Not implemented");
+            // static_assert(!useRenderNode, "Not implemented");
             auto mvp = *projectionMatrix() * *matrix();
             auto m = glm::make_mat4x4(mvp.constData());
             m = glm::scale(m, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
@@ -326,9 +324,16 @@ Viewer::Viewer(QQuickItem * parent)
     connect(this, &Viewer::cameraPositionChanged, this, &QQuickItem::update);
     connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
 
-    if (!kUseRenderNode) {
-        connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
-    }
+    const auto onUseRenderNodeChanged = [this](bool useRenderNode)
+    {
+        if (useRenderNode) {
+            disconnect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
+        } else {
+            connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
+        }
+    };
+    onUseRenderNodeChanged(useRenderNode);
+    connect(this, &Viewer::useRenderNodeChanged, this, onUseRenderNodeChanged);
 }
 
 Viewer::~Viewer() = default;
@@ -430,12 +435,11 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
     INVARIANT(w->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
 
-    if (!kUseRenderNode) {
-        connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
-    }
+    ASSERT(!useRenderNode);
+    connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
+    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
 }
 
 void Viewer::sync()
@@ -927,7 +931,7 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
 
 QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData)
 {
-    if (kUseRenderNode) {
+    if (useRenderNode) {
         auto node = static_cast<RenderNode *>(old);
         if (node) {
             ASSERT(dynamic_cast<RenderNode *>(old));
