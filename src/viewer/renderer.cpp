@@ -393,7 +393,7 @@ private:
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
         GraphicsPipeline graphicsPipeline{engine.getPipelines().getSceneShaders()};
-        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass);
+        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass).create();
         return graphicsPipeline;
     }
 };
@@ -951,7 +951,11 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
     } else {
         name = "direct scene"sv;
     }
-    graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass);
+    auto & p = graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass);
+    if (frameSettings.useOffscreenTexture) {
+        p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
+    }
+    p.create();
     return true;
 }
 

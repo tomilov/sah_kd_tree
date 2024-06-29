@@ -271,7 +271,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
                 layerSetting.pValues = std::data(value);
                 layerSettings.push_back(layerSetting);
             };
-            setValues("validate_gpu_based", {"GPU_BASED_DEBUG_PRINTF"});  // "GPU_BASED_GPU_ASSISTED"
+            // setValues("validate_gpu_based", {"GPU_BASED_DEBUG_PRINTF"});  // "GPU_BASED_GPU_ASSISTED"
             setValues("validate_sync", {vk::Bool32{VK_TRUE}});
             // setValues("validate_best_practices", {vk::Bool32{VK_TRUE}});
             // setValues("validate_best_practices_nvidia", {vk::Bool32{VK_TRUE}});

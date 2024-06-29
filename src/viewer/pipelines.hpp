@@ -113,7 +113,7 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
         ASSERT(this->shaders);
     }
 
-    void initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass);
+    [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass);
 
     static constexpr void completeClassContext()
     {

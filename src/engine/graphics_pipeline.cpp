@@ -34,6 +34,8 @@ void GraphicsPipelineLayout::init()
 
 GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass)
     : name{name}
+    , context{context}
+    , pipelineCache{pipelineCache}
     , descriptorBufferEnabled{descriptorBufferEnabled}
     , renderPass{renderPass}
 {
@@ -131,7 +133,10 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     graphicsPipelineCreateInfo.subpass = 0;
     graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
     graphicsPipelineCreateInfo.basePipelineIndex = 0;
+}
 
+void GraphicsPipeline::create()
+{
     auto result = context.getDevice().getDevice().createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value.at(0));

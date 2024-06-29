@@ -8,7 +8,6 @@
 
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include <engine/engine_export.h>
 
@@ -53,7 +52,20 @@ private:
 
 struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 {
+    vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
+    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
+    vk::PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo;
+    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;  // single attachment
+    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
+    std::vector<vk::DynamicState> dynamicStates;
+    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo;
+    vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
+    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
+    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
+
     GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass);
+
+    void create();
 
     [[nodiscard]] bool getUseDescriptorBuffer() const
     {
@@ -77,19 +89,11 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 
 private:
     std::string name;
+    const Context & context;
+    const vk::PipelineCache pipelineCache;
     const bool descriptorBufferEnabled;
     const vk::RenderPass renderPass;
 
-    vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
-    vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
-    vk::PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo;
-    vk::PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState;  // single attachment
-    vk::PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo;
-    std::vector<vk::DynamicState> dynamicStates;
-    vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo;
-    vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
-    vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
-    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
     vk::UniquePipeline pipeline;
 
     static constexpr void completeClassContext()

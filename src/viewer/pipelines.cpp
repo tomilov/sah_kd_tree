@@ -40,10 +40,10 @@ void Shaders::create()
     pipelineLayout.emplace(name, context, shaderStages);
 }
 
-void GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass)
+engine::GraphicsPipeline & GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass)
 {
     ASSERT(shaders);
-    pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getGraphicsPipelineLayout(), renderPass);
+    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getGraphicsPipelineLayout(), renderPass);
 }
 
 Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabled)
