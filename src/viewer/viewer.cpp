@@ -203,42 +203,50 @@ private:
         if (!renderTargetSize.isEmpty()) {
             QMatrix4x4 mvp = *projectionMatrix() * *matrix();
             {
+                qDebug() << "MVP1" << mvp;
                 auto row0 = mvp.row(0);
                 auto row1 = mvp.row(1);
                 auto row2 = mvp.row(2);
                 float sx = qHypot(row0[0], row1[0], row2[0]);
                 float sy = qHypot(row0[1], row1[1], row2[1]);
                 float sz = qHypot(row0[2], row1[2], row2[2]);
-                QVector3D scaling{sx, sy, sz};
+                QVector3D scaling{sx/* * renderTargetSize.width()*/, sy/* * renderTargetSize.height()*/, sz};
                 qDebug() << "scaling" << scaling;
 
                 auto col0 = mvp.column(0);
                 auto col1 = mvp.column(1);
                 auto col2 = mvp.column(2);
-                QMatrix3x3 rotationMatrix;
-                rotationMatrix.data()[0] = col0[0] / sx;
-                rotationMatrix.data()[1] = col0[1] / sy;
-                rotationMatrix.data()[2] = col0[2] / sz;
-                rotationMatrix.data()[3] = col1[0] / sx;
-                rotationMatrix.data()[4] = col1[1] / sy;
-                rotationMatrix.data()[5] = col1[2] / sz;
-                rotationMatrix.data()[6] = col2[0] / sx;
-                rotationMatrix.data()[7] = col2[1] / sy;
-                rotationMatrix.data()[8] = col2[2] / sz;
-                QQuaternion rotation = QQuaternion::fromRotationMatrix(rotationMatrix);
-                qDebug() << "rotation" << rotation;
+                const float rotationMatrix[] = {
+                    col0[0] / sx,
+                    col0[1] / sy,
+                    col0[2] / sz,
+                    col1[0] / sx,
+                    col1[1] / sy,
+                    col1[2] / sz,
+                    col2[0] / sx,
+                    col2[1] / sy,
+                    col2[2] / sz,
+                };
+                //rotationMatrix.data()
+                QQuaternion rotation = QQuaternion::fromRotationMatrix(QMatrix3x3{std::cbegin(rotationMatrix)});
+                qDebug() << "rotation" << rotation << rotation.toEulerAngles();
 
                 float tx = row0[3];
                 float ty = row1[3];
                 float tz = row2[3];
                 QVector3D translation{tx, ty, tz};
                 qDebug() << "translation" << translation;
+
+                mvp.setToIdentity();
+                mvp.rotate(rotation);
+                mvp.scale(scaling);
+                mvp.translate(translation);
+                qDebug() << "MVP2" << mvp;
             }
 
             frameSettings.width = utils::autoCast(renderTargetSize.width());
             frameSettings.height = utils::autoCast(renderTargetSize.height());
 
-            qDebug() << "MVP" << mvp;
             glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
             transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
             transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
