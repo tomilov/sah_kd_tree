@@ -9,7 +9,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <initializer_list>
 #include <memory>
 #include <span>
 #include <string>

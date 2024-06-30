@@ -19,10 +19,13 @@ target_sources(
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "vulkan.hpp"
-        "vulkan.cpp")
+        "vulkan.cpp"
+        "glm.hpp"
+        "glm.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC
-        Vulkan::Headers)
+        Vulkan::Headers
+        "gli")
 
 add_subdirectory("tests")

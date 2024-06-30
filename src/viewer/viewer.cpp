@@ -201,13 +201,50 @@ private:
         // TODO: and rect() != renderTarget()->pixelSize()
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
-            // static_assert(!useRenderNode, "Not implemented");
-            auto mvp = *projectionMatrix() * *matrix();
-            auto m = glm::make_mat4x4(mvp.constData());
-            m = glm::scale(m, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-            m = glm::translate(m, glm::vec3{1.0f, 1.0f, 0.0f});
-            qCDebug(viewerCategory) << "m" << QString::fromStdString(glm::to_string(glm::mat2{m}));
-            qCDebug(viewerCategory) << "t2d" << QString::fromStdString(glm::to_string(frameSettings.transform2D));
+            QMatrix4x4 mvp = *projectionMatrix() * *matrix();
+            {
+                auto row0 = mvp.row(0);
+                auto row1 = mvp.row(1);
+                auto row2 = mvp.row(2);
+                float sx = qHypot(row0[0], row1[0], row2[0]);
+                float sy = qHypot(row0[1], row1[1], row2[1]);
+                float sz = qHypot(row0[2], row1[2], row2[2]);
+                QVector3D scaling{sx, sy, sz};
+                qDebug() << "scaling" << scaling;
+
+                auto col0 = mvp.column(0);
+                auto col1 = mvp.column(1);
+                auto col2 = mvp.column(2);
+                QMatrix3x3 rotationMatrix;
+                rotationMatrix.data()[0] = col0[0] / sx;
+                rotationMatrix.data()[1] = col0[1] / sy;
+                rotationMatrix.data()[2] = col0[2] / sz;
+                rotationMatrix.data()[3] = col1[0] / sx;
+                rotationMatrix.data()[4] = col1[1] / sy;
+                rotationMatrix.data()[5] = col1[2] / sz;
+                rotationMatrix.data()[6] = col2[0] / sx;
+                rotationMatrix.data()[7] = col2[1] / sy;
+                rotationMatrix.data()[8] = col2[2] / sz;
+                QQuaternion rotation = QQuaternion::fromRotationMatrix(rotationMatrix);
+                qDebug() << "rotation" << rotation;
+
+                float tx = row0[3];
+                float ty = row1[3];
+                float tz = row2[3];
+                QVector3D translation{tx, ty, tz};
+                qDebug() << "translation" << translation;
+            }
+
+            frameSettings.width = utils::autoCast(renderTargetSize.width());
+            frameSettings.height = utils::autoCast(renderTargetSize.height());
+
+            qDebug() << "MVP" << mvp;
+            glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
+            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+            transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+            qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
+
+            frameSettings.transform2D = transform2D;
 
             // qDebug() << frameSettings.alpha << inheritedOpacity();
 
@@ -235,15 +272,17 @@ private:
                 device.setDebugUtilsObjectName(cb, "Qt command buffer");
 
                 auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
-                auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
-                if (renderPassFormat != newRenderPassFormat) {
-                    renderPassFormat = newRenderPassFormat;
-                    auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
-                    Q_CHECK_PTR(renderPassNativeHandles);
-                    vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
-                    if (renderer->updateRenderPass(renderPass)) {
-                        device.setDebugUtilsObjectName(renderPass, "Qt render pass");
+                if ((false)) {
+                    auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
+                    if (renderPassFormat != newRenderPassFormat) {
+                        renderPassFormat = newRenderPassFormat;
                     }
+                }
+                auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
+                Q_CHECK_PTR(renderPassNativeHandles);
+                vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
+                if (renderer->updateRenderPass(renderPass)) {
+                    device.setDebugUtilsObjectName(renderPass, "Qt render pass");
                 }
 
                 int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
@@ -265,7 +304,9 @@ private:
         if (frameSettings.useOffscreenTexture) {
             renderingFlags |= RenderingFlag::DepthAwareRendering;
             renderingFlags |= RenderingFlag::BoundedRectRendering;
-            // renderingFlags |= RenderingFlag::OpaqueRendering;
+            if (frameSettings.alpha == 1.0f) {
+                renderingFlags |= RenderingFlag::OpaqueRendering;
+            }
         }
         return renderingFlags;
     }
@@ -614,7 +655,7 @@ FrameSettings Viewer::getFrameSettings() const
         glm::dmat3 rotatedEquilized = glm::rotate(equilized, glm::radians(-rotationAngle));
         glm::dmat3 scaledRotatedEquilized = glm::scale(rotatedEquilized, glm::dvec2{width(), height()} / viewportRect.height());
         // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(scaledRotatedEquilized)));
-        frameSettings.transform2D = glm::mat2{glm::mat3{scaledRotatedEquilized}};
+        frameSettings.transform2D = glm::mat4{glm::mat3{scaledRotatedEquilized}};
     }
 
     frameSettings.fov = utils::autoCast(qDegreesToRadians(fieldOfView));

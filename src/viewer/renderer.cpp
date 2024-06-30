@@ -193,7 +193,7 @@ private:
 #pragma pack(push, 1)
 struct UniformBuffer
 {
-    glm::mat2 transform2D{1.0f};
+    glm::mat4 transform2D{1.0f};
     float alpha = 0.0f;
     float zNear = 1E-2f;
     float zFar = 1E4;
@@ -282,9 +282,9 @@ struct DisplayResourcesAndDescriptors
     {}
 };
 
-class DisplayResourcesAndDescriptorsPool final
+class DisplayPool final
     : utils::NonCopyable
-    , public std::enable_shared_from_this<DisplayResourcesAndDescriptorsPool>
+    , public std::enable_shared_from_this<DisplayPool>
 {
     struct Private
     {
@@ -292,7 +292,7 @@ class DisplayResourcesAndDescriptorsPool final
     };
 
 public:
-    DisplayResourcesAndDescriptorsPool(Private, const engine::Context & context, const Engine & engine)
+    DisplayPool(Private, const engine::Context & context, const Engine & engine)
         : context{context}
         , engine{engine}
         , displayRenderPass{OffscreenRenderPass::make(context)}
@@ -300,9 +300,9 @@ public:
         , sampler{makeSampler()}
     {}
 
-    [[nodiscard]] static std::shared_ptr<DisplayResourcesAndDescriptorsPool> make(const engine::Context & context, const Engine & engine)
+    [[nodiscard]] static std::shared_ptr<DisplayPool> make(const engine::Context & context, const Engine & engine)
     {
-        return std::make_shared<DisplayResourcesAndDescriptorsPool>(Private{}, context, engine);
+        return std::make_shared<DisplayPool>(Private{}, context, engine);
     }
 
     [[nodiscard]] const OffscreenRenderPass & getOffscreenRenderPass() const &
@@ -514,7 +514,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     auto mvp = projection * view;
     if (!frameSettings.useOffscreenTexture) {
-        mvp = glm::mat4{frameSettings.transform2D} * mvp;
+        mvp = frameSettings.transform2D * mvp;
     }
     return {
         .mvp = mvp,
@@ -550,7 +550,7 @@ struct Renderer::Impl : utils::NonCopyable
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
 
-    std::shared_ptr<DisplayResourcesAndDescriptorsPool> displayPool;
+    std::shared_ptr<DisplayPool> displayPool;
 
     Fence displayFence;
     std::shared_ptr<const engine::CommandBuffers> displayCommandBuffers;
@@ -705,22 +705,27 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         vk::Viewport viewport;
         vk::Rect2D scissor;
         if (frameSettings.useOffscreenTexture) {
-            vk::Extent2D extent = displayResourcesAndDescriptors->resources.framebuffer.size;
-            viewport = {
-                .x = 0.0f,
-                .y = 0.0f,
-                .width = utils::autoCast(extent.width),
-                .height = utils::autoCast(extent.height),
-                .minDepth = engine::kMinDepth,
-                .maxDepth = 1.0f,
-            };
-            scissor = {
-                .offset = {
-                    .x = 0,
-                    .y = 0,
-                },
-                .extent = extent,
-            };
+            if ((true)) {
+                vk::Extent2D extent = displayResourcesAndDescriptors->resources.framebuffer.size;
+                viewport = {
+                    .x = 0.0f,
+                    .y = 0.0f,
+                    .width = utils::autoCast(extent.width),
+                    .height = utils::autoCast(extent.height),
+                    .minDepth = engine::kMinDepth,
+                    .maxDepth = 1.0f,
+                };
+                scissor = {
+                    .offset = {
+                        .x = 0,
+                        .y = 0,
+                    },
+                    .extent = extent,
+                };
+            } else {
+                viewport = frameSettings.viewport;
+                scissor = frameSettings.scissor;
+            }
         } else {
             viewport = frameSettings.viewport;
             scissor = frameSettings.scissor;
@@ -862,6 +867,7 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
         constexpr uint32_t kFirstScissor = 0;
         commandBuffer.setScissor(kFirstScissor, frameSettings.scissor, context.getDispatcher());
     }
+    SPDLOG_INFO("frameSettings = {}", frameSettings);
 
     commandBuffer.draw(4, 1, 0, 0, context.getDispatcher());
 }
@@ -881,7 +887,8 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
 
     if (displayResourcesAndDescriptors) {
         ASSERT(displayPool);
-        Recycler recycler = [this, displayPool = displayPool, displayResourcesAndDescriptors = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers), displayFence = std::move(displayFence)]() mutable
+        Recycler recycler = [this, displayPool = displayPool, offscreenGraphicsPipeline = offscreenGraphicsPipeline, displayResourcesAndDescriptors = std::move(displayResourcesAndDescriptors), displayCommandBuffers = std::move(displayCommandBuffers),
+                             displayFence = std::move(displayFence)]() mutable
         {
             if (displayFence) {
                 fencePool.waitAndPut(std::move(displayFence));
@@ -895,7 +902,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
     if (frameSettings.useOffscreenTexture) {
         if (!displayPool) {
-            displayPool = DisplayResourcesAndDescriptorsPool::make(context, engine);
+            displayPool = DisplayPool::make(context, engine);
         }
     }
     {

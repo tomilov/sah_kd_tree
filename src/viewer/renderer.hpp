@@ -1,10 +1,14 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <format/glm.hpp>
+#include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
+#include <viewer/scenes.hpp>
 
+#include <fmt/base.h>
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -24,7 +28,7 @@ struct FrameSettings
 {
     // bool clipByDiscard = false;
     bool useOffscreenTexture = false;
-    glm::mat2 transform2D{1.0f};
+    glm::mat4 transform2D{1.0f};
     float alpha = 1.0f;
     float zNear = 1E-3f;
     float zFar = 1E3f;
@@ -55,9 +59,21 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 472;
+    static constexpr size_t kSize = 520;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
 }  // namespace viewer
+
+template<>
+struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const viewer::FrameSettings & frameSettings, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{.useOffscreenTexture = {}, .transform2D = {}, .alpha = {}, .zNear = {}, .zFar = {}, .position = {}, .orientation = {}, .scissor = {}, .viewport = {}, .width = {}, .height = {}, .fov = {}}}",
+                              frameSettings.useOffscreenTexture, frameSettings.transform2D, frameSettings.alpha, frameSettings.zNear, frameSettings.zFar, frameSettings.position, frameSettings.orientation, frameSettings.scissor,
+                              frameSettings.viewport, frameSettings.width, frameSettings.height, frameSettings.fov);
+    }
+};

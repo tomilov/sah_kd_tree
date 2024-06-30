@@ -151,3 +151,43 @@ struct fmt::formatter<vk::DrawIndexedIndirectCommand> : fmt::formatter<fmt::stri
         return fmt::format_to(ctx.out(), "{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 };
+
+template<>
+struct fmt::formatter<vk::Offset2D> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::Offset2D & offset, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{.x = {}, .y = {}}}", offset.x, offset.y);
+    }
+};
+
+template<>
+struct fmt::formatter<vk::Extent2D> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::Extent2D & extent, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{.width = {}, .height = {}}}", extent.width, extent.height);
+    }
+};
+
+template<>
+struct fmt::formatter<vk::Rect2D> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::Rect2D & rect2D, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{.offset = {}, .extent = {}}}", rect2D.offset, rect2D.extent);
+    }
+};
+
+template<>
+struct fmt::formatter<vk::Viewport> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const vk::Viewport & viewport, FormatContext & ctx) const
+    {
+        return fmt::format_to(ctx.out(), "{{.x = {}, .y = {}, .width = {}, .height = {}}}", viewport.x, viewport.y, viewport.width, viewport.height);
+    }
+};

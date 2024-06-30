@@ -2,7 +2,7 @@
 
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    mat2 transform2D;
+    mat4 transform2D;
     float alpha;
     float zNear;
     float zFar;

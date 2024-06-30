@@ -59,7 +59,7 @@ ApplicationWindow {
         sequences: [StandardKey.Cancel] // "Escape"
         context: Qt.WindowShortcut
         autoRepeat: false
-        onActivated: confirmationDialog.open()
+        onActivated: root.close() //confirmationDialog.open()
     }
 
     Menu {
@@ -118,6 +118,18 @@ ApplicationWindow {
                 sceneOpenDialog.item = root.activeFocusItem
                 sceneOpenDialog.open()
             }
+        }
+    }
+
+    Shortcut {
+        sequences: [StandardKey.Save]
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        onActivated: {
+            mainSahKdTreeViewer.parent.grabToImage(function(result){
+                result.saveToFile("/tmp/1.png")
+                console.log("Screenshot saved")
+            })
         }
     }
 
@@ -367,6 +379,9 @@ ApplicationWindow {
 
     Item {
         anchors.fill: parent
+
+        scale: 1.0
+
         SahKdTreeViewer {
             id: mainSahKdTreeViewer
             objectName: "Main"
@@ -379,7 +394,7 @@ ApplicationWindow {
             //clip: true
 
             scale: 0.5
-            rotation: 30
+            rotation: 15
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2

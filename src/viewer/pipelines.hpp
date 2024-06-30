@@ -1,12 +1,12 @@
 #pragma once
 
 #include <engine/context.hpp>
+#include <engine/file_io.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <engine/shader_module.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
-#include <viewer/file_io.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -25,7 +25,7 @@ struct ShaderModule final : utils::OneTime<ShaderModule>
     engine::ShaderModule shaderModule;
     engine::ShaderModuleReflection shaderReflection;
 
-    ShaderModule(const engine::Context & context, const FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
+    ShaderModule(const engine::Context & context, const engine::FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
         : shaderModule{context, fileIo, shaderName}
         , shaderReflection{context, shaderModule, entryPoint}
     {}
@@ -48,9 +48,9 @@ class Shaders final
 public:
     static const std::string_view kDefaultEntryPoint;
 
-    Shaders(Private, std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled);
+    Shaders(Private, std::string_view name, const engine::Context & context, std::shared_ptr<const engine::FileIo> fileIo, bool descriptorBufferEnabled);
 
-    [[nodiscard]] static std::shared_ptr<Shaders> make(std::string_view name, const engine::Context & context, const FileIo & fileIo, bool descriptorBufferEnabled)
+    [[nodiscard]] static std::shared_ptr<Shaders> make(std::string_view name, const engine::Context & context, std::shared_ptr<const engine::FileIo> fileIo, bool descriptorBufferEnabled)
     {
         return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorBufferEnabled);
     }
@@ -94,7 +94,7 @@ private:
 
     std::string name;
     const engine::Context & context;
-    const FileIo & fileIo;
+    std::shared_ptr<const engine::FileIo> fileIo;
     const bool descriptorBufferEnabled;
 
     std::vector<ShaderModule> shaderModules;
@@ -140,7 +140,7 @@ private:
     const engine::Context & context;
     const bool descriptorBufferEnabled;
 
-    std::unique_ptr<FileIo> fileIo;
+    std::shared_ptr<engine::FileIo> fileIo;
     engine::PipelineCache pipelineCache;
     mutable std::weak_ptr<Shaders> sceneShaders;
     mutable std::weak_ptr<Shaders> displayShaders;

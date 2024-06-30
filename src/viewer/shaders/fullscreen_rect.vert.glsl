@@ -14,5 +14,5 @@ void main()
     outUv = vec2((gl_VertexIndex >> 1) & 1, gl_VertexIndex & 1);
     //debugPrintfEXT("%i %f %f\n", gl_VertexIndex, outUv.x, outUv.y);
     vec2 position = outUv * 2.0f - 1.0f;
-    gl_Position = vec4(uniformBuffer.transform2D * position, 0.5f, 1.0f);
+    gl_Position = uniformBuffer.transform2D * vec4(position, 0.0f, 1.0f);
 }

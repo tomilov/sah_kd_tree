@@ -53,7 +53,8 @@ void DescriptorSet::init()
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
     descriptorSetAllocateInfo.descriptorPool = *descriptorPool;
     descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayout);
-    descriptorSet = std::move(device.getDevice().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, context.getLibrary().getDispatcher()).back());
+    auto descriptorSets = device.getDevice().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, context.getLibrary().getDispatcher());
+    descriptorSet = std::move(descriptorSets.at(0));
     auto descriptorSetName = fmt::format("{} set #{}", name, set);
     device.setDebugUtilsObjectName(*descriptorSet, descriptorSetName);
 }
