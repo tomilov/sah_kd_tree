@@ -514,7 +514,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     auto mvp = projection * view;
     if (!frameSettings.useOffscreenTexture) {
-        //mvp = frameSettings.transform2D * mvp;
+        // mvp = frameSettings.transform2D * mvp;
     }
     return {
         .mvp = mvp,
