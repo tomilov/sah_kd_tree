@@ -6,7 +6,7 @@
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
-#include <viewer/descriptor_set.hpp>
+#include <viewer/descriptors.hpp>
 #include <viewer/pipelines.hpp>
 #include <viewer/scenes.hpp>
 
@@ -154,13 +154,13 @@ public:
     [[nodiscard]] SceneResources makeResources(const Scene & scene) const;
 
     template<typename Resource>
-    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource) const
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource) const
     {
         return makeDescriptors(name, std::move(shaderStages), {resource.getBindingName()}, {resource.getDescriptorInfo(settings.descriptorBufferEnabled)});
     }
 
-    [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const;
-    [[nodiscard]] DescriptorSet makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const;
+    [[nodiscard]] Descriptors makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const;
+    [[nodiscard]] Descriptors makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const;
 
 private:
     const engine::Context & context;
@@ -170,7 +170,7 @@ private:
     Pipelines pipelines;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
-    [[nodiscard]] DescriptorSet makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
 };
 
 }  // namespace viewer

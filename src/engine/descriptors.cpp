@@ -19,10 +19,9 @@
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set)
+DescriptorSet::DescriptorSet(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set)
     : name{name}
     , context{context}
-    , framesInFlight{framesInFlight}
     , shaderStages{std::move(shaderStages)}
     , set{set}
 {
@@ -37,12 +36,12 @@ void DescriptorSet::init()
     std::vector<vk::DescriptorPoolSize> descriptorPoolSizes;
     descriptorPoolSizes.reserve(std::size(descriptorPoolSizes));
     for (const auto & [descriptorType, descriptorCount] : descriptorCounts) {
-        descriptorPoolSizes.push_back({descriptorType, descriptorCount * framesInFlight});
+        descriptorPoolSizes.push_back({descriptorType, descriptorCount});
     }
 
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo;
     descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
-    descriptorPoolCreateInfo.setMaxSets(framesInFlight);
+    descriptorPoolCreateInfo.setMaxSets(1);
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSizes);
     descriptorPool = device.getDevice().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     device.setDebugUtilsObjectName(*descriptorPool, name);

@@ -18,7 +18,7 @@
 #include <utils/checked_ptr.hpp>
 #include <utils/math.hpp>
 #include <utils/noncopyable.hpp>
-#include <viewer/descriptor_set.hpp>
+#include <viewer/descriptors.hpp>
 #include <viewer/engine.hpp>
 #include <viewer/pipelines.hpp>
 #include <viewer/renderer.hpp>
@@ -250,10 +250,10 @@ struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
 struct FrameResourcesAndDescriptors
 {
     UniformBufferResource resources;
-    DescriptorSet directDescriptors;
-    std::optional<DescriptorSet> displayDescriptors;
+    Descriptors directDescriptors;
+    std::optional<Descriptors> displayDescriptors;
 
-    FrameResourcesAndDescriptors(UniformBufferResource && resources, DescriptorSet && sceneDescriptors, std::optional<DescriptorSet> && displayDescriptors)
+    FrameResourcesAndDescriptors(UniformBufferResource && resources, Descriptors && sceneDescriptors, std::optional<Descriptors> && displayDescriptors)
         : resources{std::move(resources)}
         , directDescriptors{std::move(sceneDescriptors)}
         , displayDescriptors{std::move(displayDescriptors)}
@@ -263,9 +263,9 @@ struct FrameResourcesAndDescriptors
 struct SceneResourcesAndDescriptors
 {
     SceneResources resources;
-    DescriptorSet descriptors;
+    Descriptors descriptors;
 
-    SceneResourcesAndDescriptors(SceneResources && resources, DescriptorSet && descriptors)
+    SceneResourcesAndDescriptors(SceneResources && resources, Descriptors && descriptors)
         : resources{std::move(resources)}
         , descriptors{std::move(descriptors)}
     {}
@@ -274,9 +274,9 @@ struct SceneResourcesAndDescriptors
 struct DisplayResourcesAndDescriptors
 {
     DisplayResources resources;
-    DescriptorSet descriptors;
+    Descriptors descriptors;
 
-    DisplayResourcesAndDescriptors(DisplayResources && resources, DescriptorSet && descriptors)
+    DisplayResourcesAndDescriptors(DisplayResources && resources, Descriptors && descriptors)
         : resources{std::move(resources)}
         , descriptors{std::move(descriptors)}
     {}
@@ -564,7 +564,7 @@ struct Renderer::Impl : utils::NonCopyable
     void setFrameSettings(const FrameSettings & frameSettings);
     void setScene(std::shared_ptr<const Scene> scene);
 
-    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors, const std::byte * pushConstants) const;
+    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, const Framebuffer & framebuffer);
     void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -651,7 +651,7 @@ void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
     this->scene = std::move(scene);
 }
 
-void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors, const std::byte * pushConstants) const
+void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const
 {
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline.value(), context.getDispatcher());
 
@@ -660,7 +660,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     if (engine.getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
-        for (const DescriptorSet & d : descriptors) {
+        for (const Descriptors & d : descriptors) {
             descriptorBufferBindingInfos.push_back(d.getDescriptorBuffer().getDescriptorBufferBindingInfo());
         }
         commandBuffer.bindDescriptorBuffersEXT(descriptorBufferBindingInfos, context.getDispatcher());
@@ -675,7 +675,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     } else {
         std::vector<vk::DescriptorSet> descriptorSets;
         descriptorSets.reserve(std::size(descriptors));
-        for (const DescriptorSet & d : descriptors) {
+        for (const Descriptors & d : descriptors) {
             descriptorSets.push_back(d.getDescriptorSet());
         }
         constexpr auto kDynamicOffsets = nullptr;
@@ -690,7 +690,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
 void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const
 {
     {
-        std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors = {
+        std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors = {
             std::cref(frameResourcesAndDescriptors->directDescriptors),
             std::cref(sceneResourcesAndDescriptors->descriptors),
         };
@@ -852,7 +852,7 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
 {
     {
         ASSERT(frameResourcesAndDescriptors->displayDescriptors);
-        std::initializer_list<std::reference_wrapper<const DescriptorSet>> descriptors = {
+        std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors = {
             std::cref(frameResourcesAndDescriptors->displayDescriptors.value()),
             std::cref(displayResourcesAndDescriptors->descriptors),
         };
@@ -1011,7 +1011,7 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
         sceneShaderStages = directGraphicsPipeline->shaders->getShaderStagesPtr();
     }
     auto directDescriptors = engine.makeDescriptors("scene"sv, std::move(sceneShaderStages), resources);
-    std::optional<DescriptorSet> displayDescriptors;
+    std::optional<Descriptors> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
         displayDescriptors.emplace(engine.makeDescriptors("scene"sv, offscreenGraphicsPipeline->shaders->getShaderStagesPtr(), resources));
     }

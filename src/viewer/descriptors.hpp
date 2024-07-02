@@ -33,10 +33,10 @@ using DescriptorInfos = std::vector<DescriptorInfo>;
 
 using DescriptorBuffer = engine::Buffer<std::byte>;
 
-class DescriptorSet : utils::OneTime<DescriptorSet>
+class Descriptors : utils::OneTime<Descriptors>
 {
 public:
-    DescriptorSet(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set);
+    Descriptors(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set);
 
     [[nodiscard]] bool getDescriptorBufferEnabled() const
     {
@@ -65,12 +65,12 @@ public:
         return std::get<DescriptorBuffer>(descriptors);
     }
 
-    [[nodiscard]] bool operator==(const DescriptorSet & rhs) const noexcept
+    [[nodiscard]] bool operator==(const Descriptors & rhs) const noexcept
     {
         return std::forward_as_tuple(descriptors.index(), shaderStages, set) == std::forward_as_tuple(rhs.descriptors.index(), rhs.shaderStages, rhs.set);
     }
 
-    [[nodiscard]] bool operator<(const DescriptorSet & rhs) const noexcept
+    [[nodiscard]] bool operator<(const Descriptors & rhs) const noexcept
     {
         return std::forward_as_tuple(descriptors.index(), shaderStages, set) < std::forward_as_tuple(rhs.descriptors.index(), rhs.shaderStages, rhs.set);
     }
@@ -102,9 +102,9 @@ public:
 }  // namespace viewer
 
 template<>
-struct std::hash<viewer::DescriptorSet>
+struct std::hash<viewer::Descriptors>
 {
-    [[nodiscard]] size_t operator()(const viewer::DescriptorSet & descriptors) const noexcept
+    [[nodiscard]] size_t operator()(const viewer::Descriptors & descriptors) const noexcept
     {
         return descriptors.getHash();
     }

@@ -64,11 +64,12 @@ ApplicationWindow {
 
     Menu {
         id: contextMenu
+        title: "Context menu"
 
         property SahKdTreeViewer item
         onItemChanged: (item) => {
-                           actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
-                           actionUseRenderNode.checked = contextMenu.item.useRenderNode
+            actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
+            actionUseRenderNode.checked = contextMenu.item.useRenderNode
         }
 
         Action {
@@ -96,6 +97,12 @@ ApplicationWindow {
                 contextMenu.item.useRenderNode = checked
             }
         }
+    }
+
+    menuBar: MenuBar {
+        menus: [
+            contextMenu,
+        ]
     }
 
     /*SahKdTreeViewer {
@@ -380,8 +387,6 @@ ApplicationWindow {
     Item {
         anchors.fill: parent
 
-        scale: 1.0
-
         SahKdTreeViewer {
             id: mainSahKdTreeViewer
             objectName: "Main"
@@ -393,8 +398,8 @@ ApplicationWindow {
             //layer.enabled: true
             //clip: true
 
-            scale: 1
-            rotation: 30
+            scale: 0.5
+            rotation: 0
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2

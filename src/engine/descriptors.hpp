@@ -19,12 +19,7 @@ namespace engine
 
 struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 {
-    DescriptorSet(std::string_view name, const Context & context, uint32_t framesInFlight, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set);
-
-    [[nodiscard]] uint32_t getFramesInFlight() const
-    {
-        return framesInFlight;
-    }
+    DescriptorSet(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set);
 
     [[nodiscard]] const std::shared_ptr<const ShaderStages> & getShaderStages() const &
     {
@@ -56,7 +51,6 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 private:
     std::string name;
     const Context & context;
-    const uint32_t framesInFlight;
     std::shared_ptr<const ShaderStages> shaderStages;
     const uint32_t set;
 

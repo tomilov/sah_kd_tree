@@ -495,12 +495,12 @@ SceneResources Engine::makeResources(const Scene & scene) const
     };
 }
 
-DescriptorSet Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const
+Descriptors Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const
 {
     return makeDescriptors("scene"sv, std::move(shaderStages), sceneResources);
 }
 
-DescriptorSet Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const
+Descriptors Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const
 {
     return makeDescriptors("display"sv, std::move(shaderStages), displayResources);
 }
@@ -536,7 +536,7 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
     return transformBuffer;
 }
 
-DescriptorSet Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
+Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
 {
     ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
     const uint32_t set = shaderStages->findSetByBindingName(bindingNames.at(0));
@@ -544,7 +544,7 @@ DescriptorSet Engine::makeDescriptors(std::string_view name, std::shared_ptr<con
     if (!std::equal(std::cbegin(bindingNames), std::cend(bindingNames), std::cbegin(shaderBindingNames))) {
         INVARIANT(false, "{} ^ {}", bindingNames, shaderBindingNames);
     }
-    DescriptorSet descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
+    Descriptors descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
     descriptors.fill(descriptorInfos);
     return descriptors;
 }

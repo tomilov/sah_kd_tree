@@ -201,6 +201,9 @@ private:
         // TODO: and rect() != renderTarget()->pixelSize()
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
+            frameSettings.width = utils::autoCast(renderTargetSize.width());
+            frameSettings.height = utils::autoCast(renderTargetSize.height());
+
             QMatrix4x4 mvp = *projectionMatrix() * *matrix();
             {
                 qDebug() << "MVP1" << mvp;
@@ -230,18 +233,16 @@ private:
                 qDebug() << "translation" << translation;
 
                 mvp.setToIdentity();
+                mvp.translate(translation);
                 mvp.scale(scaling);
                 mvp.rotate(rotation);
-                mvp.translate(translation);
                 qDebug() << "MVP2" << mvp;
             }
 
-            frameSettings.width = utils::autoCast(renderTargetSize.width());
-            frameSettings.height = utils::autoCast(renderTargetSize.height());
-
-            glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
-            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-            // transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+            glm::mat4 transform2D{1.0f};
+            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width, frameSettings.height, 1.0f});
+            transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+            transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
             qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
 
             frameSettings.transform2D = transform2D;
@@ -275,7 +276,7 @@ private:
                 if ((false)) {
                     auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
                     if (renderPassFormat != newRenderPassFormat) {
-                        renderPassFormat = newRenderPassFormat;
+                        renderPassFormat = std::move(newRenderPassFormat);
                     }
                 }
                 auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();

@@ -5,11 +5,10 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/hash.hpp>
-#include <viewer/descriptor_set.hpp>
+#include <viewer/descriptors.hpp>
 
 #include <algorithm>
 #include <iterator>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -17,7 +16,7 @@
 namespace viewer
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set)
+Descriptors::Descriptors(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set)
     : name{name}
     , context{context}
     , descriptorBufferEnabled{descriptorBufferEnabled}
@@ -26,7 +25,7 @@ DescriptorSet::DescriptorSet(std::string_view name, const engine::Context & cont
     , descriptors{createDescriptors()}
 {}
 
-void DescriptorSet::fill(std::span<const DescriptorInfo> descriptorInfos) const
+void Descriptors::fill(std::span<const DescriptorInfo> descriptorInfos) const
 {
     if (descriptorBufferEnabled) {
         fillDescriptorBuffer(std::get<DescriptorBuffer>(descriptors), descriptorInfos);
@@ -35,18 +34,17 @@ void DescriptorSet::fill(std::span<const DescriptorInfo> descriptorInfos) const
     }
 }
 
-size_t DescriptorSet::getHash() const
+size_t Descriptors::getHash() const
 {
     return utils::getHash(descriptorBufferEnabled, shaderStages, set);
 }
 
-engine::DescriptorSet DescriptorSet::createDescriptorSet() const
+engine::DescriptorSet Descriptors::createDescriptorSet() const
 {
-    constexpr uint32_t kFramesInFlight = 1;
-    return {name, context, kFramesInFlight, shaderStages, set};
+    return {name, context, shaderStages, set};
 }
 
-DescriptorBuffer DescriptorSet::createDescriptorBuffer() const
+DescriptorBuffer Descriptors::createDescriptorBuffer() const
 {
     constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
@@ -82,7 +80,7 @@ DescriptorBuffer DescriptorSet::createDescriptorBuffer() const
     return std::move(descriptorBuffer);
 }
 
-auto DescriptorSet::createDescriptors() const -> std::variant<engine::DescriptorSet, DescriptorBuffer>
+auto Descriptors::createDescriptors() const -> std::variant<engine::DescriptorSet, DescriptorBuffer>
 {
     if (descriptorBufferEnabled) {
         return createDescriptorBuffer();
@@ -91,7 +89,7 @@ auto DescriptorSet::createDescriptors() const -> std::variant<engine::Descriptor
     }
 }
 
-void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const
+void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const
 {
     std::vector<vk::StructureChain<vk::WriteDescriptorSet, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>> writeDescriptorSetChains;
     writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
@@ -182,7 +180,7 @@ void DescriptorSet::fillDescriptorSet(const engine::DescriptorSet & descriptorSe
     context.getDevice().getDevice().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }
 
-void DescriptorSet::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const
+void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const
 {
     const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();
