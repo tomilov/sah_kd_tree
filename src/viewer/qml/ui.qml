@@ -398,8 +398,8 @@ ApplicationWindow {
             //layer.enabled: true
             //clip: true
 
-            scale: 0.5
-            rotation: 0
+            scale: 1
+            rotation: -15
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2

@@ -156,6 +156,11 @@ public:
         , engine{engine}
     {}
 
+    void setRect(QRectF boundingRect)
+    {
+        this->boundingRect = boundingRect;
+    }
+
     void setScene(std::shared_ptr<const Scene> scene)
     {
         this->scene = std::move(scene);
@@ -174,8 +179,8 @@ private:
     QQuickWindow * const window;
     EngineWrapper * const engine = nullptr;
 
+    QRectF boundingRect;
     std::shared_ptr<const Scene> scene;
-
     FrameSettings frameSettings;
 
     std::unique_ptr<Renderer> renderer;
@@ -203,9 +208,36 @@ private:
         if (!renderTargetSize.isEmpty()) {
             frameSettings.width = utils::autoCast(renderTargetSize.width());
             frameSettings.height = utils::autoCast(renderTargetSize.height());
+            {
+                int y = 0;
+                int x = 0;
+                int w = renderTargetSize.width();
+                int h = renderTargetSize.height();
+
+                frameSettings.viewport = {
+                    .x = utils::autoCast(x),
+                    .y = utils::autoCast(y),
+                    .width = utils::autoCast(w),
+                    .height = utils::autoCast(h),
+                    .minDepth = engine::kMinDepth,
+                    .maxDepth = 1.0f,
+                };
+
+                frameSettings.scissor = {
+                    .offset = {
+                        .x = utils::autoCast(x),
+                        .y = utils::autoCast(y),
+                    },
+                    .extent = {
+                        .width = utils::autoCast(w),
+                        .height = utils::autoCast(h),
+                    },
+                };
+            }
 
             QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-            {
+            qDebug() << "PROJECTION prepare" << *projectionMatrix();
+            if ((false)) {
                 qDebug() << "MVP1" << mvp;
                 auto row0 = mvp.row(0);
                 auto row1 = mvp.row(1);
@@ -238,11 +270,17 @@ private:
                 mvp.rotate(rotation);
                 qDebug() << "MVP2" << mvp;
             }
+            if ((false)) {
+                float & mvp01 = mvp(0, 1);
+                mvp01 = -mvp01;
+                float & mvp10 = mvp(1, 0);
+                mvp10 = -mvp10;
+            }
 
-            glm::mat4 transform2D{1.0f};
-            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width, frameSettings.height, 1.0f});
+            glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
+            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
             transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
-            transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
+            // transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
             qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
 
             frameSettings.transform2D = transform2D;
@@ -260,6 +298,8 @@ private:
         if (!renderer) {
             return;
         }
+
+        qDebug() << "PROJECTION render" << *renderState->projectionMatrix();
 
         const QSize renderTargetSize = renderTarget()->pixelSize();
         if (!renderTargetSize.isEmpty()) {
@@ -305,23 +345,19 @@ private:
         if (frameSettings.useOffscreenTexture) {
             renderingFlags |= RenderingFlag::DepthAwareRendering;
             renderingFlags |= RenderingFlag::BoundedRectRendering;
-            if (frameSettings.alpha == 1.0f) {
-                renderingFlags |= RenderingFlag::OpaqueRendering;
-            }
+        }
+        if (frameSettings.alpha == 1.0f) {
+            renderingFlags |= RenderingFlag::OpaqueRendering;
         }
         return renderingFlags;
     }
 
     [[nodiscard]] QRectF rect() const override
     {
-        auto boundingRect = QSGRenderNode::rect();
-        if (frameSettings.useOffscreenTexture) {
-            boundingRect.setTop(utils::autoCast(frameSettings.viewport.y + frameSettings.viewport.height));
-            boundingRect.setLeft(utils::autoCast(frameSettings.viewport.x));
-            boundingRect.setBottom(utils::autoCast(-frameSettings.viewport.height));
-            boundingRect.setRight(utils::autoCast(frameSettings.viewport.width));
+        if (flags() & RenderingFlag::BoundedRectRendering) {
+            return boundingRect;
         }
-        return boundingRect;
+        return QSGRenderNode::rect();
     }
 
     [[nodiscard]] StateFlags changedStates() const override
@@ -996,6 +1032,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
             node = new RenderNode{window(), engine};
         }
         sync();
+        node->setRect({0.0, 0.0, width(), height()});
         if (scene) {
             node->setScene(std::move(scene));
         }
