@@ -8,30 +8,12 @@
 import argparse
 from pathlib import Path
 
-DEPFILE_BNF = '''
-depfile       :=  rule*
-rule          :=  targets (":" (separator dependencies?)?)? eol
-targets       :=  target (separator target)* separator*
-target        :=  pathname
-dependencies  :=  dependency (separator dependency)* separator*
-dependency    :=  pathname
-separator     :=  (space | line_continue)+
-line_continue :=  "\" eol
-space         :=  "\\ " | "\\t"
-pathname      :=  character+
-character     :=  std_character | dollar | hash | whitespace
-dollar        :=  "$$"
-hash          :=  "#"
-whitespace    :=  " "
-eol           :=  "\\r"? "\\n"
-'''
 
-
-def nonempty(parts: str):
+def get_nonempty(parts: str) -> list[str]:
     return list(filter(lambda part: part, parts.split(" ")))
 
 
-def parse_depfile(content: str):
+def parse_depfile(content: str) -> dict[str, list[str]]:
     lines = content.splitlines()
     buffer = []
     rules = []
@@ -46,23 +28,23 @@ def parse_depfile(content: str):
             line = " ".join(buffer)
             buffer = []
             parts = line.split(":")
-            if not len(parts) in (1, 2):
+            if len(parts) not in (1, 2):
                 raise RuntimeError(f"{parts}")
             rule = {
-                "targets": nonempty(parts[0]),
+                "targets": get_nonempty(parts[0]),
             }
             if len(parts) == 2:
-                rule["dependencies"] = nonempty(parts[1])
+                rule["dependencies"] = get_nonempty(parts[1])
             rules.append(rule)
     return rules
 
 
-def add_prefix(args: argparse.Namespace, paths: list[str]) -> str:
+def add_prefix(prefix: Path, paths: list[str]) -> str:
     prefixed_paths: list[str] = []
     for path in paths:
         path = Path(path)
         if not path.is_absolute():
-            path = args.prefix / path
+            path = prefix / path
         prefixed_paths.append(str(path))
     return " ".join(prefixed_paths)
 
@@ -87,11 +69,11 @@ def main() -> None:
     depfile = args.depfile_out if args.depfile_out else args.depfile_in
     with depfile.open("wt") as file:
         for rule in rules:
-            print(add_prefix(args, rule["targets"]), end="", file=file)
+            print(add_prefix(args.prefix, rule["targets"]), end="", file=file)
             if "dependencies" in rule:
                 print(": ", end="", file=file)
                 print(
-                    add_prefix(args, rule["dependencies"]),
+                    add_prefix(args.prefix, rule["dependencies"]),
                     end="",
                     file=file,
                 )

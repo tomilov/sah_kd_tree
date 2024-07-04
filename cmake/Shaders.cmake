@@ -56,6 +56,8 @@ function(target_shaders target)
                 "Build shader file ${shader_file} for stage ${stage}"
             MAIN_DEPENDENCY
                 "${shader_file}"
+            DEPENDS
+                "${CMAKE_SOURCE_DIR}/tools/fix_depfile.py"
             VERBATIM
             WORKING_DIRECTORY
                 "${CMAKE_CURRENT_SOURCE_DIR}"
