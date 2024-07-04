@@ -48,6 +48,9 @@ function(target_shaders target)
             ".spv"
             OUTPUT_VARIABLE
                 output_file)
+        #get_filename_component(shader_file_extension "${shader_file}" NAME_WLE)
+        #get_filename_component(shader_file_extension "${shader_file_extension}" LAST_EXT)
+        #string(SUBSTRING "${shader_file_extension}" 1 -1 shader_file_extension)
         add_custom_command(
             COMMENT
                 "Build shader file ${shader_file} for stage ${stage}"
@@ -56,8 +59,8 @@ function(target_shaders target)
             VERBATIM
             WORKING_DIRECTORY
                 "${CMAKE_CURRENT_SOURCE_DIR}"
-            DEPFILE  # sadly not works
-                "${output_file}.d"
+            DEPFILE
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}.d"
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
@@ -67,6 +70,12 @@ function(target_shaders target)
                     "${shader_file}"
                     --depfile "${output_file}.d"
                     -o "${output_file}"
+            COMMAND
+                Python3::Interpreter
+                ARGS
+                    "${CMAKE_SOURCE_DIR}/tools/fix_depfile.py"
+                    "${CMAKE_CURRENT_SOURCE_DIR}"
+                    "${output_file}.d"
             OUTPUT
                 "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}") # full path is required because on Qt's side logic tied to full path
         target_sources(

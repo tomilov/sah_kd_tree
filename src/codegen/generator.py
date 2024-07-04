@@ -1,3 +1,5 @@
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-function-docstring
 # mypy: disallow-untyped-defs
 
 import argparse
@@ -5,9 +7,9 @@ import difflib
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 from typing import Any, Callable
+from xml.etree import ElementTree
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from termcolor import colored
@@ -104,6 +106,7 @@ def _print_diff(unformatted: str, formatted: str, /, *, file_name: str = "") -> 
 
 def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     sys.path.append(str(args.spirv_headers))
+    # pylint: disable=import-outside-toplevel
     import spirv.unified1.spirv  # type: ignore
 
     def _prefix_to_lower(m: re.Match[str]) -> str:
@@ -117,7 +120,7 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     def _to_variable_name(name: str) -> str:
         return split_typename_regex.sub(_prefix_to_lower, name)
 
-    spv_enums = list()
+    spv_enums = []
     for key, value in spirv.unified1.spirv.spv.items():
         if key in [
             "HostAccessQualifier",
@@ -128,14 +131,14 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
             continue
         if not isinstance(value, dict):
             continue
-        spv_enum: dict[str, str | list[Any]] = dict()
+        spv_enum: dict[str, str | list[Any]] = {}
 
         spv_enum["enum_typename"] = f"Spv{key}"
         spv_enum["variable_name"] = _to_variable_name(key)
 
         enum_values = sorted(value.items(), key=lambda item: (item[1], item[0]))
         unique_enum_underlying_values = set()
-        unique_enum_values: list[dict[str, int | str]] = list()
+        unique_enum_values: list[dict[str, int | str]] = []
         for enum_value_name, enum_underlying_value in enum_values:
             assert isinstance(enum_underlying_value, int), type(
                 enum_underlying_value
@@ -212,10 +215,10 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
 
     formats = registry.findall("formats")
     assert len(formats) == 1, len(formats)
-    output_formats = list()
+    output_formats = []
     for image_format in formats[0]:
         assert image_format.tag == "format", image_format.tag
-        output_format = dict()
+        output_format = {}
 
         assert len(image_format) > 0, len(image_format)
         for key, value in image_format.attrib.items():
@@ -271,9 +274,9 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
 
         assert components
         max_component_count = max(max_component_count, len(components))
-        output_components = list()
+        output_components = []
         for component in components:
-            output_component = dict()
+            output_component = {}
             for key, value in component.attrib.items():
                 if key == "name":
                     assert len(value) == 1, "Identifiers should be reformatted"
@@ -304,9 +307,9 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
         if planes:
             assert len(planes) != 1, len(planes)
             max_plane_count = max(max_plane_count, len(planes))
-            output_planes = list()
+            output_planes = []
             for plane in planes:
-                output_plane: dict[str, Any] = dict()
+                output_plane: dict[str, Any] = {}
                 for key, value in plane.attrib.items():
                     if key == "index":
                         output_plane["index"] = int(value)

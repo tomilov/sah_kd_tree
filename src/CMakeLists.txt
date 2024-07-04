@@ -40,6 +40,7 @@ add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS)
 link_libraries(spdlog::spdlog)
 add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
 
+include(Python)
 include(CUDA)
 include(Thrust)
 include(Qt)
