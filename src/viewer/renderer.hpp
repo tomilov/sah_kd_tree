@@ -17,6 +17,8 @@
 #include <glm/vec3.hpp>
 #include <vulkan/vulkan.hpp>
 
+#include <filesystem>
+
 #include <cstdint>
 
 namespace viewer
@@ -36,8 +38,8 @@ struct FrameSettings
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     vk::Rect2D scissor = {};
     vk::Viewport viewport = {};
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0f;   // TODO: int
+    float height = 0.0f;  // TODO: int
     float fov = glm::half_pi<float>();
 
     bool operator==(const FrameSettings &) const = default;
@@ -50,11 +52,16 @@ public:
     Renderer(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
     ~Renderer();
 
+    [[nodiscard]] uint32_t getFramesInFlight() const;
+
     void setFrameSettings(const FrameSettings & frameSettings);
+
     void setScene(std::shared_ptr<const Scene> scene);
+    void unsetScene();
+    [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
+
     void advance(uint32_t currentFrameSlot);
-    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
-    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot);
 
 private:
     struct Impl;

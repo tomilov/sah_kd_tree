@@ -86,28 +86,28 @@ namespace
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
-void checkEngine(QQuickWindow * window, const engine::Context & context)
+void checkEngine(QQuickWindow * w, const engine::Context & context)
 {
-    Q_CHECK_PTR(window);
+    Q_CHECK_PTR(w);
 
-    auto ri = window->rendererInterface();
+    auto ri = w->rendererInterface();
 
-    QVulkanInstance * vulkanInstance = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::VulkanInstanceResource));
+    QVulkanInstance * vulkanInstance = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
     Q_CHECK_PTR(vulkanInstance);
 
-    vk::PhysicalDevice * vulkanPhysicalDevice = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::PhysicalDeviceResource));
+    vk::PhysicalDevice * vulkanPhysicalDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
     Q_CHECK_PTR(vulkanPhysicalDevice);
 
-    vk::Device * vulkanDevice = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::DeviceResource));
+    vk::Device * vulkanDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
     Q_CHECK_PTR(vulkanDevice);
 
-    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
+    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
     Q_CHECK_PTR(queueFamilyIndex);
 
-    uint32_t * queueIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
+    uint32_t * queueIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
     Q_CHECK_PTR(queueIndex);
 
-    vk::Queue * vulkanQueue = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::CommandQueueResource));
+    vk::Queue * vulkanQueue = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
     Q_CHECK_PTR(vulkanQueue);
 
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
@@ -151,193 +151,148 @@ private:
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, EngineWrapper * const engine)
+    explicit RenderNode(QQuickWindow * window, EngineWrapper * engine, Renderer * renderer)
         : window{window}
         , engine{engine}
-    {}
+        , renderer{renderer}
+    {
+        ASSERT(window);
+        ASSERT(engine);
+        ASSERT(renderer);
+    }
 
     void setRect(QRectF boundingRect)
     {
         this->boundingRect = boundingRect;
     }
 
-    void setScene(std::shared_ptr<const Scene> scene)
-    {
-        this->scene = std::move(scene);
-        markDirty(QSGNode::DirtyStateBit::DirtyGeometry);
-    }
-
-    void setFrameSettings(const FrameSettings & frameSettings)
-    {
-        if (this->frameSettings != frameSettings) {
-            this->frameSettings = frameSettings;
-            markDirty(QSGNode::DirtyStateBit::DirtyGeometry);
-        }
-    }
-
 private:
     QQuickWindow * const window;
-    EngineWrapper * const engine = nullptr;
+    EngineWrapper * const engine;
+    Renderer * const renderer;
 
     QRectF boundingRect;
-    std::shared_ptr<const Scene> scene;
     FrameSettings frameSettings;
-
-    std::unique_ptr<Renderer> renderer;
 
     QVector<quint32> renderPassFormat;
 
     void prepare() override
     {
-        auto graphicsStateInfo = window->graphicsStateInfo();
-
-        if (!renderer) {
-            const auto & context = engine->getContext();
-            checkEngine(window, context);
-            renderer = std::make_unique<Renderer>(context, engine->getEngine(), utils::autoCast(graphicsStateInfo.framesInFlight));
-        }
-
-        if (scene) {
-            renderer->setScene(std::move(scene));
-        }
-
         // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
 
         // TODO: and rect() != renderTarget()->pixelSize()
         const QSize renderTargetSize = renderTarget()->pixelSize();
-        if (!renderTargetSize.isEmpty()) {
-            frameSettings.width = utils::autoCast(renderTargetSize.width());
-            frameSettings.height = utils::autoCast(renderTargetSize.height());
-            {
-                int y = 0;
-                int x = 0;
-                int w = renderTargetSize.width();
-                int h = renderTargetSize.height();
+        frameSettings.width = utils::autoCast(renderTargetSize.width());
+        frameSettings.height = utils::autoCast(renderTargetSize.height());
+        {
+            int y = 0;
+            int x = 0;
+            int w = renderTargetSize.width();
+            int h = renderTargetSize.height();
 
-                frameSettings.viewport = {
+            frameSettings.viewport = {
+                .x = utils::autoCast(x),
+                .y = utils::autoCast(y),
+                .width = utils::autoCast(w),
+                .height = utils::autoCast(h),
+                .minDepth = engine::kMinDepth,
+                .maxDepth = 1.0f,
+            };
+
+            frameSettings.scissor = {
+                .offset = {
                     .x = utils::autoCast(x),
                     .y = utils::autoCast(y),
+                },
+                .extent = {
                     .width = utils::autoCast(w),
                     .height = utils::autoCast(h),
-                    .minDepth = engine::kMinDepth,
-                    .maxDepth = 1.0f,
-                };
-
-                frameSettings.scissor = {
-                    .offset = {
-                        .x = utils::autoCast(x),
-                        .y = utils::autoCast(y),
-                    },
-                    .extent = {
-                        .width = utils::autoCast(w),
-                        .height = utils::autoCast(h),
-                    },
-                };
-            }
-
-            QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-            qDebug() << "PROJECTION prepare" << *projectionMatrix();
-            if ((false)) {
-                qDebug() << "MVP1" << mvp;
-                auto row0 = mvp.row(0);
-                auto row1 = mvp.row(1);
-                auto row2 = mvp.row(2);
-                float sx = qHypot(row0[0], row1[0], row2[0]);
-                float sy = qHypot(row0[1], row1[1], row2[1]);
-                float sz = qHypot(row0[2], row1[2], row2[2]);
-                QVector3D scaling{sx /* * renderTargetSize.width()*/, sy /* * renderTargetSize.height()*/, sz};
-                qDebug() << "scaling" << scaling;
-
-                auto col0 = mvp.column(0);
-                auto col1 = mvp.column(1);
-                auto col2 = mvp.column(2);
-                const float rotationMatrix[] = {
-                    col0[0] / sx, col0[1] / sy, col0[2] / sz, col1[0] / sx, col1[1] / sy, col1[2] / sz, col2[0] / sx, col2[1] / sy, col2[2] / sz,
-                };
-                // rotationMatrix.data()
-                QQuaternion rotation = QQuaternion::fromRotationMatrix(QMatrix3x3{std::cbegin(rotationMatrix)});
-                qDebug() << "rotation" << rotation << rotation.toEulerAngles();
-
-                float tx = row0[3];
-                float ty = row1[3];
-                float tz = row2[3];
-                QVector3D translation{tx, ty, tz};
-                qDebug() << "translation" << translation;
-
-                mvp.setToIdentity();
-                mvp.translate(translation);
-                mvp.scale(scaling);
-                mvp.rotate(rotation);
-                qDebug() << "MVP2" << mvp;
-            }
-            if ((false)) {
-                float & mvp01 = mvp(0, 1);
-                mvp01 = -mvp01;
-                float & mvp10 = mvp(1, 0);
-                mvp10 = -mvp10;
-            }
-
-            glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
-            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-            transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
-            // transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
-            qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
-
-            frameSettings.transform2D = transform2D;
-
-            // qDebug() << frameSettings.alpha << inheritedOpacity();
-
-            int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
-            renderer->setFrameSettings(frameSettings);
-            renderer->advance(utils::autoCast(currentFrameSlot));
+                },
+            };
         }
+
+        QMatrix4x4 mvp = *projectionMatrix() * *matrix();
+        // qDebug() << "PROJECTION prepare" << *projectionMatrix();
+        if ((false)) {
+            qDebug() << "MVP1" << mvp;
+            auto row0 = mvp.row(0);
+            auto row1 = mvp.row(1);
+            auto row2 = mvp.row(2);
+            float sx = qHypot(row0[0], row1[0], row2[0]);
+            float sy = qHypot(row0[1], row1[1], row2[1]);
+            float sz = qHypot(row0[2], row1[2], row2[2]);
+            QVector3D scaling{sx /* * renderTargetSize.width()*/, sy /* * renderTargetSize.height()*/, sz};
+            qDebug() << "scaling" << scaling;
+
+            auto col0 = mvp.column(0);
+            auto col1 = mvp.column(1);
+            auto col2 = mvp.column(2);
+            const float rotationMatrix[] = {
+                col0[0] / sx, col0[1] / sy, col0[2] / sz, col1[0] / sx, col1[1] / sy, col1[2] / sz, col2[0] / sx, col2[1] / sy, col2[2] / sz,
+            };
+            // rotationMatrix.data()
+            QQuaternion rotation = QQuaternion::fromRotationMatrix(QMatrix3x3{std::cbegin(rotationMatrix)});
+            qDebug() << "rotation" << rotation << rotation.toEulerAngles();
+
+            float tx = row0[3];
+            float ty = row1[3];
+            float tz = row2[3];
+            QVector3D translation{tx, ty, tz};
+            qDebug() << "translation" << translation;
+
+            mvp.setToIdentity();
+            mvp.translate(translation);
+            mvp.scale(scaling);
+            mvp.rotate(rotation);
+            qDebug() << "MVP2" << mvp;
+        }
+        if ((false)) {
+            float & mvp01 = mvp(0, 1);
+            mvp01 = -mvp01;
+            float & mvp10 = mvp(1, 0);
+            mvp10 = -mvp10;
+        }
+
+        glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
+        transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+        transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+        // transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
+        // qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
+
+        frameSettings.transform2D = transform2D;
+
+        // qDebug() << frameSettings.alpha << inheritedOpacity();
+
+        int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
+        renderer->setFrameSettings(frameSettings);
+        renderer->advance(utils::autoCast(currentFrameSlot));
     }
 
     void render([[maybe_unused]] const RenderState * renderState) override
     {
-        if (!renderer) {
-            return;
-        }
+        auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
+        Q_CHECK_PTR(commandBufferNativeHandles);
+        vk::CommandBuffer cb = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
 
-        qDebug() << "PROJECTION render" << *renderState->projectionMatrix();
+        const auto & device = engine->getContext().getDevice();
+        device.setDebugUtilsObjectName(cb, "Qt command buffer");
 
-        const QSize renderTargetSize = renderTarget()->pixelSize();
-        if (!renderTargetSize.isEmpty()) {
-            commandBuffer()->beginExternal();
-            {
-                auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
-                Q_CHECK_PTR(commandBufferNativeHandles);
-                vk::CommandBuffer cb = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
-
-                const auto & device = engine->getContext().getDevice();
-                device.setDebugUtilsObjectName(cb, "Qt command buffer");
-
-                auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
-                if ((false)) {
-                    auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
-                    if (renderPassFormat != newRenderPassFormat) {
-                        renderPassFormat = std::move(newRenderPassFormat);
-                    }
-                }
-                auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
-                Q_CHECK_PTR(renderPassNativeHandles);
-                vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
-                if (renderer->updateRenderPass(renderPass)) {
-                    device.setDebugUtilsObjectName(renderPass, "Qt render pass");
-                }
-
-                int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
-                renderer->render(cb, utils::autoCast(currentFrameSlot));
+        auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
+        if ((false)) {
+            auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
+            if (renderPassFormat != newRenderPassFormat) {
+                renderPassFormat = std::move(newRenderPassFormat);
             }
-            commandBuffer()->endExternal();
         }
+        auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
+        Q_CHECK_PTR(renderPassNativeHandles);
+        vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
+        int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
+        renderer->render(cb, renderPass, utils::autoCast(currentFrameSlot));
     }
 
     void releaseResources() override
-    {
-        renderer.reset();
-        scene.reset();
-    }
+    {}
 
     [[nodiscard]] RenderingFlags flags() const override
     {
@@ -370,7 +325,6 @@ private:
 
 Viewer::Viewer(QQuickItem * parent)
     : QQuickItem{parent}
-    , frameSettings{std::make_unique<FrameSettings>()}
 {
     setFlag(QQuickItem::Flag::ItemHasContents);
 
@@ -402,16 +356,12 @@ Viewer::Viewer(QQuickItem * parent)
     connect(this, &Viewer::cameraPositionChanged, this, &QQuickItem::update);
     connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
 
-    const auto onUseRenderNodeChanged = [this](bool useRenderNode)
+    const auto onUseRenderNodeChanged = [this]
     {
-        if (useRenderNode) {
-            disconnect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
-        } else {
-            connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
-        }
+        onWindowChanged(window());
     };
-    onUseRenderNodeChanged(useRenderNode);
     connect(this, &Viewer::useRenderNodeChanged, this, onUseRenderNodeChanged);
+    connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 }
 
 Viewer::~Viewer() = default;
@@ -504,6 +454,16 @@ void Viewer::setDt(qreal dt)
     Q_EMIT dtChanged(dt);
 }
 
+void Viewer::setScenePath(QUrl scenePath)
+{
+    if (this->scenePath == scenePath) {
+        return;
+    }
+    isScenePathChanged = true;
+    this->scenePath = scenePath;
+    Q_EMIT scenePathChanged(scenePath);
+}
+
 void Viewer::onWindowChanged(QQuickWindow * w)
 {
     if (!w) {
@@ -513,47 +473,48 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
     INVARIANT(w->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
 
-    ASSERT(!useRenderNode);
-    connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
-    connect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering, Qt::ConnectionType::DirectConnection);
-    connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
-    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
+    if (useRenderNode) {
+        disconnect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync);
+        disconnect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering);
+        disconnect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording);
+        disconnect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup);
+    } else {
+        connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
+        connect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering, Qt::ConnectionType::DirectConnection);
+        connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
+        connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
+    }
 }
 
 void Viewer::sync()
 {
-    if (currentScenePath != scenePath) {
-        currentScenePath = scenePath;
-        setScene();
+    if (!engine) {
+        ASSERT(!renderer);
+        return;
     }
-
-    *frameSettings = getFrameSettings();
+    if (auto w = window()) {
+        uint32_t framesInFlight = utils::autoCast(w->graphicsStateInfo().framesInFlight);
+        if (renderer) {
+            ASSERT(renderer->getFramesInFlight() == framesInFlight);
+        } else {
+            checkEngine(w, engine->getContext());
+            renderer = std::make_unique<Renderer>(engine->getContext(), engine->getEngine(), framesInFlight);
+        }
+    }
+    if (renderer) {
+        setScene();
+        renderer->setFrameSettings(getFrameSettings());
+    }
 }
 
 void Viewer::beforeRendering()
 {
-    if (!engine) {
+    if (!renderer) {
         return;
     }
-
     auto w = window();
-
-    auto graphicsStateInfo = w->graphicsStateInfo();
-
-    if (!renderer) {
-        const auto & context = engine->getContext();
-        checkEngine(w, context);
-        renderer = std::make_unique<Renderer>(context, engine->getEngine(), utils::autoCast(graphicsStateInfo.framesInFlight));
-    }
-
-    if (scene) {
-        renderer->setScene(std::move(scene));
-    }
-
-    if (!boundingRect().isEmpty()) {
-        renderer->setFrameSettings(*frameSettings);
-        renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
-    }
+    const auto & graphicsStateInfo = w->graphicsStateInfo();
+    renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
 }
 
 void Viewer::beforeRenderPassRecording()
@@ -562,11 +523,7 @@ void Viewer::beforeRenderPassRecording()
         return;
     }
 
-    if (!isVisible()) {
-        return;
-    }
-
-    if (!boundingRect().isEmpty()) {
+    {
         auto w = window();
 
         w->beginExternalCommands();
@@ -578,15 +535,8 @@ void Viewer::beforeRenderPassRecording()
             vk::RenderPass * renderPass = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
             Q_CHECK_PTR(renderPass);
 
-            const auto & device = engine->getContext().getDevice();
-            device.setDebugUtilsObjectName(*commandBuffer, "Qt command buffer");
-
-            if (renderer->updateRenderPass(*renderPass)) {
-                device.setDebugUtilsObjectName(*renderPass, "Qt render pass");
-            }
-
             int currentFrameSlot = w->graphicsStateInfo().currentFrameSlot;
-            renderer->render(*commandBuffer, utils::autoCast(currentFrameSlot));
+            renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot));
         }
         w->endExternalCommands();
     }
@@ -599,27 +549,29 @@ void Viewer::cleanup()
 
 void Viewer::setScene()
 {
-    scene.reset();
-
+    if (!isScenePathChanged) {
+        return;
+    }
+    isScenePathChanged = false;
+    ASSERT(renderer);
+    renderer->unsetScene();
     if (scenePath.isEmpty()) {
         return;
     }
     if (!scenePath.isLocalFile()) {
-        SPDLOG_WARN("scenePath URL is not local file", scenePath.toString().toStdString());
+        qCWarning(viewerCategory) << u"scenePath URL is not local file:"_s << scenePath;
         return;
     }
-
-    QFileInfo filesystemScenePath{scenePath.toLocalFile()};
-    scene = engine->getEngine().getScenes().getScene(filesystemScenePath.filesystemCanonicalFilePath());
-    if (!scene) {
+    auto newScene = engine->getEngine().getScenes().getScene(QFileInfo{scenePath.toLocalFile()}.filesystemCanonicalFilePath());
+    if (!newScene) {
         return;
     }
-
-    const auto & aabb = scene->sceneData.aabb;
+    const auto & aabb = newScene->sceneData.aabb;
     characteristicSize = glm::distance(aabb.min, aabb.max);
     if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 10.0f))) {
         qFatal("unreachable");
     }
+    renderer->setScene(std::move(newScene));
 }
 
 FrameSettings Viewer::getFrameSettings() const
@@ -883,10 +835,8 @@ void Viewer::handleInput()
 
 void Viewer::releaseResources()
 {
-    scene.reset();
-    if (renderer) {
-        window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
-    }
+    ASSERT(renderer);
+    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
 }
 
 void Viewer::wheelEvent(QWheelEvent * event)
@@ -1025,22 +975,20 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
 QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData)
 {
     if (useRenderNode) {
-        auto node = static_cast<RenderNode *>(old);
-        if (node) {
-            ASSERT(dynamic_cast<RenderNode *>(old));
-        } else {
-            node = new RenderNode{window(), engine};
-        }
         sync();
-        node->setRect({0.0, 0.0, width(), height()});
-        if (scene) {
-            node->setScene(std::move(scene));
+        if (renderer) {
+            auto node = static_cast<RenderNode *>(old);
+            if (old) {
+                ASSERT(dynamic_cast<RenderNode *>(old));
+            } else {
+                ASSERT(renderer);
+                node = new RenderNode{window(), engine, renderer.get()};
+            }
+            node->setRect({x(), y(), width(), height()});
+            return node;
         }
-        node->setFrameSettings(getFrameSettings());
-        return node;
-    } else {
-        return QQuickItem::updatePaintNode(old, updatePaintNodeData);
     }
+    return QQuickItem::updatePaintNode(old, updatePaintNodeData);
 }
 
 }  // namespace viewer

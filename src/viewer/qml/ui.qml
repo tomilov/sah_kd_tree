@@ -51,7 +51,7 @@ ApplicationWindow {
 
     onActiveFocusItemChanged: {
         if (activeFocusItem instanceof SahKdTreeViewer) {
-            print("activeFocusItem", activeFocusItem)
+            //print("activeFocusItem", activeFocusItem)
         }
     }
 
@@ -398,7 +398,7 @@ ApplicationWindow {
             //layer.enabled: true
             //clip: true
 
-            scale: 1
+            scale: 0.5
             rotation: -15
             //transformOrigin: Item.TopLeft
 

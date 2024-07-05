@@ -42,7 +42,7 @@ class Viewer : public QQuickItem
 
     Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
-    Q_PROPERTY(QUrl scenePath MEMBER scenePath NOTIFY scenePathChanged)
+    Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
     Q_PROPERTY(bool useRenderNode MEMBER useRenderNode NOTIFY useRenderNodeChanged)
@@ -79,6 +79,8 @@ public Q_SLOTS:
 
     void setDt(qreal dt);
 
+    void setScenePath(QUrl scenePath);
+
 private Q_SLOTS:
     void onWindowChanged(QQuickWindow * w);
 
@@ -108,15 +110,13 @@ private:
     EngineWrapper * engine = nullptr;
 
     QUrl scenePath;
+    bool isScenePathChanged = false;
 
     bool useOffscreenTexture = false;
     bool useRenderNode = false;
 
-    QUrl currentScenePath;
-    std::shared_ptr<const Scene> scene;
     float characteristicSize = 0.0f;
 
-    std::unique_ptr<FrameSettings> frameSettings;
     std::unique_ptr<Renderer> renderer;
 
     void setScene();

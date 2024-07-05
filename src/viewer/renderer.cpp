@@ -562,7 +562,9 @@ struct Renderer::Impl : utils::NonCopyable
     Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
 
     void setFrameSettings(const FrameSettings & frameSettings);
+
     void setScene(std::shared_ptr<const Scene> scene);
+    void unsetScene();
 
     void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -571,9 +573,9 @@ struct Renderer::Impl : utils::NonCopyable
 
     void advance(uint32_t currentFrameSlot);
 
-    [[nodiscard]] bool updateRenderPass(vk::RenderPass renderPass);
+    [[nodiscard]] void updateRenderPass(vk::RenderPass renderPass);
 
-    void render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot);
 
     [[nodiscard]] std::shared_ptr<FrameResourcesAndDescriptors> getFrameDescriptors();
     void putFrameDescriptors(std::shared_ptr<FrameResourcesAndDescriptors> && frameDescriptors);
@@ -595,6 +597,11 @@ Renderer::Renderer(const engine::Context & context, const Engine & engine, uint3
     : impl_{context, engine, framesInFlight}
 {}
 
+uint32_t Renderer::getFramesInFlight() const
+{
+    return impl_->framesInFlight;
+}
+
 Renderer::~Renderer() = default;
 
 void Renderer::setFrameSettings(const FrameSettings & frameSettings)
@@ -607,19 +614,24 @@ void Renderer::setScene(std::shared_ptr<const Scene> scene)
     return impl_->setScene(std::move(scene));
 }
 
+void Renderer::unsetScene()
+{
+    impl_->unsetScene();
+}
+
+const std::shared_ptr<const Scene> & Renderer::getScene() const &
+{
+    return impl_->scene;
+}
+
 void Renderer::advance(uint32_t currentFrameSlot)
 {
     return impl_->advance(currentFrameSlot);
 }
 
-bool Renderer::updateRenderPass(vk::RenderPass renderPass)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot)
 {
-    return impl_->updateRenderPass(renderPass);
-}
-
-void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)
-{
-    return impl_->render(commandBuffer, currentFrameSlot);
+    return impl_->render(commandBuffer, renderPass, currentFrameSlot);
 }
 
 Renderer::Impl::Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
@@ -639,16 +651,20 @@ void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)
 void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 {
     ASSERT(this->scene != scene);
+    unsetScene();
+    this->scene = std::move(scene);
+}
 
+void Renderer::Impl::unsetScene()
+{
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-
     // displayGraphicsPipeline.reset();
     // const GraphicsPipeline & graphicsPipeline.reset();
     displayPool.reset();
     // frameResourcesAndDescriptors.reset();
     // frameResourcesAndDescriptorsPool.clear();
     sceneResourcesAndDescriptors.reset();
-    this->scene = std::move(scene);
+    scene.reset();
 }
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const
@@ -867,7 +883,6 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
         constexpr uint32_t kFirstScissor = 0;
         commandBuffer.setScissor(kFirstScissor, frameSettings.scissor, context.getDispatcher());
     }
-    SPDLOG_INFO("frameSettings = {}", frameSettings);
 
     commandBuffer.draw(4, 1, 0, 0, context.getDispatcher());
 }
@@ -943,12 +958,12 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
 }
 
-bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
+void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
 {
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? *offscreenGraphicsPipeline : *directGraphicsPipeline;
     if (graphicsPipeline.pipeline) {
         if (graphicsPipeline.pipeline.value().getRenderPass() == renderPass) {
-            return false;
+            return;
         }
         graphicsPipeline.pipeline.reset();
     }
@@ -963,17 +978,16 @@ bool Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
         p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
     }
     p.create();
-    return true;
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot)
 {
     ASSERT(currentFrameSlot < framesInFlight);
+    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
+    updateRenderPass(renderPass);
     if (!scene) {
         return;
     }
-    auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-
     if (frameSettings.useOffscreenTexture) {
         if (displayFence) {
             fencePool.waitAndPut(std::move(displayFence));
