@@ -394,7 +394,11 @@ ApplicationWindow {
 
             engine: SahKdTreeEngine
 
-            anchors.fill: parent
+            //anchors.fill: parent
+            //x: 128
+            //y: 128
+            width: 1024
+            height: 1024
 
             //layer.enabled: true
             //clip: true
@@ -464,9 +468,14 @@ ApplicationWindow {
         Rectangle {
             color: "transparent"
 
-            anchors.fill: parent
+            //anchors.fill: parent
+            x: mainSahKdTreeViewer.x
+            y: mainSahKdTreeViewer.y
+            width: mainSahKdTreeViewer.width
+            height: mainSahKdTreeViewer.height
+
             anchors.margins: -4
-            border.color: "blue"
+            border.color: "red"
             border.width: 3
 
             scale: mainSahKdTreeViewer.scale

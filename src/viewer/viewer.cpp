@@ -161,9 +161,14 @@ public:
         ASSERT(renderer);
     }
 
-    void setRect(QRectF boundingRect)
+    void setFrameSettings(const FrameSettings & frameSettings)
     {
-        this->boundingRect = boundingRect;
+        this->frameSettings = frameSettings;
+    }
+
+    void setSize(QSizeF size)
+    {
+        this->size = size;
     }
 
 private:
@@ -171,116 +176,76 @@ private:
     EngineWrapper * const engine;
     Renderer * const renderer;
 
-    QRectF boundingRect;
-    FrameSettings frameSettings = {
-        .useOffscreenTexture = true,
-    };
+    QSizeF size;
+    FrameSettings frameSettings;
 
     QVector<quint32> renderPassFormat;
+
+    QRectF getScissorRect(const QSizeF & renderTargetSize, const QMatrix4x4 & mvp) const
+    {
+        QRectF scissorRect = mvp.mapRect({{}, size});  // in NDC, turn back to window coordinates
+        scissorRect.translate(1.0, 1.0);
+        scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
+        scissorRect.setBottomRight(scissorRect.bottomRight() * 0.5);
+        scissorRect &= QRectF{0.0, 0.0, 1.0, 1.0};
+
+        auto [x, y] = scissorRect.topLeft();
+        x *= renderTargetSize.width();
+        y *= renderTargetSize.height();
+
+        auto [w, h] = scissorRect.size();
+        w *= renderTargetSize.width();
+        h *= renderTargetSize.height();
+
+        return {x, y, w, h};
+    }
 
     void prepare() override
     {
         // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
 
-        // TODO: and rect() != renderTarget()->pixelSize()
-        QRect renderTargetRect;
-        renderTargetRect.setSize(renderTarget()->pixelSize());
+        frameSettings.width = utils::autoCast(size.width());
+        frameSettings.height = utils::autoCast(size.height());
 
-        frameSettings.width = utils::autoCast(boundingRect.width());
-        frameSettings.height = utils::autoCast(boundingRect.height());
-
-        frameSettings.viewport = {
+        const QSizeF renderTargetSize = renderTarget()->pixelSize();  // renderTarget()->devicePixelRatio() == 1.0f
+        vk::Viewport & viewport = frameSettings.viewport;
+        viewport = {
             .x = 0.0f,
             .y = 0.0f,
-            .width = utils::autoCast(renderTargetRect.width()),
-            .height = utils::autoCast(renderTargetRect.height()),
+            .width = utils::autoCast(renderTargetSize.width()),
+            .height = utils::autoCast(renderTargetSize.height()),
             .minDepth = engine::kMinDepth,
             .maxDepth = 1.0f,
         };
+        // viewport.y += viewport.height;
+        // viewport.height = - viewport.height;
 
-        QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-        // qDebug() << mvp;
-        //  qDebug() << "PROJECTION prepare" << *projectionMatrix();
-        if ((false)) {
-            qDebug() << "MVP1" << mvp;
-            auto row0 = mvp.row(0);
-            auto row1 = mvp.row(1);
-            auto row2 = mvp.row(2);
-            float sx = qHypot(row0[0], row1[0], row2[0]);
-            float sy = qHypot(row0[1], row1[1], row2[1]);
-            float sz = qHypot(row0[2], row1[2], row2[2]);
-            QVector3D scaling{sx /* * renderTargetRect.width()*/, sy /* * renderTargetRect.height()*/, sz};
-            qDebug() << "scaling" << scaling;
-
-            auto col0 = mvp.column(0);
-            auto col1 = mvp.column(1);
-            auto col2 = mvp.column(2);
-            const float rotationMatrix[] = {
-                col0[0] / sx, col0[1] / sy, col0[2] / sz, col1[0] / sx, col1[1] / sy, col1[2] / sz, col2[0] / sx, col2[1] / sy, col2[2] / sz,
-            };
-            // rotationMatrix.data()
-            QQuaternion rotation = QQuaternion::fromRotationMatrix(QMatrix3x3{std::cbegin(rotationMatrix)});
-            qDebug() << "rotation" << rotation << rotation.toEulerAngles();
-
-            float tx = row0[3];
-            float ty = row1[3];
-            float tz = row2[3];
-            QVector3D translation{tx, ty, tz};
-            qDebug() << "translation" << translation;
-
-            mvp.setToIdentity();
-            mvp.translate(translation);
-            mvp.scale(scaling);
-            mvp.rotate(rotation);
-            qDebug() << "MVP2" << mvp;
-        }
-        if ((false)) {
-            float & mvp01 = mvp(0, 1);
-            mvp01 = -mvp01;
-            float & mvp10 = mvp(1, 0);
-            mvp10 = -mvp10;
-        }
-
-        glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
-        // SPDLOG_INFO("{}", glm::to_string(transform2D));
-        transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-        transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
-        // SPDLOG_INFO("{} {}", glm::to_string(glm::vec4{-1.0f, -1.0f, 0.0f, 1.0f} * transform2D), glm::to_string(glm::vec4{1.0f, 1.0f, 0.0f, 1.0f} * transform2D));
+        const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
         {
-            // mvp.scale(frameSettings.width * 0.5f, frameSettings.height * 0.5f);
-            // mvp.translate(1.0f, 1.0f);
-            // mvp.translate(0.25f * frameSettings.width, 0.25f * frameSettings.height);
-            QRectF scissorRect = mvp.mapRect(boundingRect);
-            // qDebug() << mvp.mapRect(renderTargetRect);
-            // qDebug() << boundingRect << mvp.mapRect(boundingRect) << scissorRect << renderTargetRect << window->size();
-            qDebug() << scissorRect;
-            scissorRect.translate(1.0, 1.0);
-            scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
-            scissorRect.setBottomRight(scissorRect.bottomRight() * 0.5);
-            qDebug() << scissorRect;
-            scissorRect &= QRectF{0.0, 0.0, 1.0, 1.0};
-
-            auto [x, y] = scissorRect.topLeft();
-            auto [w, h] = scissorRect.size();
+            const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
             frameSettings.scissor = {
                 .offset = {
-                    .x = utils::autoCast(x * renderTargetRect.width()),
-                    .y = utils::autoCast(y * renderTargetRect.height()),
+                    .x = utils::autoCast(scissorRect.x()),
+                    .y = utils::autoCast(scissorRect.y()),
                 },
                 .extent = {
-                    .width = utils::autoCast(w * renderTargetRect.width()),
-                    .height = utils::autoCast(h * renderTargetRect.height()),
+                    .width = utils::autoCast(scissorRect.width()),
+                    .height = utils::autoCast(scissorRect.height()),
                 },
             };
         }
-        // QRectF(0,0 1024x1024) QRectF(0.599892,0.6 614.4x614.4)
+        {
+            glm::mat4 & transform2D = frameSettings.transform2D;
+            transform2D = glm::make_mat4x4(mvp.constData());
+            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+            transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+        }
 
-        frameSettings.transform2D = transform2D;
+        frameSettings.alpha = inheritedOpacity();
 
-        // qDebug() << frameSettings.alpha << inheritedOpacity();
+        renderer->setFrameSettings(frameSettings);
 
         int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
-        renderer->setFrameSettings(frameSettings);
         renderer->advance(utils::autoCast(currentFrameSlot));
     }
 
@@ -294,21 +259,25 @@ private:
         device.setDebugUtilsObjectName(cb, "Qt command buffer");
 
         auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
-        if ((false)) {
+        {
             auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
             if (renderPassFormat != newRenderPassFormat) {
                 renderPassFormat = std::move(newRenderPassFormat);
+                qCInfo(viewerCategory) << u"Render pass format changed"_s;
             }
         }
         auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
         Q_CHECK_PTR(renderPassNativeHandles);
         vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
+
         int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
         renderer->render(cb, renderPass, utils::autoCast(currentFrameSlot));
     }
 
     void releaseResources() override
-    {}
+    {
+        // there is no resources
+    }
 
     [[nodiscard]] RenderingFlags flags() const override
     {
@@ -317,16 +286,16 @@ private:
             renderingFlags |= RenderingFlag::DepthAwareRendering;
             renderingFlags |= RenderingFlag::BoundedRectRendering;
         }
-        if (frameSettings.alpha == 1.0f) {
-            renderingFlags |= RenderingFlag::OpaqueRendering;
-        }
+        // renderingFlags |= RenderingFlag::OpaqueRendering;
         return renderingFlags;
     }
 
     [[nodiscard]] QRectF rect() const override
     {
         if (flags() & RenderingFlag::BoundedRectRendering) {
-            return boundingRect;
+            const QSizeF renderTargetSize = renderTarget()->pixelSize();
+            const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
+            return getScissorRect(renderTargetSize, mvp);
         }
         return QSGRenderNode::rect();
     }
@@ -378,6 +347,9 @@ Viewer::Viewer(QQuickItem * parent)
     };
     connect(this, &Viewer::useRenderNodeChanged, this, onUseRenderNodeChanged);
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
+
+    connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
+    connect(this, &Viewer::useRenderNodeChanged, this, &QQuickItem::update);
 }
 
 Viewer::~Viewer() = default;
@@ -519,7 +491,9 @@ void Viewer::sync()
     }
     if (renderer) {
         setScene();
-        renderer->setFrameSettings(getFrameSettings());
+        if (!useRenderNode) {
+            renderer->setFrameSettings(getFrameSettings());
+        }
     }
 }
 
@@ -643,8 +617,6 @@ FrameSettings Viewer::getFrameSettings() const
             if (x < 0.0) {
                 w += x;
                 x = 0.0;
-            } else {
-                INVARIANT(x < w, "{} ^ {}", x, w);
             }
             if (x + w > width()) {
                 w -= (x + w) - width();
@@ -652,8 +624,6 @@ FrameSettings Viewer::getFrameSettings() const
             if (y < 0.0) {
                 h += y;
                 y = 0.0;
-            } else {
-                INVARIANT(y < h, "{} ^ {}", y, h);
             }
             if (y + h > height()) {
                 h -= (y + h) - height();
@@ -1000,7 +970,8 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
                 ASSERT(renderer);
                 node = new RenderNode{window(), engine, renderer.get()};
             }
-            node->setRect({x(), y(), width(), height()});
+            node->setFrameSettings(getFrameSettings());
+            node->setSize(size());
             return node;
         }
     }

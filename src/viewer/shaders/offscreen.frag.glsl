@@ -14,7 +14,8 @@ void main()
 {
     vec4 color = texture(display, uv);
     if (color.a == 0.0f) {
-        demote;
+        fragColor = vec4(1.0f, 0.9f, 0.9f, 1.0f);
+        // demote;
     } else {
         fragColor = vec4(color.rgb, uniformBuffer.alpha);
     }
