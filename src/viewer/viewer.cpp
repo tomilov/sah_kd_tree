@@ -181,7 +181,7 @@ private:
 
     QVector<quint32> renderPassFormat;
 
-    QRectF getScissorRect(const QSizeF & renderTargetSize, const QMatrix4x4 & mvp) const
+    [[nodiscard]] QRectF getScissorRect(const QSizeF & renderTargetSize, const QMatrix4x4 & mvp) const
     {
         QRectF scissorRect = mvp.mapRect({{}, size});  // in NDC, turn back to window coordinates
         scissorRect.translate(1.0, 1.0);
@@ -217,8 +217,6 @@ private:
             .minDepth = engine::kMinDepth,
             .maxDepth = 1.0f,
         };
-        // viewport.y += viewport.height;
-        // viewport.height = - viewport.height;
 
         const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
         {
@@ -293,9 +291,7 @@ private:
     [[nodiscard]] QRectF rect() const override
     {
         if (flags() & RenderingFlag::BoundedRectRendering) {
-            const QSizeF renderTargetSize = renderTarget()->pixelSize();
-            const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-            return getScissorRect(renderTargetSize, mvp);
+            return {{}, size};
         }
         return QSGRenderNode::rect();
     }

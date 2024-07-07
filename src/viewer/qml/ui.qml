@@ -388,35 +388,75 @@ ApplicationWindow {
     Item {
         anchors.fill: parent
 
+        Rectangle {
+            color: "yellow"
+            width: parent.width / 4
+            height: parent.height / 4
+            anchors.centerIn: parent
+        }
+
         SahKdTreeViewer {
             id: mainSahKdTreeViewer
             objectName: "Main"
 
             engine: SahKdTreeEngine
 
-            //anchors.fill: parent
+            anchors.fill: parent
             //x: 128
             //y: 128
-            width: 1024
-            height: 1024
+            //width: 1024
+            //height: 1024
 
             //layer.enabled: true
             //clip: true
 
-            scale: 0.75
+            //scale: 0.75
+            SequentialAnimation on scale {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.45
+                    to: 0.55
+                    duration: 5000
+                }
+                NumberAnimation {
+                    from: 0.55
+                    to: 0.45
+                    duration: 5000
+                }
+            }
             //rotation: -15
             SequentialAnimation on rotation {
                 loops: Animation.Infinite
                 running: true
                 NumberAnimation {
-                    from: 0.0
-                    to: 360.0
-                    duration: 100000
+                    from: -15.0
+                    to: 15.0
+                    duration: 10000
+                }
+                NumberAnimation {
+                    from: 15.0
+                    to: -15.0
+                    duration: 10000
                 }
             }
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.1
+                    to: 1.0
+                    duration: 3000
+                }
+                NumberAnimation {
+                    from: 1.0
+                    to: 0.1
+                    duration: 3000
+                }
+            }
 
             MouseArea {
                 anchors.fill: parent

@@ -8,6 +8,7 @@
 #include <fmt/ranges.h>
 #include <fmt/std.h>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/gtx/matrix_operation.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan_format_traits.hpp>
 
@@ -318,7 +319,9 @@ SceneResources Engine::makeResources(const Scene & scene) const
                 collectNodeInfos(collectNodeInfos, sceneData.nodes.at(sceneNodeChild), transform);
             }
         };
-        collectNodeInfos(collectNodeInfos, sceneData.nodes.front(), glm::identity<glm::mat4>());
+        // auto transform = glm::diagonal4x4(glm::vec4{1.0f, -1.0f, 1.0f, 1.0f});
+        auto transform = glm::identity<glm::mat4>();
+        collectNodeInfos(collectNodeInfos, sceneData.nodes.front(), std::move(transform));
     }
 
     vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
