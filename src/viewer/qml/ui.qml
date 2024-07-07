@@ -68,8 +68,6 @@ ApplicationWindow {
 
         property SahKdTreeViewer item
         onItemChanged: (item) => {
-            actionUseOffscreenTexture.checked = contextMenu.item.useOffscreenTexture
-            actionUseRenderNode.checked = contextMenu.item.useRenderNode
         }
 
         Action {
@@ -77,24 +75,6 @@ ApplicationWindow {
             onTriggered: {
                 sceneOpenDialog.item = contextMenu.item
                 sceneOpenDialog.open()
-            }
-        }
-        Action {
-            id: actionUseOffscreenTexture
-
-            text: qsTr("Use offscreen texture")
-            checkable: true
-            onCheckedChanged: (checked) => {
-                contextMenu.item.useOffscreenTexture = checked
-            }
-        }
-        Action {
-            id: actionUseRenderNode
-
-            text: qsTr("Use render node")
-            checkable: true
-            onCheckedChanged: (checked) => {
-                contextMenu.item.useRenderNode = checked
             }
         }
     }
@@ -336,8 +316,6 @@ ApplicationWindow {
                 property alias cameraPosition: sahKdTreeViewer.cameraPosition
                 property alias eulerAngles: sahKdTreeViewer.eulerAngles
                 property alias fieldOfView: sahKdTreeViewer.fieldOfView
-                property alias useOffscreenTexture: sahKdTreeViewer.useOffscreenTexture
-                property alias useRenderNode: sahKdTreeViewer.useRenderNode
             }
 
             Component.onCompleted: console.log("created")
@@ -500,8 +478,6 @@ ApplicationWindow {
                 property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
                 property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
                 property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
-                property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
-                property alias useRenderNode: mainSahKdTreeViewer.useRenderNode
             }
         }
 

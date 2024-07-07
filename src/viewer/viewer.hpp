@@ -31,6 +31,8 @@ class Viewer : public QQuickItem
     Q_OBJECT
     QML_NAMED_ELEMENT(SahKdTreeViewer)
 
+    Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
+
     Q_PROPERTY(QVector3D eulerAngles MEMBER eulerAngles WRITE setEulerAngles NOTIFY eulerAnglesChanged)
     Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition WRITE setCameraPosition NOTIFY cameraPositionChanged)
     Q_PROPERTY(qreal fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY fieldOfViewChanged)
@@ -40,12 +42,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
     Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
 
-    Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
-
     Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged)
-
-    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
-    Q_PROPERTY(bool useRenderNode MEMBER useRenderNode NOTIFY useRenderNodeChanged)
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
@@ -56,6 +53,8 @@ public:
     Q_INVOKABLE void rotate(qreal tilt /*pitch*/, qreal pan /*yaw*/, qreal roll = 0.0);
 
 Q_SIGNALS:
+    void engineChanged(EngineWrapper * engine);
+
     void eulerAnglesChanged(QVector3D euelerAngles);
     void cameraPositionChanged(QVector3D cameraPosition);
     void fieldOfViewChanged(qreal fieldOfView);
@@ -65,12 +64,7 @@ Q_SIGNALS:
     void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
     void linearSpeedChanged(qreal linearSpeed);
 
-    void engineChanged(EngineWrapper * engine);
-
     void scenePathChanged(QUrl scenePath);
-
-    void useOffscreenTextureChanged(bool useOffscreenTexture);
-    void useRenderNodeChanged(bool useRenderNode);
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
@@ -82,15 +76,13 @@ public Q_SLOTS:
     void setScenePath(QUrl scenePath);
 
 private Q_SLOTS:
-    void onWindowChanged(QQuickWindow * w);
-
-    void sync();
-    void beforeRendering();
-    void beforeRenderPassRecording();
     void cleanup();
+    void onWindowChanged(QQuickWindow * w);
 
 private:
     static constexpr qreal kDefaultFov = 90.0f;
+
+    EngineWrapper * engine = nullptr;
 
     QVector3D eulerAngles;
     QVector3D cameraPosition;
@@ -107,13 +99,8 @@ private:
     QHash<Qt::Key, int> pressedKeys;
     QTimer * const handleInputTimer = new QTimer{this};
 
-    EngineWrapper * engine = nullptr;
-
     QUrl scenePath;
     bool isScenePathChanged = false;
-
-    bool useOffscreenTexture = false;
-    bool useRenderNode = false;
 
     float characteristicSize = 0.0f;
 

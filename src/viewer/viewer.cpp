@@ -163,6 +163,9 @@ public:
 
     void setFrameSettings(const FrameSettings & frameSettings)
     {
+        if (this->frameSettings != frameSettings) {
+            markDirty(DirtyStateBit::DirtyGeometry | DirtyStateBit::DirtyMaterial | DirtyStateBit::DirtyMatrix);  // ?
+        }
         this->frameSettings = frameSettings;
     }
 
@@ -280,10 +283,8 @@ private:
     [[nodiscard]] RenderingFlags flags() const override
     {
         auto renderingFlags = QSGRenderNode::flags();
-        if (frameSettings.useOffscreenTexture) {
-            renderingFlags |= RenderingFlag::DepthAwareRendering;
-            renderingFlags |= RenderingFlag::BoundedRectRendering;
-        }
+        renderingFlags |= RenderingFlag::DepthAwareRendering;
+        renderingFlags |= RenderingFlag::BoundedRectRendering;
         // renderingFlags |= RenderingFlag::OpaqueRendering;
         return renderingFlags;
     }
@@ -337,15 +338,9 @@ Viewer::Viewer(QQuickItem * parent)
     connect(this, &Viewer::cameraPositionChanged, this, &QQuickItem::update);
     connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
 
-    const auto onUseRenderNodeChanged = [this]
-    {
-        onWindowChanged(window());
-    };
-    connect(this, &Viewer::useRenderNodeChanged, this, onUseRenderNodeChanged);
-    connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
+    connect(this, &Viewer::scenePathChanged, this, &QQuickItem::update);
 
-    connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
-    connect(this, &Viewer::useRenderNodeChanged, this, &QQuickItem::update);
+    connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 }
 
 Viewer::~Viewer() = default;
@@ -448,6 +443,11 @@ void Viewer::setScenePath(QUrl scenePath)
     Q_EMIT scenePathChanged(scenePath);
 }
 
+void Viewer::cleanup()
+{
+    releaseResources();
+}
+
 void Viewer::onWindowChanged(QQuickWindow * w)
 {
     if (!w) {
@@ -457,80 +457,7 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
     INVARIANT(w->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
 
-    if (useRenderNode) {
-        disconnect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync);
-        disconnect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering);
-        disconnect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording);
-        disconnect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup);
-    } else {
-        connect(w, &QQuickWindow::beforeSynchronizing, this, &Viewer::sync, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::beforeRendering, this, &Viewer::beforeRendering, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::beforeRenderPassRecording, this, &Viewer::beforeRenderPassRecording, Qt::ConnectionType::DirectConnection);
-        connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
-    }
-}
-
-void Viewer::sync()
-{
-    if (!engine) {
-        ASSERT(!renderer);
-        return;
-    }
-    if (auto w = window()) {
-        uint32_t framesInFlight = utils::autoCast(w->graphicsStateInfo().framesInFlight);
-        if (renderer) {
-            ASSERT(renderer->getFramesInFlight() == framesInFlight);
-        } else {
-            checkEngine(w, engine->getContext());
-            renderer = std::make_unique<Renderer>(engine->getContext(), engine->getEngine(), framesInFlight);
-        }
-    }
-    if (renderer) {
-        setScene();
-        if (!useRenderNode) {
-            renderer->setFrameSettings(getFrameSettings());
-        }
-    }
-}
-
-void Viewer::beforeRendering()
-{
-    if (!renderer) {
-        return;
-    }
-    auto w = window();
-    const auto & graphicsStateInfo = w->graphicsStateInfo();
-    renderer->advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
-}
-
-void Viewer::beforeRenderPassRecording()
-{
-    if (!renderer) {
-        return;
-    }
-
-    {
-        auto w = window();
-
-        w->beginExternalCommands();
-        {
-            ASSERT(engine);
-            auto ri = w->rendererInterface();
-            vk::CommandBuffer * commandBuffer = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandListResource));
-            Q_CHECK_PTR(commandBuffer);
-            vk::RenderPass * renderPass = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::RenderPassResource));
-            Q_CHECK_PTR(renderPass);
-
-            int currentFrameSlot = w->graphicsStateInfo().currentFrameSlot;
-            renderer->render(*commandBuffer, *renderPass, utils::autoCast(currentFrameSlot));
-        }
-        w->endExternalCommands();
-    }
-}
-
-void Viewer::cleanup()
-{
-    releaseResources();
+    connect(w, &QQuickWindow::sceneGraphInvalidated, this, &Viewer::cleanup, Qt::ConnectionType::DirectConnection);
 }
 
 void Viewer::setScene()
@@ -563,8 +490,6 @@ void Viewer::setScene()
 FrameSettings Viewer::getFrameSettings() const
 {
     FrameSettings frameSettings;
-
-    frameSettings.useOffscreenTexture = useOffscreenTexture;
 
     frameSettings.position = glm::vec3{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
     auto orientation = QQuaternion::fromEulerAngles(eulerAngles);
@@ -817,8 +742,9 @@ void Viewer::handleInput()
 
 void Viewer::releaseResources()
 {
-    ASSERT(renderer);
-    window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
+    if (renderer) {
+        window()->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::BeforeSynchronizingStage);
+    }
 }
 
 void Viewer::wheelEvent(QWheelEvent * event)
@@ -956,9 +882,18 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
 
 QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData)
 {
-    if (useRenderNode) {
-        sync();
+    if (engine) {
+        if (auto w = window()) {
+            uint32_t framesInFlight = utils::autoCast(w->graphicsStateInfo().framesInFlight);
+            if (renderer) {
+                ASSERT(renderer->getFramesInFlight() == framesInFlight);
+            } else {
+                checkEngine(w, engine->getContext());
+                renderer = std::make_unique<Renderer>(engine->getContext(), engine->getEngine(), framesInFlight);
+            }
+        }
         if (renderer) {
+            setScene();
             auto node = static_cast<RenderNode *>(old);
             if (old) {
                 ASSERT(dynamic_cast<RenderNode *>(old));
