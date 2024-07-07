@@ -100,6 +100,7 @@ ApplicationWindow {
     }
 
     menuBar: MenuBar {
+        visible: true
         menus: [
             contextMenu,
         ]
@@ -398,8 +399,17 @@ ApplicationWindow {
             //layer.enabled: true
             //clip: true
 
-            scale: 0.5
-            rotation: -15
+            scale: 0.75
+            //rotation: -15
+            SequentialAnimation on rotation {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation {
+                    from: 0.0
+                    to: 360.0
+                    duration: 100000
+                }
+            }
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2
@@ -456,7 +466,7 @@ ApplicationWindow {
 
             anchors.fill: parent
             anchors.margins: -4
-            border.color: "red"
+            border.color: "blue"
             border.width: 3
 
             scale: mainSahKdTreeViewer.scale

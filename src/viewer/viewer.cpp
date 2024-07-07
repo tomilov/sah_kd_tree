@@ -92,14 +92,14 @@ void checkEngine(QQuickWindow * w, const engine::Context & context)
 
     auto ri = w->rendererInterface();
 
-    QVulkanInstance * vulkanInstance = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
-    Q_CHECK_PTR(vulkanInstance);
+    QVulkanInstance * instance = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
+    Q_CHECK_PTR(instance);
 
-    vk::PhysicalDevice * vulkanPhysicalDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
-    Q_CHECK_PTR(vulkanPhysicalDevice);
+    vk::PhysicalDevice * physicalDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
+    Q_CHECK_PTR(physicalDevice);
 
-    vk::Device * vulkanDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
-    Q_CHECK_PTR(vulkanDevice);
+    vk::Device * device = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
+    Q_CHECK_PTR(device);
 
     uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
     Q_CHECK_PTR(queueFamilyIndex);
@@ -107,28 +107,28 @@ void checkEngine(QQuickWindow * w, const engine::Context & context)
     uint32_t * queueIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
     Q_CHECK_PTR(queueIndex);
 
-    vk::Queue * vulkanQueue = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
-    Q_CHECK_PTR(vulkanQueue);
+    vk::Queue * queue = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
+    Q_CHECK_PTR(queue);
 
-#define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(vulkanInstance->getInstanceProcAddr(#name))
+#define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(instance->getInstanceProcAddr(#name))
     // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
     GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
 #undef GET_INSTANCE_PROC_ADDR
-    PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*vulkanDevice, "vkGetDeviceQueue"));
+    PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*device, "vkGetDeviceQueue"));
 
-    INVARIANT(vk::Instance(vulkanInstance->vkInstance()) == context.getInstance().getInstance(), "Should match");
-    INVARIANT(*vulkanPhysicalDevice == context.getPhysicalDevice().getPhysicalDevice(), "Should match");
-    INVARIANT(*vulkanDevice == context.getDevice().getDevice(), "Should match");
+    INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getInstance(), "Should match");
+    INVARIANT(*physicalDevice == context.getPhysicalDevice().getPhysicalDevice(), "Should match");
+    INVARIANT(*device == context.getDevice().getDevice(), "Should match");
     const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
     INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
     INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
     {
-        VkQueue queue = VK_NULL_HANDLE;
-        vkGetDeviceQueue(*vulkanDevice, *queueFamilyIndex, *queueIndex, &queue);
-        INVARIANT(*vulkanQueue == vk::Queue(queue), "Should match");
+        VkQueue q = VK_NULL_HANDLE;
+        vkGetDeviceQueue(*device, *queueFamilyIndex, *queueIndex, &q);
+        INVARIANT(*queue == vk::Queue(q), "Should match");
     }
 
-    context.getDevice().setDebugUtilsObjectName(*vulkanQueue, "Qt graphical queue");
+    context.getDevice().setDebugUtilsObjectName(*queue, "Qt graphical queue");
 }
 
 // https://bugreports.qt.io/browse/QTBUG-121137
@@ -172,7 +172,9 @@ private:
     Renderer * const renderer;
 
     QRectF boundingRect;
-    FrameSettings frameSettings;
+    FrameSettings frameSettings = {
+        .useOffscreenTexture = true,
+    };
 
     QVector<quint32> renderPassFormat;
 
@@ -181,38 +183,24 @@ private:
         // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
 
         // TODO: and rect() != renderTarget()->pixelSize()
-        const QSize renderTargetSize = renderTarget()->pixelSize();
-        frameSettings.width = utils::autoCast(renderTargetSize.width());
-        frameSettings.height = utils::autoCast(renderTargetSize.height());
-        {
-            int y = 0;
-            int x = 0;
-            int w = renderTargetSize.width();
-            int h = renderTargetSize.height();
+        QRect renderTargetRect;
+        renderTargetRect.setSize(renderTarget()->pixelSize());
 
-            frameSettings.viewport = {
-                .x = utils::autoCast(x),
-                .y = utils::autoCast(y),
-                .width = utils::autoCast(w),
-                .height = utils::autoCast(h),
-                .minDepth = engine::kMinDepth,
-                .maxDepth = 1.0f,
-            };
+        frameSettings.width = utils::autoCast(boundingRect.width());
+        frameSettings.height = utils::autoCast(boundingRect.height());
 
-            frameSettings.scissor = {
-                .offset = {
-                    .x = utils::autoCast(x),
-                    .y = utils::autoCast(y),
-                },
-                .extent = {
-                    .width = utils::autoCast(w),
-                    .height = utils::autoCast(h),
-                },
-            };
-        }
+        frameSettings.viewport = {
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = utils::autoCast(renderTargetRect.width()),
+            .height = utils::autoCast(renderTargetRect.height()),
+            .minDepth = engine::kMinDepth,
+            .maxDepth = 1.0f,
+        };
 
         QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-        // qDebug() << "PROJECTION prepare" << *projectionMatrix();
+        // qDebug() << mvp;
+        //  qDebug() << "PROJECTION prepare" << *projectionMatrix();
         if ((false)) {
             qDebug() << "MVP1" << mvp;
             auto row0 = mvp.row(0);
@@ -221,7 +209,7 @@ private:
             float sx = qHypot(row0[0], row1[0], row2[0]);
             float sy = qHypot(row0[1], row1[1], row2[1]);
             float sz = qHypot(row0[2], row1[2], row2[2]);
-            QVector3D scaling{sx /* * renderTargetSize.width()*/, sy /* * renderTargetSize.height()*/, sz};
+            QVector3D scaling{sx /* * renderTargetRect.width()*/, sy /* * renderTargetRect.height()*/, sz};
             qDebug() << "scaling" << scaling;
 
             auto col0 = mvp.column(0);
@@ -254,10 +242,38 @@ private:
         }
 
         glm::mat4 transform2D = glm::make_mat4x4(mvp.constData());
+        // SPDLOG_INFO("{}", glm::to_string(transform2D));
         transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
         transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
-        // transform2D = glm::make_mat4x4(mvp.constData()) * transform2D;
-        // qDebug() << "frameSettings" << frameSettings.width << frameSettings.height;
+        // SPDLOG_INFO("{} {}", glm::to_string(glm::vec4{-1.0f, -1.0f, 0.0f, 1.0f} * transform2D), glm::to_string(glm::vec4{1.0f, 1.0f, 0.0f, 1.0f} * transform2D));
+        {
+            // mvp.scale(frameSettings.width * 0.5f, frameSettings.height * 0.5f);
+            // mvp.translate(1.0f, 1.0f);
+            // mvp.translate(0.25f * frameSettings.width, 0.25f * frameSettings.height);
+            QRectF scissorRect = mvp.mapRect(boundingRect);
+            // qDebug() << mvp.mapRect(renderTargetRect);
+            // qDebug() << boundingRect << mvp.mapRect(boundingRect) << scissorRect << renderTargetRect << window->size();
+            qDebug() << scissorRect;
+            scissorRect.translate(1.0, 1.0);
+            scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
+            scissorRect.setBottomRight(scissorRect.bottomRight() * 0.5);
+            qDebug() << scissorRect;
+            scissorRect &= QRectF{0.0, 0.0, 1.0, 1.0};
+
+            auto [x, y] = scissorRect.topLeft();
+            auto [w, h] = scissorRect.size();
+            frameSettings.scissor = {
+                .offset = {
+                    .x = utils::autoCast(x * renderTargetRect.width()),
+                    .y = utils::autoCast(y * renderTargetRect.height()),
+                },
+                .extent = {
+                    .width = utils::autoCast(w * renderTargetRect.width()),
+                    .height = utils::autoCast(h * renderTargetRect.height()),
+                },
+            };
+        }
+        // QRectF(0,0 1024x1024) QRectF(0.599892,0.6 614.4x614.4)
 
         frameSettings.transform2D = transform2D;
 

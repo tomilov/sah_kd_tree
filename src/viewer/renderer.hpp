@@ -17,8 +17,6 @@
 #include <glm/vec3.hpp>
 #include <vulkan/vulkan.hpp>
 
-#include <filesystem>
-
 #include <cstdint>
 
 namespace viewer
