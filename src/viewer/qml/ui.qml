@@ -66,7 +66,7 @@ ApplicationWindow {
         id: contextMenu
         title: "Context menu"
 
-        property SahKdTreeViewer item
+        property SahKdTreeViewer item: mainSahKdTreeViewer
         onItemChanged: (item) => {
         }
 
@@ -75,6 +75,26 @@ ApplicationWindow {
             onTriggered: {
                 sceneOpenDialog.item = contextMenu.item
                 sceneOpenDialog.open()
+            }
+        }
+        Action {
+            id: actionUseOffscreenTexture
+
+            text: qsTr("Use offscreen texture")
+            checkable: true
+            checked: mainSahKdTreeViewer.useOffscreenTexture
+            onCheckedChanged: (checked) => {
+                contextMenu.item.useOffscreenTexture = checked
+            }
+        }
+        Action {
+            id: actionWireFrame
+
+            text: qsTr("Wireframe")
+            checkable: true
+            checked: mainSahKdTreeViewer.wireFrame
+            onCheckedChanged: (checked) => {
+                contextMenu.item.wireFrame = checked
             }
         }
     }
@@ -316,6 +336,8 @@ ApplicationWindow {
                 property alias cameraPosition: sahKdTreeViewer.cameraPosition
                 property alias eulerAngles: sahKdTreeViewer.eulerAngles
                 property alias fieldOfView: sahKdTreeViewer.fieldOfView
+                property alias useOffscreenTexture: sahKdTreeViewer.useOffscreenTexture
+                property alias wireFrame: sahKdTreeViewer.wireFrame
             }
 
             Component.onCompleted: console.log("created")
@@ -370,8 +392,22 @@ ApplicationWindow {
             color: "yellow"
             width: parent.width / 4
             height: parent.height / 4
-            anchors.centerIn: parent
+            z: mainSahKdTreeViewer.z + 0.1
+            anchors.top: parent.top
+            anchors.left: parent.left
         }
+
+        Rectangle {
+            color: "magenta"
+            width: parent.width / 4
+            height: parent.height / 4
+            z: mainSahKdTreeViewer.z - 0.1
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+        }
+
+        scale: 0.9
+        rotation: 5
 
         SahKdTreeViewer {
             id: mainSahKdTreeViewer
@@ -382,6 +418,7 @@ ApplicationWindow {
             anchors.fill: parent
             //x: 128
             //y: 128
+            z: 0.5
             //width: 1024
             //height: 1024
 
@@ -393,13 +430,13 @@ ApplicationWindow {
                 loops: Animation.Infinite
                 running: true
                 NumberAnimation {
-                    from: 0.45
-                    to: 0.55
+                    from: 0.9
+                    to: 1 / 0.9
                     duration: 5000
                 }
                 NumberAnimation {
-                    from: 0.55
-                    to: 0.45
+                    from: 1 / 0.9
+                    to: 0.9
                     duration: 5000
                 }
             }
@@ -478,6 +515,8 @@ ApplicationWindow {
                 property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
                 property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
                 property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
+                property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
+                property alias wireFrame: mainSahKdTreeViewer.wireFrame
             }
         }
 

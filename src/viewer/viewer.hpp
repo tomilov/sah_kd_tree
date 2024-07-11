@@ -44,6 +44,9 @@ class Viewer : public QQuickItem
 
     Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged)
 
+    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
+    Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY wireFrameChanged)
+
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
     ~Viewer() override;
@@ -65,6 +68,9 @@ Q_SIGNALS:
     void linearSpeedChanged(qreal linearSpeed);
 
     void scenePathChanged(QUrl scenePath);
+
+    void useOffscreenTextureChanged(bool useOffscreenTexture);
+    void wireFrameChanged(bool wireFrame);
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
@@ -102,12 +108,14 @@ private:
     QUrl scenePath;
     bool isScenePathChanged = false;
 
+    bool useOffscreenTexture = false;
+    bool wireFrame = false;
+
     float characteristicSize = 0.0f;
 
     std::unique_ptr<Renderer> renderer;
 
     void setScene();
-    [[nodiscard]] FrameSettings getFrameSettings() const;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
     void handleInput();

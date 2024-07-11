@@ -5,8 +5,6 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
-layout(location = 0) out float y;
-
 layout(std140, set = 1, binding = 0) restrict readonly buffer TransformBuffer
 {
     mat4 transforms[];
@@ -22,5 +20,4 @@ void main()
     vec4 worldVertexPosition = transformBuffer.transforms[gl_InstanceIndex] * vec4(vertexPosition, 1.0f);
     vec4 screenVertexPosition = pushConstants.mvp * worldVertexPosition;
     gl_Position = screenVertexPosition;
-    y = screenVertexPosition.y;
 }

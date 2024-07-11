@@ -5,8 +5,6 @@
 
 #include "uniform_buffer.glsl"
 
-layout(location = 0) in float y;
-
 layout(location = 0) out vec4 fragColor;
 
 float wireFrame(in vec3 baryCoord, in float thickness)
@@ -26,7 +24,10 @@ float wireFrame(in vec3 baryCoord, in float thickness)
 void main()
 {
     vec3 baryCoord = gl_BaryCoordEXT;
-    //fragColor.rgb = 0.0f < y ? baryCoord : wireFrame(baryCoord, 1.0f).sss;
-    fragColor.rgb = baryCoord;
-    fragColor.a = uniformBuffer.alpha;
+    if (uniformBuffer.wireFrame) {
+        fragColor.rgb = wireFrame(baryCoord, 1.0f).sss;
+    } else {
+        fragColor.rgb = baryCoord;
+    }
+    fragColor.a = 1.0f;
 }

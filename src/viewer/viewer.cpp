@@ -161,12 +161,19 @@ public:
         ASSERT(renderer);
     }
 
-    void setFrameSettings(const FrameSettings & frameSettings)
+    void set(bool useOffscreenTexture, bool wireFrame)
     {
-        if (this->frameSettings != frameSettings) {
-            markDirty(DirtyStateBit::DirtyGeometry | DirtyStateBit::DirtyMaterial | DirtyStateBit::DirtyMatrix);  // ?
-        }
-        this->frameSettings = frameSettings;
+        frameSettings.useOffscreenTexture = useOffscreenTexture;
+        frameSettings.wireFrame = wireFrame;
+    }
+
+    void setCamera(const glm::vec3 & position, const glm::quat & orientation, float fov, float zNear, float zFar)
+    {
+        frameSettings.position = position;
+        frameSettings.orientation = orientation;
+        frameSettings.fov = fov;
+        frameSettings.zNear = zNear;
+        frameSettings.zFar = zFar;
     }
 
     void setSize(QSizeF size)
@@ -207,6 +214,8 @@ private:
     {
         // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
 
+        frameSettings.alpha = inheritedOpacity();
+
         frameSettings.width = utils::autoCast(size.width());
         frameSettings.height = utils::autoCast(size.height());
 
@@ -241,8 +250,6 @@ private:
             transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
             transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
         }
-
-        frameSettings.alpha = inheritedOpacity();
 
         renderer->setFrameSettings(frameSettings);
 
@@ -283,8 +290,12 @@ private:
     [[nodiscard]] RenderingFlags flags() const override
     {
         auto renderingFlags = QSGRenderNode::flags();
-        renderingFlags |= RenderingFlag::DepthAwareRendering;
-        renderingFlags |= RenderingFlag::BoundedRectRendering;
+        if (frameSettings.useOffscreenTexture) {
+            renderingFlags |= RenderingFlag::DepthAwareRendering;
+            renderingFlags |= RenderingFlag::BoundedRectRendering;
+        } else {
+            renderingFlags |= RenderingFlag::OpaqueRendering;
+        }
         // renderingFlags |= RenderingFlag::OpaqueRendering;
         return renderingFlags;
     }
@@ -339,6 +350,9 @@ Viewer::Viewer(QQuickItem * parent)
     connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
 
     connect(this, &Viewer::scenePathChanged, this, &QQuickItem::update);
+
+    connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
+    connect(this, &Viewer::wireFrameChanged, this, &QQuickItem::update);
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 }
@@ -485,93 +499,6 @@ void Viewer::setScene()
         qFatal("unreachable");
     }
     renderer->setScene(std::move(newScene));
-}
-
-FrameSettings Viewer::getFrameSettings() const
-{
-    FrameSettings frameSettings;
-
-    frameSettings.position = glm::vec3{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
-    auto orientation = QQuaternion::fromEulerAngles(eulerAngles);
-    frameSettings.orientation = glm::quat{orientation.scalar(), orientation.x(), orientation.y(), orientation.z()};
-
-    qreal alpha = opacity();
-    qreal scaleFactor = scale();
-    qreal rotationAngle = rotation();
-    if (QQmlProperty::read(this, "layer.enabled").toBool()) {
-        for (auto p = parentItem(); p; p = p->parentItem()) {
-            if (QQmlProperty::read(p, "layer.enabled").toBool()) {
-                break;
-            }
-            alpha *= p->opacity();
-            scaleFactor *= p->scale();
-            rotationAngle += p->rotation();
-        }
-    }
-    frameSettings.alpha = utils::autoCast(alpha);
-
-    frameSettings.width = utils::autoCast(width());
-    frameSettings.height = utils::autoCast(height());
-
-    frameSettings.zNear = std::sqrt(std::numeric_limits<float>::epsilon()) * characteristicSize;
-    frameSettings.zFar = characteristicSize;
-
-    if (!boundingRect().isEmpty()) {
-        auto mappedBoundingRect = mapRectToScene(boundingRect());
-        qreal devicePixelRatio = window()->effectiveDevicePixelRatio();  // QT_SCALE_FACTOR
-        QRectF viewportRect{mappedBoundingRect.topLeft() * devicePixelRatio, mappedBoundingRect.size() * devicePixelRatio};
-        {
-            qreal x = std::ceil(viewportRect.x());
-            qreal y = std::ceil(viewportRect.y());
-            qreal w = std::floor(viewportRect.width());
-            qreal h = std::floor(viewportRect.height());
-
-            frameSettings.viewport = {
-                .x = utils::autoCast(x),
-                .y = utils::autoCast(y + h),
-                .width = utils::autoCast(w),
-                .height = utils::autoCast(-h),
-                .minDepth = engine::kMinDepth,
-                .maxDepth = 1.0f,
-            };
-
-            if (x < 0.0) {
-                w += x;
-                x = 0.0;
-            }
-            if (x + w > width()) {
-                w -= (x + w) - width();
-            }
-            if (y < 0.0) {
-                h += y;
-                y = 0.0;
-            }
-            if (y + h > height()) {
-                h -= (y + h) - height();
-            }
-            frameSettings.scissor = {
-                .offset = {
-                    .x = utils::autoCast(x),
-                    .y = utils::autoCast(y),
-                },
-                .extent = {
-                    .width = utils::autoCast(w),
-                    .height = utils::autoCast(h),
-                },
-            };
-        }
-
-        qreal aspectRatio = viewportRect.height() / viewportRect.width();
-        glm::dmat3 equilized = glm::diagonal3x3(glm::dvec3{aspectRatio * scaleFactor, scaleFactor, 1.0});
-        glm::dmat3 rotatedEquilized = glm::rotate(equilized, glm::radians(-rotationAngle));
-        glm::dmat3 scaledRotatedEquilized = glm::scale(rotatedEquilized, glm::dvec2{width(), height()} / viewportRect.height());
-        // qCDebug(viewerCategory) << u"view transform matrix: %1"_s.arg(QString::fromStdString(glm::to_string(scaledRotatedEquilized)));
-        frameSettings.transform2D = glm::mat4{glm::mat3{scaledRotatedEquilized}};
-    }
-
-    frameSettings.fov = utils::autoCast(qDegreesToRadians(fieldOfView));
-
-    return frameSettings;
 }
 
 void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
@@ -901,7 +828,16 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
                 ASSERT(renderer);
                 node = new RenderNode{window(), engine, renderer.get()};
             }
-            node->setFrameSettings(getFrameSettings());
+            node->set(useOffscreenTexture, wireFrame);
+            {
+                glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
+                auto cameraOrientation = QQuaternion::fromEulerAngles(eulerAngles);
+                glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};
+                float fov = utils::autoCast(qDegreesToRadians(fieldOfView));
+                float zNear = std::sqrt(std::numeric_limits<float>::epsilon()) * characteristicSize;
+                float zFar = characteristicSize;
+                node->setCamera(position, orientation, fov, zNear, zFar);
+            }
             node->setSize(size());
             return node;
         }

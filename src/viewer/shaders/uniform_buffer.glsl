@@ -2,9 +2,11 @@
 
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    mat4 transform2D;
-    float alpha;
+    bool useOffscreenTexture;
+    bool wireFrame;
+    vec3 position;
     float zNear;
     float zFar;
-    vec3 position;
+    float alpha;
+    mat4 transform2D;
 } uniformBuffer;

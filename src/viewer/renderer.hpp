@@ -28,20 +28,24 @@ struct FrameSettings
 {
     // bool clipByDiscard = false;
     bool useOffscreenTexture = false;
-    glm::mat4 transform2D{1.0f};
-    float alpha = 1.0f;
-    float zNear = 1E-3f;
-    float zFar = 1E3f;
+    bool wireFrame = false;
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
-    vk::Rect2D scissor = {};
-    vk::Viewport viewport = {};
-    float width = 0.0f;   // TODO: int
-    float height = 0.0f;  // TODO: int
     float fov = glm::half_pi<float>();
+    float zNear = 1E-3f;
+    float zFar = 1E3f;
+
+    float alpha = 1.0f;
+    float width = 0.0f;
+    float height = 0.0f;
+    vk::Viewport viewport = {};
+    vk::Rect2D scissor = {};
+    glm::mat4 transform2D{1.0f};
 
     bool operator==(const FrameSettings &) const = default;
     bool operator!=(const FrameSettings &) const = default;
+
+    [[nodiscard]] vk::Extent2D getFramebufferSize() const;
 };
 
 class Renderer : utils::NonCopyable
