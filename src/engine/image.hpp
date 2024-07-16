@@ -18,12 +18,6 @@ enum class AllocationType;
 
 class MemoryAllocator;
 
-#if GLM_FORCE_DEPTH_ZERO_TO_ONE
-inline constexpr float kMinDepth = 0.0f;
-#else
-inline constexpr float kMinDepth = -1.0f;
-#endif
-
 [[nodiscard]] vk::AccessFlags2 getAccessFlagsForImageLayout(vk::ImageLayout imageLayout) ENGINE_EXPORT;
 
 class ENGINE_EXPORT Image final : utils::OneTime<Image>

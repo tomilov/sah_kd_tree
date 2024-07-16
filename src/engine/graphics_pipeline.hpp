@@ -14,6 +14,12 @@
 namespace engine
 {
 
+#if GLM_FORCE_DEPTH_ZERO_TO_ONE
+inline constexpr float kMinDepth = 0.0f;
+#else
+inline constexpr float kMinDepth = -1.0f;
+#endif
+
 struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
 {
     GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages);

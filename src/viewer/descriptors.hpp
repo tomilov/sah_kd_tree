@@ -36,7 +36,7 @@ using DescriptorBuffer = engine::Buffer<std::byte>;
 class Descriptors : utils::OneTime<Descriptors>
 {
 public:
-    Descriptors(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set);
+    Descriptors(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set /* TODO: hash descriptor set layout */);
 
     [[nodiscard]] bool getDescriptorBufferEnabled() const
     {

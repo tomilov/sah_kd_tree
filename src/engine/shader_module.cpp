@@ -539,11 +539,9 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.emplace_back(std::cbegin(entryPointName), std::cend(entryPointName));
-    entryPointNames.back().push_back({});
 
     names.emplace_back();
     fmt::format_to(std::back_inserter(names.back()), "{}:{}", shaderModule.getShaderName(), entryPointName);
-    names.back().emplace_back('\0');
 
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo = {

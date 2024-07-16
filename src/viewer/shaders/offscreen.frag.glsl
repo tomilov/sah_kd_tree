@@ -13,11 +13,6 @@ layout(location = 0) out vec4 fragColor;
 void main()
 {
     vec4 color = texture(display, uv);
-    if (color.a == 0.0f) {
-        fragColor.rgb = vec3(1.0f, 0.9f, 0.9f);
-        // demote;
-    } else {
-        fragColor.rgb = color.rgb;
-    }
+    fragColor.rgb = color.rgb;
     fragColor.a = uniformBuffer.alpha;
 }

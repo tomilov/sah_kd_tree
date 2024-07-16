@@ -93,7 +93,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
         .stencilTestEnable = VK_FALSE,
         .front = {},
         .back = {},
-        .minDepthBounds = 0.0f,
+        .minDepthBounds = engine::kMinDepth,
         .maxDepthBounds = 1.0f,
     };
 

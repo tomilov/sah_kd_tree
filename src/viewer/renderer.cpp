@@ -6,7 +6,6 @@
 #include <engine/debug_utils.hpp>
 #include <engine/device.hpp>
 #include <engine/graphics_pipeline.hpp>
-#include <engine/image.hpp>
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
@@ -810,6 +809,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
+        ASSERT(indexType == std::cend(sceneResources.indexTypes));
     }
 }
 
@@ -835,10 +835,10 @@ void Renderer::Impl::offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPa
         {
             .color = {
                 .float32 = {{
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    0.0f,
+                    1.0f,
+                    1.0f,
+                    1.0f,
+                    1.0f,
                 }},
             },
         },

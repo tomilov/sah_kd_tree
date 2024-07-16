@@ -139,8 +139,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
         }
     };
 
-    std::deque<std::vector<typename std::string::value_type>> entryPointNames;  // suppress SSO
-    std::deque<std::vector<typename std::string::value_type>> names;            // suppress SSO
+    std::deque<std::string> entryPointNames;
+    std::deque<std::string> names;
     std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>> pipelineShaderStageCreateInfoChains;
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
@@ -159,8 +159,6 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     size_t findSetByBindingName(const std::string & bindingName) const;
-
-    // TODO: descriptor update template?
 
 private:
     const Context & context;

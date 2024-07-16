@@ -1,5 +1,6 @@
 ﻿#include <engine/context.hpp>
 #include <engine/device.hpp>
+#include <engine/graphics_pipeline.hpp>
 #include <engine/instance.hpp>
 #include <engine/physical_device.hpp>
 #include <scene_data/scene_data.hpp>
@@ -298,7 +299,6 @@ private:
         } else {
             renderingFlags |= RenderingFlag::OpaqueRendering;
         }
-        // renderingFlags |= RenderingFlag::OpaqueRendering;
         return renderingFlags;
     }
 
