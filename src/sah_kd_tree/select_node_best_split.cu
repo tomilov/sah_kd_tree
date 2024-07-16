@@ -39,8 +39,7 @@ void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Project
     using NodeBestSplitType = thrust::iterator_value_t<decltype(nodeBestSplitBegin)>;
     const auto toNodeBestSplit = [sah, nodeXSplitCosts, nodeYSplitCosts, nodeZSplitCosts, nodeXLeftChildPolygonCounts, nodeYLeftChildPolygonCounts, nodeZLeftChildPolygonCounts, nodeXRightChildPolygonCounts, nodeYRightChildPolygonCounts,
                                   nodeZRightChildPolygonCounts, nodePolygonCounts, nodeXSplitPositions, nodeYSplitPositions, nodeZSplitPositions] __host__
-                                 __device__(U layerNode) -> NodeBestSplitType
-    {
+                                 __device__(U layerNode) -> NodeBestSplitType {
         U nodePolygonCount = nodePolygonCounts[layerNode];
         assert(nodePolygonCount != 0);
 

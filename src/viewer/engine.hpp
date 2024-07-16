@@ -24,7 +24,7 @@
 namespace viewer
 {
 
-struct SceneResources final : utils::OneTime<SceneResources>
+struct SceneResources final
 {
     std::vector<vk::DrawIndexedIndirectCommand> instances;
     std::vector<vk::IndexType> indexTypes;
@@ -42,11 +42,11 @@ struct SceneResources final : utils::OneTime<SceneResources>
 
     static constexpr void completeClassContext()
     {
-        checkTraits();
+        utils::OneTime<SceneResources>::checkTraits();
     }
 };
 
-struct OffscreenRenderPass final : utils::OneTime<OffscreenRenderPass>
+struct OffscreenRenderPass final
 {
     static constexpr auto kColorFormat = vk::Format::eR8G8B8A8Unorm;
     static constexpr auto kExternalColorStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
@@ -70,11 +70,13 @@ struct OffscreenRenderPass final : utils::OneTime<OffscreenRenderPass>
 
     static constexpr void completeClassContext()
     {
-        checkTraits();
+#if !__GNUC__
+        utils::OneTime<OffscreenRenderPass>::checkTraits();
+#endif
     }
 };
 
-struct Framebuffer final : utils::OneTime<Framebuffer>
+struct Framebuffer final
 {
     vk::Extent2D size;
 
@@ -98,7 +100,7 @@ struct Framebuffer final : utils::OneTime<Framebuffer>
 
     static constexpr void completeClassContext()
     {
-        checkTraits();
+        utils::OneTime<Framebuffer>::checkTraits();
     }
 };
 

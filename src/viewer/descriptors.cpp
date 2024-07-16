@@ -77,7 +77,7 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
     auto memoryPropertyFlags = descriptorBuffer.getMemoryPropertyFlags();
     INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate descriptor buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
 
-    return std::move(descriptorBuffer);
+    return descriptorBuffer;
 }
 
 auto Descriptors::createDescriptors() const -> std::variant<engine::DescriptorSet, DescriptorBuffer>

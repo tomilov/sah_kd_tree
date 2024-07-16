@@ -220,8 +220,7 @@ private:
         frameSettings.height = utils::autoCast(size.height());
 
         const QSizeF renderTargetSize = renderTarget()->pixelSize();  // renderTarget()->devicePixelRatio() == 1.0f
-        vk::Viewport & viewport = frameSettings.viewport;
-        viewport = {
+        frameSettings.viewport = vk::Viewport{
             .x = 0.0f,
             .y = 0.0f,
             .width = utils::autoCast(renderTargetSize.width()),
@@ -233,7 +232,7 @@ private:
         const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
         {
             const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
-            frameSettings.scissor = {
+            frameSettings.scissor = vk::Rect2D{
                 .offset = {
                     .x = utils::autoCast(scissorRect.x()),
                     .y = utils::autoCast(scissorRect.y()),

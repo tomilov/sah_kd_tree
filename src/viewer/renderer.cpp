@@ -220,7 +220,7 @@ struct DisplayPushConstants
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
-struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
+struct UniformBufferResource final
 {
     engine::Buffer<UniformBuffer> uniformBuffer;
 
@@ -236,7 +236,7 @@ struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
             if (descriptorBufferEnabled) {
                 return DescriptorBufferData{uniformBuffer.getDescriptorAddressInfo()};
             } else {
-                return DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
+                return viewer::DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
             }
         };
         return {getBindingName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()};
@@ -244,7 +244,7 @@ struct UniformBufferResource final : utils::OneTime<UniformBufferResource>
 
     static constexpr void completeClassContext()
     {
-        checkTraits();
+        utils::OneTime<UniformBufferResource>::checkTraits();
     }
 };
 
@@ -729,7 +729,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     vk::Viewport viewport;
     vk::Rect2D scissor;
     if (frameSettings.useOffscreenTexture) {
-        viewport = {
+        viewport = vk::Viewport{
             .x = 0.0f,
             .y = 0.0f,
             .width = frameSettings.width,
@@ -737,7 +737,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             .minDepth = engine::kMinDepth,
             .maxDepth = 1.0f,
         };
-        scissor = {
+        scissor = vk::Rect2D{
             .offset = {
                 .x = 0,
                 .y = 0,
