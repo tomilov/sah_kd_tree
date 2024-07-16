@@ -196,6 +196,8 @@ MemoryAllocator::Impl::Impl(const Context & context)
 #define FUNCTION_KHR(f) .f##KHR = f
 #endif
     VmaVulkanFunctions vulkanFunctions = {
+        .vkGetInstanceProcAddr = nullptr,
+        .vkGetDeviceProcAddr = nullptr,
         FUNCTION(vkGetPhysicalDeviceProperties),
         FUNCTION(vkGetPhysicalDeviceMemoryProperties),
         FUNCTION(vkAllocateMemory),

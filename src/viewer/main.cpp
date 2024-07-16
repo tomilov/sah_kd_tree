@@ -316,6 +316,7 @@ int main(int argc, char * argv[])
             vulkanInstance.setLayers(layers);
         }
         {
+            // QRhiVulkanInitParams::preferredInstanceExtensions()
             auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
             auto supportedExtensions = vulkanInstance.supportedExtensions();
             for (const auto & instanceExtension : instanceExtensions) {
