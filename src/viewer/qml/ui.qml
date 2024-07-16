@@ -407,7 +407,7 @@ ApplicationWindow {
         }
 
         scale: 0.9
-        rotation: 5
+        //rotation: 5
 
         SahKdTreeViewer {
             id: mainSahKdTreeViewer
@@ -441,7 +441,7 @@ ApplicationWindow {
                 }
             }
             //rotation: -15
-            SequentialAnimation on rotation {
+            /*SequentialAnimation on rotation {
                 loops: Animation.Infinite
                 running: true
                 NumberAnimation {
@@ -454,7 +454,7 @@ ApplicationWindow {
                     to: -15.0
                     duration: 10000
                 }
-            }
+            }*/
             //transformOrigin: Item.TopLeft
 
             //opacity: 0.2

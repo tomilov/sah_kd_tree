@@ -250,6 +250,9 @@ private:
             transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
         }
 
+        if (!matrix()->toTransform().isRotating()) {  // optimization for axis aligned case
+            frameSettings.useOffscreenTexture = false;
+        }
         renderer->setFrameSettings(frameSettings);
 
         int currentFrameSlot = window->graphicsStateInfo().currentFrameSlot;
