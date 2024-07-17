@@ -87,28 +87,28 @@ namespace
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
 Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
-void checkEngine(QQuickWindow * w, const engine::Context & context)
+void checkEngine(QQuickWindow * window, const engine::Context & context)
 {
-    Q_CHECK_PTR(w);
+    Q_CHECK_PTR(window);
 
-    auto ri = w->rendererInterface();
+    auto ri = window->rendererInterface();
 
-    QVulkanInstance * instance = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::VulkanInstanceResource));
+    QVulkanInstance * instance = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::VulkanInstanceResource));
     Q_CHECK_PTR(instance);
 
-    vk::PhysicalDevice * physicalDevice = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::PhysicalDeviceResource));
+    vk::PhysicalDevice * physicalDevice = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::PhysicalDeviceResource));
     Q_CHECK_PTR(physicalDevice);
 
-    vk::Device * device = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::DeviceResource));
+    vk::Device * device = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::DeviceResource));
     Q_CHECK_PTR(device);
 
-    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
+    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
     Q_CHECK_PTR(queueFamilyIndex);
 
-    uint32_t * queueIndex = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
+    uint32_t * queueIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
     Q_CHECK_PTR(queueIndex);
 
-    vk::Queue * queue = utils::autoCast(ri->getResource(w, QSGRendererInterface::Resource::CommandQueueResource));
+    vk::Queue * queue = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::CommandQueueResource));
     Q_CHECK_PTR(queue);
 
 #define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(instance->getInstanceProcAddr(#name))
@@ -251,8 +251,13 @@ private:
             transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
         }
 
-        if (!matrix()->toTransform().isRotating()) {  // optimization for axis aligned case
-            frameSettings.useOffscreenTexture = false;
+        if (frameSettings.useOffscreenTexture) {  // optimization for axis aligned transform case
+            const QMatrix4x4 & m = *matrix();
+            if (m.flags() < QMatrix4x4::Flag::Rotation) {
+                if ((qFuzzyIsNull(m(0, 1)) && qFuzzyIsNull(m(1, 0))) || (qFuzzyIsNull(m(0, 0)) && qFuzzyIsNull(m(1, 1)))) {
+                    frameSettings.useOffscreenTexture = false;
+                }
+            }
         }
         renderer->setFrameSettings(frameSettings);
 
@@ -347,14 +352,25 @@ Viewer::Viewer(QQuickItem * parent)
         handleInputTimer->start();
     }
 
-    connect(this, &Viewer::eulerAnglesChanged, this, &QQuickItem::update);
-    connect(this, &Viewer::cameraPositionChanged, this, &QQuickItem::update);
-    connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
+    {
+        connect(this, &Viewer::eulerAnglesChanged, this, &QQuickItem::update);
+        connect(this, &Viewer::cameraPositionChanged, this, &QQuickItem::update);
+        connect(this, &Viewer::fieldOfViewChanged, this, &QQuickItem::update);
+
+        connect(this, &Viewer::eulerAnglesChanged, this, &Viewer::statusStringChanged);
+        connect(this, &Viewer::cameraPositionChanged, this, &Viewer::statusStringChanged);
+        connect(this, &Viewer::fieldOfViewChanged, this, &Viewer::statusStringChanged);
+    }
 
     connect(this, &Viewer::scenePathChanged, this, &QQuickItem::update);
 
-    connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
-    connect(this, &Viewer::wireFrameChanged, this, &QQuickItem::update);
+    {
+        connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
+        connect(this, &Viewer::wireFrameChanged, this, &QQuickItem::update);
+
+        connect(this, &Viewer::useOffscreenTextureChanged, this, &Viewer::modeStringChanged);
+        connect(this, &Viewer::wireFrameChanged, this, &Viewer::modeStringChanged);
+    }
 
     connect(this, &QQuickItem::windowChanged, this, &Viewer::onWindowChanged);
 }
@@ -375,6 +391,29 @@ void Viewer::rotate(qreal tilt, qreal pan, qreal roll)
 {
     QVector3D tiltPanRoll{utils::autoCast(tilt), utils::autoCast(pan), utils::autoCast(roll)};
     setEulerAngles(eulerAngles + tiltPanRoll);
+}
+
+QString Viewer::getStatusString() const
+{
+    return u"pos(%1, %2, %3) \x3C6\x3B8\x3C8(%4, %5, %6) fov(%7)"_s.arg(cameraPosition.x(), 5, 'f', 3)
+        .arg(cameraPosition.y(), 5, 'f', 3)
+        .arg(cameraPosition.z(), 5, 'f', 3)
+        .arg(eulerAngles.x(), 5, 'f', 1)
+        .arg(eulerAngles.y(), 5, 'f', 1)
+        .arg(eulerAngles.z(), 5, 'f', 1)
+        .arg(fieldOfView, 5, 'f', 1);
+}
+
+QString Viewer::getModeString() const
+{
+    QStringList mode;
+    if (useOffscreenTexture) {
+        mode << uR"xml(<font color="fuchsia">O</font>)xml"_s;
+    }
+    if (wireFrame) {
+        mode << uR"xml(<font color="green">W</font>)xml"_s;
+    }
+    return uR"xml(<b>%1</b>)xml"_s.arg(mode.join(QChar(u'|')));
 }
 
 void Viewer::setEulerAngles(QVector3D eulerAngles)
@@ -440,6 +479,27 @@ void Viewer::setFieldOfView(qreal fieldOfView)
     Q_EMIT fieldOfViewChanged(fieldOfView);
 }
 
+void Viewer::resetCamera()
+{
+    setEulerAngles({});
+    setCameraPosition({});
+    setFieldOfView(kDefaultFov);
+}
+
+void Viewer::alignCameraDirection()
+{
+    constexpr auto roundToStraightAngle = [](float angle) -> float
+    {
+        return qRound(angle / 90.0f) * 90.0f;
+    };
+    setEulerAngles({roundToStraightAngle(eulerAngles.x()), roundToStraightAngle(eulerAngles.y()), roundToStraightAngle(eulerAngles.z())});
+}
+
+void Viewer::reflectCameraDirection()
+{
+    setEulerAngles({-eulerAngles.x(), eulerAngles.y() + 180.0f, -eulerAngles.z()});
+}
+
 void Viewer::setDt(qreal dt)
 {
     if (qFuzzyCompare(this->dt, dt)) {
@@ -456,6 +516,16 @@ void Viewer::setScenePath(QUrl scenePath)
     }
     isScenePathChanged = true;
     this->scenePath = scenePath;
+    Q_EMIT scenePathChanged(scenePath);
+}
+
+void Viewer::unsetScenePath()
+{
+    if (scenePath.isEmpty()) {
+        return;
+    }
+    isScenePathChanged = true;
+    scenePath.clear();
     Q_EMIT scenePathChanged(scenePath);
 }
 
@@ -552,9 +622,7 @@ void Viewer::handleInput()
         return;
     }
     if (pressedKeys.contains(Qt::Key_Space)) {
-        setEulerAngles({});
-        setCameraPosition({});
-        setFieldOfView(kDefaultFov);
+        resetCamera();
         return;
     }
     QVector3D direction;
@@ -652,15 +720,11 @@ void Viewer::handleInput()
     }
     if (pressedKeys.contains(Qt::Key_R)) {
         if (0 == pressedKeys[Qt::Key_R]++) {
-            setEulerAngles({-eulerAngles.x(), eulerAngles.y() + 180.0f, -eulerAngles.z()});
+            reflectCameraDirection();
         }
     } else if (pressedKeys.contains(Qt::Key_X)) {
         if (0 == pressedKeys[Qt::Key_X]++) {
-            constexpr auto roundToStraightAngle = [](float angle) -> float
-            {
-                return qRound(angle / 90.0f) * 90.0f;
-            };
-            setEulerAngles({roundToStraightAngle(eulerAngles.x()), roundToStraightAngle(eulerAngles.y()), roundToStraightAngle(eulerAngles.z())});
+            alignCameraDirection();
         }
     } else {
         qreal angularSpeed = speedModifier * keyboardLookSpeed;

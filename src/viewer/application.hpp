@@ -23,6 +23,8 @@ class Application : public QApplication
 public:
     using QApplication::QApplication;
 
+    Q_INVOKABLE QString keySequenceToString(QVariant keySequence) const;
+
 private:
 };
 

@@ -11,163 +11,55 @@ import SahKdTree 1.0
 
 ApplicationWindow {
     id: root
-
     objectName: Qt.application.name
-
     visible: true
     visibility: Window.AutomaticVisibility
-
     title: {
         qsTr("%1 (dt %2ms) (screen refresh rate %3) - %4")
         .arg(Qt.application.displayName)
-        .arg((mainSahKdTreeViewer.dt * 1000.0).toFixed(3))
+        .arg((sahKdTreeViewer.dt * 1000.0).toFixed(3))
         .arg(app.primaryScreen.refreshRate.toFixed(3))
-        .arg(mainSahKdTreeViewer.scenePath)
+        .arg(sahKdTreeViewer.scenePath)
     }
-
     CenteredDialog {
         id: confirmationDialog
-
         title: qsTr("Close application")
-
         Label {
             anchors.fill: parent
-
             text: qsTr("Are you sure?")
         }
-
         standardButtons: Dialog.Yes | Dialog.No
-
         onAccepted: root.close()
     }
-
-    onClosing: (close) => {
-        if (visibility === Window.FullScreen) {
-            show()
-            confirmationDialog.open()
-            close.accepted = false
-        }
-    }
-
-    Action {
-        id: actionOpenScene
-
-        text: qsTr("&Open")
-        shortcut: StandardKey.Open
-        onTriggered: {
-            sceneOpenDialog.item = mainSahKdTreeViewer
-            sceneOpenDialog.open()
-        }
-    }
-    Action {
-        id: actionExit
-
-        text: qsTr("&Exit")
-        shortcut: StandardKey.Cancel
-        onTriggered: {
-            root.close()
-            //confirmationDialog.open()
-        }
-    }
-    Action {
-        id: actionUseOffscreenTexture
-
-        text: qsTr("Use offscreen texture")
-        checkable: true
-        checked: mainSahKdTreeViewer.useOffscreenTexture
-        onCheckedChanged: (isChecked) => {
-            mainSahKdTreeViewer.useOffscreenTexture = isChecked
-            checked = Qt.binding(() => mainSahKdTreeViewer.useOffscreenTexture)
-        }
-    }
-    Action {
-        id: actionWireFrame
-
-        text: qsTr("Wireframe")
-        checkable: true
-        checked: mainSahKdTreeViewer.wireFrame
-        onCheckedChanged: (isChecked) => {
-            mainSahKdTreeViewer.wireFrame = isChecked
-            checked = Qt.binding(() => mainSahKdTreeViewer.wireFrame)
-        }
-    }
-
-    Menu {
-        id: contextMenu
-        title: "Context menu"
-
-        MenuItem {
-            action: actionOpenScene
-        }
-        MenuItem {
-            action: actionUseOffscreenTexture
-        }
-        MenuItem {
-            action: actionWireFrame
-        }
-    }
-
-    menuBar: MenuBar {
-        Menu {
-            title: qsTr("&File")
-
-            MenuItem {
-                action: actionOpenScene
-            }
-        }
-        Menu {
-            title: qsTr("&Edit")
-
-            MenuItem {
-                action: actionUseOffscreenTexture
-            }
-            MenuItem {
-                action: actionWireFrame
-            }
-        }
-    }
-
     CenteredDialog {
         id: sceneOpenDialog
-
         width: Math.min(384, root.width)
         height: Math.min(384, root.height)
-
         title: qsTr("Open scene file")
-
         property url folder
-        property SahKdTreeViewer item
-
+        property SahKdTreeViewer item: sahKdTreeViewer
         ColumnLayout {
             anchors.fill: parent
-
             Frame {
+                height: labelCurrentOpenPath.implicitHeight
                 Label {
-                    anchors.fill: parent
-
+                    id: labelCurrentOpenPath
                     text: sceneOpenDialog.folder + "/"
                 }
-
                 Layout.fillWidth: true
             }
             ListView {
                 clip: true
-
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-
                 flickableDirection: Flickable.AutoFlickIfNeeded
-
                 model: FolderListModel {
                     folder: sceneOpenDialog.folder
-
                     nameFilters: SahKdTreeEngine.supportedSceneFileExtensions
-
                     showDirsFirst: true
                     showOnlyReadable: true
                     showDotAndDotDot: true
                 }
-
                 delegate: Label {
                     text: fileName + (fileIsDir ? "/" : "")
 
@@ -178,191 +70,273 @@ ApplicationWindow {
                                 sceneOpenDialog.folder = fileURL
                             } else {
                                 sceneOpenDialog.item.scenePath = fileURL
-                                sceneOpenDialog.item = null
                                 sceneOpenDialog.accept()
                             }
                             mouse.accepted = true
                         }
                     }
                 }
-
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AlwaysOn
                 }
             }
         }
-
         standardButtons: Dialog.Close
-
         Settings {
             property alias sceneOpenDialogFolder: sceneOpenDialog.folder
         }
     }
-
     Dialogs.FileDialog {
         id: sceneOpenDialog2
-
         title: qsTr("Open scene")
-
         nameFilters: ["All files (*)"]
-
+        property SahKdTreeViewer item: sahKdTreeViewer
         onAccepted: {
-            print(fileUrl)
+            sceneOpenDialog2.item.scenePath = fileURL
         }
     }
-
-    header: RowLayout {
-        height: 128
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            color: "blue"
-            opacity: 0.4
+    onClosing: (close) => {
+        if (visibility === Window.FullScreen) {
+            show()
+            //confirmationDialog.open()
+            close.accepted = false
         }
     }
-
-    Rectangle {
-        visible: false
-        color: Qt.rgba(1, 1, 1, 0.7)
-        radius: 10
-        border.width: 1
-        border.color: "white"
-        anchors.fill: label
-        anchors.margins: -10
-
-        z: label.z
-    }
-
-    Text {
-        id: label
-        color: "black"
-        wrapMode: Text.WordWrap
-        horizontalAlignment: Text.AlignHCenter
-        text: "THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG'S BACK 1234567890"
-        anchors.right: parent.right
-        anchors.left: parent.left
-        anchors.bottom: parent.bottom
-        anchors.margins: 20
-
-        z: 1.0
-    }
-
-    Item {
-        anchors.fill: parent
-
-        Rectangle {
-            color: "yellow"
-            width: parent.width / 4
-            height: parent.height / 4
-            z: mainSahKdTreeViewer.z + 0.1
-            anchors.top: parent.top
-            anchors.left: parent.left
+    Action {
+        id: actionOpenScene
+        text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.Open
+        onTriggered: {
+            sceneOpenDialog.open()
         }
-
-        Rectangle {
-            color: "magenta"
-            width: parent.width / 4
-            height: parent.height / 4
-            z: mainSahKdTreeViewer.z - 0.1
-            anchors.bottom: parent.bottom
-            anchors.right: parent.right
+    }
+    Action {
+        id: actionCloseScene
+        text: qsTr("&Close")
+        onTriggered: {
+            sahKdTreeViewer.scenePath = undefined
         }
-
-        scale: 0.9
-        rotation: 5
-
-        SahKdTreeViewer {
-            id: mainSahKdTreeViewer
-            objectName: "Main"
-
-            engine: SahKdTreeEngine
-
+    }
+    Action {
+        id: actionExit
+        text: qsTr("&Exit (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.Cancel
+        onTriggered: {
+            root.close()
+            //confirmationDialog.open()
+        }
+    }
+    Action {
+        id: actionUseOffscreenTexture
+        text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
+        checkable: true
+        shortcut: "F2"
+    }
+    Action {
+        id: actionWireFrame
+        text: qsTr("Wireframe (%1)").arg(app.keySequenceToString(shortcut))
+        checkable: true
+        shortcut: "F3"
+    }
+    Action {
+        id: actionResetContentOrientation
+        text: qsTr("Reset view orientation")
+        onTriggered: {
+            itemContent.rotation = 0
+            itemContent.scale = 1
+            sahKdTreeViewer.update()
+        }
+    }
+    Action {
+        id: actionRotatePos
+        text: qsTr("Rotate view CCW")
+        onTriggered: {
+            itemContent.rotation -= 5
+            sahKdTreeViewer.update()
+        }
+    }
+    Action {
+        id: actionRotateNeg
+        text: qsTr("Rotate view CW")
+        onTriggered: {
+            itemContent.rotation += 5
+            sahKdTreeViewer.update()
+        }
+    }
+    Action {
+        id: actionScaleInc
+        text: qsTr("Inc view scale")
+        onTriggered: {
+            itemContent.scale += 0.125
+        }
+    }
+    Action {
+        id: actionScaleDec
+        text: qsTr("Dec view scale")
+        onTriggered: {
+            if (itemContent.scale <= 0.125) {
+                return
+            }
+            itemContent.scale -= 0.125
+        }
+    }
+    Menu {
+        id: contextMenu
+        title: "Context menu"
+        MenuItem {
+            action: actionOpenScene
+        }
+        MenuSeparator {}
+        MenuItem {
+            action: actionUseOffscreenTexture
+        }
+        MenuItem {
+            action: actionWireFrame
+        }
+    }
+    menuBar: MenuBar {
+        visible: visibility !== Window.FullScreen
+        Menu {
+            title: qsTr("&File")
+            MenuItem {
+                action: actionOpenScene
+            }
+            MenuItem {
+                action: actionCloseScene
+            }
+            MenuSeparator {}
+            MenuItem {
+                action: actionExit
+            }
+        }
+        Menu {
+            title: qsTr("&Mode")
+            MenuItem {
+                action: actionUseOffscreenTexture
+            }
+            MenuItem {
+                action: actionWireFrame
+            }
+        }
+    }
+    header: ToolBar {
+        visible: visibility !== Window.FullScreen
+        RowLayout {
             anchors.fill: parent
-            //x: 128
-            //y: 128
-            z: 0.5
-            //width: 1024
-            //height: 1024
-
-            //layer.enabled: true
-            //clip: true
-
-            //scale: 0.75
-            SequentialAnimation on scale {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 0.9
-                    to: 1 / 0.9
-                    duration: 5000
-                }
-                NumberAnimation {
-                    from: 1 / 0.9
-                    to: 0.9
-                    duration: 5000
+            Label {
+                text: qsTr("Camera:")
+            }
+            ToolButton {
+                text: qsTr("Reset")
+                onClicked: sahKdTreeViewer.resetCamera()
+            }
+            ToolButton {
+                text: qsTr("Align")
+                onClicked: sahKdTreeViewer.alignCameraDirection()
+            }
+            ToolButton {
+                text: qsTr("Reflect")
+                onClicked: sahKdTreeViewer.reflectCameraDirection()
+            }
+            ToolButton {
+                text: qsTr("Origin")
+                onClicked: sahKdTreeViewer.setCameraPosition(Qt.vector3d(0.0, 0.0, 0.0))
+            }
+            ToolSeparator {}
+            Label {
+                text: qsTr("View:")
+            }
+            ToolButton {
+                text: qsTr("Reset")
+                action: actionResetContentOrientation
+            }
+            ToolButton {
+                text: qsTr("CW")
+                action: actionRotateNeg
+            }
+            ToolButton {
+                text: qsTr("CCW")
+                action: actionRotatePos
+            }
+            ToolButton {
+                text: qsTr("+")
+                action: actionScaleInc
+            }
+            ToolButton {
+                text: qsTr("-")
+                action: actionScaleDec
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+        }
+    }
+    footer: ToolBar {
+        visible: visibility !== Window.FullScreen
+        RowLayout {
+            anchors.fill: parent
+            Label {
+                text: "Mode:"
+            }
+            Label {
+                textFormat: Text.StyledText
+                text: sahKdTreeViewer.modeString
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            Label {
+                text: {
+                    "View: rotation(%1) scale(%2)"
+                    .arg(itemContent.rotation)
+                    .arg(itemContent.scale)
                 }
             }
-            rotation: -15
-            SequentialAnimation on rotation {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: -15.0
-                    to: 15.0
-                    duration: 10000
-                }
-                NumberAnimation {
-                    from: 15.0
-                    to: -15.0
-                    duration: 10000
-                }
+            Item {
+                Layout.fillWidth: true
             }
-            //transformOrigin: Item.TopLeft
-
-            //opacity: 0.2
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                running: true
-                NumberAnimation {
-                    from: 0.1
-                    to: 1.0
-                    duration: 1500
-                }
-                NumberAnimation {
-                    from: 1.0
-                    to: 0.1
-                    duration: 1500
-                }
+            Label {
+                text: "Camera:"
             }
-
+            Label {
+                textFormat: Text.StyledText
+                text: sahKdTreeViewer.statusString
+            }
+        }
+    }
+    background: Rectangle {
+        color: "lightgreen"
+    }
+    Item {
+        id: itemContent
+        anchors.fill: parent
+        SahKdTreeViewer {
+            id: sahKdTreeViewer
+            objectName: "sahKdTreeViewer"
+            anchors.fill: parent
+            engine: SahKdTreeEngine
+            useOffscreenTexture: actionUseOffscreenTexture.checked
+            wireFrame: actionWireFrame.checked
             MouseArea {
                 anchors.fill: parent
-
                 acceptedButtons: Qt.RightButton | Qt.LeftButton
-
                 cursorShape: parent.cursor
-
                 onPressed: (mouse) => {
                     parent.forceActiveFocus()
                     switch (mouse.button) {
-                    case Qt.LeftButton: {
-                        mouse.accepted = false
-                        break
-                    }
                     case Qt.RightButton: {
                         mouse.accepted = true
                         break
                     }
+                    case Qt.LeftButton: {
+                        mouse.accepted = false
+                    }
                     }
                 }
-
                 onClicked: (mouse) => {
                     switch (mouse.button) {
                     case Qt.RightButton: {
                         mouse.accepted = true
-
                         contextMenu.x = mouse.x
                         contextMenu.y = mouse.y
                         contextMenu.popup()
@@ -371,59 +345,33 @@ ApplicationWindow {
                     }
                 }
             }
-
             Settings {
-                category: "%1".arg(mainSahKdTreeViewer.objectName)
-                property alias scenePath: mainSahKdTreeViewer.scenePath
-                property alias cameraPosition: mainSahKdTreeViewer.cameraPosition
-                property alias eulerAngles: mainSahKdTreeViewer.eulerAngles
-                property alias fieldOfView: mainSahKdTreeViewer.fieldOfView
-                property alias useOffscreenTexture: mainSahKdTreeViewer.useOffscreenTexture
-                property alias wireFrame: mainSahKdTreeViewer.wireFrame
+                category: "%1".arg(sahKdTreeViewer.objectName)
+                property alias cameraPosition: sahKdTreeViewer.cameraPosition
+                property alias eulerAngles: sahKdTreeViewer.eulerAngles
+                property alias fieldOfView: sahKdTreeViewer.fieldOfView
+                property alias scenePath: sahKdTreeViewer.scenePath
+                property alias useOffscreenTexture: actionUseOffscreenTexture.checked
+                property alias wireFrame: actionWireFrame.checked
             }
         }
-
         Rectangle {
             color: "transparent"
-
-            //anchors.fill: parent
-            x: mainSahKdTreeViewer.x
-            y: mainSahKdTreeViewer.y
-            width: mainSahKdTreeViewer.width
-            height: mainSahKdTreeViewer.height
-
-            anchors.margins: -4
-            border.color: "red"
-            border.width: 3
-
-            scale: mainSahKdTreeViewer.scale
-            transformOrigin: mainSahKdTreeViewer.transformOrigin
-            rotation: mainSahKdTreeViewer.rotation
+            x: sahKdTreeViewer.x
+            y: sahKdTreeViewer.y
+            width: sahKdTreeViewer.width
+            height: sahKdTreeViewer.height
+            anchors.margins: 4
+            border.color: Qt.alpha("yellow", 0.5)
+            border.width: anchors.margins
+            scale: sahKdTreeViewer.scale
+            transformOrigin: sahKdTreeViewer.transformOrigin
+            rotation: sahKdTreeViewer.rotation
         }
-    }
-
-    footer: RowLayout {
-        height: 128
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            color: "green"
-            opacity: 0.4
-        }
-        Label {
-            width: implicitWidth
-            Layout.fillHeight: true
-            text: {
-                var pos = mainSahKdTreeViewer.cameraPosition
-                var dir = mainSahKdTreeViewer.eulerAngles
-                var fov = mainSahKdTreeViewer.fieldOfView
-                qsTr("pos(%1, %2, %3) dir(%4, %5, %6) fov(%7)")
-                .arg(pos.x.toFixed(3)).arg(pos.y.toFixed(3)).arg(pos.z.toFixed(3))
-                .arg(dir.x.toFixed(3)).arg(dir.y.toFixed(3)).arg(dir.z.toFixed(3))
-                .arg(fov.toFixed(3))
-            }
+        Settings {
+            category: "ContentItem"
+            property alias rotation: itemContent.rotation
+            property alias scale: itemContent.scale
         }
     }
 }

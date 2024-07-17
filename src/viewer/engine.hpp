@@ -27,15 +27,15 @@ namespace viewer
 struct SceneResources final
 {
     std::vector<vk::DrawIndexedIndirectCommand> instances;
+    std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
     std::vector<vk::IndexType> indexTypes;
     vk::IndexType maxIndexType = vk::IndexType::eNoneKHR;
-    std::optional<engine::Buffer<void>> indexBuffer;
     uint32_t drawCount = 0;
     std::optional<engine::Buffer<uint32_t>> drawCountBuffer;
-    std::optional<engine::Buffer<vk::DrawIndexedIndirectCommand>> instanceBuffer;
     std::optional<engine::Buffer<glm::mat4>> transformBuffer;
 
     std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
+    std::optional<engine::Buffer<void>> indexBuffer;
 
     [[nodiscard]] static std::string getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;

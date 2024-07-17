@@ -42,10 +42,14 @@ class Viewer : public QQuickItem
     Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
     Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
 
-    Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged)
+    Q_PROPERTY(QString statusString READ getStatusString NOTIFY statusStringChanged STORED false)
+
+    Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged RESET unsetScenePath)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
     Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY wireFrameChanged)
+
+    Q_PROPERTY(QString modeString READ getModeString NOTIFY modeStringChanged STORED false)
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
@@ -55,8 +59,11 @@ public:
     Q_INVOKABLE void rotate(QVector2D tiltPan);
     Q_INVOKABLE void rotate(qreal tilt /*pitch*/, qreal pan /*yaw*/, qreal roll = 0.0);
 
+    [[nodiscard]] QString getStatusString() const;
+    [[nodiscard]] QString getModeString() const;
+
 Q_SIGNALS:
-    void engineChanged(EngineWrapper * engine);
+    void engineChanged(viewer::EngineWrapper * engine);
 
     void eulerAnglesChanged(QVector3D euelerAngles);
     void cameraPositionChanged(QVector3D cameraPosition);
@@ -67,19 +74,28 @@ Q_SIGNALS:
     void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
     void linearSpeedChanged(qreal linearSpeed);
 
+    void statusStringChanged();
+
     void scenePathChanged(QUrl scenePath);
 
     void useOffscreenTextureChanged(bool useOffscreenTexture);
     void wireFrameChanged(bool wireFrame);
+
+    void modeStringChanged();
 
 public Q_SLOTS:
     void setEulerAngles(QVector3D newEulerAngles);
     void setCameraPosition(QVector3D cameraPosition);
     void setFieldOfView(qreal fieldOfView);
 
+    void resetCamera();
+    void alignCameraDirection();
+    void reflectCameraDirection();
+
     void setDt(qreal dt);
 
     void setScenePath(QUrl scenePath);
+    void unsetScenePath();
 
 private Q_SLOTS:
     void cleanup();

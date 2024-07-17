@@ -478,7 +478,7 @@ void ShaderModuleReflection::reflect()
             descriptorSetLayoutBinding.binding = {
                 .binding = reflectDescriptorBinding->binding,
                 .descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type),
-                .descriptorCount = reflectDescriptorBinding->count,
+                .descriptorCount = 1,  // ? reflectDescriptorBinding->count,
             };
             const auto & block = reflectDescriptorBinding->block;
             ASSERT(block.offset == 0);

@@ -71,4 +71,6 @@ private:
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
+// TODO: ALLOW_TRANSFER_INSTEAD https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/issues/433
+
 }  // namespace engine

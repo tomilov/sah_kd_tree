@@ -319,7 +319,6 @@ SceneResources Engine::makeResources(const Scene & scene) const
                 collectNodeInfos(collectNodeInfos, sceneData.nodes.at(sceneNodeChild), transform);
             }
         };
-        // auto transform = glm::diagonal4x4(glm::vec4{1.0f, -1.0f, 1.0f, 1.0f});
         auto transform = glm::identity<glm::mat4>();
         collectNodeInfos(collectNodeInfos, sceneData.nodes.front(), std::move(transform));
     }
@@ -487,14 +486,14 @@ SceneResources Engine::makeResources(const Scene & scene) const
 
     return {
         .instances = std::move(instances),
+        .instanceBuffer = std::move(instanceBuffer),
         .indexTypes = std::move(indexTypes),
         .maxIndexType = maxIndexType,
-        .indexBuffer = std::move(indexBuffer),
         .drawCount = drawCount,
         .drawCountBuffer = std::move(drawCountBuffer),
-        .instanceBuffer = std::move(instanceBuffer),
         .transformBuffer = std::move(transformBuffer),
         .vertexBuffer = std::move(vertexBuffer),
+        .indexBuffer = std::move(indexBuffer),
     };
 }
 

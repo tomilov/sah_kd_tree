@@ -728,6 +728,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     vk::Viewport viewport;
     vk::Rect2D scissor;
     if (frameSettings.useOffscreenTexture) {
+        ASSERT(displayResourcesAndDescriptors);
         viewport = vk::Viewport{
             .x = 0.0f,
             .y = 0.0f,
