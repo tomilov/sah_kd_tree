@@ -1,1 +1,2 @@
 CenteredDialog components/CenteredDialog.qml
+SceneOpenDialog components/SceneOpenDialog.qml

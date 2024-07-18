@@ -5,7 +5,7 @@
 namespace viewer
 {
 
-QString Application::keySequenceToString(QVariant keySequence) const
+QString Application::keySequenceToString(QVariant keySequence)
 {
     switch (keySequence.typeId()) {
     case QMetaType::Type::QString: {
@@ -14,8 +14,10 @@ QString Application::keySequenceToString(QVariant keySequence) const
     case QMetaType::Type::Int: {
         return QKeySequence(keySequence.value<QKeySequence::StandardKey>()).toString();
     }
+    default: {
+        return keySequence.toString();
     }
-    return keySequence.toString();
+    }
 }
 
 }  // namespace viewer

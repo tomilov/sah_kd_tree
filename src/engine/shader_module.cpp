@@ -615,7 +615,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
         for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
-            SPDLOG_INFO("BINDING ({}): set={} binding={} type={} stages={}", name, set, descriptorSetLayoutBinding.binding, descriptorSetLayoutBinding.descriptorType, descriptorSetLayoutBinding.stageFlags);
+            SPDLOG_DEBUG("BINDING ({}): set={} binding={} type={} stages={}", name, set, descriptorSetLayoutBinding.binding, descriptorSetLayoutBinding.descriptorType, descriptorSetLayoutBinding.stageFlags);
             if (descriptorSetLayoutCreateFlags & vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT) {
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eUniformBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");
                 INVARIANT(descriptorSetLayoutBinding.descriptorType != vk::DescriptorType::eStorageBufferDynamic, "Not compatible with eDescriptorBufferEXT descriptor set layout");

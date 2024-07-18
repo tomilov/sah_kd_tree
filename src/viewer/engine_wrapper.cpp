@@ -8,15 +8,18 @@
 #include <viewer/utils.hpp>
 
 #include <QtCore/QDir>
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
+#include <QtCore/QtLogging>
 
 using namespace Qt::StringLiterals;
 
 namespace viewer
 {
-
 namespace
 {
+Q_DECLARE_LOGGING_CATEGORY(engineWrapperCategory)
+Q_LOGGING_CATEGORY(engineWrapperCategory, "viewer.engine_wrapper")
 
 // clang-format off
 constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
@@ -50,6 +53,7 @@ struct EngineWrapper::Impl final : utils::NonCopyable
 EngineWrapper::EngineWrapper(QObject * parent)
     : QObject{parent}
 {
+    qCDebug(engineWrapperCategory).noquote() << u"EngineWrapper created"_s;
     auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
     auto shaderLocation = u":/%1/imports/%2/shaders/"_s.arg(projectName, toCamelCase(projectName, true));
     QDir::addSearchPath(u"shaders"_s, shaderLocation);
@@ -77,7 +81,7 @@ const Engine & EngineWrapper::getEngine() const
     return impl_->engine.value();
 }
 
-QStringList EngineWrapper::getSupportedSceneFileExtensions() const
+QStringList EngineWrapper::getSupportedSceneFileExtensions()
 {
     return scene_loader::getSupportedExtensions();
 }

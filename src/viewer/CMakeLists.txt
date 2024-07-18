@@ -115,6 +115,7 @@ qt6_add_resources(
     FILES
         "qml/qmldir"
         "qml/components/CenteredDialog.qml"
+        "qml/components/SceneOpenDialog.qml"
         "qml/ui.qml")
 
 source_group(

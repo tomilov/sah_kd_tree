@@ -39,7 +39,7 @@ public:
     void init();
     [[nodiscard]] const Engine & getEngine() const;
 
-    [[nodiscard]] QStringList getSupportedSceneFileExtensions() const;
+    [[nodiscard]] static QStringList getSupportedSceneFileExtensions();
 
 private:
     struct Impl;

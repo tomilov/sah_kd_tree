@@ -124,7 +124,7 @@ private:
     QUrl scenePath;
     bool isScenePathChanged = false;
 
-    bool useOffscreenTexture = false;
+    bool useOffscreenTexture = true;
     bool wireFrame = false;
 
     float characteristicSize = 0.0f;
