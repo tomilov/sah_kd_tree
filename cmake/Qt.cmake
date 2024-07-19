@@ -7,7 +7,10 @@ find_package(
         Widgets
         Qml
         Quick
-        QuickControls2)
+        QuickControls2
+        Svg
+        Xml
+    )
 
 qt6_standard_project_setup()
 set(CMAKE_AUTORCC ON)

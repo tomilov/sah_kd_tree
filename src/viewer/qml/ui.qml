@@ -18,7 +18,7 @@ ApplicationWindow {
             //if (typeof item[p] != "function")
                 console.log(p + ": " + item[p]);
     }
-    readonly property var sahKdTreeViewer: swipeView.currentItem?.sahKdTreeViewerRef
+    readonly property var sahKdTreeViewer: stackLayout.currentItem?.sahKdTreeViewerRef
     title: {
         qsTr("%1 (dt %2ms) (screen refresh rate %3) - [%4]")
         .arg(Qt.application.displayName)
@@ -44,7 +44,7 @@ ApplicationWindow {
         onAccepted: {
             for (var i = 0; i < listModel.count; ++i) {
                 if (listModel.get(i).fileUrl === fileUrl.toString()) {
-                    swipeView.setCurrentIndex(i)
+                    tabBar.setCurrentIndex(i)
                     return
                 }
             }
@@ -53,9 +53,9 @@ ApplicationWindow {
                 "fileName": fileName,
                 "fileUrl": fileUrl.toString(),
             }
-            var currentIndex = Math.min(swipeView.currentIndex + 1, swipeView.count)
+            var currentIndex = Math.min(stackLayout.currentIndex + 1, stackLayout.count)
             listModel.insert(currentIndex, listItem)
-            swipeView.setCurrentIndex(currentIndex)
+            tabBar.setCurrentIndex(currentIndex)
         }
         Settings {
             category: "sceneOpenDialog"
@@ -76,9 +76,9 @@ ApplicationWindow {
         }
     }
     function removeCurrentTab() {
-        var currentIndex = swipeView.currentIndex
+        var currentIndex = stackLayout.currentIndex
         listModel.remove(currentIndex)
-        swipeView.setCurrentIndex(currentIndex - 1)
+        tabBar.setCurrentIndex(currentIndex - 1)
     }
     Action {
         id: actionOpenScene
@@ -89,7 +89,7 @@ ApplicationWindow {
     Action {
         id: actionCloseScene
         text: qsTr("&Close")
-        enabled: swipeView.count > 0
+        enabled: stackLayout.count > 0
         onTriggered: removeCurrentTab()
     }
     Action {
@@ -156,14 +156,14 @@ ApplicationWindow {
     header: TabBar {
         id: tabBar
         visible: visibility !== Window.FullScreen
-        currentIndex: swipeView.currentIndex
+        currentIndex: stackLayout.currentIndex
         Repeater {
             model: listModel
             TabButton {
                 required property string fileName
                 required property url fileUrl
                 required property string index
-                readonly property SwipeView swipeViewRef: swipeView
+                readonly property StackLayout stackLayoutRef: stackLayout
                 text: fileName
                 onDoubleClicked: removeCurrentTab()
                 hoverEnabled: true
@@ -175,27 +175,26 @@ ApplicationWindow {
             }
         }
     }
-    SwipeView {
-        id: swipeView
+    StackLayout {
+        id: stackLayout
         anchors.fill: parent
-        interactive: false
         currentIndex: tabBar.currentIndex
-        onCurrentItemChanged: if (currentItem) currentItem.sahKdTreeViewerRef.forceActiveFocus()
+        readonly property var currentItem: children[currentIndex]
         property string jsonModel
         Settings {
-            id: swipeViewSettings
-            property alias jsonModel: swipeView.jsonModel
+            id: stackLayoutSettings
+            property alias jsonModel: stackLayout.jsonModel
             property int currentIndex
         }
-        Component.onCompleted: Qt.callLater(() => setCurrentIndex(swipeViewSettings.currentIndex))
-        Component.onDestruction: swipeViewSettings.currentIndex = currentIndex
+        Component.onCompleted: Qt.callLater(() => tabBar.setCurrentIndex(stackLayoutSettings.currentIndex))
+        Component.onDestruction: stackLayoutSettings.currentIndex = currentIndex
         Repeater {
             anchors.fill: parent
             model: ListModel {
                 id: listModel
                 Component.onCompleted: {
-                    if (swipeView.jsonModel) {
-                        var items = JSON.parse(swipeView.jsonModel)
+                    if (stackLayout.jsonModel) {
+                        var items = JSON.parse(stackLayout.jsonModel)
                         for (var i in items) {
                             listModel.append(items[i])
                         }
@@ -205,8 +204,8 @@ ApplicationWindow {
                     var items = []
                     for (var i = 0; i < listModel.count; ++i)
                         items.push(listModel.get(i))
-                    swipeView.jsonModel = JSON.stringify(items)
-                    console.log("JSON model:", swipeView.jsonModel)
+                    stackLayout.jsonModel = JSON.stringify(items)
+                    console.log("JSON model:", stackLayout.jsonModel)
                 }
             }
             delegate: Component {
@@ -226,6 +225,7 @@ ApplicationWindow {
                     Action {
                         id: actionResetContentOrientation
                         text: qsTr("Reset view orientation")
+                        icon.name: "zoom-original-symbolic"
                         onTriggered: {
                             content.rotation = 0
                             content.scale = 1
@@ -235,6 +235,7 @@ ApplicationWindow {
                     Action {
                         id: actionRotatePos
                         text: qsTr("Rotate view CCW")
+                        icon.name: "object-rotate-left-symbolic"
                         onTriggered: {
                             content.rotation -= 5
                             sahKdTreeViewer.update()
@@ -243,6 +244,7 @@ ApplicationWindow {
                     Action {
                         id: actionRotateNeg
                         text: qsTr("Rotate view CW")
+                        icon.name: "object-rotate-right-symbolic"
                         onTriggered: {
                             content.rotation += 5
                             sahKdTreeViewer.update()
@@ -251,6 +253,7 @@ ApplicationWindow {
                     Action {
                         id: actionScaleInc
                         text: qsTr("Inc view scale")
+                        icon.name: "zoom-in-symbolic"
                         onTriggered: {
                             content.scale += 0.125
                         }
@@ -258,6 +261,7 @@ ApplicationWindow {
                     Action {
                         id: actionScaleDec
                         text: qsTr("Dec view scale")
+                        icon.name: "zoom-out-symbolic"
                         onTriggered: {
                             if (content.scale <= 0.125) {
                                 return
@@ -301,20 +305,36 @@ ApplicationWindow {
                                 action: actionResetContentOrientation
                             }
                             ToolButton {
-                                text: qsTr("CW")
+                                text: qsTr("")
                                 action: actionRotateNeg
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
                             }
                             ToolButton {
-                                text: qsTr("CCW")
+                                text: qsTr("")
                                 action: actionRotatePos
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
                             }
                             ToolButton {
-                                text: qsTr("+")
+                                text: qsTr("")
                                 action: actionScaleInc
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
                             }
                             ToolButton {
-                                text: qsTr("-")
+                                text: qsTr("")
                                 action: actionScaleDec
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
                             }
                             Item {
                                 Layout.fillWidth: true

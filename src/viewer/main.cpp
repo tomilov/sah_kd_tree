@@ -36,11 +36,13 @@
 #include <QtQuick/QQuickView>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRendererInterface>
+#include <QtQuickControls2/QQuickStyle>
 #include <QtWidgets/QApplication>
 
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include <cstdlib>
 
@@ -192,6 +194,19 @@ protected:
 
 int main(int argc, char * argv[])
 {
+    if ((true)) {
+        QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
+        while (resources.hasNext()) {
+            auto filePath = resources.next();
+            if (filePath.startsWith(u":/qt-project.org"_s)) {
+                continue;
+            }
+            if (filePath.startsWith(u":/qpdf"_s)) {
+                continue;
+            }
+            qCDebug(viewerMainCategory).noquote() << filePath;
+        }
+    }
     {
         auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);
         QVersionNumber applicationVersion{sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch, sah_kd_tree::kProjectVersionTweak};
@@ -250,19 +265,6 @@ int main(int argc, char * argv[])
 
     qCInfo(viewerMainCategory).noquote() << u"Current path: %1"_s.arg(QDir::currentPath());
 
-    if ((true)) {
-        QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};
-        while (resources.hasNext()) {
-            auto filePath = resources.next();
-            if (filePath.startsWith(u":/qt-project.org"_s)) {
-                continue;
-            }
-            if (filePath.startsWith(u":/qpdf"_s)) {
-                continue;
-            }
-            qCDebug(viewerMainCategory).noquote() << filePath;
-        }
-    }
     auto resourcesBasePath = QUrl{u"qrc:///%1/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
 
     auto application = createApplication(argc, argv);
@@ -278,6 +280,9 @@ int main(int argc, char * argv[])
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {
         qFatal("unreachable");
     }
+
+    // QQuickStyle::setStyle("Material");
+    // QIcon::setThemeName("elementary");
 
     QQuickWindow::setSceneGraphBackend("rhi");
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
@@ -319,7 +324,7 @@ int main(int argc, char * argv[])
             // QRhiVulkanInitParams::preferredInstanceExtensions()
             auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
             auto supportedExtensions = vulkanInstance.supportedExtensions();
-            for (const auto & instanceExtension : instanceExtensions) {
+            for (const auto & instanceExtension : std::as_const(instanceExtensions)) {
                 if (!supportedExtensions.contains(instanceExtension)) {
                     qCCritical(viewerMainCategory).noquote() << u"Instance extension %1 is not supported"_s.arg(QString::fromUtf8(instanceExtension));
                     return EXIT_FAILURE;
