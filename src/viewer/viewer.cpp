@@ -213,14 +213,12 @@ private:
 
     void prepare() override
     {
-        // renderTarget()->resourceType() == QRhiResource::TextureRenderTarget, vk::DynamicState::eViewport
-
         frameSettings.alpha = inheritedOpacity();
 
-        frameSettings.width = utils::autoCast(size.width());
-        frameSettings.height = utils::autoCast(size.height());
+        frameSettings.width = utils::safeCast<float>(size.width());
+        frameSettings.height = utils::safeCast<float>(size.height());
 
-        const QSizeF renderTargetSize = renderTarget()->pixelSize();  // renderTarget()->devicePixelRatio() == 1.0f
+        const QSizeF renderTargetSize = renderTarget()->pixelSize();
         frameSettings.viewport = vk::Viewport{
             .x = 0.0f,
             .y = 0.0f,
@@ -231,31 +229,29 @@ private:
         };
 
         const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-        {
-            const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
-            frameSettings.scissor = vk::Rect2D{
-                .offset = {
-                    .x = utils::autoCast(scissorRect.x()),
-                    .y = utils::autoCast(scissorRect.y()),
-                },
-                .extent = {
-                    .width = utils::autoCast(scissorRect.width()),
-                    .height = utils::autoCast(scissorRect.height()),
-                },
-            };
-        }
-        {
-            glm::mat4 & transform2D = frameSettings.transform2D;
-            transform2D = glm::make_mat4x4(mvp.constData());
-            transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-            transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
-        }
+        const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
+        frameSettings.scissor = vk::Rect2D{
+            .offset = {
+                .x = utils::autoCast(scissorRect.x()),
+                .y = utils::autoCast(scissorRect.y()),
+            },
+            .extent = {
+                .width = utils::autoCast(scissorRect.width()),
+                .height = utils::autoCast(scissorRect.height()),
+            },
+        };
+        glm::mat4 & transform2D = frameSettings.transform2D;
+        transform2D = glm::make_mat4x4(mvp.constData());
+        transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+        transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
 
-        if (frameSettings.useOffscreenTexture) {  // optimization for axis aligned transform case
-            const QMatrix4x4 & m = *matrix();
-            if (m.flags() < QMatrix4x4::Flag::Rotation) {
-                if ((qFuzzyIsNull(m(0, 1)) && qFuzzyIsNull(m(1, 0))) || (qFuzzyIsNull(m(0, 0)) && qFuzzyIsNull(m(1, 1)))) {
-                    frameSettings.useOffscreenTexture = false;
+        if ((false)) {                                // does not reset automatically w/o update()
+            if (frameSettings.useOffscreenTexture) {  // optimization for axis aligned transform case
+                const QMatrix4x4 & m = *matrix();
+                if (m.flags() < QMatrix4x4::Flag::Rotation) {
+                    if ((qFuzzyIsNull(m(0, 1)) && qFuzzyIsNull(m(1, 0))) || (qFuzzyIsNull(m(0, 0)) && qFuzzyIsNull(m(1, 1)))) {
+                        frameSettings.useOffscreenTexture = false;
+                    }
                 }
             }
         }
@@ -362,7 +358,7 @@ Viewer::Viewer(QQuickItem * parent)
         connect(this, &Viewer::fieldOfViewChanged, this, &Viewer::statusStringChanged);
     }
 
-    connect(this, &Viewer::scenePathChanged, this, &QQuickItem::update);
+    connect(this, &Viewer::sceneUrlChanged, this, &QQuickItem::update);
 
     {
         connect(this, &Viewer::useOffscreenTextureChanged, this, &QQuickItem::update);
@@ -464,6 +460,13 @@ void Viewer::setCameraPosition(QVector3D cameraPosition)
     if (qFuzzyCompare(this->cameraPosition, cameraPosition)) {
         return;
     }
+    if (!qFuzzyIsNull(characteristicSize)) {
+        const auto direction = cameraPosition - sceneAabbCenter;
+        const float c = direction.length() - 0.5f * characteristicSize;
+        if (c > 0.0f) {
+            cameraPosition -= c * direction.normalized();
+        }
+    }
     this->cameraPosition = cameraPosition;
     Q_EMIT cameraPositionChanged(cameraPosition);
 }
@@ -479,10 +482,15 @@ void Viewer::setFieldOfView(qreal fieldOfView)
     Q_EMIT fieldOfViewChanged(fieldOfView);
 }
 
+void Viewer::resetCameraPosition()
+{
+    setCameraPosition({});
+}
+
 void Viewer::resetCamera()
 {
     setEulerAngles({});
-    setCameraPosition({});
+    resetCameraPosition();
     setFieldOfView(kDefaultFov);
 }
 
@@ -509,24 +517,24 @@ void Viewer::setDt(qreal dt)
     Q_EMIT dtChanged(dt);
 }
 
-void Viewer::setScenePath(QUrl scenePath)
+void Viewer::setSceneUrl(QUrl sceneUrl)
 {
-    if (this->scenePath == scenePath) {
+    if (this->sceneUrl == sceneUrl) {
         return;
     }
-    isScenePathChanged = true;
-    this->scenePath = scenePath;
-    Q_EMIT scenePathChanged(scenePath);
+    isSceneUrlChanged = true;
+    this->sceneUrl = sceneUrl;
+    Q_EMIT sceneUrlChanged(sceneUrl);
 }
 
-void Viewer::unsetScenePath()
+void Viewer::unsetSceneUrl()
 {
-    if (scenePath.isEmpty()) {
+    if (sceneUrl.isEmpty()) {
         return;
     }
-    isScenePathChanged = true;
-    scenePath.clear();
-    Q_EMIT scenePathChanged(scenePath);
+    isSceneUrlChanged = true;
+    sceneUrl.clear();
+    Q_EMIT sceneUrlChanged(sceneUrl);
 }
 
 void Viewer::cleanup()
@@ -548,25 +556,28 @@ void Viewer::onWindowChanged(QQuickWindow * w)
 
 void Viewer::setScene()
 {
-    if (!isScenePathChanged) {
+    if (!isSceneUrlChanged) {
         return;
     }
-    isScenePathChanged = false;
+    isSceneUrlChanged = false;
     ASSERT(renderer);
     renderer->unsetScene();
-    if (scenePath.isEmpty()) {
+    if (sceneUrl.isEmpty()) {
         return;
     }
-    if (!scenePath.isLocalFile()) {
-        qCWarning(viewerCategory) << u"scenePath URL is not local file:"_s << scenePath;
+    if (!sceneUrl.isLocalFile()) {
+        qCWarning(viewerCategory) << u"sceneUrl URL is not local file:"_s << sceneUrl;
         return;
     }
-    auto newScene = engine->getEngine().getScenes().getScene(QFileInfo{scenePath.toLocalFile()}.filesystemCanonicalFilePath());
+    const auto scenePath = QFileInfo{sceneUrl.toLocalFile()}.filesystemCanonicalFilePath();
+    auto newScene = engine->getEngine().getScenes().getScene(scenePath);
     if (!newScene) {
         return;
     }
     const auto & aabb = newScene->sceneData.aabb;
     characteristicSize = glm::distance(aabb.min, aabb.max);
+    glm::vec3 aabbCenter = 0.5f * (aabb.min + aabb.max);
+    sceneAabbCenter = {aabbCenter.x, aabbCenter.y, aabbCenter.z};
     if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 10.0f))) {
         qFatal("unreachable");
     }
@@ -709,7 +720,7 @@ void Viewer::handleInput()
     }
     if (pressedKeys.contains(Qt::Key_Z)) {
         if (0 == pressedKeys[Qt::Key_Z]++) {
-            setCameraPosition({});
+            resetCameraPosition();
         }
     } else {
         direction.normalize();

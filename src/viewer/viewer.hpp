@@ -44,7 +44,7 @@ class Viewer : public QQuickItem
 
     Q_PROPERTY(QString statusString READ getStatusString NOTIFY statusStringChanged STORED false)
 
-    Q_PROPERTY(QUrl scenePath MEMBER scenePath WRITE setScenePath NOTIFY scenePathChanged RESET unsetScenePath)
+    Q_PROPERTY(QUrl sceneUrl MEMBER sceneUrl WRITE setSceneUrl NOTIFY sceneUrlChanged RESET unsetSceneUrl)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
     Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY wireFrameChanged)
@@ -76,7 +76,7 @@ Q_SIGNALS:
 
     void statusStringChanged();
 
-    void scenePathChanged(QUrl scenePath);
+    void sceneUrlChanged(QUrl sceneUrl);
 
     void useOffscreenTextureChanged(bool useOffscreenTexture);
     void wireFrameChanged(bool wireFrame);
@@ -88,14 +88,15 @@ public Q_SLOTS:
     void setCameraPosition(QVector3D cameraPosition);
     void setFieldOfView(qreal fieldOfView);
 
+    void resetCameraPosition();
     void resetCamera();
     void alignCameraDirection();
     void reflectCameraDirection();
 
     void setDt(qreal dt);
 
-    void setScenePath(QUrl scenePath);
-    void unsetScenePath();
+    void setSceneUrl(QUrl sceneUrl);
+    void unsetSceneUrl();
 
 private Q_SLOTS:
     void cleanup();
@@ -121,13 +122,14 @@ private:
     QHash<Qt::Key, int> pressedKeys;
     QTimer * const handleInputTimer = new QTimer{this};
 
-    QUrl scenePath;
-    bool isScenePathChanged = false;
+    QUrl sceneUrl;
+    bool isSceneUrlChanged = false;
 
     bool useOffscreenTexture = true;
     bool wireFrame = false;
 
     float characteristicSize = 0.0f;
+    QVector3D sceneAabbCenter;
 
     std::unique_ptr<Renderer> renderer;
 

@@ -9,8 +9,7 @@ find_package(
         Quick
         QuickControls2
         Svg
-        Xml
-    )
+        Xml)
 
 qt6_standard_project_setup()
 set(CMAKE_AUTORCC ON)
