@@ -575,7 +575,8 @@ void Viewer::setScene()
         return;
     }
     const auto & aabb = newScene->sceneData.aabb;
-    characteristicSize = glm::distance(aabb.min, aabb.max);
+    constexpr float kMaxDistanceCoeff = 1.5f;
+    characteristicSize = glm::distance(aabb.min, aabb.max) * kMaxDistanceCoeff;
     glm::vec3 aabbCenter = 0.5f * (aabb.min + aabb.max);
     sceneAabbCenter = {aabbCenter.x, aabbCenter.y, aabbCenter.z};
     if (!setProperty("linearSpeed", utils::safeCast<qreal>(characteristicSize / 10.0f))) {

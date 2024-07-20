@@ -40,10 +40,16 @@ CenteredDialog {
             Layout.fillWidth: true
         }
         ListView {
+            id: listView
             clip: true
             Layout.fillWidth: true
             Layout.fillHeight: true
             flickableDirection: Flickable.AutoFlickIfNeeded
+            highlightFollowsCurrentItem: true
+            highlight: Rectangle {
+                color: palette.active.highlight
+                radius: Mat.min(height, width) / 2
+            }
             model: FolderListModel {
                 folder: sceneOpenDialog.folderUrl
                 nameFilters: SahKdTreeEngine.supportedSceneFileExtensions
@@ -53,6 +59,7 @@ CenteredDialog {
             }
             delegate: Component {
                 Label {
+                    required property int index
                     required property date fileAccessed
                     required property int fileSize
                     required property url fileUrl
@@ -64,8 +71,11 @@ CenteredDialog {
                     required property bool fileIsDir
                     text: fileName + (fileIsDir ? "/" : "")
                     MouseArea {
+                        id: mouseArea
                         anchors.fill: parent
-                        onDoubleClicked: (mouse) => {
+                        hoverEnabled: true
+                        onEntered: listView.currentIndex = index
+                        onClicked: mouse => {
                             if (fileIsDir) {
                                 sceneOpenDialog.folderUrl = fileUrl
                             } else {

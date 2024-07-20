@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
-import QtQuick.Dialogs as Dialogs
 
 import SahKdTree 1.0
 
@@ -14,13 +13,13 @@ ApplicationWindow {
     visibility: Window.AutomaticVisibility
     function pprops(item) {
         console.log("PPROPS:")
-        for (var p in item)
+        for (let p in item)
             console.log(p + ": " + item[p]);
     }
     readonly property var sahKdTreeViewer: stackLayout.children[stackLayout.currentIndex]?.sahKdTreeViewerRef
     title: {
         qsTr("%1 (dt %2ms) (screen refresh rate %3) - [%4]")
-        .arg(Qt.application.displayName)
+        .arg(Application.displayName)
         .arg(sahKdTreeViewer ? (sahKdTreeViewer.dt * 1000.0).toFixed(3) : "?")
         .arg(app.primaryScreen.refreshRate.toFixed(3))
         .arg(sahKdTreeViewer?.sceneUrl || "-")
@@ -40,24 +39,34 @@ ApplicationWindow {
         width: Math.min(384, root.width)
         height: Math.min(384, root.height)
         title: qsTr("Open scene file")
+        property bool shouldReplaceScene
+        function appendScene() {
+            shouldReplaceScene = false
+            open()
+        }
+        function replaceScene() {
+            shouldReplaceScene = true
+            open()
+        }
         onAccepted: {
-            for (var i = 0; i < listModel.count; ++i) {
+            for (let i = 0; i < listModel.count; ++i) {
                 if (listModel.get(i).fileUrl === fileUrl.toString()) {
                     Qt.callLater(tabBar.setCurrentIndex, i)
                     return
                 }
             }
-            var listItem = {
-                "filePath": filePath,
-                "fileName": fileName,
-                "fileUrl": fileUrl.toString(),
+            let listItem = {
+                filePath: filePath,
+                fileBaseName: fileBaseName,
+                fileUrl: fileUrl.toString(),
             }
-            var currentIndex = Math.min(stackLayout.currentIndex + 1, stackLayout.count)
-            listModel.insert(currentIndex, listItem)
-            Qt.callLater(tabBar.setCurrentIndex, currentIndex)
-        }
-        Settings {
-            property alias folderUrl: sceneOpenDialog.folderUrl
+            if (!shouldReplaceScene || stackLayout.currentIndex < 0) {
+                let currentIndex = listModel.count
+                listModel.append(listItem)
+                Qt.callLater(tabBar.setCurrentIndex, currentIndex)
+            } else {
+                listModel.set(stackLayout.currentIndex, listItem)
+            }
         }
     }
     onClosing: close => {
@@ -68,20 +77,38 @@ ApplicationWindow {
         }
     }
     function removeCurrentTab() {
-        var currentIndex = stackLayout.currentIndex
+        let currentIndex = tabBar.currentIndex
+        if (currentIndex < 0) {
+            return
+        }
         listModel.remove(currentIndex)
-        Qt.callLater(tabBar.setCurrentIndex, currentIndex - 1)
     }
     Action {
         id: actionOpenScene
         text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Open
-        onTriggered: sceneOpenDialog.open()
+        onTriggered: sceneOpenDialog.replaceScene()
+        icon.name: "document-open-symbolic"
+    }
+    Action {
+        id: actionReplaceScene
+        text: qsTr("&Replace (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.AddTab
+        onTriggered: sceneOpenDialog.appendScene()
+        icon.name: "edit-find-replace-symbolic"
+    }
+    Action {
+        id: actionSaveSceneScreenshot
+        text: qsTr("Screenshot (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.Copy
+        enabled: sahKdTreeViewer !== undefined
+        onTriggered: sahKdTreeViewer?.grabToImage(result => app.setClipboardImage(result.image))
+        icon.name: "edit-copy-symbolic"
     }
     Action {
         id: actionCloseScene
         text: qsTr("&Close")
-        enabled: stackLayout.count > 0
+        enabled: listModel.count > 0
         onTriggered: removeCurrentTab()
         icon.name: "close-symbolic"
     }
@@ -96,6 +123,32 @@ ApplicationWindow {
         icon.name: "window-close-symbolic"
     }
     Action {
+        id: actionNextTab
+        text: qsTr("Next tab (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.NextChild
+        enabled: tabBar.count !== 0
+        onTriggered: {
+            if (tabBar.currentIndex + 1 == tabBar.count) {
+                tabBar.setCurrentIndex(0)
+            } else {
+                tabBar.incrementCurrentIndex()
+            }
+        }
+    }
+    Action {
+        id: actionPreviosTab
+        text: qsTr("Previous tab (%1)").arg(app.keySequenceToString(shortcut))
+        shortcut: StandardKey.PreviousChild
+        enabled: tabBar.count !== 0
+        onTriggered: {
+            if (tabBar.currentIndex == 0) {
+                tabBar.decrementCurrentIndex()
+            } else {
+                tabBar.setCurrentIndex(tabBar.count - 1)
+            }
+        }
+    }
+    Action {
         id: actionUseOffscreenTexture
         text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
@@ -105,15 +158,23 @@ ApplicationWindow {
         id: actionWireFrame
         text: qsTr("Wireframe (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
-        shortcut: "F3"
+        shortcut: "F4"
     }
-    Settings {
-        property alias useOffscreenTexture: actionUseOffscreenTexture.checked
-        property alias wireFrame: actionWireFrame.checked
+    Action {
+        id: actionShowAboutQt
+        text: qsTr("About Qt")
+        enabled: app.showAboutQt !== undefined
+        onTriggered: Qt.callLater(app.showAboutQt)
+        icon.source: app.getQtLogoUrl()
     }
     Menu {
         id: contextMenu
         title: "Context menu"
+        parent: Overlay.overlay
+        MenuItem {
+            action: actionSaveSceneScreenshot
+        }
+        MenuSeparator {}
         MenuItem {
             action: actionUseOffscreenTexture
         }
@@ -129,11 +190,26 @@ ApplicationWindow {
                 action: actionOpenScene
             }
             MenuItem {
+                action: actionReplaceScene
+            }
+            MenuItem {
+                action: actionSaveSceneScreenshot
+            }
+            MenuItem {
                 action: actionCloseScene
             }
             MenuSeparator {}
             MenuItem {
                 action: actionExit
+            }
+        }
+        Menu {
+            title: qsTr("&Navigation")
+            MenuItem {
+                action: actionNextTab
+            }
+            MenuItem {
+                action: actionPreviosTab
             }
         }
         Menu {
@@ -145,6 +221,29 @@ ApplicationWindow {
                 action: actionWireFrame
             }
         }
+        Menu {
+            title: qsTr("&Help")
+            MenuItem {
+                action: actionShowAboutQt
+            }
+        }
+    }
+    ListModel {
+        id: listModel
+        Component.onCompleted: {
+            if (settings.jsonModel) {
+                let items = JSON.parse(settings.jsonModel)
+                for (let i in items)
+                    listModel.append(items[i])
+            }
+        }
+        Component.onDestruction: {
+            let items = []
+            for (let i = 0; i < listModel.count; ++i)
+                items.push(listModel.get(i))
+            settings.jsonModel = JSON.stringify(items)
+            console.log("JSON model:", settings.jsonModel)
+        }
     }
     header: TabBar {
         id: tabBar
@@ -153,74 +252,54 @@ ApplicationWindow {
         Repeater {
             model: listModel
             TabButton {
-                required property string fileName
+                required property string fileBaseName
                 required property url fileUrl
                 required property string index
-                readonly property StackLayout stackLayoutRef: stackLayout
-                text: fileName
+                text: fileBaseName
                 onDoubleClicked: removeCurrentTab()
                 hoverEnabled: true
                 ToolTip.delay: 1000
                 ToolTip.timeout: 5000
                 ToolTip.visible: hovered
-                ToolTip.text: fileUrl
+                ToolTip.text: "<font color=\"%2\">%1</font>".arg(fileUrl).arg(Qt.color(palette.link))
             }
         }
+        Component.onCompleted: Qt.callLater(tabBar.setCurrentIndex, settings.currentTabIndex)
     }
     StackLayout {
         id: stackLayout
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
-        property string jsonModel
-        Settings {
-            id: stackLayoutSettings
-            property alias jsonModel: stackLayout.jsonModel
-            property int currentIndex
-        }
-        Component.onCompleted: Qt.callLater(tabBar.setCurrentIndex, stackLayoutSettings.currentIndex)
-        Component.onDestruction: stackLayoutSettings.currentIndex = currentIndex
+        Component.onDestruction: settings.currentTabIndex = currentIndex
         Repeater {
             anchors.fill: parent
-            model: ListModel {
-                id: listModel
-                Component.onCompleted: {
-                    if (stackLayout.jsonModel) {
-                        var items = JSON.parse(stackLayout.jsonModel)
-                        for (var i in items)
-                            listModel.append(items[i])
-                    }
-                }
-                Component.onDestruction: {
-                    var items = []
-                    for (var i = 0; i < listModel.count; ++i)
-                        items.push(listModel.get(i))
-                    stackLayout.jsonModel = JSON.stringify(items)
-                    console.log("JSON model:", stackLayout.jsonModel)
-                }
-            }
+            model: listModel
             delegate: Component {
                 Page {
                     id: page
                     required property url fileUrl
                     required property string filePath
-                    required property string fileName
+                    required property string fileBaseName
                     readonly property SahKdTreeViewer sahKdTreeViewerRef: sahKdTreeViewer
                     readonly property string fileUrlHash: Qt.md5(fileUrl)
-                    Action {
-                        id: actionContentVisibility
-                        text: qsTr("Content visibility")
-                        checkable: true
-                        checked: true
-                    }
                     Action {
                         id: actionResetContentOrientation
                         text: qsTr("Reset view orientation")
                         icon.name: "zoom-original-symbolic"
                         onTriggered: {
+                            actionContentVisibility.checked = true
                             rotationSlider.value = 0
                             scaleSlider.value = 1
+                            alphaSlider.value = 1
+                            actionLayerEnabled.checked = false
                             sahKdTreeViewer.update()
                         }
+                    }
+                    Action {
+                        id: actionContentVisibility
+                        text: qsTr("Content visibility")
+                        checkable: true
+                        checked: true
                     }
                     Action {
                         id: actionRotatePos
@@ -242,7 +321,7 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionScaleDec
-                        text: qsTr("Dec view scale")
+                        text: qsTr("Decrease view scale")
                         icon.name: "zoom-out-symbolic"
                         onTriggered: {
                             scaleSlider.decrease()
@@ -251,7 +330,7 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionScaleInc
-                        text: qsTr("Inc view scale")
+                        text: qsTr("Increase view scale")
                         icon.name: "zoom-in-symbolic"
                         onTriggered: {
                             scaleSlider.increase()
@@ -260,7 +339,7 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionAlphaDec
-                        text: qsTr("Dec view opacity")
+                        text: qsTr("Decrease view opacity")
                         icon.name: "path-combine-symbolic"
                         onTriggered: {
                             alphaSlider.decrease()
@@ -269,19 +348,26 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionAlphaInc
-                        text: qsTr("Inc view opacity")
+                        text: qsTr("Increase view opacity")
                         icon.name: "path-difference-symbolic"
                         onTriggered: {
                             alphaSlider.increase()
                             sahKdTreeViewer.update()
                         }
                     }
+                    Action {
+                        id: actionLayerEnabled
+                        text: qsTr("Layer enable/disable")
+                        checkable: true
+                        icon.name: "application-add-symbolic"
+                        onCheckedChanged: sahKdTreeViewer.update()
+                    }
                     header: ToolBar {
                         visible: visibility !== Window.FullScreen
                         RowLayout {
                             anchors.fill: parent
                             Label {
-                                text: qsTr("Camera:")
+                                text: qsTr("<b>Camera:</b>")
                             }
                             ToolButton {
                                 text: qsTr("Reset")
@@ -301,15 +387,23 @@ ApplicationWindow {
                             }
                             ToolSeparator {}
                             Label {
-                                text: qsTr("View:")
-                            }
-                            Switch {
-                                text: qsTr("Show/Hide")
-                                action: actionContentVisibility
+                                text: qsTr("<b>View:</b>")
                             }
                             ToolButton {
                                 text: qsTr("Reset")
                                 action: actionResetContentOrientation
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
+                            }
+                            Switch {
+                                text: qsTr("Show/Hide")
+                                action: actionContentVisibility
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
                             }
                             ToolButton {
                                 text: qsTr("")
@@ -326,6 +420,8 @@ ApplicationWindow {
                                 to: 180
                                 stepSize: 5
                                 snapMode: Slider.SnapAlways
+                                ToolTip.visible: pressed
+                                ToolTip.text: value
                             }
                             ToolButton {
                                 text: qsTr("")
@@ -349,6 +445,8 @@ ApplicationWindow {
                                 value: 1
                                 to: 1.25
                                 stepSize: 0.125
+                                ToolTip.visible: pressed
+                                ToolTip.text: value
                             }
                             ToolButton {
                                 text: qsTr("")
@@ -371,7 +469,9 @@ ApplicationWindow {
                                 from: 0.0
                                 value: 1.0
                                 to: 1.0
-                                stepSize: 0.1
+                                stepSize: 0.0625
+                                ToolTip.visible: pressed
+                                ToolTip.text: value
                             }
                             ToolButton {
                                 text: qsTr("")
@@ -381,6 +481,15 @@ ApplicationWindow {
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
                             }
+                            Switch {
+                                text: qsTr("Layer")
+                                action: actionLayerEnabled
+                                ToolTip.delay: 1000
+                                ToolTip.timeout: 5000
+                                ToolTip.visible: hovered
+                                ToolTip.text: action.text
+                            }
+                            ToolSeparator {}
                             Item {
                                 Layout.fillWidth: true
                             }
@@ -419,8 +528,9 @@ ApplicationWindow {
                             }
                         }
                     }
-                    background: Rectangle {
-                        color: "deepskyblue"
+                    background: Image {
+                        fillMode: Image.Tile
+                        source: app.getQtLogoUrl()
                     }
                     Item {
                         id: content
@@ -429,9 +539,11 @@ ApplicationWindow {
                         scale: scaleSlider.value
                         rotation: rotationSlider.value
                         opacity: alphaSlider.value
+                        layer.enabled: actionLayerEnabled.checked
+                        layer.live: true
                         Rectangle {
                             anchors.fill: parent
-                            border.color: "gold"
+                            border.color: palette.accent
                             border.width: sahKdTreeViewer.anchors.margins
                             color: "transparent"
                         }
@@ -463,10 +575,8 @@ ApplicationWindow {
                                 onClicked: mouse => {
                                     switch (mouse.button) {
                                     case Qt.RightButton: {
-                                        mouse.accepted = true
-                                        contextMenu.x = mouse.x
-                                        contextMenu.y = mouse.y
                                         contextMenu.popup()
+                                        mouse.accepted = true
                                         break
                                     }
                                     }
@@ -482,12 +592,23 @@ ApplicationWindow {
                     }
                     Settings {
                         category: fileUrlHash
+                        property alias visible: actionContentVisibility.checked
                         property alias rotation: rotationSlider.value
                         property alias scale: scaleSlider.value
-                        property alias visible: actionContentVisibility.checked
+                        property alias opacity: alphaSlider.value
+                        property alias layerEnabled: actionLayerEnabled.checked
                     }
                 }
             }
         }
+    }
+    Settings {
+        id: settings
+        property alias visibility: root.visibility
+        property alias useOffscreenTexture: actionUseOffscreenTexture.checked
+        property alias wireFrame: actionWireFrame.checked
+        property alias folderUrl: sceneOpenDialog.folderUrl
+        property int currentTabIndex
+        property string jsonModel
     }
 }

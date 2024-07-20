@@ -273,6 +273,8 @@ int main(int argc, char * argv[])
     }
     qCInfo(viewerMainCategory).noquote() << u"Application path: %1"_s.arg(QCoreApplication::applicationDirPath());
 
+    application->setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
+
     const auto beforeQuit = []
     {
         qCInfo(viewerMainCategory) << "Application is about to quit";

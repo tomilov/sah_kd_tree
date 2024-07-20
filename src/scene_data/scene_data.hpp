@@ -1,5 +1,6 @@
 #pragma once
 
+#include <scene_data/fwd.hpp>
 #include <utils/mem_array.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -50,7 +51,7 @@ struct SCENE_DATA_EXPORT Node
     glm::mat4 transform{1.0f};
     std::vector<size_t> meshes;    // indices in Scene::meshes
     std::vector<size_t> children;  // indices in scene_data::Nodes
-    AABB aabb;
+    AABB aabb = {};
 };
 
 struct SCENE_DATA_EXPORT Mesh
@@ -64,7 +65,7 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 {
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
-    AABB aabb;
+    AABB aabb = {};
 
     utils::MemArray<uint32_t> indices;
     utils::MemArray<VertexAttributes> vertices;

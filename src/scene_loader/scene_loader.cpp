@@ -4,6 +4,7 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/mem_array.hpp>
+#include <utils/noncopyable.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/Logger.hpp>
@@ -43,6 +44,7 @@
 #include <QtCore/QtTypes>
 
 #include <algorithm>
+#include <cstdio>
 #include <iterator>
 #include <limits>
 #include <span>
@@ -55,6 +57,10 @@
 #include <cstddef>
 #include <cstdint>
 
+#if __linux__
+#include <unistd.h>
+#endif
+
 using namespace Qt::StringLiterals;
 
 namespace scene_loader
@@ -65,6 +71,43 @@ Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
 Q_LOGGING_CATEGORY(sceneLoaderLog, "scene_loader")
 
 static constexpr qint32 kCurrentCacheFormatVersion = 1;
+
+class File : utils::OneTime<File>
+{
+public:
+    File(File && file) noexcept
+        : f{std::exchange(file.f, nullptr)}
+    {}
+
+    ~File()
+    {
+        ::fclose(f);
+    }
+
+    [[nodiscard]] static File dup(int fd)
+    {
+        return File{::dup(fd)};
+    }
+
+private:
+    FILE * f = nullptr;
+
+    explicit File(int fd)
+        : f{::fdopen(fd, "rb")}
+    {}
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
+
+[[nodiscard]] inline File fileFromQFileDevice [[maybe_unused]] (const QFileDevice & qf)
+{
+    Q_ASSERT(qf.isOpen());
+    Q_ASSERT(qf.isReadable());
+    return File::dup(qf.handle());  // TODO: to cuFile?
+}
 
 template<typename Type>
 [[nodiscard]] QString toString(const Type & value)
