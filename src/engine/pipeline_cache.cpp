@@ -69,7 +69,7 @@ PipelineCache::PipelineCache(std::string_view name, const Context & context, con
     pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
     try {
         pipelineCacheHolder = device.getDevice().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
-        SPDLOG_INFO("Pipeline cache '{}' successfully loaded", name);
+        SPDLOG_DEBUG("Pipeline cache '{}' successfully loaded", name);
     } catch (const vk::SystemError & exception) {
         if (std::empty(cacheData)) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);

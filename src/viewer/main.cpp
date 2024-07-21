@@ -55,6 +55,8 @@ Q_LOGGING_CATEGORY(viewerMainCategory, "viewer.main")
 
 using AppPtr = std::unique_ptr<QGuiApplication>;
 
+constexpr bool kUseEngine = true;
+
 AppPtr createApplication(int & argc, char * argv[])
 {
     for (int i = 1; i < argc; ++i) {
@@ -65,14 +67,14 @@ AppPtr createApplication(int & argc, char * argv[])
     return AppPtr{new viewer::Application{argc, argv}};
 }
 
-void persistRootWindowSettings(QQmlApplicationEngine & engine)
+void persistRootWindowSettings [[gnu::unused]] (QQmlApplicationEngine & engine)
 {
     auto primaryScreen = qApp->primaryScreen();
-    INVARIANT(primaryScreen, "Primary scree should exists");
+    INVARIANT(primaryScreen, "Primary screen should exists");
     auto geometry = primaryScreen->geometry();
     INVARIANT(geometry.isValid(), "Expected non-empty rect");
     auto center = geometry.center();
-    geometry.setSize(std::size(geometry) / 2);
+    geometry.setSize(geometry.size() / 2);
     geometry.moveCenter(center);
 
     auto windowGeometrySetting = QSettings{}.value("window/geometry", geometry);
@@ -97,7 +99,7 @@ void persistRootWindowSettings(QQmlApplicationEngine & engine)
         auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         QSettings{}.setValue("window/geometry", applicationWindow->geometry());
-        qCInfo(viewerMainCategory) << "Settings saved";
+        qCDebug(viewerMainCategory) << "Settings saved";
     };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, &engine, saveSettings)) {
         qFatal("unreachable");
@@ -263,7 +265,7 @@ int main(int argc, char * argv[])
     QSettings::setDefaultFormat(QSettings::Format::IniFormat);
     qCInfo(viewerMainCategory).noquote() << u"Settings path: %1"_s.arg(QSettings{}.fileName());
 
-    qCInfo(viewerMainCategory).noquote() << u"Current path: %1"_s.arg(QDir::currentPath());
+    qCDebug(viewerMainCategory).noquote() << u"Current path: %1"_s.arg(QDir::currentPath());
 
     auto resourcesBasePath = QUrl{u"qrc:///%1/"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName))};
 
@@ -271,13 +273,13 @@ int main(int argc, char * argv[])
     if (!application) {
         qFatal("unreachable");
     }
-    qCInfo(viewerMainCategory).noquote() << u"Application path: %1"_s.arg(QCoreApplication::applicationDirPath());
+    qCDebug(viewerMainCategory).noquote() << u"Application filepath: %1"_s.arg(QCoreApplication::applicationFilePath());
 
-    application->setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
+    QGuiApplication::setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
 
     const auto beforeQuit = []
     {
-        qCInfo(viewerMainCategory) << "Application is about to quit";
+        qCDebug(viewerMainCategory) << "Application is about to quit";
     };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {
         qFatal("unreachable");
@@ -288,8 +290,6 @@ int main(int argc, char * argv[])
 
     QQuickWindow::setSceneGraphBackend("rhi");
     QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
-
-    constexpr bool kUseEngine = true;
 
     viewer::EngineWrapper engine;
     viewer::EngineSingletonForeign::setEngine(&engine);
@@ -361,7 +361,7 @@ int main(int argc, char * argv[])
             qCCritical(viewerMainCategory).noquote() << u"Unable to create object from URL %1"_s.arg(url.toString());
             return;
         }
-        qCInfo(viewerMainCategory).noquote() << u"Object from URL %1 successfully created"_s.arg(url.toString());
+        qCDebug(viewerMainCategory).noquote() << u"Object from URL %1 successfully created"_s.arg(url.toString());
         auto applicationWindow = qobject_cast<QQuickWindow *>(object);
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
@@ -387,7 +387,7 @@ int main(int argc, char * argv[])
         qFatal("unreachable");
     }
 
-    persistRootWindowSettings(qmlApplicationEngine);
+    // persistRootWindowSettings(qmlApplicationEngine);
     qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 
     return application->exec();

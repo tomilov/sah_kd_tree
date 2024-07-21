@@ -9,19 +9,8 @@ using namespace Qt::StringLiterals;
 
 namespace viewer
 {
-namespace
-{
 
-QString getQtLogoFilePath()
-{
-    QDirIterator applicationIcon{u":/"_s, {u"qtlogo*.png"_s}, QDir::Filter::Files, QDirIterator::IteratorFlag::Subdirectories};
-    if (!applicationIcon.hasNext()) {
-        return {};
-    }
-    return applicationIcon.next();
-}
-
-QString keySequenceToString(QVariant keySequence)
+QString GuiApplication::keySequenceToString(QVariant keySequence)
 {
     switch (keySequence.typeId()) {
     case QMetaType::Type::QString: {
@@ -36,21 +25,18 @@ QString keySequenceToString(QVariant keySequence)
     }
 }
 
-}  // namespace
-
-QString GuiApplication::keySequenceToString(QVariant keySequence)
-{
-    return viewer::keySequenceToString(keySequence);
-}
-
 QString GuiApplication::getWindowIconFilepath()
 {
-    return viewer::getQtLogoFilePath();
+    QDirIterator applicationIcon{u":/"_s, {u"qtlogo*.png"_s}, QDir::Filter::Files, QDirIterator::IteratorFlag::Subdirectories};
+    if (!applicationIcon.hasNext()) {
+        return {};
+    }
+    return applicationIcon.next();
 }
 
 QUrl GuiApplication::getQtLogoUrl()
 {
-    return "qrc" + getQtLogoFilePath();
+    return "qrc" + getWindowIconFilepath();
 }
 
 void GuiApplication::setClipboardImage(QVariant image) const
@@ -60,17 +46,17 @@ void GuiApplication::setClipboardImage(QVariant image) const
 
 QString Application::keySequenceToString(QVariant keySequence)
 {
-    return viewer::keySequenceToString(keySequence);
+    return GuiApplication::keySequenceToString(keySequence);
 }
 
 QString Application::getWindowIconFilepath()
 {
-    return viewer::getQtLogoFilePath();
+    return GuiApplication::getWindowIconFilepath();
 }
 
 QUrl Application::getQtLogoUrl()
 {
-    return "qrc" + getQtLogoFilePath();
+    return GuiApplication::getQtLogoUrl();
 }
 
 void Application::setClipboardImage(QVariant image) const

@@ -70,7 +70,7 @@ std::vector<uint8_t> FileIo::loadPipelineCache(std::string_view pipelineCacheNam
                 << u"Failed to read pipeline cache data '%1' from file '%2': bytes read %4 != file size %5: %3"_s.arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString()).arg(bytesRead).arg(cacheFileSize);
             continue;
         }
-        qCInfo(viewerFileIoCategory).noquote() << u"Pipeline cache data file '%1' successfully read from '%2'"_s.arg(cacheFileName, cacheDir.path());
+        qCDebug(viewerFileIoCategory).noquote() << u"Pipeline cache data file '%1' successfully read from '%2'"_s.arg(cacheFileName, cacheDir.path());
         return cacheData;
     }
     qCWarning(viewerFileIoCategory).noquote() << u"Failed to load pipeline cache from '%1' location"_s.arg(cacheFileName);
@@ -109,7 +109,7 @@ bool FileIo::savePipelineCache(const std::vector<uint8_t> & data, std::string_vi
         qCWarning(viewerFileIoCategory).noquote() << u"Failed to commit writing of pipeline cache data '%1' to file '%2': %3"_s.arg(cacheFileName, cacheFile.fileName(), cacheFile.errorString());
         return false;
     }
-    qCInfo(viewerFileIoCategory).noquote() << u"Pipeline cache data file '%1' successfully written to '%2'"_s.arg(cacheFileName, cacheDir.path());
+    qCDebug(viewerFileIoCategory).noquote() << u"Pipeline cache data file '%1' successfully written to '%2'"_s.arg(cacheFileName, cacheDir.path());
     return true;
 }
 
@@ -146,7 +146,7 @@ std::vector<uint32_t> FileIo::loadShader(std::string_view shaderName) const
         qCWarning(viewerFileIoCategory).noquote() << u"Failed to read shader data '%1' from file '%2': bytes read %4 != file size %5: %3"_s.arg(shaderFileName, shaderFile.fileName(), shaderFile.errorString()).arg(bytesRead).arg(shaderFileSize);
         return {};
     }
-    qCInfo(viewerFileIoCategory).noquote() << u"Shader data '%1' successfully read from file '%2'"_s.arg(shaderFileName, shaderFile.fileName());
+    qCDebug(viewerFileIoCategory).noquote() << u"Shader data '%1' successfully read from file '%2'"_s.arg(shaderFileName, shaderFile.fileName());
     return spirv;
 }
 

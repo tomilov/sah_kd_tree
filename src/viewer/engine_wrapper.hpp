@@ -34,6 +34,7 @@ public:
     ~EngineWrapper() override;
 
     [[nodiscard]] engine::Context & getContext();
+    [[nodiscard]] const engine::Context & getContext() const;
     [[nodiscard]] static std::initializer_list<uint32_t> getMutedMessageIdNumbers();
 
     void init();

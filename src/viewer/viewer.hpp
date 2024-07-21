@@ -12,12 +12,9 @@
 #include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
 #include <QtGui/QWheelEvent>
-#include <QtQmlIntegration/QtQmlIntegration>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGNode>
-
-#include <memory>
 
 namespace viewer
 {
@@ -33,107 +30,85 @@ class Viewer : public QQuickItem
 
     Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
 
-    Q_PROPERTY(QVector3D eulerAngles MEMBER eulerAngles WRITE setEulerAngles NOTIFY eulerAnglesChanged)
-    Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition WRITE setCameraPosition NOTIFY cameraPositionChanged)
-    Q_PROPERTY(qreal fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY fieldOfViewChanged)
-
-    Q_PROPERTY(qreal dt MEMBER dt WRITE setDt NOTIFY dtChanged)
-    Q_PROPERTY(qreal mouseLookSpeed MEMBER mouseLookSpeed NOTIFY mouseLookSpeedChanged)
-    Q_PROPERTY(qreal keyboardLookSpeed MEMBER keyboardLookSpeed NOTIFY keyboardLookSpeedChanged)
-    Q_PROPERTY(qreal linearSpeed MEMBER linearSpeed NOTIFY linearSpeedChanged)
-
-    Q_PROPERTY(QString statusString READ getStatusString NOTIFY statusStringChanged STORED false)
-
     Q_PROPERTY(QUrl sceneUrl MEMBER sceneUrl WRITE setSceneUrl NOTIFY sceneUrlChanged RESET unsetSceneUrl)
+    Q_PROPERTY(float worldScale MEMBER worldScale NOTIFY sceneChanged)
+    Q_PROPERTY(QVector3D sceneAabbMin MEMBER sceneAabbMin NOTIFY sceneChanged)
+    Q_PROPERTY(QVector3D sceneAabbMax MEMBER sceneAabbMax NOTIFY sceneChanged)
 
-    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY useOffscreenTextureChanged)
-    Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY wireFrameChanged)
+    Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition WRITE setCameraPosition NOTIFY cameraViewChanged)
+    Q_PROPERTY(QQuaternion cameraOrientation MEMBER cameraOrientation WRITE setCameraOrientation NOTIFY cameraViewChanged)
+    Q_PROPERTY(float cameraFieldOfView MEMBER cameraFieldOfView WRITE setCameraFieldOfView NOTIFY cameraViewChanged)
+    Q_PROPERTY(QString cameraDescription READ getCameraDescription NOTIFY cameraViewChanged STORED false)
 
-    Q_PROPERTY(QString modeString READ getModeString NOTIFY modeStringChanged STORED false)
+    Q_PROPERTY(float sensitivity MEMBER sensitivity NOTIFY cameraControllerChanged)
+    Q_PROPERTY(float speed MEMBER speed NOTIFY cameraControllerChanged)
+    Q_PROPERTY(QString cameraControllerDescription READ getCameraControllerDescription NOTIFY cameraControllerChanged STORED false)
+
+    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY renderModeChanged)
+    Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY renderModeChanged)
+    Q_PROPERTY(QString modeDescription READ getModeDescription NOTIFY renderModeChanged STORED false)
+    Q_PROPERTY(QString modeDescriptionVerbose READ getModeDescriptionVerbose NOTIFY renderModeChanged STORED false)
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
     ~Viewer() override;
 
-    Q_INVOKABLE void rotate(QVector3D tiltPanRoll);
-    Q_INVOKABLE void rotate(QVector2D tiltPan);
-    Q_INVOKABLE void rotate(qreal tilt /*pitch*/, qreal pan /*yaw*/, qreal roll = 0.0);
-
-    [[nodiscard]] QString getStatusString() const;
-    [[nodiscard]] QString getModeString() const;
-
-Q_SIGNALS:
-    void engineChanged(viewer::EngineWrapper * engine);
-
-    void eulerAnglesChanged(QVector3D euelerAngles);
-    void cameraPositionChanged(QVector3D cameraPosition);
-    void fieldOfViewChanged(qreal fieldOfView);
-
-    void dtChanged(qreal dt);
-    void mouseLookSpeedChanged(qreal mouseLookSpeed);
-    void keyboardLookSpeedChanged(qreal keyboardLookSpeed);
-    void linearSpeedChanged(qreal linearSpeed);
-
-    void statusStringChanged();
-
-    void sceneUrlChanged(QUrl sceneUrl);
-
-    void useOffscreenTextureChanged(bool useOffscreenTexture);
-    void wireFrameChanged(bool wireFrame);
-
-    void modeStringChanged();
+    [[nodiscard]] QString getCameraDescription() const;
+    [[nodiscard]] QString getCameraControllerDescription() const;
+    [[nodiscard]] QString getModeDescription() const;
+    [[nodiscard]] QString getModeDescriptionVerbose() const;
 
 public Q_SLOTS:
-    void setEulerAngles(QVector3D newEulerAngles);
-    void setCameraPosition(QVector3D cameraPosition);
-    void setFieldOfView(qreal fieldOfView);
-
-    void resetCameraPosition();
-    void resetCamera();
-    void alignCameraDirection();
-    void reflectCameraDirection();
-
-    void setDt(qreal dt);
-
     void setSceneUrl(QUrl sceneUrl);
     void unsetSceneUrl();
 
-private Q_SLOTS:
-    void cleanup();
-    void onWindowChanged(QQuickWindow * w);
+    void setCameraPosition(QVector3D cameraPosition);
+    void setCameraOrientation(QQuaternion cameraOrientation);
+    void setCameraFieldOfView(float cameraFieldOfView);
+    void resetCameraView();
+    void alignCameraOrientation();
+    void reflectCameraOrientation();
+
+Q_SIGNALS:
+    void engineChanged();
+    void sceneUrlChanged();
+    void sceneChanged();
+    void cameraViewChanged();
+    void cameraControllerChanged();
+    void renderModeChanged();
 
 private:
-    static constexpr qreal kDefaultFov = 90.0f;
+    static constexpr float kDefaultCameraFieldOfView = 90.0f;
+
+    class RenderNode;
 
     EngineWrapper * engine = nullptr;
 
-    QVector3D eulerAngles;
-    QVector3D cameraPosition;
-    qreal fieldOfView = kDefaultFov;
-
-    qreal dt = 1.0 / 60.0;
-    qreal mouseLookSpeed = 60.0;
-    qreal keyboardLookSpeed = 20.0;
-    qreal linearSpeed = 1.0;
-
-    QTimer * const mousePressAndHoldTimer = new QTimer{this};
-    QPoint startPos;
-    Qt::KeyboardModifiers keyboardModifiers = Qt::NoModifier;
-    QHash<Qt::Key, int> pressedKeys;
-    QTimer * const handleInputTimer = new QTimer{this};
-
     QUrl sceneUrl;
     bool isSceneUrlChanged = false;
+    float worldScale = 1.0f;
+    QVector3D sceneAabbMin;
+    QVector3D sceneAabbMax;
+
+    QVector3D cameraPosition;
+    QQuaternion cameraOrientation;
+    float cameraFieldOfView = kDefaultCameraFieldOfView;
+
+    float sensitivity = 0.0012f;
+    float speed = 1.0f;
 
     bool useOffscreenTexture = true;
     bool wireFrame = false;
 
-    float characteristicSize = 0.0f;
-    QVector3D sceneAabbCenter;
+    QTimer * const mousePressAndHoldTimer = new QTimer{this};
+    QPoint startDragPos;
+    Qt::KeyboardModifiers keyboardModifiers = Qt::KeyboardModifier::NoModifier;
+    QHash<Qt::Key, int> pressedKeys;
+    QTimer * const handleInputTimer = new QTimer{this};
+    QMetaObject::Connection refreshRateConnection;
+    QMetaObject::Connection sceneGraphInvalidatedConnection;
 
-    std::unique_ptr<Renderer> renderer;
-
-    void setScene();
+    void setScene(RenderNode & renderNode);
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
     void handleInput();

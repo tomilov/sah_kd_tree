@@ -63,7 +63,6 @@ std::shared_ptr<const Shaders> Pipelines::getDisplayShaders() const
         shaders->addShader("offscreen.frag"sv);
         shaders->create();
         displayShaders = shaders;
-        SPDLOG_INFO("displayShaders");
     }
     return shaders;
 }
@@ -77,7 +76,6 @@ std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const
         shaders->addShader("barycentric_color.frag"sv);
         shaders->create();
         sceneShaders = shaders;
-        SPDLOG_INFO("sceneShaders");
     }
     return shaders;
 }

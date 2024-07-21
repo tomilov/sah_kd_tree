@@ -40,7 +40,7 @@ struct FrameSettings
     float height = 0.0f;
     vk::Viewport viewport = {};
     vk::Rect2D scissor = {};
-    glm::mat4 transform2D{1.0f};
+    glm::mat4 transform2D{1.0f};  // TODO: rename (windowViewPorjection)
 
     bool operator==(const FrameSettings &) const = default;
     bool operator!=(const FrameSettings &) const = default;
@@ -63,7 +63,7 @@ public:
     [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
 
     void advance(uint32_t currentFrameSlot);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
 
 private:
     struct Impl;

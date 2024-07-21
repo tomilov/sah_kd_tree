@@ -3,36 +3,40 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick3D
 
 import SahKdTree 1.0
 
+pragma ComponentBehavior: Bound
+
 ApplicationWindow {
     id: root
-    objectName: Qt.application.name
-    visible: true
-    visibility: Window.AutomaticVisibility
+    objectName: Application.name
     function pprops(item) {
         console.log("PPROPS:")
         for (let p in item)
             console.log(p + ": " + item[p]);
     }
-    readonly property var sahKdTreeViewer: stackLayout.children[stackLayout.currentIndex]?.sahKdTreeViewerRef
+    visible: true
+    x: Application.screens[0].width / 4
+    y: Application.screens[0].height / 4
+    width: Application.screens[0].width / 2
+    height: Application.screens[0].height / 2
     title: {
-        qsTr("%1 (dt %2ms) (screen refresh rate %3) - [%4]")
+        qsTr("%1 (screen refresh rate %2) - [%3]")
         .arg(Application.displayName)
-        .arg(sahKdTreeViewer ? (sahKdTreeViewer.dt * 1000.0).toFixed(3) : "?")
         .arg(app.primaryScreen.refreshRate.toFixed(3))
-        .arg(sahKdTreeViewer?.sceneUrl || "-")
+        .arg(stackLayout.children[stackLayout.currentIndex]?.fileUrl || "-")
     }
     CenteredDialog {
         id: confirmationDialog
         title: qsTr("Close application")
-        Label {
+        Text {
             anchors.fill: parent
             text: qsTr("Are you sure?")
         }
         standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: root.close()
+        onAccepted: Qt.quit()
     }
     SceneOpenDialog {
         id: sceneOpenDialog
@@ -65,15 +69,10 @@ ApplicationWindow {
                 listModel.append(listItem)
                 Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             } else {
-                listModel.set(stackLayout.currentIndex, listItem)
+                let currentIndex = stackLayout.currentIndex
+                listModel.remove(currentIndex)
+                listModel.insert(currentIndex, listItem)
             }
-        }
-    }
-    onClosing: close => {
-        if (visibility === Window.FullScreen) {
-            show()
-            //confirmationDialog.open()
-            close.accepted = false
         }
     }
     function removeCurrentTab() {
@@ -88,21 +87,21 @@ ApplicationWindow {
         text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Open
         onTriggered: sceneOpenDialog.replaceScene()
-        icon.name: "document-open-symbolic"
+        icon.name: "edit-find-replace-symbolic"
     }
     Action {
         id: actionReplaceScene
-        text: qsTr("&Replace (%1)").arg(app.keySequenceToString(shortcut))
+        text: qsTr("&Open in new tab (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.AddTab
         onTriggered: sceneOpenDialog.appendScene()
-        icon.name: "edit-find-replace-symbolic"
+        icon.name: "document-open-symbolic"
     }
     Action {
         id: actionSaveSceneScreenshot
         text: qsTr("Screenshot (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Copy
-        enabled: sahKdTreeViewer !== undefined
-        onTriggered: sahKdTreeViewer?.grabToImage(result => app.setClipboardImage(result.image))
+        enabled: stackLayout.currentIndex >= 0
+        onTriggered: stackLayout.children[stackLayout.currentIndex]?.makeScreenshot()
         icon.name: "edit-copy-symbolic"
     }
     Action {
@@ -116,10 +115,7 @@ ApplicationWindow {
         id: actionExit
         text: qsTr("&Exit (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Cancel
-        onTriggered: {
-            root.close()
-            //confirmationDialog.open()
-        }
+        onTriggered: root.close()
         icon.name: "window-close-symbolic"
     }
     Action {
@@ -142,9 +138,9 @@ ApplicationWindow {
         enabled: tabBar.count !== 0
         onTriggered: {
             if (tabBar.currentIndex == 0) {
-                tabBar.decrementCurrentIndex()
-            } else {
                 tabBar.setCurrentIndex(tabBar.count - 1)
+            } else {
+                tabBar.decrementCurrentIndex()
             }
         }
     }
@@ -166,6 +162,7 @@ ApplicationWindow {
         enabled: app.showAboutQt !== undefined
         onTriggered: Qt.callLater(app.showAboutQt)
         icon.source: app.getQtLogoUrl()
+        shortcut: StandardKey.HelpContents
     }
     Menu {
         id: contextMenu
@@ -234,13 +231,13 @@ ApplicationWindow {
             if (settings.jsonModel) {
                 let items = JSON.parse(settings.jsonModel)
                 for (let i in items)
-                    listModel.append(items[i])
+                    append(items[i])
             }
         }
         Component.onDestruction: {
             let items = []
-            for (let i = 0; i < listModel.count; ++i)
-                items.push(listModel.get(i))
+            for (let i = 0; i < count; ++i)
+                items.push(get(i))
             settings.jsonModel = JSON.stringify(items)
             console.log("JSON model:", settings.jsonModel)
         }
@@ -254,23 +251,21 @@ ApplicationWindow {
             TabButton {
                 required property string fileBaseName
                 required property url fileUrl
-                required property string index
                 text: fileBaseName
                 onDoubleClicked: removeCurrentTab()
-                hoverEnabled: true
-                ToolTip.delay: 1000
+                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                 ToolTip.timeout: 5000
                 ToolTip.visible: hovered
                 ToolTip.text: "<font color=\"%2\">%1</font>".arg(fileUrl).arg(Qt.color(palette.link))
             }
         }
-        Component.onCompleted: Qt.callLater(tabBar.setCurrentIndex, settings.currentTabIndex)
+        Component.onCompleted: Qt.callLater(setCurrentIndex, settings.currentTabIndex)
+        Component.onDestruction: settings.currentTabIndex = currentIndex
     }
     StackLayout {
         id: stackLayout
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
-        Component.onDestruction: settings.currentTabIndex = currentIndex
         Repeater {
             anchors.fill: parent
             model: listModel
@@ -280,8 +275,10 @@ ApplicationWindow {
                     required property url fileUrl
                     required property string filePath
                     required property string fileBaseName
-                    readonly property SahKdTreeViewer sahKdTreeViewerRef: sahKdTreeViewer
                     readonly property string fileUrlHash: Qt.md5(fileUrl)
+                    function makeScreenshot() {
+                        sahKdTreeViewer.grabToImage(result => app.setClipboardImage(result.image))
+                    }
                     Action {
                         id: actionResetContentOrientation
                         text: qsTr("Reset view orientation")
@@ -290,7 +287,7 @@ ApplicationWindow {
                             actionContentVisibility.checked = true
                             rotationSlider.value = 0
                             scaleSlider.value = 1
-                            alphaSlider.value = 1
+                            opacitySlider.value = 1
                             actionLayerEnabled.checked = false
                             sahKdTreeViewer.update()
                         }
@@ -338,20 +335,20 @@ ApplicationWindow {
                         }
                     }
                     Action {
-                        id: actionAlphaDec
+                        id: actionOpacityDec
                         text: qsTr("Decrease view opacity")
                         icon.name: "path-combine-symbolic"
                         onTriggered: {
-                            alphaSlider.decrease()
+                            opacitySlider.decrease()
                             sahKdTreeViewer.update()
                         }
                     }
                     Action {
-                        id: actionAlphaInc
+                        id: actionOpacityInc
                         text: qsTr("Increase view opacity")
                         icon.name: "path-difference-symbolic"
                         onTriggered: {
-                            alphaSlider.increase()
+                            opacitySlider.increase()
                             sahKdTreeViewer.update()
                         }
                     }
@@ -366,24 +363,20 @@ ApplicationWindow {
                         visible: visibility !== Window.FullScreen
                         RowLayout {
                             anchors.fill: parent
-                            Label {
+                            Text {
                                 text: qsTr("<b>Camera:</b>")
                             }
                             ToolButton {
                                 text: qsTr("Reset")
-                                onClicked: sahKdTreeViewer.resetCamera()
+                                onClicked: sahKdTreeViewer.resetCameraView()
                             }
                             ToolButton {
                                 text: qsTr("Align")
-                                onClicked: sahKdTreeViewer.alignCameraDirection()
+                                onClicked: sahKdTreeViewer.alignCameraOrientation()
                             }
                             ToolButton {
                                 text: qsTr("Reflect")
-                                onClicked: sahKdTreeViewer.reflectCameraDirection()
-                            }
-                            ToolButton {
-                                text: qsTr("Origin")
-                                onClicked: sahKdTreeViewer.resetCameraPosition()
+                                onClicked: sahKdTreeViewer.reflectCameraOrientation()
                             }
                             ToolSeparator {}
                             Label {
@@ -392,7 +385,7 @@ ApplicationWindow {
                             ToolButton {
                                 text: qsTr("Reset")
                                 action: actionResetContentOrientation
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -400,7 +393,7 @@ ApplicationWindow {
                             Switch {
                                 text: qsTr("Show/Hide")
                                 action: actionContentVisibility
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -408,7 +401,7 @@ ApplicationWindow {
                             ToolButton {
                                 text: qsTr("")
                                 action: actionRotatePos
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -426,7 +419,7 @@ ApplicationWindow {
                             ToolButton {
                                 text: qsTr("")
                                 action: actionRotateNeg
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -434,7 +427,7 @@ ApplicationWindow {
                             ToolButton {
                                 text: qsTr("")
                                 action: actionScaleDec
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -451,21 +444,21 @@ ApplicationWindow {
                             ToolButton {
                                 text: qsTr("")
                                 action: actionScaleInc
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
                             }
                             ToolButton {
                                 text: qsTr("")
-                                action: actionAlphaDec
-                                ToolTip.delay: 1000
+                                action: actionOpacityDec
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
                             }
                             Slider {
-                                id: alphaSlider
+                                id: opacitySlider
                                 from: 0.0
                                 value: 1.0
                                 to: 1.0
@@ -475,8 +468,8 @@ ApplicationWindow {
                             }
                             ToolButton {
                                 text: qsTr("")
-                                action: actionAlphaInc
-                                ToolTip.delay: 1000
+                                action: actionOpacityInc
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -484,7 +477,7 @@ ApplicationWindow {
                             Switch {
                                 text: qsTr("Layer")
                                 action: actionLayerEnabled
-                                ToolTip.delay: 1000
+                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 ToolTip.timeout: 5000
                                 ToolTip.visible: hovered
                                 ToolTip.text: action.text
@@ -499,17 +492,24 @@ ApplicationWindow {
                         visible: visibility !== Window.FullScreen
                         RowLayout {
                             anchors.fill: parent
-                            Label {
-                                text: "Mode:"
-                            }
-                            Label {
-                                textFormat: Text.StyledText
-                                text: sahKdTreeViewer.modeString
+                            Text {
+                                text: "Mode:" + sahKdTreeViewer.modeDescription
+                                ToolTip.visible: modeTextHoverHandler.hovered
+                                ToolTip.text: sahKdTreeViewer.modeDescriptionVerbose
+                                HoverHandler {
+                                    id: modeTextHoverHandler
+                                }
                             }
                             Item {
                                 Layout.fillWidth: true
                             }
-                            Label {
+                            Text {
+                                text: sahKdTreeViewer.cameraControllerDescription
+                            }
+                            Item {
+                                Layout.fillWidth: true
+                            }
+                            Text {
                                 text: {
                                     "View: rotation(%1) scale(%2)"
                                     .arg(content.rotation)
@@ -519,12 +519,8 @@ ApplicationWindow {
                             Item {
                                 Layout.fillWidth: true
                             }
-                            Label {
-                                text: "Camera:"
-                            }
-                            Label {
-                                textFormat: Text.StyledText
-                                text: sahKdTreeViewer.statusString
+                            Text {
+                                text: "Camera:" + sahKdTreeViewer.cameraDescription
                             }
                         }
                     }
@@ -538,14 +534,37 @@ ApplicationWindow {
                         visible: actionContentVisibility.checked
                         scale: scaleSlider.value
                         rotation: rotationSlider.value
-                        opacity: alphaSlider.value
+                        opacity: opacitySlider.value
                         layer.enabled: actionLayerEnabled.checked
                         layer.live: true
-                        Rectangle {
-                            anchors.fill: parent
-                            border.color: palette.accent
-                            border.width: sahKdTreeViewer.anchors.margins
-                            color: "transparent"
+                        focus: true
+                        Keys.onPressed: event => {
+                            switch (event.key) {
+                                case Qt.Key_0:
+                                case Qt.Key_1:
+                                case Qt.Key_2:
+                                case Qt.Key_3:
+                                case Qt.Key_4:
+                                case Qt.Key_5:
+                                case Qt.Key_6:
+                                case Qt.Key_7:
+                                case Qt.Key_8:
+                                case Qt.Key_9: {
+                                    let keyPrefix = "cameraView/%1/".arg(event.key)
+                                    if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
+                                        sceneSettings.setValue(keyPrefix + "cameraPosition", sahKdTreeViewer.cameraPosition)
+                                        sceneSettings.setValue(keyPrefix + "cameraOrientation", sahKdTreeViewer.cameraOrientation)
+                                        sceneSettings.setValue(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.cameraFieldOfView)
+                                        event.accepted = true
+                                    } else if (event.modifiers === 0) {
+                                        sahKdTreeViewer.cameraPosition = sceneSettings.value(keyPrefix + "cameraPosition", sahKdTreeViewer.cameraPosition)
+                                        sahKdTreeViewer.cameraOrientation = sceneSettings.value(keyPrefix + "cameraOrientation", sahKdTreeViewer.cameraOrientation)
+                                        sahKdTreeViewer.cameraFieldOfView = sceneSettings.value(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.cameraFieldOfView)
+                                        event.accepted = true
+                                    }
+                                    break
+                                }
+                            }
                         }
                         SahKdTreeViewer {
                             id: sahKdTreeViewer
@@ -555,39 +574,52 @@ ApplicationWindow {
                             sceneUrl: page.fileUrl
                             useOffscreenTexture: actionUseOffscreenTexture.checked
                             wireFrame: actionWireFrame.checked
-                            focusPolicy: Qt.WheelFocus
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.RightButton | Qt.LeftButton
-                                cursorShape: parent.cursor
-                                onPressed: mouse => {
-                                    parent.forceActiveFocus()
-                                    switch (mouse.button) {
-                                    case Qt.RightButton: {
-                                        mouse.accepted = true
-                                        break
-                                    }
-                                    case Qt.LeftButton: {
-                                        mouse.accepted = false
-                                    }
-                                    }
+                            worldScale: 1.5
+                            speed: sceneAabbMax.minus(sceneAabbMin).length() * worldScale / 10.0  // 10 seconds to cross the whole world
+                            Behavior on cameraPosition {
+                                Vector3dAnimation {
+                                    duration: 1000
+                                    easing.type: Easing.InOutQuad
                                 }
-                                onClicked: mouse => {
-                                    switch (mouse.button) {
-                                    case Qt.RightButton: {
-                                        contextMenu.popup()
-                                        mouse.accepted = true
-                                        break
-                                    }
-                                    }
+                            }
+                            Behavior on cameraOrientation {
+                                QuaternionAnimation {
+                                    duration: 1000
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+                            Behavior on cameraFieldOfView {
+                                NumberAnimation {
+                                    duration: 1000
+                                    easing.type: Easing.InOutQuad
+                                }
+                            }
+                        }
+                        Rectangle {
+                            anchors.fill: parent
+                            border.color: palette.accent
+                            border.width: sahKdTreeViewer.anchors.margins
+                            color: "transparent"
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.RightButton
+                            cursorShape: sahKdTreeViewer.cursor
+                            onClicked: mouse => {
+                                switch (mouse.button) {
+                                case Qt.RightButton: {
+                                    contextMenu.popup()
+                                    break
+                                }
                                 }
                             }
                         }
                         Settings {
+                            id: sceneSettings
                             category: fileUrlHash
                             property alias cameraPosition: sahKdTreeViewer.cameraPosition
-                            property alias eulerAngles: sahKdTreeViewer.eulerAngles
-                            property alias fieldOfView: sahKdTreeViewer.fieldOfView
+                            property alias cameraOrientation: sahKdTreeViewer.cameraOrientation
+                            property alias cameraFieldOfView: sahKdTreeViewer.cameraFieldOfView
                         }
                     }
                     Settings {
@@ -595,7 +627,7 @@ ApplicationWindow {
                         property alias visible: actionContentVisibility.checked
                         property alias rotation: rotationSlider.value
                         property alias scale: scaleSlider.value
-                        property alias opacity: alphaSlider.value
+                        property alias opacity: opacitySlider.value
                         property alias layerEnabled: actionLayerEnabled.checked
                     }
                 }
@@ -604,11 +636,21 @@ ApplicationWindow {
     }
     Settings {
         id: settings
-        property alias visibility: root.visibility
+        property int visibility: Window.AutomaticVisibility
+        property alias x: root.x
+        property alias y: root.y
+        property alias width: root.width
+        property alias height: root.height
         property alias useOffscreenTexture: actionUseOffscreenTexture.checked
         property alias wireFrame: actionWireFrame.checked
         property alias folderUrl: sceneOpenDialog.folderUrl
-        property int currentTabIndex
+        property int currentTabIndex: -1
         property string jsonModel
+    }
+    Component.onCompleted: visibility = settings.visibility
+    onClosing: close => {
+        settings.visibility = visibility
+        //confirmationDialog.open()
+        //close.accepted = false
     }
 }

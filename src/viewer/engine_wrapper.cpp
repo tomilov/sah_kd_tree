@@ -66,6 +66,11 @@ engine::Context & EngineWrapper::getContext()
     return impl_->context;
 }
 
+const engine::Context & EngineWrapper::getContext() const
+{
+    return impl_->context;
+}
+
 std::initializer_list<uint32_t> EngineWrapper::getMutedMessageIdNumbers()
 {
     return kMutedMessageIdNumbers;

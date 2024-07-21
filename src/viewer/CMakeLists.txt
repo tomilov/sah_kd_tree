@@ -58,6 +58,7 @@ target_link_libraries(
         Qt6::Widgets
         Qt6::Svg
         Qt6::Xml
+        Qt6::Quick3D
         "libformat"
         "libengine"
         "libcodegen_vulkan_utils"

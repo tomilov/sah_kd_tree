@@ -94,7 +94,7 @@ private:
     std::string name;
 
     const Library & library;
-    PhysicalDevice & physicalDevice;
+    const PhysicalDevice & physicalDevice;
 
     vk::UniqueDevice deviceHolder;
 

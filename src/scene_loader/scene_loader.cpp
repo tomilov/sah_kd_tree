@@ -190,7 +190,7 @@ template<typename T>
         return {};
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"start to load scene from file %1"_s.arg(cacheFile.fileName());
+    qCDebug(sceneLoaderLog).noquote() << u"start to load scene from file %1"_s.arg(cacheFile.fileName());
     QElapsedTimer loadTimer;
     loadTimer.start();
 
@@ -218,7 +218,7 @@ template<typename T>
             }
             int readSize = dataStream.readRawData(d, size);
             if (size != readSize) {
-                qCInfo(sceneLoaderLog).noquote() << u"unable to read %1 array from scene cache file %2: need %3 bytes, read %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(readSize);
+                qCWarning(sceneLoaderLog).noquote() << u"unable to read %1 array from scene cache file %2: need %3 bytes, read %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(readSize);
                 return {};
             }
             if (!checkDataStreamStatus(dataStream, u"unable to read %1 array from scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
@@ -293,7 +293,7 @@ template<typename T>
         qCWarning(sceneLoaderLog).noquote() << u"scene cache file %1 contain extra data at the end"_s.arg(cacheFile.fileName());
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
@@ -306,7 +306,7 @@ template<typename T>
         return {};
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"start to save scene to file %1"_s.arg(cacheFile.fileName());
+    qCDebug(sceneLoaderLog).noquote() << u"start to save scene to file %1"_s.arg(cacheFile.fileName());
     QElapsedTimer saveTimer;
     saveTimer.start();
 
@@ -329,7 +329,7 @@ template<typename T>
             }
             int writeSize = dataStream.writeRawData(d, size);
             if (size != writeSize) {
-                qCInfo(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
+                qCWarning(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
                 return {};
             }
             if (!checkDataStreamStatus(dataStream, u"unable to write array %1 to scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
@@ -403,7 +403,7 @@ template<typename T>
         return {};
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
@@ -469,12 +469,12 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
 
     auto assimpScene = importer.GetScene();
 
-    qCInfo(sceneLoaderLog) << "scene has animations:" << assimpScene->HasAnimations();
-    qCInfo(sceneLoaderLog) << "scene has cameras:" << assimpScene->HasCameras();
-    qCInfo(sceneLoaderLog) << "scene has lights:" << assimpScene->HasLights();
-    qCInfo(sceneLoaderLog) << "scene has materials (required if not flag set):" << assimpScene->HasMaterials();
-    qCInfo(sceneLoaderLog) << "scene has meshes (required if not flag set):" << assimpScene->HasMeshes();
-    qCInfo(sceneLoaderLog) << "scene has textures:" << assimpScene->HasTextures();
+    qCDebug(sceneLoaderLog) << "scene has animations:" << assimpScene->HasAnimations();
+    qCDebug(sceneLoaderLog) << "scene has cameras:" << assimpScene->HasCameras();
+    qCDebug(sceneLoaderLog) << "scene has lights:" << assimpScene->HasLights();
+    qCDebug(sceneLoaderLog) << "scene has materials (required if not flag set):" << assimpScene->HasMaterials();
+    qCDebug(sceneLoaderLog) << "scene has meshes (required if not flag set):" << assimpScene->HasMeshes();
+    qCDebug(sceneLoaderLog) << "scene has textures:" << assimpScene->HasTextures();
     if (((importer.GetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS) & aiComponent_MESHES) == 0) && !assimpScene->HasMeshes()) {
         qCCritical(sceneLoaderLog).noquote() << u"scene %1 has no meshes"_s.arg(sceneFileInfo.filePath());
         return {};
@@ -484,13 +484,13 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
         return {};
     }
 
-    qCInfo(sceneLoaderLog).noquote() << u"scene flags: %1"_s.arg(assimpScene->mFlags);
-    qCInfo(sceneLoaderLog).noquote() << u"number of animations: %1"_s.arg(assimpScene->mNumAnimations);
-    qCInfo(sceneLoaderLog).noquote() << u"number of cameras: %1"_s.arg(assimpScene->mNumCameras);
-    qCInfo(sceneLoaderLog).noquote() << u"number of lights: %1"_s.arg(assimpScene->mNumLights);
-    qCInfo(sceneLoaderLog).noquote() << u"number of materials: %1"_s.arg(assimpScene->mNumMaterials);
-    qCInfo(sceneLoaderLog).noquote() << u"number of meshes: %1"_s.arg(assimpScene->mNumMeshes);
-    qCInfo(sceneLoaderLog).noquote() << u"number of textures: %1"_s.arg(assimpScene->mNumTextures);
+    qCDebug(sceneLoaderLog).noquote() << u"scene flags: %1"_s.arg(assimpScene->mFlags);
+    qCDebug(sceneLoaderLog).noquote() << u"number of animations: %1"_s.arg(assimpScene->mNumAnimations);
+    qCDebug(sceneLoaderLog).noquote() << u"number of cameras: %1"_s.arg(assimpScene->mNumCameras);
+    qCDebug(sceneLoaderLog).noquote() << u"number of lights: %1"_s.arg(assimpScene->mNumLights);
+    qCDebug(sceneLoaderLog).noquote() << u"number of materials: %1"_s.arg(assimpScene->mNumMaterials);
+    qCDebug(sceneLoaderLog).noquote() << u"number of meshes: %1"_s.arg(assimpScene->mNumMeshes);
+    qCDebug(sceneLoaderLog).noquote() << u"number of textures: %1"_s.arg(assimpScene->mNumTextures);
 
     auto assimpRootNode = assimpScene->mRootNode;
     if (!assimpRootNode) {
@@ -574,9 +574,9 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
         auto u = std::remove_if(std::begin(usedMeshes), std::end(usedMeshes), isMeshUsed);
         usedMeshes.erase(u, std::end(usedMeshes));
 
-        qCInfo(sceneLoaderLog).noquote() << u"number of meshes in assimp scene: %1"_s.arg(assimpScene->mNumMeshes);
-        qCInfo(sceneLoaderLog).noquote() << u"expected number of meshes: %1"_s.arg(std::size(meshUsages));
-        qCInfo(sceneLoaderLog).noquote() << u"actual number of meshes used: %1"_s.arg(std::size(usedMeshes));
+        qCDebug(sceneLoaderLog).noquote() << u"number of meshes in assimp scene: %1"_s.arg(assimpScene->mNumMeshes);
+        qCDebug(sceneLoaderLog).noquote() << u"expected number of meshes: %1"_s.arg(std::size(meshUsages));
+        qCDebug(sceneLoaderLog).noquote() << u"actual number of meshes used: %1"_s.arg(std::size(usedMeshes));
 
         constexpr auto isMeshUsedSooner = [](const UsedMesh & l, const UsedMesh & r) -> bool
         {
@@ -611,8 +611,8 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
             }
         }
     }
-    qCInfo(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(indexCount / 3);
-    qCInfo(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
+    qCDebug(sceneLoaderLog).noquote() << u"total number of faces: %1"_s.arg(indexCount / 3);
+    qCDebug(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
 
     {
         sceneData.indices = utils::MemArray<uint32_t>{indexCount};
@@ -705,7 +705,7 @@ bool cachingLoad(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo, QDi
     }
     QFileInfo cacheFileInfo = getCacheFileInfo(sceneFileInfo, cacheDir);
     if (cacheFileInfo.exists()) {
-        qCInfo(sceneLoaderLog).noquote() << u"scene file for scene %1 exists"_s.arg(sceneFileInfo.filePath());
+        qCDebug(sceneLoaderLog).noquote() << u"scene file for scene %1 exists"_s.arg(sceneFileInfo.filePath());
         if (loadFromCache(sceneData, cacheFileInfo)) {
             return true;
         }

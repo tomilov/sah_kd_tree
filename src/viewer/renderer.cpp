@@ -322,19 +322,25 @@ public:
             resourcesAndDescriptors = std::move(pool.top());
             pool.pop();
             const auto & framebuffer = resourcesAndDescriptors->resources.framebuffer;
-            constexpr auto isIncludes = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
-            {
-                return lhs.width <= rhs.width && lhs.height <= rhs.height;
-            };
-            if (!isIncludes(framebufferSize, framebuffer.size)) {
-                break;
-            }
-            constexpr auto tooLess = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
-            {
-                return (lhs.width <= rhs.width / 2) || (lhs.height <= rhs.height / 2);
-            };
-            if (tooLess(framebufferSize, framebuffer.size)) {
-                break;
+            if ((false)) {  // TODO: rethink more thoroughly
+                constexpr auto isIncludes = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
+                {
+                    return lhs.width <= rhs.width && lhs.height <= rhs.height;
+                };
+                if (!isIncludes(framebufferSize, framebuffer.size)) {
+                    break;
+                }
+                constexpr auto tooLess = [](const vk::Extent2D & lhs, const vk::Extent2D & rhs) -> bool
+                {
+                    return (lhs.width <= rhs.width / 2) || (lhs.height <= rhs.height / 2);
+                };
+                if (tooLess(framebufferSize, framebuffer.size)) {
+                    break;
+                }
+            } else {
+                if (framebufferSize != framebuffer.size) {
+                    break;
+                }
             }
             return resourcesAndDescriptors;
         }
@@ -511,6 +517,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 
 [[nodiscard]] ScenePushConstants getScenePushConstants(const FrameSettings & frameSettings)
 {
+    // conjugate?
     auto view = glm::translate(glm::toMat4(glm::conjugate(frameSettings.orientation)), -frameSettings.position);
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     auto mvp = projection * view;
@@ -585,9 +592,9 @@ struct Renderer::Impl : utils::NonCopyable
 
     void advance(uint32_t currentFrameSlot);
 
-    void updateRenderPass(vk::RenderPass renderPass);
+    void updateRenderPass(vk::RenderPass renderPass, bool isRenderPassFormatChanged);
 
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot);
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
 
     [[nodiscard]] std::shared_ptr<FrameResourcesAndDescriptors> getFrameDescriptors();
     void putFrameDescriptors(std::shared_ptr<FrameResourcesAndDescriptors> && frameDescriptors);
@@ -641,9 +648,9 @@ void Renderer::advance(uint32_t currentFrameSlot)
     return impl_->advance(currentFrameSlot);
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot)
+void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot)
 {
-    return impl_->render(commandBuffer, renderPass, currentFrameSlot);
+    return impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged, currentFrameSlot);
 }
 
 Renderer::Impl::Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
@@ -668,6 +675,7 @@ void Renderer::Impl::unsetScene()
 
 void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
 {
+    ASSERT(scene);
     ASSERT(this->scene != scene);
     unsetScene();
     this->scene = std::move(scene);
@@ -949,9 +957,10 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
 }
 
-void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
+void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, [[maybe_unused]] bool isRenderPassFormatChanged)
 {
     ASSERT(offscreenGraphicsPipeline);
+    ASSERT(directGraphicsPipeline);
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? *offscreenGraphicsPipeline : *directGraphicsPipeline;
     if (graphicsPipeline.pipeline) {
         if (graphicsPipeline.pipeline.value().getRenderPass() == renderPass) {
@@ -972,11 +981,11 @@ void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass)
     p.create();
 }
 
-void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, uint32_t currentFrameSlot)
+void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot)
 {
     ASSERT(currentFrameSlot < framesInFlight);
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
-    updateRenderPass(renderPass);
+    updateRenderPass(renderPass, isRenderPassFormatChanged);
     if (!scene) {
         return;
     }

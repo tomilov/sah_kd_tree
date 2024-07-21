@@ -35,41 +35,46 @@ void Context::createDevice(vk::SurfaceKHR surface)
 
 const Library & Context::getLibrary() const &
 {
+    ASSERT(library);
     return *library;
 }
 
 vk::Optional<const vk::AllocationCallbacks> Context::getAllocationCallbacks() const &
 {
-    return library->getAllocationCallbacks();
+    return getLibrary().getAllocationCallbacks();
 }
 
 [[nodiscard]] const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & Context::getDispatcher() const &
 {
-    return library->getDispatcher();
+    return getLibrary().getDispatcher();
 }
 
 const Instance & Context::getInstance() const &
 {
+    ASSERT(instance);
     return *instance;
 }
 
 const PhysicalDevices & Context::getPhysicalDevices() const &
 {
+    ASSERT(physicalDevices);
     return *physicalDevices;
 }
 
 const Device & Context::getDevice() const &
 {
+    ASSERT(device);
     return *device;
 }
 
 const PhysicalDevice & Context::getPhysicalDevice() const &
 {
-    return device->getPhysicalDevice();
+    return getDevice().getPhysicalDevice();
 }
 
 const MemoryAllocator & Context::getMemoryAllocator() const &
 {
+    ASSERT(vma);
     return *vma;
 }
 

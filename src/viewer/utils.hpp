@@ -5,6 +5,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QString>
 #include <QtCore/QtCore>
+#include <QtGui/QColor>
 
 namespace viewer
 {
@@ -18,6 +19,9 @@ QString toString(const Type & value)
 }
 
 QString toCamelCase(const QString & s, bool startFromFirstWord = false);
+
+QString addRichTextColor(QString str, QString color);
+QString addRichTextColor(QString str, QColor color);
 
 }  // namespace viewer
 

@@ -53,21 +53,21 @@ PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physi
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
 
     auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
-    SPDLOG_INFO("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
-    SPDLOG_INFO("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
-    SPDLOG_INFO("vendorID {:04x}", physicalDeviceProperties.vendorID);
-    SPDLOG_INFO("deviceID {:04x}", physicalDeviceProperties.deviceID);
-    SPDLOG_INFO("deviceType {}", physicalDeviceProperties.deviceType);
-    SPDLOG_INFO("deviceName {}", std::data(physicalDeviceProperties.deviceName));
-    SPDLOG_INFO("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
+    SPDLOG_DEBUG("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
+    SPDLOG_DEBUG("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
+    SPDLOG_DEBUG("vendorID {:04x}", physicalDeviceProperties.vendorID);
+    SPDLOG_DEBUG("deviceID {:04x}", physicalDeviceProperties.deviceID);
+    SPDLOG_DEBUG("deviceType {}", physicalDeviceProperties.deviceType);
+    SPDLOG_DEBUG("deviceName {}", std::data(physicalDeviceProperties.deviceName));
+    SPDLOG_DEBUG("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
 
     {
         auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
-        SPDLOG_INFO("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
-        SPDLOG_INFO("driverUUID {}", physicalDeviceIDProperties.driverUUID);
-        SPDLOG_INFO("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
-        SPDLOG_INFO("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
-        SPDLOG_INFO("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
+        SPDLOG_DEBUG("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
+        SPDLOG_DEBUG("driverUUID {}", physicalDeviceIDProperties.driverUUID);
+        SPDLOG_DEBUG("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
+        SPDLOG_DEBUG("deviceNodeMask {}", physicalDeviceIDProperties.deviceNodeMask);
+        SPDLOG_DEBUG("deviceLUIDValid {}", physicalDeviceIDProperties.deviceLUIDValid);
     }
 
     auto & physicalDeviceFeatures2 = features2Chain.get<vk::PhysicalDeviceFeatures2>();
@@ -168,13 +168,13 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
     if (physicalDeviceType != requiredPhysicalDeviceType) {
-        SPDLOG_WARN("Expected {} physical device type, got {}", requiredPhysicalDeviceType, physicalDeviceType);
+        SPDLOG_DEBUG("Expected {} physical device type, got {}", requiredPhysicalDeviceType, physicalDeviceType);
         return false;
     }
 
     uint32_t apiVersion = properties.apiVersion;
     if ((VK_VERSION_MAJOR(apiVersion) != 1) || (VK_VERSION_MINOR(apiVersion) != 3)) {
-        SPDLOG_WARN("Expected Vulkan device version 1.3, got {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
+        SPDLOG_DEBUG("Expected Vulkan device version 1.3, got {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
         return false;
     }
 
@@ -194,7 +194,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
             }
         }
         if (!isFeatureAvailable) {
-            SPDLOG_WARN("Feature {}.#{} is not available", typeid(Features).name(), i);
+            SPDLOG_DEBUG("Feature {}.#{} is not available", typeid(Features).name(), i);
         }
         isAllFeaturesAvailable = isFeatureAvailable;
     };
@@ -207,19 +207,19 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         checkFeatures(std::add_pointer_t<DebugFeatures>{});
     }
     if (!isAllFeaturesAvailable) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
     if (!std::empty(extensionsCannotBeEnabled)) {
-        SPDLOG_WARN("Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
+        SPDLOG_DEBUG("Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
         return false;
     }
 
     auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(context.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
-        SPDLOG_WARN("External extensions cannot be enabled: {}", fmt::join(externalExtensionsCannotBeEnabled, ", "));
+        SPDLOG_DEBUG("External extensions cannot be enabled: {}", fmt::join(externalExtensionsCannotBeEnabled, ", "));
         return false;
     }
 
@@ -246,36 +246,36 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool
     {
         if (queueCreateInfo.familyIndex == VK_QUEUE_FAMILY_IGNORED) {
-            SPDLOG_WARN("");
+            SPDLOG_DEBUG("");
             return false;
         }
         auto queueIndex = usedQueueFamilySizes[queueCreateInfo.familyIndex]++;
         auto queueCount = queueFamilyProperties2Chains[queueCreateInfo.familyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueCount;
         if (queueIndex == queueCount) {
-            SPDLOG_WARN("");
+            SPDLOG_DEBUG("");
             return false;
         }
         queueCreateInfo.index = queueIndex;
         return true;
     };
     if (!calculateQueueIndex(externalGraphicsQueueCreateInfo)) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
     if (!calculateQueueIndex(graphicsQueueCreateInfo)) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
     if (!calculateQueueIndex(computeQueueCreateInfo)) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
     if (!calculateQueueIndex(transferHostToDeviceQueueCreateInfo)) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
     if (!calculateQueueIndex(transferDeviceToHostQueueCreateInfo)) {
-        SPDLOG_WARN("");
+        SPDLOG_DEBUG("");
         return false;
     }
 
@@ -472,7 +472,7 @@ PhysicalDevices::PhysicalDevices(const Context & context)
 {
     size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {
-        SPDLOG_INFO("Create physical device #{}", i++);
+        SPDLOG_DEBUG("Create physical device #{}", i++);
         physicalDevices.emplace_back(context, physicalDevice);
     }
 }
@@ -487,9 +487,9 @@ auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevi
         size_t i = 0;
         for (auto & physicalDevice : physicalDevices) {
             if (physicalDevice.checkPhysicalDeviceRequirements(physicalDeviceType, surface)) {
-                SPDLOG_INFO("Physical device #{} of type {} is suitable", i, physicalDeviceType);
+                SPDLOG_DEBUG("Physical device #{} of type {} is suitable", i, physicalDeviceType);
                 if (!bestPhysicalDevice) {  // respect GPU reordering layers
-                    SPDLOG_INFO("Physical device #{} is chosen", i);
+                    SPDLOG_DEBUG("Physical device #{} is chosen", i);
                     bestPhysicalDevice = &physicalDevice;
                 }
             }
