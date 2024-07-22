@@ -2,13 +2,56 @@
 
 #include <QtCore/QDirIterator>
 #include <QtGui/QClipboard>
+#include <QtGui/QColor>
 #include <QtGui/QImage>
 #include <QtGui/QKeySequence>
+
+#include <limits>
 
 using namespace Qt::StringLiterals;
 
 namespace viewer
 {
+namespace
+{
+
+[[nodiscard]] QList<QVector4D> getColorVectors(const QStringList & colorNames)
+{
+    QList<QVector4D> colorVectors;
+    for (const QString & colorName : colorNames) {
+        float r, g, b, a;
+        QColor::fromString(colorName).getRgbF(&r, &g, &b, &a);
+        colorVectors.emplaceBack(r, g, b, a);
+    }
+    return colorVectors;
+}
+
+[[nodiscard]] int getIndexOfClosestNamedColor(QColor color, const QList<QVector4D> & colorVectors)
+{
+    float r, g, b, a;
+    color.getRgbF(&r, &g, &b, &a);
+    QVector4D colorVectorCandidate{r, g, b, a};
+    float minDistance = std::numeric_limits<float>::max();
+    int closestColorIndex = -1;
+    int i = 0;
+    for (const QVector4D & colorVector : colorVectors) {
+        float distance = (colorVector - colorVectorCandidate).length();
+        if (distance < minDistance) {
+            closestColorIndex = i;
+            minDistance = distance;
+        }
+        ++i;
+    }
+    return closestColorIndex;
+}
+
+}  // namespace
+
+GuiApplication::GuiApplication(int & argc, char ** argv)
+    : QGuiApplication{argc, argv}
+    , colorNames{QColor::colorNames()}
+    , colorVectors{getColorVectors(colorNames)}
+{}
 
 QString GuiApplication::keySequenceToString(QVariant keySequence)
 {
@@ -39,10 +82,21 @@ QUrl GuiApplication::getQtLogoUrl()
     return "qrc" + getWindowIconFilepath();
 }
 
+int GuiApplication::getIndexOfClosestNamedColor(QColor color) const
+{
+    return viewer::getIndexOfClosestNamedColor(color, colorVectors);
+}
+
 void GuiApplication::setClipboardImage(QVariant image) const
 {
     clipboard()->setImage(image.value<QImage>());
 }
+
+Application::Application(int & argc, char ** argv)
+    : QApplication{argc, argv}
+    , colorNames{QColor::colorNames()}
+    , colorVectors{getColorVectors(colorNames)}
+{}
 
 QString Application::keySequenceToString(QVariant keySequence)
 {
@@ -57,6 +111,11 @@ QString Application::getWindowIconFilepath()
 QUrl Application::getQtLogoUrl()
 {
     return GuiApplication::getQtLogoUrl();
+}
+
+int Application::getIndexOfClosestNamedColor(QColor color) const
+{
+    return viewer::getIndexOfClosestNamedColor(color, colorVectors);
 }
 
 void Application::setClipboardImage(QVariant image) const

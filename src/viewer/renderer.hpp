@@ -26,9 +26,10 @@ struct Scene;
 
 struct FrameSettings
 {
-    // bool clipByDiscard = false;
     bool useOffscreenTexture = false;
+    bool discardInvisible = false;
     bool wireFrame = false;
+
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
     float fov = glm::half_pi<float>();
@@ -40,7 +41,9 @@ struct FrameSettings
     float height = 0.0f;
     vk::Viewport viewport = {};
     vk::Rect2D scissor = {};
-    glm::mat4 transform2D{1.0f};  // TODO: rename (windowViewPorjection)
+    glm::mat4 windowViewPorjection{1.0f};
+
+    glm::vec4 clearColor{0.0f, 0.0f, 0.0f, 0.0f};
 
     bool operator==(const FrameSettings &) const = default;
     bool operator!=(const FrameSettings &) const = default;
@@ -68,7 +71,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 520;
+    static constexpr size_t kSize = 536;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
@@ -81,8 +84,39 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
     template<typename FormatContext>
     auto format(const viewer::FrameSettings & frameSettings, FormatContext & ctx) const
     {
-        return fmt::format_to(ctx.out(), "{{.useOffscreenTexture = {}, .transform2D = {}, .alpha = {}, .zNear = {}, .zFar = {}, .position = {}, .orientation = {}, .scissor = {}, .viewport = {}, .width = {}, .height = {}, .fov = {}}}",
-                              frameSettings.useOffscreenTexture, frameSettings.transform2D, frameSettings.alpha, frameSettings.zNear, frameSettings.zFar, frameSettings.position, frameSettings.orientation, frameSettings.scissor,
-                              frameSettings.viewport, frameSettings.width, frameSettings.height, frameSettings.fov);
+        constexpr auto fmtString
+            = "{{"  //
+              ".useOffscreenTexture = {}, "
+              ".discardInvisible = {}, "
+              ".wireFrame = {}, "
+              ".position = {}, "
+              ".orientation = {}, "
+              ".fov = {}, "
+              ".zNear = {}, "
+              ".zFar = {}, "
+              ".alpha = {}, "
+              ".width = {}, "
+              ".height = {}, "
+              ".viewport = {}, "
+              ".scissor = {}, "
+              ".windowViewPorjection = {}, "
+              ".clearColor = {}"
+              "}}";
+        return fmt::format_to(ctx.out(), fmtString,                //
+                              frameSettings.useOffscreenTexture,   //
+                              frameSettings.discardInvisible,      //
+                              frameSettings.wireFrame,             //
+                              frameSettings.position,              //
+                              frameSettings.orientation,           //
+                              frameSettings.fov,                   //
+                              frameSettings.zNear,                 //
+                              frameSettings.zFar,                  //
+                              frameSettings.alpha,                 //
+                              frameSettings.width,                 //
+                              frameSettings.height,                //
+                              frameSettings.viewport,              //
+                              frameSettings.scissor,               //
+                              frameSettings.windowViewPorjection,  //
+                              frameSettings.clearColor);           //
     }
 };

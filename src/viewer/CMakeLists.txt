@@ -13,7 +13,15 @@ qt6_add_qml_module(
     OUTPUT_DIRECTORY
         "SahKdTree"
     IMPORT_PATH
-        "SahKdTree")
+        "SahKdTree"
+    DEPENDENCIES
+        QtCore
+        QtQuick
+        QtQuick.Controls
+        QtQuick.Window
+        QtQuick.Layouts
+        QtQuick.Dialogs
+        QtQuick3D)
 set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
 
 generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")

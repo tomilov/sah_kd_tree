@@ -45,9 +45,12 @@ class Viewer : public QQuickItem
     Q_PROPERTY(QString cameraControllerDescription READ getCameraControllerDescription NOTIFY cameraControllerChanged STORED false)
 
     Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY renderModeChanged)
+    Q_PROPERTY(bool discardInvisible MEMBER discardInvisible NOTIFY renderModeChanged)
     Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY renderModeChanged)
     Q_PROPERTY(QString modeDescription READ getModeDescription NOTIFY renderModeChanged STORED false)
     Q_PROPERTY(QString modeDescriptionVerbose READ getModeDescriptionVerbose NOTIFY renderModeChanged STORED false)
+
+    Q_PROPERTY(QColor clearColor MEMBER clearColor NOTIFY clearColorChanged)
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
@@ -76,6 +79,10 @@ Q_SIGNALS:
     void cameraViewChanged();
     void cameraControllerChanged();
     void renderModeChanged();
+    void clearColorChanged();
+
+private Q_SLOTS:
+    void handleInput();
 
 private:
     static constexpr float kDefaultCameraFieldOfView = 90.0f;
@@ -98,7 +105,10 @@ private:
     float speed = 1.0f;
 
     bool useOffscreenTexture = true;
+    bool discardInvisible = true;
     bool wireFrame = false;
+
+    QColor clearColor;
 
     QTimer * const mousePressAndHoldTimer = new QTimer{this};
     QPoint startDragPos;
@@ -109,20 +119,16 @@ private:
     QMetaObject::Connection sceneGraphInvalidatedConnection;
 
     void setScene(RenderNode & renderNode);
-
+    void rotate(float pan, float tilt);
     void onKeyEvent(QKeyEvent * event, bool isPressed);
-    void handleInput();
 
     void releaseResources() override;
 
     void wheelEvent(QWheelEvent * event) override;
-
     void mouseUngrabEvent() override;
-
     void mousePressEvent(QMouseEvent * event) override;
     void mouseMoveEvent(QMouseEvent * event) override;
     void mouseReleaseEvent(QMouseEvent * event) override;
-
     void mouseDoubleClickEvent(QMouseEvent * event) override;
 
     void keyPressEvent(QKeyEvent * event) override;

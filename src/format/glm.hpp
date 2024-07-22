@@ -33,3 +33,13 @@ struct fmt::formatter<glm::vec3> : fmt::formatter<fmt::string_view>
         return fmt::formatter<fmt::string_view>::format(glm::to_string(v), ctx);
     }
 };
+
+template<>
+struct fmt::formatter<glm::vec4> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const glm::vec4 & v, FormatContext & ctx) const
+    {
+        return fmt::formatter<fmt::string_view>::format(glm::to_string(v), ctx);
+    }
+};

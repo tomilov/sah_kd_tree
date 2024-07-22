@@ -344,6 +344,7 @@ int main(int argc, char * argv[])
     quickGraphicsConfiguration.setDeviceExtensions({});
     quickGraphicsConfiguration.setDepthBufferFor2D(true);
 
+    QLoggingCategory::setFilterRules(u"qt.qml.binding.removal.info=true"_s);
     QQmlApplicationEngine qmlApplicationEngine;
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
     // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));

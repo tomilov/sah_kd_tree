@@ -1,8 +1,9 @@
-import QtCore
+﻿import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtQuick3D
 
 import SahKdTree 1.0
@@ -72,6 +73,7 @@ ApplicationWindow {
                 let currentIndex = stackLayout.currentIndex
                 listModel.remove(currentIndex)
                 listModel.insert(currentIndex, listItem)
+                Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             }
         }
     }
@@ -95,14 +97,6 @@ ApplicationWindow {
         shortcut: StandardKey.AddTab
         onTriggered: sceneOpenDialog.appendScene()
         icon.name: "document-open-symbolic"
-    }
-    Action {
-        id: actionSaveSceneScreenshot
-        text: qsTr("Screenshot (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.Copy
-        enabled: stackLayout.currentIndex >= 0
-        onTriggered: stackLayout.children[stackLayout.currentIndex]?.makeScreenshot()
-        icon.name: "edit-copy-symbolic"
     }
     Action {
         id: actionCloseScene
@@ -151,10 +145,16 @@ ApplicationWindow {
         shortcut: "F2"
     }
     Action {
+        id: actionDiscardInvisible
+        text: qsTr("Discard (%1)").arg(app.keySequenceToString(shortcut))
+        checkable: true
+        shortcut: "F4"
+    }
+    Action {
         id: actionWireFrame
         text: qsTr("Wireframe (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
-        shortcut: "F4"
+        shortcut: "F6"
     }
     Action {
         id: actionShowAboutQt
@@ -163,21 +163,6 @@ ApplicationWindow {
         onTriggered: Qt.callLater(app.showAboutQt)
         icon.source: app.getQtLogoUrl()
         shortcut: StandardKey.HelpContents
-    }
-    Menu {
-        id: contextMenu
-        title: "Context menu"
-        parent: Overlay.overlay
-        MenuItem {
-            action: actionSaveSceneScreenshot
-        }
-        MenuSeparator {}
-        MenuItem {
-            action: actionUseOffscreenTexture
-        }
-        MenuItem {
-            action: actionWireFrame
-        }
     }
     menuBar: MenuBar {
         visible: visibility !== Window.FullScreen
@@ -188,9 +173,6 @@ ApplicationWindow {
             }
             MenuItem {
                 action: actionReplaceScene
-            }
-            MenuItem {
-                action: actionSaveSceneScreenshot
             }
             MenuItem {
                 action: actionCloseScene
@@ -213,6 +195,9 @@ ApplicationWindow {
             title: qsTr("&Mode")
             MenuItem {
                 action: actionUseOffscreenTexture
+            }
+            MenuItem {
+                action: actionDiscardInvisible
             }
             MenuItem {
                 action: actionWireFrame
@@ -239,7 +224,7 @@ ApplicationWindow {
             for (let i = 0; i < count; ++i)
                 items.push(get(i))
             settings.jsonModel = JSON.stringify(items)
-            console.log("JSON model:", settings.jsonModel)
+            //console.log("JSON model:", settings.jsonModel)
         }
     }
     header: TabBar {
@@ -276,8 +261,13 @@ ApplicationWindow {
                     required property string filePath
                     required property string fileBaseName
                     readonly property string fileUrlHash: Qt.md5(fileUrl)
-                    function makeScreenshot() {
-                        sahKdTreeViewer.grabToImage(result => app.setClipboardImage(result.image))
+                    ColorDialog {
+                        id: clearColorDialog
+                        options: ColorDialog.ShowAlphaChannel | ColorDialog.DontUseNativeDialog | ColorDialog.NoButtons
+                        onSelectedColorChanged: {
+                            if (visible) // prevent feedback when WheelHandler used
+                                Qt.callLater(clearColorComboBox.setIndexOfClosestColor, selectedColor)
+                        }
                     }
                     Action {
                         id: actionResetContentOrientation
@@ -285,11 +275,10 @@ ApplicationWindow {
                         icon.name: "zoom-original-symbolic"
                         onTriggered: {
                             actionContentVisibility.checked = true
+                            actionLayerEnabled.checked = false
                             rotationSlider.value = 0
                             scaleSlider.value = 1
                             opacitySlider.value = 1
-                            actionLayerEnabled.checked = false
-                            sahKdTreeViewer.update()
                         }
                     }
                     Action {
@@ -299,228 +288,381 @@ ApplicationWindow {
                         checked: true
                     }
                     Action {
+                        id: actionLayerEnabled
+                        text: qsTr("Layer enable/disable")
+                        checkable: true
+                        icon.name: "application-add-symbolic"
+                    }
+                    Action {
                         id: actionRotatePos
                         text: qsTr("Rotate view CCW")
                         icon.name: "object-rotate-left-symbolic"
-                        onTriggered: {
-                            rotationSlider.decrease()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: rotationSlider.decrease()
                     }
                     Action {
                         id: actionRotateNeg
                         text: qsTr("Rotate view CW")
                         icon.name: "object-rotate-right-symbolic"
-                        onTriggered: {
-                            rotationSlider.increase()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: rotationSlider.increase()
                     }
                     Action {
                         id: actionScaleDec
                         text: qsTr("Decrease view scale")
                         icon.name: "zoom-out-symbolic"
-                        onTriggered: {
-                            scaleSlider.decrease()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: scaleSlider.decrease()
                     }
                     Action {
                         id: actionScaleInc
                         text: qsTr("Increase view scale")
                         icon.name: "zoom-in-symbolic"
-                        onTriggered: {
-                            scaleSlider.increase()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: scaleSlider.increase()
                     }
                     Action {
                         id: actionOpacityDec
                         text: qsTr("Decrease view opacity")
                         icon.name: "path-combine-symbolic"
-                        onTriggered: {
-                            opacitySlider.decrease()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: opacitySlider.decrease()
                     }
                     Action {
                         id: actionOpacityInc
                         text: qsTr("Increase view opacity")
                         icon.name: "path-difference-symbolic"
-                        onTriggered: {
-                            opacitySlider.increase()
-                            sahKdTreeViewer.update()
-                        }
+                        onTriggered: opacitySlider.increase()
                     }
                     Action {
-                        id: actionLayerEnabled
-                        text: qsTr("Layer enable/disable")
-                        checkable: true
-                        icon.name: "application-add-symbolic"
-                        onCheckedChanged: sahKdTreeViewer.update()
+                        id: actionSaveSceneScreenshot
+                        text: qsTr("Screenshot")
+                        onTriggered: sahKdTreeViewer.grabToImage(result => app.setClipboardImage(result.image))
+                        icon.name: "edit-copy-symbolic"
+                    }
+                    Action {
+                        id: actionSelectClearColor
+                        text: qsTr("Select clearColor")
+                        onTriggered: clearColorDialog.open()
+                        icon.name: "color-select-symbolic"
+                    }
+                    Menu {
+                        id: contextMenu
+                        title: "Context menu"
+                        parent: Overlay.overlay
+                        MenuItem {
+                            action: actionSaveSceneScreenshot
+                        }
+                        MenuSeparator {}
+                        MenuItem {
+                            action: actionUseOffscreenTexture
+                        }
+                        MenuItem {
+                            action: actionDiscardInvisible
+                        }
+                        MenuItem {
+                            action: actionWireFrame
+                        }
+                        MenuSeparator {}
+                        MenuItem {
+                            action: actionSelectClearColor
+                        }
                     }
                     header: ToolBar {
                         visible: visibility !== Window.FullScreen
-                        RowLayout {
+                        Flow {
                             anchors.fill: parent
-                            Text {
-                                text: qsTr("<b>Camera:</b>")
+                            RowLayout {
+                                Text {
+                                    text: qsTr("<b>Camera:</b>")
+                                }
+                                ToolButton {
+                                    text: qsTr("Reset")
+                                    onClicked: sahKdTreeViewer.resetCameraView()
+                                }
+                                ToolButton {
+                                    text: qsTr("Align")
+                                    onClicked: sahKdTreeViewer.alignCameraOrientation()
+                                }
+                                ToolButton {
+                                    text: qsTr("Reflect")
+                                    onClicked: sahKdTreeViewer.reflectCameraOrientation()
+                                }
+                                ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
                             }
-                            ToolButton {
-                                text: qsTr("Reset")
-                                onClicked: sahKdTreeViewer.resetCameraView()
+                            RowLayout {
+                                Label {
+                                    text: qsTr("<b>View:</b>")
+                                }
+                                ToolButton {
+                                    text: qsTr("Reset")
+                                    action: actionResetContentOrientation
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                Switch {
+                                    text: qsTr("Show/Hide")
+                                    action: actionContentVisibility
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                Switch {
+                                    text: qsTr("Layer")
+                                    action: actionLayerEnabled
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
                             }
-                            ToolButton {
-                                text: qsTr("Align")
-                                onClicked: sahKdTreeViewer.alignCameraOrientation()
+                            RowLayout {
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionRotatePos
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                Slider {
+                                    id: rotationSlider
+                                    from: -180
+                                    value: 0
+                                    to: 180
+                                    stepSize: 5
+                                    snapMode: Slider.SnapAlways
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: value
+                                }
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionRotateNeg
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
                             }
-                            ToolButton {
-                                text: qsTr("Reflect")
-                                onClicked: sahKdTreeViewer.reflectCameraOrientation()
+                            RowLayout {
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionScaleDec
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                Slider {
+                                    id: scaleSlider
+                                    from: 0.125
+                                    value: 1
+                                    to: 1.25
+                                    stepSize: 0.125
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: value
+                                }
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionScaleInc
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
                             }
-                            ToolSeparator {}
-                            Label {
-                                text: qsTr("<b>View:</b>")
+                            RowLayout {
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionOpacityDec
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                Slider {
+                                    id: opacitySlider
+                                    from: 0.0
+                                    value: 1.0
+                                    to: 1.0
+                                    stepSize: 0.0625
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: value
+                                }
+                                ToolButton {
+                                    text: qsTr("")
+                                    action: actionOpacityInc
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: 5000
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: action.text
+                                }
+                                ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
                             }
-                            ToolButton {
-                                text: qsTr("Reset")
-                                action: actionResetContentOrientation
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            Switch {
-                                text: qsTr("Show/Hide")
-                                action: actionContentVisibility
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionRotatePos
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            Slider {
-                                id: rotationSlider
-                                from: -180
-                                value: 0
-                                to: 180
-                                stepSize: 5
-                                snapMode: Slider.SnapAlways
-                                ToolTip.visible: pressed
-                                ToolTip.text: value
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionRotateNeg
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionScaleDec
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            Slider {
-                                id: scaleSlider
-                                from: 0.125
-                                value: 1
-                                to: 1.25
-                                stepSize: 0.125
-                                ToolTip.visible: pressed
-                                ToolTip.text: value
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionScaleInc
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionOpacityDec
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            Slider {
-                                id: opacitySlider
-                                from: 0.0
-                                value: 1.0
-                                to: 1.0
-                                stepSize: 0.0625
-                                ToolTip.visible: pressed
-                                ToolTip.text: value
-                            }
-                            ToolButton {
-                                text: qsTr("")
-                                action: actionOpacityInc
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            Switch {
-                                text: qsTr("Layer")
-                                action: actionLayerEnabled
-                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                ToolTip.timeout: 5000
-                                ToolTip.visible: hovered
-                                ToolTip.text: action.text
-                            }
-                            ToolSeparator {}
-                            Item {
-                                Layout.fillWidth: true
+                            RowLayout {
+                                Text {
+                                    text: qsTr("<b>Clear color:</b>")
+                                }
+                                ComboBox {
+                                    id: clearColorComboBox
+                                    textRole: "colorName"
+                                    valueRole: "colorValue"
+                                    implicitContentWidthPolicy: ComboBox.WidestTextWhenCompleted
+                                    editable: true
+                                    selectTextByMouse: true
+                                    inputMethodHints: Qt.ImhLowercaseOnly
+                                    validator: RegularExpressionValidator {
+                                        regularExpression: new RegExp(app.colorNames.join("|"))
+                                    }
+                                    function setIndexOfClosestColor(selectedColor) {
+                                        currentIndex = app.getIndexOfClosestNamedColor(selectedColor)
+                                    }
+                                    WheelHandler {
+                                        onWheel: (wheel) => {
+                                            if (wheel.angleDelta.y < 0) {
+                                                if (clearColorComboBox.currentIndex + 1 < clearColorComboBox.count)
+                                                    ++clearColorComboBox.currentIndex
+                                            } else {
+                                                if (clearColorComboBox.currentIndex > 0)
+                                                    --clearColorComboBox.currentIndex
+                                            }
+                                            clearColorDialog.selectedColor = clearColorComboBox.currentValue
+                                        }
+                                    }
+                                    model: ListModel {
+                                        Component.onCompleted: {
+                                            let colorNames = app.colorNames
+                                            for (let i in colorNames) {
+                                                let colorName = colorNames[i]
+                                                let colorItem = {
+                                                    colorName: colorName,
+                                                    colorValue: Qt.color(colorName),
+                                                }
+                                                append(colorItem)
+                                            }
+                                        }
+                                    }
+                                    onAccepted: clearColorDialog.selectedColor = currentValue
+                                    onActivated: clearColorDialog.selectedColor = currentValue
+                                    delegate: ItemDelegate {
+                                        id: delegate
+                                        required property int index
+                                        required property string colorName
+                                        required property color colorValue
+                                        highlighted: clearColorComboBox.highlightedIndex === index
+                                        contentItem: Row {
+                                            Rectangle {
+                                                id: colorRect
+                                                color: delegate.colorValue
+                                                height: colorText.height
+                                                width: height
+                                                radius: height / 4
+                                                border.width: 1
+                                                border.color: "black"
+                                            }
+                                            Text {
+                                                id: colorText
+                                                text: delegate.colorName
+                                                HoverHandler {
+                                                    id: colorTextHoverHandler
+                                                }
+                                                ToolTip.visible: colorTextHoverHandler.hovered
+                                                ToolTip.text: colorRect.color
+                                            }
+                                            spacing: colorText.height / 4
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    id: exactColorRect
+                                    height: clearColorComboBox.height
+                                    Layout.preferredWidth: height
+                                    Layout.margins: height / 8
+                                    Binding {
+                                        exactColorRect.color: clearColorComboBox.currentValue
+                                        when: clearColorComboBox.currentValue !== undefined
+                                    }
+                                    radius: height / 4
+                                    border.width: 1
+                                    border.color: "black"
+                                }
+                                ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
                             }
                         }
                     }
                     footer: ToolBar {
                         visible: visibility !== Window.FullScreen
-                        RowLayout {
+                        Flow {
                             anchors.fill: parent
-                            Text {
-                                text: "Mode:" + sahKdTreeViewer.modeDescription
-                                ToolTip.visible: modeTextHoverHandler.hovered
-                                ToolTip.text: sahKdTreeViewer.modeDescriptionVerbose
-                                HoverHandler {
-                                    id: modeTextHoverHandler
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: "Mode: " + sahKdTreeViewer.modeDescription
+                                        HoverHandler {
+                                            id: modeTextHoverHandler
+                                        }
+                                        ToolTip.visible: modeTextHoverHandler.hovered
+                                        ToolTip.text: sahKdTreeViewer.modeDescriptionVerbose
+                                    }
                                 }
                             }
-                            Item {
-                                Layout.fillWidth: true
-                            }
-                            Text {
-                                text: sahKdTreeViewer.cameraControllerDescription
-                            }
-                            Item {
-                                Layout.fillWidth: true
-                            }
-                            Text {
-                                text: {
-                                    "View: rotation(%1) scale(%2)"
-                                    .arg(content.rotation)
-                                    .arg(content.scale)
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: sahKdTreeViewer.cameraControllerDescription
+                                    }
                                 }
                             }
-                            Item {
-                                Layout.fillWidth: true
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: {
+                                            "View: rotation(%1) scale(%2)"
+                                            .arg(content.rotation)
+                                            .arg(content.scale)
+                                        }
+                                    }
+                                }
                             }
-                            Text {
-                                text: "Camera:" + sahKdTreeViewer.cameraDescription
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: "Clear color: %1".arg(sahKdTreeViewer.clearColor)
+                                    }
+                                    Rectangle {
+                                        Layout.fillHeight: true
+                                        Layout.preferredWidth: height
+                                        Layout.margins: height / 8
+                                        color: Qt.alpha(sahKdTreeViewer.clearColor, 1.0)
+                                        radius: height / 4
+                                        border.width: 1
+                                        border.color: "black"
+                                    }
+                                    HoverHandler {
+                                        id: clearColorHoveredHandler
+                                    }
+                                    ToolTip.visible: clearColorHoveredHandler.hovered
+                                    ToolTip.text: {
+                                        'Is close to "<font color="%1">%1</font>" color'
+                                        .arg(clearColorComboBox.currentText)
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: "Camera: " + sahKdTreeViewer.cameraDescription
+                                    }
+                                }
                             }
                         }
                     }
@@ -573,6 +715,7 @@ ApplicationWindow {
                             engine: SahKdTreeEngine
                             sceneUrl: page.fileUrl
                             useOffscreenTexture: actionUseOffscreenTexture.checked
+                            discardInvisible: actionDiscardInvisible.checked
                             wireFrame: actionWireFrame.checked
                             worldScale: 1.5
                             speed: sceneAabbMax.minus(sceneAabbMin).length() * worldScale / 10.0  // 10 seconds to cross the whole world
@@ -594,6 +737,7 @@ ApplicationWindow {
                                     easing.type: Easing.InOutQuad
                                 }
                             }
+                            clearColor: clearColorDialog.selectedColor
                         }
                         Rectangle {
                             anchors.fill: parent
@@ -603,16 +747,9 @@ ApplicationWindow {
                         }
                         MouseArea {
                             anchors.fill: parent
-                            acceptedButtons: Qt.RightButton
                             cursorShape: sahKdTreeViewer.cursor
-                            onClicked: mouse => {
-                                switch (mouse.button) {
-                                case Qt.RightButton: {
-                                    contextMenu.popup()
-                                    break
-                                }
-                                }
-                            }
+                            acceptedButtons: Qt.RightButton
+                            onClicked: contextMenu.popup()
                         }
                         Settings {
                             id: sceneSettings
@@ -620,9 +757,18 @@ ApplicationWindow {
                             property alias cameraPosition: sahKdTreeViewer.cameraPosition
                             property alias cameraOrientation: sahKdTreeViewer.cameraOrientation
                             property alias cameraFieldOfView: sahKdTreeViewer.cameraFieldOfView
+                            property color clearColor
+                        }
+                        Component.onCompleted: {
+                            clearColorDialog.selectedColor = sceneSettings.clearColor
+                            clearColorComboBox.setIndexOfClosestColor(sceneSettings.clearColor)
+                        }
+                        Component.onDestruction: {
+                            sceneSettings.clearColor = clearColorDialog.selectedColor
                         }
                     }
                     Settings {
+                        id: pageSettings
                         category: fileUrlHash
                         property alias visible: actionContentVisibility.checked
                         property alias rotation: rotationSlider.value

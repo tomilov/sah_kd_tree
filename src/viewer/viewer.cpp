@@ -71,9 +71,9 @@
 #include <QtQuick/QSGTextureProvider>
 #include <QtQuick/QSGTransformNode>
 
-#include <optional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include <cmath>
@@ -186,9 +186,10 @@ public:
         updateState(size, newSize);
     }
 
-    void updateMode(bool useOffscreenTexture, bool wireFrame)
+    void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
     {
         updateState(frameSettings.useOffscreenTexture, useOffscreenTexture);
+        updateState(frameSettings.discardInvisible, discardInvisible);
         updateState(frameSettings.wireFrame, wireFrame);
     }
 
@@ -199,6 +200,11 @@ public:
         updateState(frameSettings.fov, fov);
         updateState(frameSettings.zNear, zNear);
         updateState(frameSettings.zFar, zFar);
+    }
+
+    void setClearColor(const glm::vec4 & clearColor)
+    {
+        updateState(frameSettings.clearColor, clearColor);
     }
 
     void markDirty()
@@ -236,7 +242,6 @@ private:
 
     [[nodiscard]] QRectF getScissorRect(const QSizeF & renderTargetSize, const QMatrix4x4 & mvp) const
     {
-        // TODO: QVector3D::unproject?
         QRectF scissorRect = mvp.mapRect({{}, size});  // in NDC, turn back to window coordinates
         scissorRect.translate(1.0, 1.0);
         scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
@@ -276,8 +281,8 @@ private:
     {
         frameSettings.alpha = inheritedOpacity();
 
-        frameSettings.width = utils::safeCast<float>(size.width());
-        frameSettings.height = utils::safeCast<float>(size.height());
+        frameSettings.width = utils::safeCast<float>(std::ceil(size.width()));
+        frameSettings.height = utils::safeCast<float>(std::ceil(size.height()));
 
         const QSizeF renderTargetSize = renderTarget()->pixelSize();
         frameSettings.viewport = vk::Viewport{
@@ -293,18 +298,18 @@ private:
         const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
         frameSettings.scissor = vk::Rect2D{
             .offset = {
-                .x = utils::autoCast(scissorRect.x()),
-                .y = utils::autoCast(scissorRect.y()),
+                .x = utils::autoCast(std::floor(scissorRect.x())),
+                .y = utils::autoCast(std::floor(scissorRect.y())),
             },
             .extent = {
-                .width = utils::autoCast(scissorRect.width()),
-                .height = utils::autoCast(scissorRect.height()),
+                .width = utils::autoCast(std::ceil(scissorRect.width())),
+                .height = utils::autoCast(std::ceil(scissorRect.height())),
             },
         };
-        glm::mat4 & transform2D = frameSettings.transform2D;
-        transform2D = glm::make_mat4x4(mvp.constData());
-        transform2D = glm::scale(transform2D, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
-        transform2D = glm::translate(transform2D, glm::vec3{1.0f, 1.0f, 0.0f});
+        glm::mat4 & windowViewPorjection = frameSettings.windowViewPorjection;
+        windowViewPorjection = glm::make_mat4x4(mvp.constData());
+        windowViewPorjection = glm::scale(windowViewPorjection, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+        windowViewPorjection = glm::translate(windowViewPorjection, glm::vec3{1.0f, 1.0f, 0.0f});
 
         if ((false)) {                                // does not reset automatically w/o update()
             if (frameSettings.useOffscreenTexture) {  // optimization for axis aligned transform case
@@ -374,8 +379,9 @@ private:
         if (frameSettings.useOffscreenTexture) {
             renderingFlags |= RenderingFlag::DepthAwareRendering;
             renderingFlags |= RenderingFlag::BoundedRectRendering;
-        } else {
-            renderingFlags |= RenderingFlag::OpaqueRendering;
+            if (!frameSettings.discardInvisible && (frameSettings.alpha == 1.0f)) {
+                renderingFlags |= RenderingFlag::OpaqueRendering;
+            }
         }
         return renderingFlags;
     }
@@ -431,6 +437,7 @@ Viewer::Viewer(QQuickItem * parent)
     connect(this, &Viewer::sceneChanged, this, &QQuickItem::update);
     connect(this, &Viewer::cameraViewChanged, this, &QQuickItem::update);
     connect(this, &Viewer::renderModeChanged, this, &QQuickItem::update);
+    connect(this, &Viewer::clearColorChanged, this, &QQuickItem::update);
 
     const auto onWindowChanged = [this](QQuickWindow * window)
     {
@@ -453,7 +460,7 @@ Viewer::~Viewer() = default;
 
 QString Viewer::getCameraDescription() const
 {
-    float roll, pitch, yaw;
+    float pitch, yaw, roll;
     cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
     return u"xyz(%1, %2, %3) \x3C6\x3B8\x3C8(%4, %5, %6) fov(%7)"_s.arg(cameraPosition.x(), 5, 'f', 3)
         .arg(cameraPosition.y(), 5, 'f', 3)
@@ -466,7 +473,7 @@ QString Viewer::getCameraDescription() const
 
 QString Viewer::getCameraControllerDescription() const
 {
-    return u"sens(%1) speed(%2)"_s.arg(sensitivity, 5, 'f', 1).arg(speed, 5, 'f', 2);
+    return u"sens(%1) speed(%2)"_s.arg(sensitivity, 5, 'f', 4).arg(speed, 5, 'f', 2);
 }
 
 QString Viewer::getModeDescription() const
@@ -474,6 +481,9 @@ QString Viewer::getModeDescription() const
     QStringList mode;
     if (useOffscreenTexture) {
         mode << addRichTextColor(u"O"_s, u"fuchsia"_s);
+    }
+    if (discardInvisible) {
+        mode << addRichTextColor(u"D"_s, u"blue"_s);
     }
     if (wireFrame) {
         mode << addRichTextColor(u"W"_s, u"green"_s);
@@ -486,6 +496,9 @@ QString Viewer::getModeDescriptionVerbose() const
     QStringList mode;
     if (useOffscreenTexture) {
         mode << addRichTextColor(u"Use offscreen texture"_s, u"fuchsia"_s);
+    }
+    if (discardInvisible) {
+        mode << addRichTextColor(u"Discard invisible pixels"_s, u"blue"_s);
     }
     mode << addRichTextColor(u"%1 mode"_s.arg(wireFrame ? u"Wireframe"_s : u"Barycentric Color"_s), u"green"_s);
     return u"<b>%1</b>"_s.arg(mode.join(u" AND "_s));
@@ -555,7 +568,7 @@ void Viewer::resetCameraView()
 
 void Viewer::alignCameraOrientation()
 {
-    float roll, pitch, yaw;
+    float pitch, yaw, roll;
     cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
     constexpr auto round = [](float angle) -> float
     {
@@ -566,87 +579,9 @@ void Viewer::alignCameraOrientation()
 
 void Viewer::reflectCameraOrientation()
 {
-    float roll, pitch, yaw;
+    float pitch, yaw, roll;
     cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
     setCameraOrientation(QQuaternion::fromEulerAngles(-pitch, yaw + 180.0f, -roll));
-}
-
-void Viewer::setScene(RenderNode & renderNode)
-{
-    if (!isSceneUrlChanged) {
-        return;
-    }
-    isSceneUrlChanged = false;
-    renderNode.unsetScene();
-    {
-        sceneAabbMin = {};
-        sceneAabbMax = {};
-    }
-    Q_EMIT sceneChanged();
-    if (sceneUrl.isEmpty()) {
-        return;
-    }
-    if (!sceneUrl.isLocalFile()) {
-        qCWarning(viewerCategory) << u"sceneUrl URL is not local file:"_s << sceneUrl;
-        return;
-    }
-    const auto scenePath = QFileInfo{sceneUrl.toLocalFile()}.filesystemCanonicalFilePath();
-    QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
-    auto newScene = engine->getEngine().getScenes().getScene(scenePath);
-    QGuiApplication::restoreOverrideCursor();
-    if (!newScene) {
-        return;
-    }
-    {
-        const auto & [aabbMin, aabbMax] = newScene->sceneData.aabb;
-        sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
-        sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
-        Q_EMIT sceneChanged();
-    }
-    renderNode.setScene(std::move(newScene));
-}
-
-void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
-{
-    keyboardModifiers = event->modifiers();
-    Qt::Key key = utils::autoCast(event->key());
-    switch (key) {
-    case Qt::Key_W:
-    case Qt::Key_A:
-    case Qt::Key_S:
-    case Qt::Key_D:
-    case Qt::Key_Q:
-    case Qt::Key_E:
-    case Qt::Key_Left:
-    case Qt::Key_Right:
-    case Qt::Key_Up:
-    case Qt::Key_Down:
-    case Qt::Key_Space:
-    case Qt::Key_Z:
-    case Qt::Key_R:
-    case Qt::Key_X: {
-        if (event->isAutoRepeat()) {
-            break;
-        }
-        if (isPressed) {
-            if (pressedKeys.contains(key)) {
-                qCWarning(viewerCategory) << u"Key is already pressed:"_s << key;
-            } else {
-                pressedKeys.insert(key, 0);
-            }
-        } else {
-            if (!pressedKeys.remove(key)) {
-                qCWarning(viewerCategory) << u"Key is not pressed:"_s << key;
-            }
-        }
-        event->accept();
-        return;
-    }
-    default: {
-        break;
-    }
-    }
-    event->ignore();
 }
 
 void Viewer::handleInput()
@@ -758,10 +693,134 @@ void Viewer::handleInput()
         }
     } else {
         float angularSpeed = speedModifier;
-        auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt * angularSpeed);
-        auto panRotation = QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, pan * angularSpeed);
-        setCameraOrientation(cameraOrientation * tiltRotation * panRotation);
+        rotate(pan * angularSpeed, tilt * angularSpeed);
     }
+}
+
+void Viewer::setScene(RenderNode & renderNode)
+{
+    if (!isSceneUrlChanged) {
+        return;
+    }
+    isSceneUrlChanged = false;
+    renderNode.unsetScene();
+    {
+        sceneAabbMin = {};
+        sceneAabbMax = {};
+    }
+    Q_EMIT sceneChanged();
+    if (sceneUrl.isEmpty()) {
+        return;
+    }
+    if (!sceneUrl.isLocalFile()) {
+        qCWarning(viewerCategory) << u"sceneUrl URL is not local file:"_s << sceneUrl;
+        return;
+    }
+    const auto scenePath = QFileInfo{sceneUrl.toLocalFile()}.filesystemCanonicalFilePath();
+    QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
+    auto newScene = engine->getEngine().getScenes().getScene(scenePath);
+    QGuiApplication::restoreOverrideCursor();
+    if (!newScene) {
+        return;
+    }
+    {
+        const auto & [aabbMin, aabbMax] = newScene->sceneData.aabb;
+        sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
+        sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
+        Q_EMIT sceneChanged();
+    }
+    renderNode.setScene(std::move(newScene));
+}
+
+void Viewer::rotate(float pan, float tilt)
+{
+    if ((false)) {
+        auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt);
+        auto panRotation = QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, pan);
+        setCameraOrientation(cameraOrientation * panRotation * tiltRotation);
+    } else {
+        float pitch, yaw, roll;
+        cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
+
+        float rollRadians = qDegreesToRadians(roll);
+        pitch += tilt * qCos(rollRadians) - pan * qSin(rollRadians);
+        yaw += pan * qCos(rollRadians) + tilt * qSin(rollRadians);
+
+        while (pitch > 180.0f) {
+            pitch -= 360.0f;
+        }
+        while (pitch < -180.0f) {
+            pitch += 360.0f;
+        }
+        if (pitch > 90.0f) {
+            pitch = 180.0f - pitch;
+            yaw += 180.0;
+            roll += 180.0;
+        } else if (pitch < -90.0f) {
+            pitch = -180.0f - pitch;
+            yaw -= 180.0;
+            roll -= 180.0;
+        }
+
+        while (roll > 180.0f) {
+            roll -= 360.0f;
+        }
+        while (roll < -180.0f) {
+            roll += 360.0f;
+        }
+
+        while (yaw > 180.0f) {
+            yaw -= 360.0f;
+        }
+        while (yaw < -180.0f) {
+            yaw += 360.0f;
+        }
+
+        setCameraOrientation(QQuaternion::fromEulerAngles(pitch, yaw, roll));
+    }
+}
+
+void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
+{
+    keyboardModifiers = event->modifiers();
+    Qt::Key key = utils::autoCast(event->key());
+    switch (key) {
+    case Qt::Key_W:
+    case Qt::Key_A:
+    case Qt::Key_S:
+    case Qt::Key_D:
+    case Qt::Key_Q:
+    case Qt::Key_E:
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+    case Qt::Key_Up:
+    case Qt::Key_Down:
+    case Qt::Key_Space:
+    case Qt::Key_Z:
+    case Qt::Key_R:
+    case Qt::Key_X: {
+        if (event->isAutoRepeat()) {
+            break;
+        }
+        if (isPressed) {
+            if (pressedKeys.contains(key)) {
+                qCWarning(viewerCategory) << u"Key is already pressed:"_s << key;
+            } else {
+                pressedKeys.insert(key, 0);
+            }
+        } else {
+            if (!pressedKeys.remove(key)) {
+                qCWarning(viewerCategory) << u"Key is not pressed:"_s << key;
+            }
+        }
+        event->accept();
+        return;
+    }
+    default: {
+        break;
+    }
+    }
+    event->ignore();
 }
 
 void Viewer::releaseResources()
@@ -786,9 +845,7 @@ void Viewer::wheelEvent(QWheelEvent * event)
 
 void Viewer::mouseUngrabEvent()
 {
-    // ???
     unsetCursor();
-    update();
     return QQuickItem::mouseUngrabEvent();
 }
 
@@ -821,12 +878,10 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                float angularSpeed = sensitivity * qApp->primaryScreen()->physicalDotsPerInch();
-                float pan = utils::safeCast<float>(dragPosDelta.x());
-                float tilt = utils::safeCast<float>(dragPosDelta.y());
-                auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt * angularSpeed);
-                auto panRotation = QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, pan * angularSpeed);
-                setCameraOrientation(cameraOrientation * panRotation * tiltRotation);
+                float angularSpeed = sensitivity * qApp->primaryScreen()->physicalDotsPerInch() * (cameraFieldOfView / kDefaultCameraFieldOfView);
+                float pan = utils::autoCast(dragPosDelta.x());
+                float tilt = utils::autoCast(dragPosDelta.y());
+                rotate(pan * angularSpeed, tilt * angularSpeed);
             }
         }
         QCursor::setPos(startDragPos);
@@ -915,7 +970,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         }
         setScene(*node);
         node->updateSize(size());
-        node->updateMode(useOffscreenTexture, wireFrame);
+        node->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
         {
             glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
             glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};
@@ -923,6 +978,11 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
             float zFar = (sceneAabbMax - sceneAabbMin).length() * worldScale;
             float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
             node->updateCamera(position, orientation, fov, zNear, zFar);
+        }
+        {
+            float r, g, b, a;
+            clearColor.getRgbF(&r, &g, &b, &a);
+            node->setClearColor({r, g, b, a});
         }
         node->markDirty();
         return node;

@@ -112,7 +112,7 @@ bool PipelineCache::flush()
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }
-    SPDLOG_INFO("Pipeline cache '{}' successfully flushed", name);
+    SPDLOG_DEBUG("Pipeline cache '{}' successfully flushed", name);
     return true;
 }
 

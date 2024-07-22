@@ -48,7 +48,7 @@ CenteredDialog {
                 highlightFollowsCurrentItem: true
                 highlight: Rectangle {
                     color: palette.highlight
-                    radius: Mat.min(height, width) / 2
+                    radius: Math.min(height, width) / 2
                 }
                 model: FolderListModel {
                     folder: sceneOpenDialog.folderUrl
@@ -74,10 +74,10 @@ CenteredDialog {
                         MouseArea {
                             id: mouseArea
                             anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
                             hoverEnabled: true
                             onEntered: listView.currentIndex = index
-                            onClicked: mouse => {
+                            acceptedButtons: Qt.LeftButton
+                            onClicked: {
                                 if (fileIsDir) {
                                     sceneOpenDialog.folderUrl = fileUrl
                                 } else {

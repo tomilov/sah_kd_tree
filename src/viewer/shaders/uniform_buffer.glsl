@@ -3,10 +3,11 @@
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
     bool useOffscreenTexture;
+    bool discardInvisible;
     bool wireFrame;
     vec3 position;
     float zNear;
     float zFar;
     float alpha;
-    mat4 transform2D;
+    mat4 windowViewPorjection;
 } uniformBuffer;

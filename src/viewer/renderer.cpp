@@ -193,12 +193,13 @@ private:
 struct UniformBuffer
 {
     vk::Bool32 useOffscreenTexture = VK_FALSE;
+    vk::Bool32 discardInvisible = VK_FALSE;
     vk::Bool32 wireFrame = VK_FALSE;
     glm::vec3 position{0.0f};
     float zNear = 1E-2f;
     float zFar = 1E4;
     float alpha = 0.0f;
-    glm::mat4 transform2D{1.0f};
+    glm::mat4 windowViewPorjection{1.0f};
 };
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<UniformBuffer>);
@@ -506,12 +507,13 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
 {
     uniformBuffer = {
         .useOffscreenTexture = frameSettings.useOffscreenTexture,
+        .discardInvisible = frameSettings.discardInvisible,
         .wireFrame = frameSettings.wireFrame,
         .position = frameSettings.position,
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
         .alpha = frameSettings.alpha,
-        .transform2D = frameSettings.transform2D,
+        .windowViewPorjection = frameSettings.windowViewPorjection,
     };
 }
 
@@ -522,8 +524,8 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     auto mvp = projection * view;
     if (!frameSettings.useOffscreenTexture) {
-        auto transform2D = glm::scale(frameSettings.transform2D, glm::vec3{1.0f, -1.0f, 1.0f});
-        mvp = transform2D * mvp;
+        auto windowViewPorjection = glm::scale(frameSettings.windowViewPorjection, glm::vec3{1.0f, -1.0f, 1.0f});
+        mvp = windowViewPorjection * mvp;
     }
     return {
         .mvp = mvp,
@@ -844,10 +846,10 @@ void Renderer::Impl::offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPa
         {
             .color = {
                 .float32 = {{
-                    1.0f,
-                    1.0f,
-                    1.0f,
-                    1.0f,
+                    frameSettings.clearColor.r,
+                    frameSettings.clearColor.g,
+                    frameSettings.clearColor.b,
+                    frameSettings.clearColor.a,
                 }},
             },
         },
