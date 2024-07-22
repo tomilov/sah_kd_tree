@@ -157,6 +157,165 @@ private:
 
 }  // namespace
 
+void Camera::shift(QVector3D direction)
+{
+    auto newPosition = position + orientation.rotatedVector(direction);
+
+    const Viewer * viewer = qobject_cast<const Viewer *>(parent());
+    Q_CHECK_PTR(viewer);
+    const QVector3D & sceneAabbMin = viewer->sceneAabbMin;
+    const QVector3D & sceneAabbMax = viewer->sceneAabbMax;
+    const float & worldScale = viewer->worldScale;
+    if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
+        const auto direction = position - 0.5f * (sceneAabbMin + sceneAabbMax);
+        const float c = direction.length() - 0.5f * (sceneAabbMax - sceneAabbMin).length() * worldScale;
+        if (c > 0.0f) {
+            newPosition -= c * direction.normalized();
+        }
+    }
+
+    setPosition(newPosition);
+}
+
+void Camera::rotate(float pan, float tilt)
+{
+    if ((false)) {
+        auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt);
+        auto panRotation = QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, pan);
+        setOrientation(orientation * panRotation * tiltRotation);
+    } else {
+        float pitch, yaw, roll;
+        orientation.getEulerAngles(&pitch, &yaw, &roll);
+
+        float rollRadians = qDegreesToRadians(roll);
+        pitch += tilt * qCos(rollRadians) - pan * qSin(rollRadians);
+        yaw += pan * qCos(rollRadians) + tilt * qSin(rollRadians);
+
+        while (pitch > 180.0f) {
+            pitch -= 360.0f;
+        }
+        while (pitch < -180.0f) {
+            pitch += 360.0f;
+        }
+        if (pitch > 90.0f) {
+            pitch = 180.0f - pitch;
+            yaw += 180.0;
+            roll += 180.0;
+        } else if (pitch < -90.0f) {
+            pitch = -180.0f - pitch;
+            yaw -= 180.0;
+            roll -= 180.0;
+        }
+
+        while (roll > 180.0f) {
+            roll -= 360.0f;
+        }
+        while (roll < -180.0f) {
+            roll += 360.0f;
+        }
+
+        while (yaw > 180.0f) {
+            yaw -= 360.0f;
+        }
+        while (yaw < -180.0f) {
+            yaw += 360.0f;
+        }
+
+        setOrientation(QQuaternion::fromEulerAngles(pitch, yaw, roll));
+    }
+}
+
+void Camera::roll(float angle)
+{
+    if ((false)) {
+        auto rollRotation = QQuaternion::fromAxisAndAngle(0.0f, 0.0f, 1.0f, angle);
+        setOrientation(orientation * rollRotation);
+    } else {
+        float pitch, yaw, roll;
+        orientation.getEulerAngles(&pitch, &yaw, &roll);
+        roll += angle;
+
+        while (roll > 180.0f) {
+            roll -= 360.0f;
+        }
+        while (roll < -180.0f) {
+            roll += 360.0f;
+        }
+
+        setOrientation(QQuaternion::fromEulerAngles(pitch, yaw, roll));
+    }
+}
+
+void Camera::addFov(float angle)
+{
+    auto newFieldOfView = qBound<float>(5.0f, fieldOfView + angle, 175.0f);
+    setFieldOfView(newFieldOfView);
+}
+
+float Camera::getFovRatio() const
+{
+    return fieldOfView / kDefaultFieldOfView;
+}
+
+void Camera::setPosition(QVector3D position)
+{
+    if (qFuzzyCompare(this->position, position)) {
+        return;
+    }
+    this->position = position;
+    Q_EMIT viewChanged();
+}
+
+void Camera::setOrientation(QQuaternion orientation)
+{
+    if (qFuzzyCompare(this->orientation, orientation)) {
+        return;
+    }
+    this->orientation = orientation;
+    Q_EMIT viewChanged();
+}
+
+void Camera::setFieldOfView(float fieldOfView)
+{
+    if (qFuzzyCompare(this->fieldOfView, fieldOfView)) {
+        return;
+    }
+    this->fieldOfView = fieldOfView;
+    Q_EMIT viewChanged();
+}
+
+void Camera::resetView()
+{
+    setPosition({});
+    setOrientation({});
+    setFieldOfView(kDefaultFieldOfView);
+}
+
+void Camera::alignOrientation()
+{
+    float pitch, yaw, roll;
+    orientation.getEulerAngles(&pitch, &yaw, &roll);
+    constexpr auto round = [](float angle) -> float
+    {
+        return qRound(angle / 90.0f) * 90.0f;
+    };
+    setOrientation(QQuaternion::fromEulerAngles(round(pitch), round(yaw), round(roll)));
+}
+
+void Camera::reflectOrientation()
+{
+    float pitch, yaw, roll;
+    orientation.getEulerAngles(&pitch, &yaw, &roll);
+    setOrientation(QQuaternion::fromEulerAngles(-pitch, yaw + 180.0f, -roll));
+}
+
+QString Camera::getDescription() const
+{
+    float pitch, yaw, roll;
+    orientation.getEulerAngles(&pitch, &yaw, &roll);
+    return u"xyz(%1, %2, %3) \x3C6\x3B8\x3C8(%4, %5, %6) fov(%7)"_s.arg(position.x(), 5, 'f', 3).arg(position.y(), 5, 'f', 3).arg(position.z(), 5, 'f', 3).arg(pitch, 5, 'f', 1).arg(yaw, 5, 'f', 1).arg(roll, 5, 'f', 1).arg(fieldOfView, 5, 'f', 1);
+}
+
 class Viewer::RenderNode final : public QSGRenderNode
 {
 public:
@@ -403,6 +562,8 @@ private:
 Viewer::Viewer(QQuickItem * parent)
     : QQuickItem{parent}
 {
+    qRegisterMetaType<Camera *>("Camera*");
+
     setFlag(QQuickItem::Flag::ItemHasContents);
     setFocusPolicy(Qt::FocusPolicy::WheelFocus);
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
@@ -435,7 +596,7 @@ Viewer::Viewer(QQuickItem * parent)
     connect(handleInputTimer, &QTimer::timeout, this, &Viewer::handleInput);
 
     connect(this, &Viewer::sceneChanged, this, &QQuickItem::update);
-    connect(this, &Viewer::cameraViewChanged, this, &QQuickItem::update);
+    connect(camera, &Camera::viewChanged, this, &QQuickItem::update);
     connect(this, &Viewer::renderModeChanged, this, &QQuickItem::update);
     connect(this, &Viewer::clearColorChanged, this, &QQuickItem::update);
 
@@ -458,52 +619,6 @@ Viewer::Viewer(QQuickItem * parent)
 
 Viewer::~Viewer() = default;
 
-QString Viewer::getCameraDescription() const
-{
-    float pitch, yaw, roll;
-    cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
-    return u"xyz(%1, %2, %3) \x3C6\x3B8\x3C8(%4, %5, %6) fov(%7)"_s.arg(cameraPosition.x(), 5, 'f', 3)
-        .arg(cameraPosition.y(), 5, 'f', 3)
-        .arg(cameraPosition.z(), 5, 'f', 3)
-        .arg(pitch, 5, 'f', 1)
-        .arg(yaw, 5, 'f', 1)
-        .arg(roll, 5, 'f', 1)
-        .arg(cameraFieldOfView, 5, 'f', 1);
-}
-
-QString Viewer::getCameraControllerDescription() const
-{
-    return u"sens(%1) speed(%2)"_s.arg(sensitivity, 5, 'f', 4).arg(speed, 5, 'f', 2);
-}
-
-QString Viewer::getModeDescription() const
-{
-    QStringList mode;
-    if (useOffscreenTexture) {
-        mode << addRichTextColor(u"O"_s, u"fuchsia"_s);
-    }
-    if (discardInvisible) {
-        mode << addRichTextColor(u"D"_s, u"blue"_s);
-    }
-    if (wireFrame) {
-        mode << addRichTextColor(u"W"_s, u"green"_s);
-    }
-    return uR"xml(<b>%1</b>)xml"_s.arg(mode.join(QChar(u'|')));
-}
-
-QString Viewer::getModeDescriptionVerbose() const
-{
-    QStringList mode;
-    if (useOffscreenTexture) {
-        mode << addRichTextColor(u"Use offscreen texture"_s, u"fuchsia"_s);
-    }
-    if (discardInvisible) {
-        mode << addRichTextColor(u"Discard invisible pixels"_s, u"blue"_s);
-    }
-    mode << addRichTextColor(u"%1 mode"_s.arg(wireFrame ? u"Wireframe"_s : u"Barycentric Color"_s), u"green"_s);
-    return u"<b>%1</b>"_s.arg(mode.join(u" AND "_s));
-}
-
 void Viewer::setSceneUrl(QUrl sceneUrl)
 {
     if (this->sceneUrl == sceneUrl) {
@@ -524,73 +639,13 @@ void Viewer::unsetSceneUrl()
     Q_EMIT sceneUrlChanged();
 }
 
-void Viewer::setCameraPosition(QVector3D cameraPosition)
-{
-    if (qFuzzyCompare(this->cameraPosition, cameraPosition)) {
-        return;
-    }
-    if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
-        const auto direction = cameraPosition - 0.5f * (sceneAabbMin + sceneAabbMax);
-        const float c = direction.length() - 0.5f * (sceneAabbMax - sceneAabbMin).length() * worldScale;
-        if (c > 0.0f) {
-            cameraPosition -= c * direction.normalized();
-        }
-    }
-    this->cameraPosition = cameraPosition;
-    Q_EMIT cameraViewChanged();
-}
-
-void Viewer::setCameraOrientation(QQuaternion cameraOrientation)
-{
-    if (qFuzzyCompare(this->cameraOrientation, cameraOrientation)) {
-        return;
-    }
-    this->cameraOrientation = cameraOrientation;
-    Q_EMIT cameraViewChanged();
-}
-
-void Viewer::setCameraFieldOfView(float cameraFieldOfView)
-{
-    cameraFieldOfView = qBound<float>(5.0f, cameraFieldOfView, 175.0f);
-    if (qFuzzyCompare(this->cameraFieldOfView, cameraFieldOfView)) {
-        return;
-    }
-    this->cameraFieldOfView = cameraFieldOfView;
-    Q_EMIT cameraViewChanged();
-}
-
-void Viewer::resetCameraView()
-{
-    setCameraPosition({});
-    setCameraOrientation({});
-    setCameraFieldOfView(kDefaultCameraFieldOfView);
-}
-
-void Viewer::alignCameraOrientation()
-{
-    float pitch, yaw, roll;
-    cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
-    constexpr auto round = [](float angle) -> float
-    {
-        return qRound(angle / 90.0f) * 90.0f;
-    };
-    setCameraOrientation(QQuaternion::fromEulerAngles(round(pitch), round(yaw), round(roll)));
-}
-
-void Viewer::reflectCameraOrientation()
-{
-    float pitch, yaw, roll;
-    cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
-    setCameraOrientation(QQuaternion::fromEulerAngles(-pitch, yaw + 180.0f, -roll));
-}
-
 void Viewer::handleInput()
 {
     if (pressedKeys.isEmpty()) {
         return;
     }
     if (pressedKeys.contains(Qt::Key_Space)) {
-        resetCameraView();
+        camera->resetView();
         return;
     }
     QVector3D direction;
@@ -677,24 +732,57 @@ void Viewer::handleInput()
     }
     if (pressedKeys.contains(Qt::Key_Z)) {
         if (0 == pressedKeys[Qt::Key_Z]++) {
-            setCameraPosition({});
+            camera->setPosition({});
         }
     } else {
         float step = speedModifier * speed / utils::safeCast<float>(qApp->primaryScreen()->refreshRate());
-        setCameraPosition(cameraPosition + cameraOrientation.rotatedVector(direction.normalized()) * step);
+        camera->shift(direction.normalized() * step);
     }
     if (pressedKeys.contains(Qt::Key_R)) {
         if (0 == pressedKeys[Qt::Key_R]++) {
-            reflectCameraOrientation();
+            camera->reflectOrientation();
         }
     } else if (pressedKeys.contains(Qt::Key_X)) {
         if (0 == pressedKeys[Qt::Key_X]++) {
-            alignCameraOrientation();
+            camera->alignOrientation();
         }
     } else {
         float angularSpeed = speedModifier;
-        rotate(pan * angularSpeed, tilt * angularSpeed);
+        camera->rotate(pan * angularSpeed, tilt * angularSpeed);
     }
+}
+
+QString Viewer::getCameraControllerDescription() const
+{
+    return u"sens(%1) speed(%2)"_s.arg(sensitivity, 5, 'f', 4).arg(speed, 5, 'f', 2);
+}
+
+QString Viewer::getModeDescription() const
+{
+    QStringList mode;
+    if (useOffscreenTexture) {
+        mode << addRichTextColor(u"O"_s, u"fuchsia"_s);
+    }
+    if (discardInvisible) {
+        mode << addRichTextColor(u"D"_s, u"blue"_s);
+    }
+    if (wireFrame) {
+        mode << addRichTextColor(u"W"_s, u"green"_s);
+    }
+    return uR"xml(<b>%1</b>)xml"_s.arg(mode.join(QChar(u'|')));
+}
+
+QString Viewer::getModeDescriptionVerbose() const
+{
+    QStringList mode;
+    if (useOffscreenTexture) {
+        mode << addRichTextColor(u"Use offscreen texture"_s, u"fuchsia"_s);
+    }
+    if (discardInvisible) {
+        mode << addRichTextColor(u"Discard invisible pixels"_s, u"blue"_s);
+    }
+    mode << addRichTextColor(u"%1 mode"_s.arg(wireFrame ? u"Wireframe"_s : u"Barycentric Color"_s), u"green"_s);
+    return u"<b>%1</b>"_s.arg(mode.join(u" AND "_s));
 }
 
 void Viewer::setScene(RenderNode & renderNode)
@@ -730,54 +818,6 @@ void Viewer::setScene(RenderNode & renderNode)
         Q_EMIT sceneChanged();
     }
     renderNode.setScene(std::move(newScene));
-}
-
-void Viewer::rotate(float pan, float tilt)
-{
-    if ((false)) {
-        auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt);
-        auto panRotation = QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, pan);
-        setCameraOrientation(cameraOrientation * panRotation * tiltRotation);
-    } else {
-        float pitch, yaw, roll;
-        cameraOrientation.getEulerAngles(&pitch, &yaw, &roll);
-
-        float rollRadians = qDegreesToRadians(roll);
-        pitch += tilt * qCos(rollRadians) - pan * qSin(rollRadians);
-        yaw += pan * qCos(rollRadians) + tilt * qSin(rollRadians);
-
-        while (pitch > 180.0f) {
-            pitch -= 360.0f;
-        }
-        while (pitch < -180.0f) {
-            pitch += 360.0f;
-        }
-        if (pitch > 90.0f) {
-            pitch = 180.0f - pitch;
-            yaw += 180.0;
-            roll += 180.0;
-        } else if (pitch < -90.0f) {
-            pitch = -180.0f - pitch;
-            yaw -= 180.0;
-            roll -= 180.0;
-        }
-
-        while (roll > 180.0f) {
-            roll -= 360.0f;
-        }
-        while (roll < -180.0f) {
-            roll += 360.0f;
-        }
-
-        while (yaw > 180.0f) {
-            yaw -= 360.0f;
-        }
-        while (yaw < -180.0f) {
-            yaw += 360.0f;
-        }
-
-        setCameraOrientation(QQuaternion::fromEulerAngles(pitch, yaw, roll));
-    }
 }
 
 void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
@@ -833,12 +873,11 @@ void Viewer::wheelEvent(QWheelEvent * event)
     constexpr qreal kUnitsPerDegree = 8.0f;
     float angle = utils::safeCast<float>(event->angleDelta().y()) / kUnitsPerDegree;
     if (keyboardModifiers == Qt::KeyboardModifier::ShiftModifier) {
-        auto rollRotation = QQuaternion::fromAxisAndAngle(0.0f, 0.0f, 1.0f, angle);
-        setCameraOrientation(cameraOrientation * rollRotation);
+        camera->roll(angle);
     } else {
         constexpr float kUnitsPerStep = 15.0f;
         constexpr float kDegreesPerStep = 5.0f;
-        setCameraFieldOfView(cameraFieldOfView + angle / (kUnitsPerStep / kDegreesPerStep));
+        camera->addFov(angle / (kUnitsPerStep / kDegreesPerStep));
     }
     event->accept();
 }
@@ -878,10 +917,10 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                float angularSpeed = sensitivity * qApp->primaryScreen()->physicalDotsPerInch() * (cameraFieldOfView / kDefaultCameraFieldOfView);
+                float angularSpeed = sensitivity * qApp->primaryScreen()->physicalDotsPerInch() * camera->getFovRatio();
                 float pan = utils::autoCast(dragPosDelta.x());
                 float tilt = utils::autoCast(dragPosDelta.y());
-                rotate(pan * angularSpeed, tilt * angularSpeed);
+                camera->rotate(pan * angularSpeed, tilt * angularSpeed);
             }
         }
         QCursor::setPos(startDragPos);
@@ -972,6 +1011,16 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         node->updateSize(size());
         node->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
         {
+            const auto getCameraProperty = [this](const char * propertyName) -> QVariant
+            {
+                auto property = camera->property(propertyName);
+                Q_ASSERT(property.isValid());
+                return property;
+            };
+            auto cameraPosition = getCameraProperty("position").value<QVector3D>();
+            auto cameraOrientation = getCameraProperty("orientation").value<QQuaternion>();
+            auto cameraFieldOfView = getCameraProperty("fieldOfView").value<float>();
+
             glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
             glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};
             float fov = utils::autoCast(qDegreesToRadians(cameraFieldOfView));

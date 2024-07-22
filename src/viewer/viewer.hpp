@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QDataStream>
 #include <QtCore/QHash>
 #include <QtCore/QMetaObject>
 #include <QtCore/QObject>
@@ -12,6 +13,7 @@
 #include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
 #include <QtGui/QWheelEvent>
+#include <QtQml/QQmlEngine>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGNode>
@@ -22,6 +24,59 @@ class EngineWrapper;
 struct Scene;
 struct FrameSettings;
 class Renderer;
+
+class Viewer;
+class Camera : public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QVector3D position MEMBER position WRITE setPosition NOTIFY viewChanged)
+    Q_PROPERTY(QQuaternion orientation MEMBER orientation WRITE setOrientation NOTIFY viewChanged)
+    Q_PROPERTY(float fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY viewChanged)
+    Q_PROPERTY(QString description READ getDescription NOTIFY viewChanged STORED false)
+    QML_ELEMENT
+
+public:
+    using QObject::QObject;
+
+    Q_INVOKABLE void shift(QVector3D direction);
+    Q_INVOKABLE void rotate(float pan, float tilt);
+    Q_INVOKABLE void roll(float angle);
+    Q_INVOKABLE void addFov(float angle);
+
+    [[nodiscard]] Q_INVOKABLE float getFovRatio() const;
+
+    friend QDataStream & operator<<(QDataStream & dataStream, const Camera & camera)
+    {
+        return dataStream << camera.position << camera.orientation << camera.fieldOfView;
+    }
+
+    friend QDataStream & operator>>(QDataStream & dataStream, Camera & camera)
+    {
+        return dataStream >> camera.position >> camera.orientation >> camera.fieldOfView;
+    }
+
+public Q_SLOTS:
+    void setPosition(QVector3D position);
+    void setOrientation(QQuaternion orientation);
+    void setFieldOfView(float fieldOfView);
+
+    void resetView();
+    void alignOrientation();
+    void reflectOrientation();
+
+Q_SIGNALS:
+    void viewChanged();
+
+private:
+    static constexpr float kDefaultFieldOfView = 90.0f;
+
+    QVector3D position;
+    QQuaternion orientation;
+    float fieldOfView = kDefaultFieldOfView;
+
+    [[nodiscard]] QString getDescription() const;
+};
 
 class Viewer : public QQuickItem
 {
@@ -35,10 +90,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(QVector3D sceneAabbMin MEMBER sceneAabbMin NOTIFY sceneChanged)
     Q_PROPERTY(QVector3D sceneAabbMax MEMBER sceneAabbMax NOTIFY sceneChanged)
 
-    Q_PROPERTY(QVector3D cameraPosition MEMBER cameraPosition WRITE setCameraPosition NOTIFY cameraViewChanged)
-    Q_PROPERTY(QQuaternion cameraOrientation MEMBER cameraOrientation WRITE setCameraOrientation NOTIFY cameraViewChanged)
-    Q_PROPERTY(float cameraFieldOfView MEMBER cameraFieldOfView WRITE setCameraFieldOfView NOTIFY cameraViewChanged)
-    Q_PROPERTY(QString cameraDescription READ getCameraDescription NOTIFY cameraViewChanged STORED false)
+    Q_PROPERTY(Camera * camera MEMBER camera CONSTANT)
 
     Q_PROPERTY(float sensitivity MEMBER sensitivity NOTIFY cameraControllerChanged)
     Q_PROPERTY(float speed MEMBER speed NOTIFY cameraControllerChanged)
@@ -56,27 +108,14 @@ public:
     explicit Viewer(QQuickItem * parent = nullptr);
     ~Viewer() override;
 
-    [[nodiscard]] QString getCameraDescription() const;
-    [[nodiscard]] QString getCameraControllerDescription() const;
-    [[nodiscard]] QString getModeDescription() const;
-    [[nodiscard]] QString getModeDescriptionVerbose() const;
-
 public Q_SLOTS:
     void setSceneUrl(QUrl sceneUrl);
     void unsetSceneUrl();
-
-    void setCameraPosition(QVector3D cameraPosition);
-    void setCameraOrientation(QQuaternion cameraOrientation);
-    void setCameraFieldOfView(float cameraFieldOfView);
-    void resetCameraView();
-    void alignCameraOrientation();
-    void reflectCameraOrientation();
 
 Q_SIGNALS:
     void engineChanged();
     void sceneUrlChanged();
     void sceneChanged();
-    void cameraViewChanged();
     void cameraControllerChanged();
     void renderModeChanged();
     void clearColorChanged();
@@ -85,8 +124,7 @@ private Q_SLOTS:
     void handleInput();
 
 private:
-    static constexpr float kDefaultCameraFieldOfView = 90.0f;
-
+    friend Camera;
     class RenderNode;
 
     EngineWrapper * engine = nullptr;
@@ -97,9 +135,7 @@ private:
     QVector3D sceneAabbMin;
     QVector3D sceneAabbMax;
 
-    QVector3D cameraPosition;
-    QQuaternion cameraOrientation;
-    float cameraFieldOfView = kDefaultCameraFieldOfView;
+    Camera * const camera = new Camera{this};
 
     float sensitivity = 0.0012f;
     float speed = 1.0f;
@@ -118,8 +154,11 @@ private:
     QMetaObject::Connection refreshRateConnection;
     QMetaObject::Connection sceneGraphInvalidatedConnection;
 
+    [[nodiscard]] QString getCameraControllerDescription() const;
+    [[nodiscard]] QString getModeDescription() const;
+    [[nodiscard]] QString getModeDescriptionVerbose() const;
+
     void setScene(RenderNode & renderNode);
-    void rotate(float pan, float tilt);
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 
     void releaseResources() override;
@@ -138,3 +177,5 @@ private:
 };
 
 }  // namespace viewer
+
+Q_DECLARE_METATYPE(viewer::Camera)

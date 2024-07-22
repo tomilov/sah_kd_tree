@@ -373,15 +373,15 @@ ApplicationWindow {
                                 }
                                 ToolButton {
                                     text: qsTr("Reset")
-                                    onClicked: sahKdTreeViewer.resetCameraView()
+                                    onClicked: sahKdTreeViewer.camera.resetView()
                                 }
                                 ToolButton {
                                     text: qsTr("Align")
-                                    onClicked: sahKdTreeViewer.alignCameraOrientation()
+                                    onClicked: sahKdTreeViewer.camera.alignOrientation()
                                 }
                                 ToolButton {
                                     text: qsTr("Reflect")
-                                    onClicked: sahKdTreeViewer.reflectCameraOrientation()
+                                    onClicked: sahKdTreeViewe.camerar.reflectOrientation()
                                 }
                                 ToolSeparator {
                                     Layout.fillHeight: true
@@ -660,7 +660,7 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Camera: " + sahKdTreeViewer.cameraDescription
+                                        text: "Camera: " + sahKdTreeViewer.camera.description
                                     }
                                 }
                             }
@@ -694,14 +694,14 @@ ApplicationWindow {
                                 case Qt.Key_9: {
                                     let keyPrefix = "cameraView/%1/".arg(event.key)
                                     if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
-                                        sceneSettings.setValue(keyPrefix + "cameraPosition", sahKdTreeViewer.cameraPosition)
-                                        sceneSettings.setValue(keyPrefix + "cameraOrientation", sahKdTreeViewer.cameraOrientation)
-                                        sceneSettings.setValue(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.cameraFieldOfView)
+                                        sceneSettings.setValue(keyPrefix + "cameraPosition", sahKdTreeViewer.camera.position)
+                                        sceneSettings.setValue(keyPrefix + "cameraOrientation", sahKdTreeViewer.camera.orientation)
+                                        sceneSettings.setValue(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.camera.fieldOfView)
                                         event.accepted = true
                                     } else if (event.modifiers === 0) {
-                                        sahKdTreeViewer.cameraPosition = sceneSettings.value(keyPrefix + "cameraPosition", sahKdTreeViewer.cameraPosition)
-                                        sahKdTreeViewer.cameraOrientation = sceneSettings.value(keyPrefix + "cameraOrientation", sahKdTreeViewer.cameraOrientation)
-                                        sahKdTreeViewer.cameraFieldOfView = sceneSettings.value(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.cameraFieldOfView)
+                                        sahKdTreeViewer.camera.position = sceneSettings.value(keyPrefix + "cameraPosition", sahKdTreeViewer.camera.position)
+                                        sahKdTreeViewer.camera.orientation = sceneSettings.value(keyPrefix + "cameraOrientation", sahKdTreeViewer.camera.orientation)
+                                        sahKdTreeViewer.camera.fieldOfView = sceneSettings.value(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.camera.fieldOfView)
                                         event.accepted = true
                                     }
                                     break
@@ -719,22 +719,24 @@ ApplicationWindow {
                             wireFrame: actionWireFrame.checked
                             worldScale: 1.5
                             speed: sceneAabbMax.minus(sceneAabbMin).length() * worldScale / 10.0  // 10 seconds to cross the whole world
-                            Behavior on cameraPosition {
-                                Vector3dAnimation {
-                                    duration: 1000
-                                    easing.type: Easing.InOutQuad
+                            camera {
+                                Behavior on position {
+                                    Vector3dAnimation {
+                                        duration: 1000
+                                        easing.type: Easing.InOutQuad
+                                    }
                                 }
-                            }
-                            Behavior on cameraOrientation {
-                                QuaternionAnimation {
-                                    duration: 1000
-                                    easing.type: Easing.InOutQuad
+                                Behavior on orientation {
+                                    QuaternionAnimation {
+                                        duration: 1000
+                                        easing.type: Easing.InOutQuad
+                                    }
                                 }
-                            }
-                            Behavior on cameraFieldOfView {
-                                NumberAnimation {
-                                    duration: 1000
-                                    easing.type: Easing.InOutQuad
+                                Behavior on fieldOfView {
+                                    NumberAnimation {
+                                        duration: 1000
+                                        easing.type: Easing.InOutQuad
+                                    }
                                 }
                             }
                             clearColor: clearColorDialog.selectedColor
@@ -754,9 +756,7 @@ ApplicationWindow {
                         Settings {
                             id: sceneSettings
                             category: fileUrlHash
-                            property alias cameraPosition: sahKdTreeViewer.cameraPosition
-                            property alias cameraOrientation: sahKdTreeViewer.cameraOrientation
-                            property alias cameraFieldOfView: sahKdTreeViewer.cameraFieldOfView
+                            property alias camera: sahKdTreeViewer.camera
                             property color clearColor
                         }
                         Component.onCompleted: {
