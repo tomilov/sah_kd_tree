@@ -395,8 +395,7 @@ int main(int argc, char * argv[])
 
     // persistRootWindowSettings(qmlApplicationEngine);
     QVariantMap initialProperties;
-    // initialProperties["visible"] = false;
-    // initialProperties["visibility"] = QQuickWindow::Visibility::Hidden;
+    initialProperties["visible"] = true;
     qmlApplicationEngine.setInitialProperties(initialProperties);
     qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 

@@ -6,6 +6,8 @@ layout(set = 0, binding = 0, scalar) uniform UniformBuffer
     bool discardInvisible;
     bool wireFrame;
     vec3 position;
+    float width;
+    float height;
     float zNear;
     float zFar;
     float alpha;

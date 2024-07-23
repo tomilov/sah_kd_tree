@@ -126,7 +126,7 @@ AssimpLoggerGuard::~AssimpLoggerGuard()
 
 bool AssimpProgressHandler::Update(float percentage)
 {
-    qCInfo(assimpWrappersLog).noquote() << u"%1 loaded"_s.arg(utils::safeCast<qreal>(percentage));
+    qCInfo(assimpWrappersLog).noquote() << u"%1 loaded"_s.arg(percentage);
     return true;
 }
 

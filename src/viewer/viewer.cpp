@@ -358,6 +358,14 @@ Viewer::Viewer(QQuickItem * parent)
     onPrimaryScreenChanged(qApp->primaryScreen());
     connect(qApp, &QGuiApplication::primaryScreenChanged, this, onPrimaryScreenChanged);
     connect(handleKeyboardInputTimer, &QTimer::timeout, this, &Viewer::handleKeyboardInput);
+    const auto onActiveFocusChanged = [this](bool activeFocus)
+    {
+        // qInfo() << activeFocus << objectName();
+        if (!activeFocus) {
+            pressedKeys.clear();
+        }
+    };
+    connect(this, &QQuickItem::activeFocusChanged, this, onActiveFocusChanged);
 
     connect(scene, &SceneSettings::urlChanged, this, &QQuickItem::update);
     connect(scene, &SceneSettings::settingsChanged, this, &QQuickItem::update);

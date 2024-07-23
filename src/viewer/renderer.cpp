@@ -196,8 +196,10 @@ struct UniformBuffer
     vk::Bool32 discardInvisible = VK_FALSE;
     vk::Bool32 wireFrame = VK_FALSE;
     glm::vec3 position{0.0f};
-    float zNear = 1E-2f;
-    float zFar = 1E4;
+    float width = 0.0f;
+    float height = 0.0f;
+    float zNear = 0.0f;
+    float zFar = 0.0f;
     float alpha = 0.0f;
     glm::mat4 windowMvp{1.0f};
 };
@@ -510,6 +512,8 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .discardInvisible = frameSettings.discardInvisible,
         .wireFrame = frameSettings.wireFrame,
         .position = frameSettings.position,
+        .width = frameSettings.width,
+        .height = frameSettings.height,
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
         .alpha = frameSettings.alpha,

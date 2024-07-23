@@ -780,13 +780,14 @@ ApplicationWindow {
                             id: boundingRect
                             anchors.fill: parent
                             border {
-                                color: palette.accent
+                                color: clearColorDialog.selectedColor
                                 width: 4
                             }
                             color: "transparent"
                         }
                         SahKdTreeViewer {
                             id: sahKdTreeViewer
+                            objectName: fileUrlHash
                             anchors.fill: boundingRect
                             anchors.margins: boundingRect.border.width
                             readonly property int animationDuration: 1000
@@ -873,7 +874,6 @@ ApplicationWindow {
                         }
                     }
                     Settings {
-                        id: pageSettings
                         category: fileUrlHash
                         property alias visible: actionContentVisibility.checked
                         property alias rotation: rotationSlider.value
