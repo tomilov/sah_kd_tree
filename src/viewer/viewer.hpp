@@ -2,7 +2,6 @@
 
 #include <QtCore/QDataStream>
 #include <QtCore/QHash>
-#include <QtCore/QMetaObject>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 #include <QtCore/QTimer>
@@ -13,7 +12,6 @@
 #include <QtGui/QVector2D>
 #include <QtGui/QVector3D>
 #include <QtGui/QWheelEvent>
-#include <QtQml/QQmlEngine>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGNode>
@@ -25,16 +23,14 @@ struct Scene;
 struct FrameSettings;
 class Renderer;
 
-class Viewer;
 class Camera : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QVector3D position MEMBER position WRITE setPosition NOTIFY viewChanged)
-    Q_PROPERTY(QQuaternion orientation MEMBER orientation WRITE setOrientation NOTIFY viewChanged)
-    Q_PROPERTY(float fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY viewChanged)
+    Q_PROPERTY(QVector3D position MEMBER position WRITE setPosition NOTIFY viewChanged RESET resetPosition)
+    Q_PROPERTY(QQuaternion orientation MEMBER orientation WRITE setOrientation NOTIFY viewChanged RESET resetOrientation)
+    Q_PROPERTY(float fieldOfView MEMBER fieldOfView WRITE setFieldOfView NOTIFY viewChanged RESET resetFieldOfView)
     Q_PROPERTY(QString description READ getDescription NOTIFY viewChanged STORED false)
-    QML_ELEMENT
 
 public:
     using QObject::QObject;
@@ -46,22 +42,15 @@ public:
 
     [[nodiscard]] Q_INVOKABLE float getFovRatio() const;
 
-    friend QDataStream & operator<<(QDataStream & dataStream, const Camera & camera)
-    {
-        return dataStream << camera.position << camera.orientation << camera.fieldOfView;
-    }
-
-    friend QDataStream & operator>>(QDataStream & dataStream, Camera & camera)
-    {
-        return dataStream >> camera.position >> camera.orientation >> camera.fieldOfView;
-    }
-
 public Q_SLOTS:
     void setPosition(QVector3D position);
     void setOrientation(QQuaternion orientation);
     void setFieldOfView(float fieldOfView);
 
-    void resetView();
+    void resetPosition();
+    void resetOrientation();
+    void resetFieldOfView();
+
     void alignOrientation();
     void reflectOrientation();
 
@@ -90,7 +79,7 @@ class Viewer : public QQuickItem
     Q_PROPERTY(QVector3D sceneAabbMin MEMBER sceneAabbMin NOTIFY sceneChanged)
     Q_PROPERTY(QVector3D sceneAabbMax MEMBER sceneAabbMax NOTIFY sceneChanged)
 
-    Q_PROPERTY(Camera * camera MEMBER camera CONSTANT)
+    Q_PROPERTY(Camera * camera READ getCamera NOTIFY cameraViewChanged CONSTANT)
 
     Q_PROPERTY(float sensitivity MEMBER sensitivity NOTIFY cameraControllerChanged)
     Q_PROPERTY(float speed MEMBER speed NOTIFY cameraControllerChanged)
@@ -116,6 +105,7 @@ Q_SIGNALS:
     void engineChanged();
     void sceneUrlChanged();
     void sceneChanged();
+    void cameraViewChanged();
     void cameraControllerChanged();
     void renderModeChanged();
     void clearColorChanged();
@@ -154,6 +144,7 @@ private:
     QMetaObject::Connection refreshRateConnection;
     QMetaObject::Connection sceneGraphInvalidatedConnection;
 
+    [[nodiscard]] Camera * getCamera() const;
     [[nodiscard]] QString getCameraControllerDescription() const;
     [[nodiscard]] QString getModeDescription() const;
     [[nodiscard]] QString getModeDescriptionVerbose() const;
@@ -177,5 +168,3 @@ private:
 };
 
 }  // namespace viewer
-
-Q_DECLARE_METATYPE(viewer::Camera)

@@ -47,6 +47,7 @@
 #include <QtCore/QTypeInfo>
 #include <QtCore/QVariant>
 #include <QtCore/QtAssert>
+#include <QtCore/QJsonValue>
 #include <QtCore/QtLogging>
 #include <QtCore/QtMath>
 #include <QtCore/QtMinMax>
@@ -284,10 +285,18 @@ void Camera::setFieldOfView(float fieldOfView)
     Q_EMIT viewChanged();
 }
 
-void Camera::resetView()
+void Camera::resetPosition()
 {
     setPosition({});
+}
+
+void Camera::resetOrientation()
+{
     setOrientation({});
+}
+
+void Camera::resetFieldOfView()
+{
     setFieldOfView(kDefaultFieldOfView);
 }
 
@@ -562,8 +571,6 @@ private:
 Viewer::Viewer(QQuickItem * parent)
     : QQuickItem{parent}
 {
-    qRegisterMetaType<Camera *>("Camera*");
-
     setFlag(QQuickItem::Flag::ItemHasContents);
     setFocusPolicy(Qt::FocusPolicy::WheelFocus);
     setAcceptedMouseButtons(Qt::MouseButton::LeftButton);
@@ -594,6 +601,8 @@ Viewer::Viewer(QQuickItem * parent)
     onPrimaryScreenChanged(qApp->primaryScreen());
     connect(qApp, &QGuiApplication::primaryScreenChanged, this, onPrimaryScreenChanged);
     connect(handleInputTimer, &QTimer::timeout, this, &Viewer::handleInput);
+
+    connect(camera, &Camera::viewChanged, this, &Viewer::cameraViewChanged);
 
     connect(this, &Viewer::sceneChanged, this, &QQuickItem::update);
     connect(camera, &Camera::viewChanged, this, &QQuickItem::update);
@@ -645,7 +654,9 @@ void Viewer::handleInput()
         return;
     }
     if (pressedKeys.contains(Qt::Key_Space)) {
-        camera->resetView();
+        camera->resetOrientation();
+        camera->resetPosition();
+        camera->resetFieldOfView();
         return;
     }
     QVector3D direction;
@@ -732,7 +743,7 @@ void Viewer::handleInput()
     }
     if (pressedKeys.contains(Qt::Key_Z)) {
         if (0 == pressedKeys[Qt::Key_Z]++) {
-            camera->setPosition({});
+            camera->resetPosition();
         }
     } else {
         float step = speedModifier * speed / utils::safeCast<float>(qApp->primaryScreen()->refreshRate());
@@ -750,6 +761,11 @@ void Viewer::handleInput()
         float angularSpeed = speedModifier;
         camera->rotate(pan * angularSpeed, tilt * angularSpeed);
     }
+}
+
+Camera * Viewer::getCamera() const
+{
+    return camera;
 }
 
 QString Viewer::getCameraControllerDescription() const

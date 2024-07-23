@@ -373,7 +373,11 @@ ApplicationWindow {
                                 }
                                 ToolButton {
                                     text: qsTr("Reset")
-                                    onClicked: sahKdTreeViewer.camera.resetView()
+                                    onClicked: {
+                                        sahKdTreeViewer.camera.orientation = undefined
+                                        sahKdTreeViewer.camera.position = undefined
+                                        sahKdTreeViewer.camera.filedOfView = undefined
+                                    }
                                 }
                                 ToolButton {
                                     text: qsTr("Align")
@@ -381,7 +385,7 @@ ApplicationWindow {
                                 }
                                 ToolButton {
                                     text: qsTr("Reflect")
-                                    onClicked: sahKdTreeViewe.camerar.reflectOrientation()
+                                    onClicked: sahKdTreeViewer.camera.reflectOrientation()
                                 }
                                 ToolSeparator {
                                     Layout.fillHeight: true
@@ -680,6 +684,7 @@ ApplicationWindow {
                         layer.enabled: actionLayerEnabled.checked
                         layer.live: true
                         focus: true
+                        property int animationDuration: 0
                         Keys.onPressed: event => {
                             switch (event.key) {
                                 case Qt.Key_0:
@@ -692,16 +697,11 @@ ApplicationWindow {
                                 case Qt.Key_7:
                                 case Qt.Key_8:
                                 case Qt.Key_9: {
-                                    let keyPrefix = "cameraView/%1/".arg(event.key)
                                     if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
-                                        sceneSettings.setValue(keyPrefix + "cameraPosition", sahKdTreeViewer.camera.position)
-                                        sceneSettings.setValue(keyPrefix + "cameraOrientation", sahKdTreeViewer.camera.orientation)
-                                        sceneSettings.setValue(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.camera.fieldOfView)
+                                        viewerSettings.saveCamera(event.key)
                                         event.accepted = true
                                     } else if (event.modifiers === 0) {
-                                        sahKdTreeViewer.camera.position = sceneSettings.value(keyPrefix + "cameraPosition", sahKdTreeViewer.camera.position)
-                                        sahKdTreeViewer.camera.orientation = sceneSettings.value(keyPrefix + "cameraOrientation", sahKdTreeViewer.camera.orientation)
-                                        sahKdTreeViewer.camera.fieldOfView = sceneSettings.value(keyPrefix + "cameraFieldOfView", sahKdTreeViewer.camera.fieldOfView)
+                                        viewerSettings.loadCamera(event.key)
                                         event.accepted = true
                                     }
                                     break
@@ -722,19 +722,19 @@ ApplicationWindow {
                             camera {
                                 Behavior on position {
                                     Vector3dAnimation {
-                                        duration: 1000
+                                        duration: content.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                                 Behavior on orientation {
                                     QuaternionAnimation {
-                                        duration: 1000
+                                        duration: content.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                                 Behavior on fieldOfView {
                                     NumberAnimation {
-                                        duration: 1000
+                                        duration: content.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
@@ -754,17 +754,36 @@ ApplicationWindow {
                             onClicked: contextMenu.popup()
                         }
                         Settings {
-                            id: sceneSettings
+                            id: viewerSettings
                             category: fileUrlHash
-                            property alias camera: sahKdTreeViewer.camera
                             property color clearColor
-                        }
-                        Component.onCompleted: {
-                            clearColorDialog.selectedColor = sceneSettings.clearColor
-                            clearColorComboBox.setIndexOfClosestColor(sceneSettings.clearColor)
-                        }
-                        Component.onDestruction: {
-                            sceneSettings.clearColor = clearColorDialog.selectedColor
+                            function getKeyPrefix(key) {
+                                return "camera/%1/".arg(key)
+                            }
+                            function saveCamera(key) {
+                                let keyPrefix = getKeyPrefix(key)
+                                let camera = sahKdTreeViewer.camera
+                                setValue(keyPrefix + "position", camera.position)
+                                setValue(keyPrefix + "orientation", camera.orientation)
+                                setValue(keyPrefix + "fieldOfView", camera.fieldOfView)
+                            }
+                            function loadCamera(key) {
+                                let keyPrefix = getKeyPrefix(key)
+                                let camera = sahKdTreeViewer.camera
+                                camera.position = value(keyPrefix + "position", camera.position)
+                                camera.orientation = value(keyPrefix + "orientation", camera.orientation)
+                                camera.fieldOfView = value(keyPrefix + "fieldOfView", camera.fieldOfView)
+                            }
+                            Component.onCompleted: {
+                                clearColorDialog.selectedColor = viewerSettings.clearColor
+                                clearColorComboBox.setIndexOfClosestColor(viewerSettings.clearColor)
+                                loadCamera(Qt.Key_0)
+                                content.animationDuration = 1000
+                            }
+                            Component.onDestruction: {
+                                viewerSettings.clearColor = clearColorDialog.selectedColor
+                                saveCamera(Qt.Key_0)
+                            }
                         }
                     }
                     Settings {
