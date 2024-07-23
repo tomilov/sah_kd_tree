@@ -341,8 +341,9 @@ int main(int argc, char * argv[])
     }
 
     QQuickGraphicsConfiguration quickGraphicsConfiguration;
-    quickGraphicsConfiguration.setDeviceExtensions({});
+    quickGraphicsConfiguration.setDeviceExtensions({});  // set
     quickGraphicsConfiguration.setDepthBufferFor2D(true);
+    // setDebugLayer
 
     QLoggingCategory::setFilterRules(u"qt.qml.binding.removal.info=true"_s);
     QQmlApplicationEngine qmlApplicationEngine;
@@ -367,6 +368,10 @@ int main(int argc, char * argv[])
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
+        // TODO: QQuickRenderControl, QQuickWindow::setRenderTarget(QQuickRenderTarget::fromVulkanImage),
+        // QQuickWindow::setGraphicsDevice(QQuickGraphicsDevice::fromDeviceAndContext),
+        // applicationWindow->setPersistentGraphics(false); // TODO: test
+        // applicationWindow->setPersistentSceneGraph(false);
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
             auto & context = engine.getContext();
@@ -389,6 +394,10 @@ int main(int argc, char * argv[])
     }
 
     // persistRootWindowSettings(qmlApplicationEngine);
+    QVariantMap initialProperties;
+    // initialProperties["visible"] = false;
+    // initialProperties["visibility"] = QQuickWindow::Visibility::Hidden;
+    qmlApplicationEngine.setInitialProperties(initialProperties);
     qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 
     return application->exec();

@@ -1,0 +1,440 @@
+#include <engine/context.hpp>
+#include <engine/device.hpp>
+#include <engine/instance.hpp>
+#include <engine/physical_device.hpp>
+#include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
+#include <viewer/engine.hpp>
+#include <viewer/engine_wrapper.hpp>
+#include <viewer/render_node.hpp>
+#include <viewer/renderer.hpp>
+#include <viewer/scenes.hpp>
+#include <viewer/utils.hpp>
+
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_float.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/matrix_transform_2d.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <vulkan/vulkan.hpp>
+
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QRectF>
+#include <QtCore/QRunnable>
+#include <QtCore/QSizeF>
+#include <QtCore/QVector>
+#include <QtCore/QtAssert>
+#include <QtCore/QtLogging>
+#include <QtCore/QtNumeric>
+#include <QtGui/QMatrix4x4>
+#include <QtGui/QVulkanInstance>
+#include <QtGui/rhi/qrhi.h>
+#include <QtQuick/QQuickWindow>
+#include <QtQuick/QSGNode>
+#include <QtQuick/QSGRendererInterface>
+
+#include <memory>
+#include <optional>
+#include <utility>
+
+#include <cmath>
+#include <cstdint>
+
+using namespace Qt::StringLiterals;
+
+namespace viewer
+{
+namespace
+{
+Q_DECLARE_LOGGING_CATEGORY(viewerRenderNodeCategory)
+Q_LOGGING_CATEGORY(viewerRenderNodeCategory, "viewer.render_node")
+
+void checkContext(QQuickWindow * window, const engine::Context & context)
+{
+    Q_CHECK_PTR(window);
+
+    auto ri = window->rendererInterface();
+
+    QVulkanInstance * instance = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::VulkanInstanceResource));
+    Q_CHECK_PTR(instance);
+
+    vk::PhysicalDevice * physicalDevice = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::PhysicalDeviceResource));
+    Q_CHECK_PTR(physicalDevice);
+
+    vk::Device * device = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::DeviceResource));
+    Q_CHECK_PTR(device);
+
+    uint32_t * queueFamilyIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueFamilyIndexResource));
+    Q_CHECK_PTR(queueFamilyIndex);
+
+    uint32_t * queueIndex = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::GraphicsQueueIndexResource));
+    Q_CHECK_PTR(queueIndex);
+
+    vk::Queue * queue = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::CommandQueueResource));
+    Q_CHECK_PTR(queue);
+
+#define GET_INSTANCE_PROC_ADDR(name) PFN_##name name = utils::autoCast(instance->getInstanceProcAddr(#name))
+    // GET_INSTANCE_PROC_ADDR(vkGetInstanceProcAddr);
+    GET_INSTANCE_PROC_ADDR(vkGetDeviceProcAddr);
+#undef GET_INSTANCE_PROC_ADDR
+    PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*device, "vkGetDeviceQueue"));
+
+    INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getInstance(), "Should match");
+    INVARIANT(*physicalDevice == context.getPhysicalDevice().getPhysicalDevice(), "Should match");
+    INVARIANT(*device == context.getDevice().getDevice(), "Should match");
+    const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
+    INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
+    INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
+    {
+        VkQueue q = VK_NULL_HANDLE;
+        vkGetDeviceQueue(*device, *queueFamilyIndex, *queueIndex, &q);
+        INVARIANT(*queue == vk::Queue(q), "Should match");
+    }
+
+    context.getDevice().setDebugUtilsObjectName(*queue, "Qt graphical queue");
+}
+
+// https://bugreports.qt.io/browse/QTBUG-121137
+class CleanupJob : public QRunnable
+{
+public:
+    static void scheduleRenderJob(QQuickWindow * window, std::unique_ptr<Renderer> && renderer)
+    {
+        window->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::NoStage);
+    }
+
+private:
+    std::unique_ptr<Renderer> renderer;
+
+    explicit CleanupJob(std::unique_ptr<Renderer> && renderer)
+        : renderer{std::move(renderer)}
+    {}
+
+    void run() override
+    {
+        renderer.reset();
+    }
+};
+}  // namespace
+
+struct RenderNode::Impl
+{
+    QQuickWindow * const window;
+    const EngineWrapper * const engineWrapper;
+
+    std::optional<Renderer> renderer;
+    std::shared_ptr<const Scene> scene;
+
+    bool isDirty = false;
+
+    QRectF rect;
+    FrameSettings frameSettings;
+
+    QVector<quint32> renderPassFormat;
+
+    Impl(QQuickWindow * window, const EngineWrapper * engineWrapper)
+        : window{window}
+        , engineWrapper{engineWrapper}
+    {
+        Q_ASSERT(window);
+        ASSERT(engineWrapper);
+        checkContext(window, engineWrapper->getContext());
+    }
+
+    template<typename T>
+    void updateState(T & lhs, const T & rhs)
+    {
+        if (lhs == rhs) {
+            return;
+        }
+        lhs = rhs;
+        isDirty = true;
+    }
+
+    void unsetScene()
+    {
+        scene.reset();
+        isDirty = true;
+    }
+
+    void setScene(std::shared_ptr<const Scene> newScene)
+    {
+        unsetScene();
+        scene = std::move(newScene);
+    }
+
+    void updateRect(const QRectF & newRect)
+    {
+        updateState(rect, newRect);
+    }
+
+    void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+    {
+        updateState(frameSettings.useOffscreenTexture, useOffscreenTexture);
+        updateState(frameSettings.discardInvisible, discardInvisible);
+        updateState(frameSettings.wireFrame, wireFrame);
+    }
+
+    void updateCamera(const glm::vec3 & position, const glm::quat & orientation, float fov, float zNear, float zFar)
+    {
+        updateState(frameSettings.position, position);
+        updateState(frameSettings.orientation, orientation);
+        updateState(frameSettings.fov, fov);
+        updateState(frameSettings.zNear, zNear);
+        updateState(frameSettings.zFar, zFar);
+    }
+
+    void setClearColor(const glm::vec4 & clearColor)
+    {
+        updateState(frameSettings.clearColor, clearColor);
+    }
+
+    bool markDirty()
+    {
+        if (!isDirty) {
+            return false;
+        }
+        isDirty = false;
+        return true;
+    }
+
+    [[nodiscard]] QRectF getScissorRect(const QSize & renderTargetSize, const QMatrix4x4 & mvp)
+    {
+        QRectF scissorRect = mvp.mapRect(rect);  // in NDC, turn back to window coordinates
+        scissorRect.translate(1.0, 1.0);
+        scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
+        scissorRect.setBottomRight(scissorRect.bottomRight() * 0.5);
+        scissorRect &= QRectF{0.0, 0.0, 1.0, 1.0};
+
+        auto [x, y] = scissorRect.topLeft();
+        x *= renderTargetSize.width();
+        y *= renderTargetSize.height();
+
+        auto [w, h] = scissorRect.size();
+        w *= renderTargetSize.width();
+        h *= renderTargetSize.height();
+
+        return {x, y, w, h};
+    }
+
+    void advance()
+    {
+        const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
+        uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
+        if (renderer) {
+            ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
+        } else {
+            renderer.emplace(engineWrapper->getContext(), engineWrapper->getEngine(), framesInFlight);
+        }
+        renderer.value().setFrameSettings(frameSettings);
+        if (!scene) {
+            renderer.value().unsetScene();
+        } else if (scene != renderer.value().getScene()) {
+            renderer.value().setScene(scene);
+        }
+        renderer.value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
+    }
+
+    void prepare(float alpha, const QSize & renderTargetSize, const QRectF & scissorRect, const glm::mat4 & mvp, bool isAxisAligned)
+    {
+        frameSettings.alpha = alpha;
+
+        frameSettings.width = utils::autoCast(std::ceil(rect.width()));
+        frameSettings.height = utils::autoCast(std::ceil(rect.height()));
+
+        frameSettings.viewport = vk::Viewport{
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = utils::autoCast(renderTargetSize.width()),
+            .height = utils::autoCast(renderTargetSize.height()),
+            .minDepth = engine::kMinDepth,
+            .maxDepth = 1.0f,
+        };
+        // qInfo() << renderTargetSize << scissorRect.size();
+
+        frameSettings.scissor = vk::Rect2D{
+            .offset = {
+                .x = utils::autoCast(std::floor(scissorRect.x())),
+                .y = utils::autoCast(std::floor(scissorRect.y())),
+            },
+            .extent = {
+                .width = utils::autoCast(std::ceil(scissorRect.width())),
+                .height = utils::autoCast(std::ceil(scissorRect.height())),
+            },
+        };
+        glm::mat4 & windowMvp = frameSettings.windowMvp;
+        windowMvp = mvp;
+        windowMvp = glm::scale(windowMvp, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
+        windowMvp = glm::translate(windowMvp, glm::vec3{1.0f, 1.0f, 0.0f});
+
+        if (isAxisAligned) {
+            frameSettings.useOffscreenTexture = false;
+        }
+
+        advance();
+    }
+
+    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
+    {
+        const auto & device = engineWrapper->getContext().getDevice();
+        device.setDebugUtilsObjectName(commandBuffer, "Qt command buffer");
+
+        if (!renderer) {  // recover after releaseResources()
+            advance();
+        }
+
+        const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
+        ASSERT(renderer.value().getFramesInFlight() == utils::safeCast<uint32_t>(graphicsStateInfo.framesInFlight));
+        renderer.value().render(commandBuffer, renderPass, isRenderPassFormatChanged, utils::autoCast(graphicsStateInfo.currentFrameSlot));
+    }
+
+    void releaseResources()
+    {
+        renderer.reset();
+    }
+
+    void flags(QSGRenderNode::RenderingFlags & renderingFlags) const
+    {
+        if (frameSettings.useOffscreenTexture) {
+            renderingFlags |= RenderingFlag::DepthAwareRendering;
+            renderingFlags |= RenderingFlag::BoundedRectRendering;
+            if (!frameSettings.discardInvisible && (frameSettings.alpha == 1.0f)) {
+                renderingFlags |= RenderingFlag::OpaqueRendering;
+            }
+        }
+    }
+};
+
+RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper * engineWrapper)
+    : impl_{window, engineWrapper}
+{}
+
+void RenderNode::unsetScene()
+{
+    return impl_->unsetScene();
+}
+
+void RenderNode::setScene(std::shared_ptr<const Scene> scene)
+{
+    return impl_->setScene(std::move(scene));
+}
+
+void RenderNode::updateRect(const QRectF & rect)
+{
+    return impl_->updateRect(rect);
+}
+
+void RenderNode::updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+{
+    return impl_->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
+}
+
+void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar)
+{
+    glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
+    glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};
+    float fov = glm::radians(cameraFov);
+    return impl_->updateCamera(position, orientation, fov, zNear, zFar);
+}
+
+void RenderNode::setClearColor(const QColor & clearColor)
+{
+    float r, g, b, a;
+    clearColor.getRgbF(&r, &g, &b, &a);
+    return impl_->setClearColor({r, g, b, a});
+}
+
+void RenderNode::markDirty()
+{
+    if (!impl_->markDirty()) {
+        return;
+    }
+    return QSGNode::markDirty(QSGNode::DirtyStateBit::DirtyForceUpdate);
+}
+
+void RenderNode::prepare()
+{
+    float alpha = utils::autoCast(inheritedOpacity());
+    const QSize renderTargetSize = renderTarget()->pixelSize();
+    const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
+    const QRectF scissorRect = impl_->getScissorRect(renderTargetSize, mvp);
+    bool isAxisAligned = false;
+    if ((false)) {  // sadly,  does not reset automatically w/o extra update()
+        // optimization for axis aligned transform case
+        const QMatrix4x4 & modelView = *matrix();
+        if (modelView.flags() < QMatrix4x4::Flag::Rotation) {
+            if ((qFuzzyIsNull(modelView(0, 1)) && qFuzzyIsNull(modelView(1, 0))) || (qFuzzyIsNull(modelView(0, 0)) && qFuzzyIsNull(modelView(1, 1)))) {
+                isAxisAligned = true;
+            }
+        }
+    }
+    return impl_->prepare(alpha, renderTargetSize, scissorRect, glm::make_mat4x4(mvp.constData()), isAxisAligned);
+}
+
+void RenderNode::render(const RenderState * renderState)
+{
+    if ((false)) {
+        QStringList clipRegions;
+        if (auto clipRegion = renderState->clipRegion()) {
+            for (const QRect & rect : *clipRegion) {
+                clipRegions << toString(rect);
+            }
+        }
+        qCInfo(viewerRenderNodeCategory)                                                                   //
+            << u"scissorRect(%1) scissorEnabled(%2) stencilValue(%3) stencilEnabled(%4) clipRegion(%5)"_s  //
+                   .arg(toString(renderState->scissorRect()))                                              //
+                   .arg(renderState->scissorEnabled())                                                     //
+                   .arg(renderState->stencilValue())                                                       //
+                   .arg(renderState->stencilEnabled())                                                     //
+                   .arg(clipRegions.join(u"|"_s));                                                         //
+    }
+
+    auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
+    Q_CHECK_PTR(commandBufferNativeHandles);
+    vk::CommandBuffer commandBuffer = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
+
+    auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
+    auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
+    const bool isRenderPassFormatChanged = impl_->renderPassFormat != newRenderPassFormat;
+    if (isRenderPassFormatChanged) {
+        impl_->renderPassFormat = std::move(newRenderPassFormat);
+        qCDebug(viewerRenderNodeCategory) << u"Render pass format changed"_s;
+    }
+    auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
+    Q_CHECK_PTR(renderPassNativeHandles);
+    vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
+
+    return impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged);
+}
+
+void RenderNode::releaseResources()
+{
+    impl_->releaseResources();
+}
+
+auto RenderNode::flags() const -> RenderingFlags
+{
+    auto renderingFlags = QSGRenderNode::flags();
+    impl_->flags(renderingFlags);
+    return renderingFlags;
+}
+
+QRectF RenderNode::rect() const
+{
+    if (flags() & RenderingFlag::BoundedRectRendering) {
+        return impl_->rect;
+    }
+    return QSGRenderNode::rect();
+}
+
+QSGRenderNode::StateFlags RenderNode::changedStates() const
+{
+    return StateFlag::ViewportState | StateFlag::ScissorState;
+}
+
+}  // namespace viewer

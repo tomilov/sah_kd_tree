@@ -41,7 +41,7 @@ struct FrameSettings
     float height = 0.0f;
     vk::Viewport viewport = {};
     vk::Rect2D scissor = {};
-    glm::mat4 windowViewPorjection{1.0f};
+    glm::mat4 windowMvp{1.0f};
 
     glm::vec4 clearColor{0.0f, 0.0f, 0.0f, 0.0f};
 
@@ -99,24 +99,24 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
               ".height = {}, "
               ".viewport = {}, "
               ".scissor = {}, "
-              ".windowViewPorjection = {}, "
+              ".windowMvp = {}, "
               ".clearColor = {}"
               "}}";
-        return fmt::format_to(ctx.out(), fmtString,                //
-                              frameSettings.useOffscreenTexture,   //
-                              frameSettings.discardInvisible,      //
-                              frameSettings.wireFrame,             //
-                              frameSettings.position,              //
-                              frameSettings.orientation,           //
-                              frameSettings.fov,                   //
-                              frameSettings.zNear,                 //
-                              frameSettings.zFar,                  //
-                              frameSettings.alpha,                 //
-                              frameSettings.width,                 //
-                              frameSettings.height,                //
-                              frameSettings.viewport,              //
-                              frameSettings.scissor,               //
-                              frameSettings.windowViewPorjection,  //
-                              frameSettings.clearColor);           //
+        return fmt::format_to(ctx.out(), fmtString,               //
+                              frameSettings.useOffscreenTexture,  //
+                              frameSettings.discardInvisible,     //
+                              frameSettings.wireFrame,            //
+                              frameSettings.position,             //
+                              frameSettings.orientation,          //
+                              frameSettings.fov,                  //
+                              frameSettings.zNear,                //
+                              frameSettings.zFar,                 //
+                              frameSettings.alpha,                //
+                              frameSettings.width,                //
+                              frameSettings.height,               //
+                              frameSettings.viewport,             //
+                              frameSettings.scissor,              //
+                              frameSettings.windowMvp,            //
+                              frameSettings.clearColor);          //
     }
 };

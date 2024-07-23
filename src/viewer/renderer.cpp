@@ -199,7 +199,7 @@ struct UniformBuffer
     float zNear = 1E-2f;
     float zFar = 1E4;
     float alpha = 0.0f;
-    glm::mat4 windowViewPorjection{1.0f};
+    glm::mat4 windowMvp{1.0f};
 };
 #pragma pack(pop)
 static_assert(std::is_standard_layout_v<UniformBuffer>);
@@ -513,7 +513,7 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
         .zNear = frameSettings.zNear,
         .zFar = frameSettings.zFar,
         .alpha = frameSettings.alpha,
-        .windowViewPorjection = frameSettings.windowViewPorjection,
+        .windowMvp = frameSettings.windowMvp,
     };
 }
 
@@ -524,8 +524,8 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     auto projection = glm::perspectiveFovLH(frameSettings.fov, frameSettings.width, frameSettings.height, frameSettings.zNear, frameSettings.zFar);
     auto mvp = projection * view;
     if (!frameSettings.useOffscreenTexture) {
-        auto windowViewPorjection = glm::scale(frameSettings.windowViewPorjection, glm::vec3{1.0f, -1.0f, 1.0f});
-        mvp = windowViewPorjection * mvp;
+        auto windowMvp = glm::scale(frameSettings.windowMvp, glm::vec3{1.0f, -1.0f, 1.0f});
+        mvp = windowMvp * mvp;
     }
     return {
         .mvp = mvp,

@@ -14,15 +14,15 @@ ApplicationWindow {
     id: root
     objectName: Application.name
     function pprops(item) {
-        console.log("PPROPS:")
+        console.log("PPROPS:", (typeof item).toString())
         for (let p in item)
             console.log(p + ": " + item[p]);
     }
-    visible: true
     x: Application.screens[0].width / 4
     y: Application.screens[0].height / 4
     width: Application.screens[0].width / 2
     height: Application.screens[0].height / 2
+    readonly property int toolTipTimeout: 5000
     title: {
         qsTr("%1 (screen refresh rate %2) - [%3]")
         .arg(Application.displayName)
@@ -139,6 +139,13 @@ ApplicationWindow {
         }
     }
     Action {
+        id: actionUiVisibility
+        text: qsTr("Toggle UI visibility")
+        checkable: true
+        checked: true
+        shortcut: StandardKey.Replace
+    }
+    Action {
         id: actionUseOffscreenTexture
         text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
@@ -165,7 +172,7 @@ ApplicationWindow {
         shortcut: StandardKey.HelpContents
     }
     menuBar: MenuBar {
-        visible: visibility !== Window.FullScreen
+        visible: actionUiVisibility.checked
         Menu {
             title: qsTr("&File")
             MenuItem {
@@ -229,7 +236,7 @@ ApplicationWindow {
     }
     header: TabBar {
         id: tabBar
-        visible: visibility !== Window.FullScreen
+        visible: actionUiVisibility.checked
         background: Pane {}
         Repeater {
             model: listModel
@@ -238,10 +245,14 @@ ApplicationWindow {
                 required property url fileUrl
                 text: fileBaseName
                 onDoubleClicked: removeCurrentTab()
-                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                ToolTip.timeout: 5000
                 ToolTip.visible: hovered
-                ToolTip.text: "<font color=\"%2\">%1</font>".arg(fileUrl).arg(Qt.color(palette.link))
+                ToolTip.text: {
+                    "<font color=\"%2\">%1</font>"
+                    .arg(fileUrl)
+                    .arg(Qt.color(palette.link))
+                }
+                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                ToolTip.timeout: root.toolTipTimeout
             }
         }
         Component.onCompleted: Qt.callLater(setCurrentIndex, settings.currentTabIndex)
@@ -283,7 +294,7 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionContentVisibility
-                        text: qsTr("Content visibility")
+                        text: qsTr("Toggle content visibility")
                         checkable: true
                         checked: true
                     }
@@ -295,37 +306,37 @@ ApplicationWindow {
                     }
                     Action {
                         id: actionRotatePos
-                        text: qsTr("Rotate view CCW")
+                        text: qsTr("Rotate content CCW")
                         icon.name: "object-rotate-left-symbolic"
                         onTriggered: rotationSlider.decrease()
                     }
                     Action {
                         id: actionRotateNeg
-                        text: qsTr("Rotate view CW")
+                        text: qsTr("Rotate content CW")
                         icon.name: "object-rotate-right-symbolic"
                         onTriggered: rotationSlider.increase()
                     }
                     Action {
                         id: actionScaleDec
-                        text: qsTr("Decrease view scale")
+                        text: qsTr("Decrease content scale")
                         icon.name: "zoom-out-symbolic"
                         onTriggered: scaleSlider.decrease()
                     }
                     Action {
                         id: actionScaleInc
-                        text: qsTr("Increase view scale")
+                        text: qsTr("Increase content scale")
                         icon.name: "zoom-in-symbolic"
                         onTriggered: scaleSlider.increase()
                     }
                     Action {
                         id: actionOpacityDec
-                        text: qsTr("Decrease view opacity")
+                        text: qsTr("Decrease content opacity")
                         icon.name: "path-combine-symbolic"
                         onTriggered: opacitySlider.decrease()
                     }
                     Action {
                         id: actionOpacityInc
-                        text: qsTr("Increase view opacity")
+                        text: qsTr("Increase content opacity")
                         icon.name: "path-difference-symbolic"
                         onTriggered: opacitySlider.increase()
                     }
@@ -362,256 +373,310 @@ ApplicationWindow {
                         MenuItem {
                             action: actionSelectClearColor
                         }
+                        MenuSeparator {}
+                        MenuItem {
+                            text: qsTr("Dump item tree")
+                            onTriggered: root.contentItem.dumpItemTree()
+                        }
+                        MenuItem {
+                            text: qsTr("Visibility")
+                            onTriggered: root.visible = false
+                        }
                     }
                     header: ToolBar {
-                        visible: visibility !== Window.FullScreen
+                        visible: actionUiVisibility.checked
                         Flow {
                             anchors.fill: parent
-                            RowLayout {
-                                Text {
-                                    text: qsTr("<b>Camera:</b>")
-                                }
-                                ToolButton {
-                                    text: qsTr("Reset")
-                                    onClicked: {
-                                        sahKdTreeViewer.camera.orientation = undefined
-                                        sahKdTreeViewer.camera.position = undefined
-                                        sahKdTreeViewer.camera.filedOfView = undefined
-                                    }
-                                }
-                                ToolButton {
-                                    text: qsTr("Align")
-                                    onClicked: sahKdTreeViewer.camera.alignOrientation()
-                                }
-                                ToolButton {
-                                    text: qsTr("Reflect")
-                                    onClicked: sahKdTreeViewer.camera.reflectOrientation()
-                                }
-                                ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                            }
-                            RowLayout {
-                                Label {
-                                    text: qsTr("<b>View:</b>")
-                                }
-                                ToolButton {
-                                    text: qsTr("Reset")
-                                    action: actionResetContentOrientation
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                Switch {
-                                    text: qsTr("Show/Hide")
-                                    action: actionContentVisibility
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                Switch {
-                                    text: qsTr("Layer")
-                                    action: actionLayerEnabled
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                            }
-                            RowLayout {
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionRotatePos
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                Slider {
-                                    id: rotationSlider
-                                    from: -180
-                                    value: 0
-                                    to: 180
-                                    stepSize: 5
-                                    snapMode: Slider.SnapAlways
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: value
-                                }
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionRotateNeg
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                            }
-                            RowLayout {
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionScaleDec
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                Slider {
-                                    id: scaleSlider
-                                    from: 0.125
-                                    value: 1
-                                    to: 1.25
-                                    stepSize: 0.125
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: value
-                                }
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionScaleInc
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                            }
-                            RowLayout {
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionOpacityDec
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                Slider {
-                                    id: opacitySlider
-                                    from: 0.0
-                                    value: 1.0
-                                    to: 1.0
-                                    stepSize: 0.0625
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: value
-                                }
-                                ToolButton {
-                                    text: qsTr("")
-                                    action: actionOpacityInc
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: 5000
-                                    ToolTip.visible: hovered
-                                    ToolTip.text: action.text
-                                }
-                                ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                            }
-                            RowLayout {
-                                Text {
-                                    text: qsTr("<b>Clear color:</b>")
-                                }
-                                ComboBox {
-                                    id: clearColorComboBox
-                                    textRole: "colorName"
-                                    valueRole: "colorValue"
-                                    implicitContentWidthPolicy: ComboBox.WidestTextWhenCompleted
-                                    editable: true
-                                    selectTextByMouse: true
-                                    inputMethodHints: Qt.ImhLowercaseOnly
-                                    validator: RegularExpressionValidator {
-                                        regularExpression: new RegExp(app.colorNames.join("|"))
-                                    }
-                                    function setIndexOfClosestColor(selectedColor) {
-                                        currentIndex = app.getIndexOfClosestNamedColor(selectedColor)
-                                    }
-                                    WheelHandler {
-                                        onWheel: (wheel) => {
-                                            if (wheel.angleDelta.y < 0) {
-                                                if (clearColorComboBox.currentIndex + 1 < clearColorComboBox.count)
-                                                    ++clearColorComboBox.currentIndex
-                                            } else {
-                                                if (clearColorComboBox.currentIndex > 0)
-                                                    --clearColorComboBox.currentIndex
-                                            }
-                                            clearColorDialog.selectedColor = clearColorComboBox.currentValue
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    ToolButton {
+                                        text: qsTr("Reset cam")
+                                        onClicked: {
+                                            sahKdTreeViewer.cameraView.orientation = undefined
+                                            sahKdTreeViewer.cameraView.position = undefined
+                                            sahKdTreeViewer.cameraView.filedOfView = undefined
                                         }
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Reset camera view")
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    model: ListModel {
-                                        Component.onCompleted: {
-                                            let colorNames = app.colorNames
-                                            for (let i in colorNames) {
-                                                let colorName = colorNames[i]
-                                                let colorItem = {
-                                                    colorName: colorName,
-                                                    colorValue: Qt.color(colorName),
+                                    ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    ToolButton {
+                                        text: qsTr("Align cam")
+                                        onClicked: sahKdTreeViewer.cameraView.alignOrientation()
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Align camera view")
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    ToolButton {
+                                        text: qsTr("Reflect cam")
+                                        onClicked: sahKdTreeViewer.cameraView.reflectOrientation()
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Reflect camera view")
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    ToolButton {
+                                        text: qsTr("Reset item")
+                                        action: actionResetContentOrientation
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    Switch {
+                                        text: qsTr("Show/Hide")
+                                        action: actionContentVisibility
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    Switch {
+                                        text: qsTr("Layer")
+                                        action: actionLayerEnabled
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionRotatePos
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    Slider {
+                                        id: rotationSlider
+                                        from: -180
+                                        value: 0
+                                        to: 180
+                                        stepSize: 5
+                                        snapMode: Slider.SnapAlways
+                                        ToolTip.visible: pressed || hovered
+                                        ToolTip.text: value
+                                    }
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionRotateNeg
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionScaleDec
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    Slider {
+                                        id: scaleSlider
+                                        from: 0.125
+                                        value: 1
+                                        to: 1.25
+                                        stepSize: 0.125
+                                        ToolTip.visible: pressed || hovered
+                                        ToolTip.text: value
+                                    }
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionScaleInc
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionOpacityDec
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                    Slider {
+                                        id: opacitySlider
+                                        from: 0.0
+                                        value: 1.0
+                                        to: 1.0
+                                        stepSize: 0.0625
+                                        ToolTip.visible: pressed || hovered
+                                        ToolTip.text: value
+                                    }
+                                    ToolButton {
+                                        text: qsTr("")
+                                        action: actionOpacityInc
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: action.text
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                    }
+                                }
+                            }
+                            Frame {
+                                RowLayout {
+                                    anchors.fill: parent
+                                    Text {
+                                        text: qsTr("<b>Clear color:</b>")
+                                    }
+                                    ComboBox {
+                                        id: clearColorComboBox
+                                        textRole: "colorName"
+                                        valueRole: "colorValue"
+                                        implicitContentWidthPolicy: ComboBox.WidestTextWhenCompleted
+                                        editable: true
+                                        selectTextByMouse: true
+                                        inputMethodHints: Qt.ImhLowercaseOnly
+                                        validator: RegularExpressionValidator {
+                                            regularExpression: new RegExp(app.colorNames.join("|"))
+                                        }
+                                        function setIndexOfClosestColor(selectedColor) {
+                                            currentIndex = app.getIndexOfClosestNamedColor(selectedColor)
+                                        }
+                                        WheelHandler {
+                                            onWheel: (wheel) => {
+                                                if (wheel.angleDelta.y < 0) {
+                                                    if (clearColorComboBox.currentIndex + 1 < clearColorComboBox.count)
+                                                        ++clearColorComboBox.currentIndex
+                                                } else {
+                                                    if (clearColorComboBox.currentIndex > 0)
+                                                        --clearColorComboBox.currentIndex
                                                 }
-                                                append(colorItem)
+                                                clearColorDialog.selectedColor = clearColorComboBox.currentValue
                                             }
                                         }
-                                    }
-                                    onAccepted: clearColorDialog.selectedColor = currentValue
-                                    onActivated: clearColorDialog.selectedColor = currentValue
-                                    delegate: ItemDelegate {
-                                        id: delegate
-                                        required property int index
-                                        required property string colorName
-                                        required property color colorValue
-                                        highlighted: clearColorComboBox.highlightedIndex === index
-                                        contentItem: Row {
-                                            Rectangle {
-                                                id: colorRect
-                                                color: delegate.colorValue
-                                                height: colorText.height
-                                                width: height
-                                                radius: height / 4
-                                                border.width: 1
-                                                border.color: "black"
+                                        HoverHandler {
+                                            id: clearColorComboBoxHoverHandler
+                                        }
+                                        ToolTip.visible: clearColorComboBoxHoverHandler.hovered
+                                        ToolTip.text: currentText
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
+                                        model: ListModel {
+                                            Component.onCompleted: {
+                                                let colorNames = app.colorNames
+                                                for (let i in colorNames) {
+                                                    let colorName = colorNames[i]
+                                                    let colorItem = {
+                                                        colorName: colorName,
+                                                        colorValue: Qt.color(colorName).toString(),
+                                                    }
+                                                    append(colorItem)
+                                                }
                                             }
-                                            Text {
-                                                id: colorText
-                                                text: delegate.colorName
+                                        }
+                                        onAccepted: clearColorDialog.selectedColor = currentValue
+                                        onActivated: clearColorDialog.selectedColor = currentValue
+                                        delegate: ItemDelegate {
+                                            id: delegate
+                                            required property int index
+                                            required property string colorName
+                                            required property color colorValue
+                                            highlighted: clearColorComboBox.highlightedIndex === index
+                                            contentItem: Row {
+                                                Rectangle {
+                                                    id: colorRect
+                                                    color: delegate.colorValue
+                                                    height: colorText.height
+                                                    width: height
+                                                    radius: height / 4
+                                                    border.width: 1
+                                                    border.color: "black"
+                                                }
+                                                Text {
+                                                    id: colorText
+                                                    text: delegate.colorName
+                                                }
+                                                spacing: colorText.height / 4
                                                 HoverHandler {
-                                                    id: colorTextHoverHandler
+                                                    id: colorRowHoverHandler
                                                 }
-                                                ToolTip.visible: colorTextHoverHandler.hovered
+                                                ToolTip.visible: colorRowHoverHandler.hovered
                                                 ToolTip.text: colorRect.color
+                                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                                ToolTip.timeout: root.toolTipTimeout
                                             }
-                                            spacing: colorText.height / 4
                                         }
                                     }
-                                }
-                                Rectangle {
-                                    id: exactColorRect
-                                    height: clearColorComboBox.height
-                                    Layout.preferredWidth: height
-                                    Layout.margins: height / 8
-                                    Binding {
-                                        exactColorRect.color: clearColorComboBox.currentValue
-                                        when: clearColorComboBox.currentValue !== undefined
+                                    Rectangle {
+                                        id: exactColorRect
+                                        height: clearColorComboBox.height
+                                        Layout.preferredWidth: height
+                                        Layout.margins: height / 8
+                                        Binding {
+                                            exactColorRect.color: clearColorComboBox.currentValue
+                                            when: clearColorComboBox.currentValue !== undefined
+                                        }
+                                        radius: height / 4
+                                        border.width: 1
+                                        border.color: "black"
+                                        HoverHandler {
+                                            id: colorSquareHoverHandler
+                                        }
+                                        ToolTip.visible: colorSquareHoverHandler.hovered && clearColorComboBox.currentValue !== undefined
+                                        ToolTip.text: clearColorComboBox.currentValue
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    radius: height / 4
-                                    border.width: 1
-                                    border.color: "black"
-                                }
-                                ToolSeparator {
-                                    Layout.fillHeight: true
                                 }
                             }
                         }
                     }
                     footer: ToolBar {
-                        visible: visibility !== Window.FullScreen
+                        visible: actionUiVisibility.checked
                         Flow {
                             anchors.fill: parent
                             Frame {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Mode: " + sahKdTreeViewer.modeDescription
+                                        text: "Mode: " + sahKdTreeViewer.renderer.modeDescription
                                         HoverHandler {
                                             id: modeTextHoverHandler
                                         }
                                         ToolTip.visible: modeTextHoverHandler.hovered
-                                        ToolTip.text: sahKdTreeViewer.modeDescriptionVerbose
+                                        ToolTip.text: sahKdTreeViewer.renderer.modeDescriptionVerbose
+                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
@@ -619,7 +684,7 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: sahKdTreeViewer.cameraControllerDescription
+                                        text: sahKdTreeViewer.cameraController.description
                                     }
                                 }
                             }
@@ -628,7 +693,7 @@ ApplicationWindow {
                                     anchors.fill: parent
                                     Text {
                                         text: {
-                                            "View: rotation(%1) scale(%2)"
+                                            "rotation(%1) scale(%2)"
                                             .arg(content.rotation)
                                             .arg(content.scale)
                                         }
@@ -639,13 +704,13 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Clear color: %1".arg(sahKdTreeViewer.clearColor)
+                                        text: "Clear color: %1".arg(sahKdTreeViewer.renderer.clearColor)
                                     }
                                     Rectangle {
                                         Layout.fillHeight: true
                                         Layout.preferredWidth: height
                                         Layout.margins: height / 8
-                                        color: Qt.alpha(sahKdTreeViewer.clearColor, 1.0)
+                                        color: Qt.alpha(sahKdTreeViewer.renderer.clearColor, 1.0)
                                         radius: height / 4
                                         border.width: 1
                                         border.color: "black"
@@ -655,16 +720,20 @@ ApplicationWindow {
                                     }
                                     ToolTip.visible: clearColorHoveredHandler.hovered
                                     ToolTip.text: {
-                                        'Is close to "<font color="%1">%1</font>" color'
+                                        'Is %1 "<font color="%2">%3</font>" color'
+                                        .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
+                                        .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
                                         .arg(clearColorComboBox.currentText)
                                     }
+                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    ToolTip.timeout: root.toolTipTimeout
                                 }
                             }
                             Frame {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Camera: " + sahKdTreeViewer.camera.description
+                                        text: sahKdTreeViewer.cameraView.description
                                     }
                                 }
                             }
@@ -684,7 +753,6 @@ ApplicationWindow {
                         layer.enabled: actionLayerEnabled.checked
                         layer.live: true
                         focus: true
-                        property int animationDuration: 0
                         Keys.onPressed: event => {
                             switch (event.key) {
                                 case Qt.Key_0:
@@ -698,54 +766,64 @@ ApplicationWindow {
                                 case Qt.Key_8:
                                 case Qt.Key_9: {
                                     if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
-                                        viewerSettings.saveCamera(event.key)
+                                        viewerSettings.saveCameraView(event.key)
                                         event.accepted = true
                                     } else if (event.modifiers === 0) {
-                                        viewerSettings.loadCamera(event.key)
+                                        viewerSettings.loadCameraView(event.key, true)
                                         event.accepted = true
                                     }
                                     break
                                 }
                             }
                         }
+                        Rectangle {
+                            id: boundingRect
+                            anchors.fill: parent
+                            border {
+                                color: palette.accent
+                                width: 4
+                            }
+                            color: "transparent"
+                        }
                         SahKdTreeViewer {
                             id: sahKdTreeViewer
-                            anchors.fill: parent
-                            anchors.margins: 4
+                            anchors.fill: boundingRect
+                            anchors.margins: boundingRect.border.width
+                            readonly property int animationDuration: 1000
                             engine: SahKdTreeEngine
-                            sceneUrl: page.fileUrl
-                            useOffscreenTexture: actionUseOffscreenTexture.checked
-                            discardInvisible: actionDiscardInvisible.checked
-                            wireFrame: actionWireFrame.checked
-                            worldScale: 1.5
-                            speed: sceneAabbMax.minus(sceneAabbMin).length() * worldScale / 10.0  // 10 seconds to cross the whole world
-                            camera {
+                            scene {
+                                url: page.fileUrl
+                                worldScale: 1.5
+                            }
+                            renderer {
+                                useOffscreenTexture: actionUseOffscreenTexture.checked
+                                discardInvisible: actionDiscardInvisible.checked
+                                wireFrame: actionWireFrame.checked
+                                clearColor: clearColorDialog.selectedColor
+                            }
+                            cameraController {
+                                speed: scene.sceneAabbMax.minus(scene.sceneAabbMin).length() * scene.worldScale / 10.0  // 10 seconds to cross the whole world
+                            }
+                            cameraView {
                                 Behavior on position {
                                     Vector3dAnimation {
-                                        duration: content.animationDuration
+                                        duration: sahKdTreeViewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                                 Behavior on orientation {
                                     QuaternionAnimation {
-                                        duration: content.animationDuration
+                                        duration: sahKdTreeViewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
-                                Behavior on fieldOfView {
+                                Behavior on fov {
                                     NumberAnimation {
-                                        duration: content.animationDuration
+                                        duration: sahKdTreeViewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                             }
-                            clearColor: clearColorDialog.selectedColor
-                        }
-                        Rectangle {
-                            anchors.fill: parent
-                            border.color: palette.accent
-                            border.width: sahKdTreeViewer.anchors.margins
-                            color: "transparent"
                         }
                         MouseArea {
                             anchors.fill: parent
@@ -758,31 +836,39 @@ ApplicationWindow {
                             category: fileUrlHash
                             property color clearColor
                             function getKeyPrefix(key) {
-                                return "camera/%1/".arg(key)
+                                return "cameraView/%1/".arg(key)
                             }
-                            function saveCamera(key) {
+                            function saveCameraView(key) {
                                 let keyPrefix = getKeyPrefix(key)
-                                let camera = sahKdTreeViewer.camera
-                                setValue(keyPrefix + "position", camera.position)
-                                setValue(keyPrefix + "orientation", camera.orientation)
-                                setValue(keyPrefix + "fieldOfView", camera.fieldOfView)
+                                let cameraView = sahKdTreeViewer.cameraView
+                                setValue(keyPrefix + "position", cameraView.position)
+                                setValue(keyPrefix + "orientation", cameraView.orientation)
+                                setValue(keyPrefix + "fov", cameraView.fov)
                             }
-                            function loadCamera(key) {
+                            function loadCameraView(key, animate) {
                                 let keyPrefix = getKeyPrefix(key)
-                                let camera = sahKdTreeViewer.camera
-                                camera.position = value(keyPrefix + "position", camera.position)
-                                camera.orientation = value(keyPrefix + "orientation", camera.orientation)
-                                camera.fieldOfView = value(keyPrefix + "fieldOfView", camera.fieldOfView)
+                                let cameraView = sahKdTreeViewer.cameraView
+                                let position = value(keyPrefix + "position", cameraView.position)
+                                let orientation = value(keyPrefix + "orientation", cameraView.orientation)
+                                let fov = value(keyPrefix + "fov", cameraView.fov)
+                                if (animate) {
+                                    cameraView.position = position
+                                    cameraView.orientation = orientation
+                                    cameraView.fov = fov
+                                } else {
+                                    cameraView.setPosition(position)
+                                    cameraView.setOrientation(orientation)
+                                    cameraView.setFov(fov)
+                                }
                             }
                             Component.onCompleted: {
                                 clearColorDialog.selectedColor = viewerSettings.clearColor
                                 clearColorComboBox.setIndexOfClosestColor(viewerSettings.clearColor)
-                                loadCamera(Qt.Key_0)
-                                content.animationDuration = 1000
+                                loadCameraView(Qt.Key_0, false)
                             }
                             Component.onDestruction: {
                                 viewerSettings.clearColor = clearColorDialog.selectedColor
-                                saveCamera(Qt.Key_0)
+                                saveCameraView(Qt.Key_0)
                             }
                         }
                     }

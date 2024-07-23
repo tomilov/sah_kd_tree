@@ -4,7 +4,6 @@
 
 #include <QtCore/QDebug>
 #include <QtCore/QString>
-#include <QtCore/QtCore>
 #include <QtGui/QColor>
 
 namespace viewer
