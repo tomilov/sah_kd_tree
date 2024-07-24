@@ -33,3 +33,13 @@ struct fmt::formatter<Qt::Key> : fmt::formatter<fmt::string_view>
         return fmt::formatter<fmt::string_view>::format(viewer::toString(key).toStdString(), ctx);
     }
 };
+
+template<>
+struct fmt::formatter<QRectF> : fmt::formatter<fmt::string_view>
+{
+    template<typename FormatContext>
+    auto format(const QRectF & rect, FormatContext & ctx) const
+    {
+        return fmt::formatter<fmt::string_view>::format(viewer::toString(rect).toStdString(), ctx);
+    }
+};

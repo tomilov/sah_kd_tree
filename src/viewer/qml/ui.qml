@@ -379,8 +379,22 @@ ApplicationWindow {
                             onTriggered: root.contentItem.dumpItemTree()
                         }
                         MenuItem {
-                            text: qsTr("Visibility")
+                            text: qsTr("Make window invisible")
                             onTriggered: root.visible = false
+                            Timer {
+                                id: visibilityTimer
+                                interval: 2000
+                                repeat: false
+                                onTriggered: root.visible = true
+                            }
+                            Connections {
+                                target: root
+                                onVisibleChanged: {
+                                    if (!root.visible) {
+                                        visibilityTimer.start()
+                                    }
+                                }
+                            }
                         }
                     }
                     header: ToolBar {
@@ -693,7 +707,7 @@ ApplicationWindow {
                                     anchors.fill: parent
                                     Text {
                                         text: {
-                                            "rotation(%1) scale(%2)"
+                                            "rot(%1) scale(%2)"
                                             .arg(content.rotation)
                                             .arg(content.scale)
                                         }
@@ -892,7 +906,9 @@ ApplicationWindow {
         property alias y: root.y
         property alias width: root.width
         property alias height: root.height
+        property alias uiVisibility: actionUiVisibility.checked
         property alias useOffscreenTexture: actionUseOffscreenTexture.checked
+        property alias discardInvisible: actionDiscardInvisible.checked
         property alias wireFrame: actionWireFrame.checked
         property alias folderUrl: sceneOpenDialog.folderUrl
         property int currentTabIndex: -1

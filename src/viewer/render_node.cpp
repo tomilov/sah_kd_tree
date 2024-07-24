@@ -1,7 +1,9 @@
+#include <debug/renderdoc.hpp>
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/instance.hpp>
 #include <engine/physical_device.hpp>
+#include <format/glm.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine.hpp>
@@ -141,13 +143,14 @@ struct RenderNode::Impl
         : window{window}
         , engineWrapper{engineWrapper}
     {
+        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
         Q_ASSERT(window);
         ASSERT(engineWrapper);
         checkContext(window, engineWrapper->getContext());
     }
 
     template<typename T>
-    void updateState(T & lhs, const T & rhs)
+    void updateState(T & lhs, const T & rhs, [[maybe_unused]] const char * name)
     {
         if (lhs == rhs) {
             return;
@@ -168,31 +171,33 @@ struct RenderNode::Impl
         scene = std::move(newScene);
     }
 
+#define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
     void updateRect(const QRectF & newRect)
     {
-        updateState(rect, newRect);
+        UPDATE_STATE(rect, newRect);
     }
 
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
     {
-        updateState(frameSettings.useOffscreenTexture, useOffscreenTexture);
-        updateState(frameSettings.discardInvisible, discardInvisible);
-        updateState(frameSettings.wireFrame, wireFrame);
+        UPDATE_STATE(frameSettings.useOffscreenTexture, useOffscreenTexture);
+        UPDATE_STATE(frameSettings.discardInvisible, discardInvisible);
+        UPDATE_STATE(frameSettings.wireFrame, wireFrame);
     }
 
     void updateCamera(const glm::vec3 & position, const glm::quat & orientation, float fov, float zNear, float zFar)
     {
-        updateState(frameSettings.position, position);
-        updateState(frameSettings.orientation, orientation);
-        updateState(frameSettings.fov, fov);
-        updateState(frameSettings.zNear, zNear);
-        updateState(frameSettings.zFar, zFar);
+        UPDATE_STATE(frameSettings.position, position);
+        UPDATE_STATE(frameSettings.orientation, orientation);
+        UPDATE_STATE(frameSettings.fov, fov);
+        UPDATE_STATE(frameSettings.zNear, zNear);
+        UPDATE_STATE(frameSettings.zFar, zFar);
     }
 
     void setClearColor(const glm::vec4 & clearColor)
     {
-        updateState(frameSettings.clearColor, clearColor);
+        UPDATE_STATE(frameSettings.clearColor, clearColor);
     }
+#undef UPDATE_STATE
 
     bool markDirty()
     {
@@ -255,7 +260,6 @@ struct RenderNode::Impl
             .minDepth = engine::kMinDepth,
             .maxDepth = 1.0f,
         };
-        // qInfo() << renderTargetSize << scissorRect.size();
 
         frameSettings.scissor = vk::Rect2D{
             .offset = {
@@ -281,12 +285,11 @@ struct RenderNode::Impl
 
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
     {
+        qInfo() << Q_FUNC_INFO;
         const auto & device = engineWrapper->getContext().getDevice();
         device.setDebugUtilsObjectName(commandBuffer, "Qt command buffer");
 
-        if (!renderer) {  // recover after releaseResources()
-            advance();
-        }
+        ASSERT(renderer);
 
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
         ASSERT(renderer.value().getFramesInFlight() == utils::safeCast<uint32_t>(graphicsStateInfo.framesInFlight));
@@ -295,7 +298,13 @@ struct RenderNode::Impl
 
     void releaseResources()
     {
+        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
         renderer.reset();
+    }
+
+    ~Impl()
+    {
+        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
     }
 
     void flags(QSGRenderNode::RenderingFlags & renderingFlags) const

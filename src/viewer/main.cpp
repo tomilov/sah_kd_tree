@@ -67,45 +67,6 @@ AppPtr createApplication(int & argc, char * argv[])
     return AppPtr{new viewer::Application{argc, argv}};
 }
 
-void persistRootWindowSettings [[gnu::unused]] (QQmlApplicationEngine & engine)
-{
-    auto primaryScreen = qApp->primaryScreen();
-    INVARIANT(primaryScreen, "Primary screen should exists");
-    auto geometry = primaryScreen->geometry();
-    INVARIANT(geometry.isValid(), "Expected non-empty rect");
-    auto center = geometry.center();
-    geometry.setSize(geometry.size() / 2);
-    geometry.moveCenter(center);
-
-    auto windowGeometrySetting = QSettings{}.value("window/geometry", geometry);
-    INVARIANT(windowGeometrySetting.canConvert<QRect>(), "Expected QRect");
-    auto windowGeometry = windowGeometrySetting.toRect();
-
-    if (windowGeometry.isValid()) {
-        QVariantMap initialProperties;
-
-        initialProperties["x"] = windowGeometry.x();
-        initialProperties["y"] = windowGeometry.y();
-        initialProperties["width"] = qMax(windowGeometry.width(), 64);
-        initialProperties["height"] = qMax(windowGeometry.height(), 64);
-
-        engine.setInitialProperties(initialProperties);
-    }
-
-    const auto saveSettings = [&engine]
-    {
-        auto rootObjects = engine.rootObjects();
-        INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
-        auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
-        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
-        QSettings{}.setValue("window/geometry", applicationWindow->geometry());
-        qCDebug(viewerMainCategory) << "Settings saved";
-    };
-    if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, &engine, saveSettings)) {
-        qFatal("unreachable");
-    }
-}
-
 spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
 {
     switch (msgType) {
@@ -370,8 +331,11 @@ int main(int argc, char * argv[])
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         // TODO: QQuickRenderControl, QQuickWindow::setRenderTarget(QQuickRenderTarget::fromVulkanImage),
         // QQuickWindow::setGraphicsDevice(QQuickGraphicsDevice::fromDeviceAndContext),
-        // applicationWindow->setPersistentGraphics(false); // TODO: test
-        // applicationWindow->setPersistentSceneGraph(false);
+        {
+            // TODO: test
+            applicationWindow->setPersistentGraphics(false);
+            applicationWindow->setPersistentSceneGraph(false);
+        }
         applicationWindow->setVulkanInstance(&vulkanInstance);
         if (kUseEngine) {
             auto & context = engine.getContext();
@@ -393,10 +357,23 @@ int main(int argc, char * argv[])
         qFatal("unreachable");
     }
 
-    // persistRootWindowSettings(qmlApplicationEngine);
-    QVariantMap initialProperties;
-    initialProperties["visible"] = true;
-    qmlApplicationEngine.setInitialProperties(initialProperties);
+    const auto saveSettings = [&qmlApplicationEngine]
+    {
+        auto rootObjects = qmlApplicationEngine.rootObjects();
+        INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
+        auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
+        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
+        // examine applicationWindow properties
+    };
+    if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, &engine, saveSettings)) {
+        qFatal("unreachable");
+    }
+
+    {
+        QVariantMap initialProperties;
+        initialProperties["visible"] = true;
+        qmlApplicationEngine.setInitialProperties(initialProperties);
+    }
     qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 
     return application->exec();

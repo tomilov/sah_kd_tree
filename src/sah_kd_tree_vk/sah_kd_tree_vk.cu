@@ -1,8 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
+#include <sah_kd_tree_vk/sah_kd_tree_vk.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
-
-#include <sah_kd_tree_vk/sah_kd_tree_vk.hpp>
 
 namespace sah_kd_tree_vk
 {

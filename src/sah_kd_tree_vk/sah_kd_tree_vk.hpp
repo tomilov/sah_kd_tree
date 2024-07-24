@@ -1,14 +1,14 @@
 #pragma once
 
+#include <sah_kd_tree_vk/fwd.hpp>
 #include <scene_data/scene_data.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <sah_kd_tree_vk/fwd.hpp>
-
 #include <cstdint>
 
 #include <cuda_runtime.h>
+
 #include <sah_kd_tree_vk/sah_kd_tree_vk_export.h>
 
 namespace sah_kd_tree_vk

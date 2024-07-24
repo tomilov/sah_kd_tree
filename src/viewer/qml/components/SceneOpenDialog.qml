@@ -1,6 +1,7 @@
 import QtCore
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 import Qt.labs.folderlistmodel
 
@@ -24,6 +25,8 @@ CenteredDialog {
     Page {
         id: page
         anchors.fill: parent
+        property string folderPath
+        Component.onCompleted: folderPath = sceneOpenDialog.folderUrl
         property date fileAccessed
         property int fileSize
         property url fileUrl
@@ -35,7 +38,7 @@ CenteredDialog {
         property bool fileIsDir
         header: Label {
             textFormat: Text.StyledText
-            text: '<tt><a href="%1">%1</a></tt>'.arg(sceneOpenDialog.folderUrl)
+            text: '<tt><a href="%1">%1</a></tt>'.arg(page.folderPath)
             onLinkActivated: link => Qt.openUrlExternally(link)
         }
         Frame {
@@ -48,18 +51,22 @@ CenteredDialog {
                 highlightFollowsCurrentItem: true
                 highlight: Rectangle {
                     color: palette.highlight
-                    radius: Math.min(height, width) / 2
+                    radius: Math.min(height, width) / 4
                 }
                 model: FolderListModel {
                     folder: sceneOpenDialog.folderUrl
                     nameFilters: SahKdTreeEngine.supportedSceneFileExtensions
+                    sortField: FolderListModel.Size
+                    sortReversed: true
                     showDirsFirst: true
                     showOnlyReadable: true
                     showDotAndDotDot: true
                 }
                 delegate: Component {
-                    Text {
+                    Item {
+                        id: listElement
                         width: ListView.view.width
+                        height: row.implicitHeight
                         required property int index
                         required property date fileAccessed
                         required property int fileSize
@@ -70,26 +77,42 @@ CenteredDialog {
                         required property string fileName
                         required property string fileSuffix
                         required property bool fileIsDir
-                        text: fileName + (fileIsDir ? "/" : "")
+                        RowLayout {
+                            id: row
+                            anchors.fill: parent
+                            Text {
+                                text: listElement.fileName + (listElement.fileIsDir ? "/" : "")
+                                Layout.fillHeight: true
+                            }
+                            Item {
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                visible: !listElement.fileIsDir
+                                text: locale.formattedDataSize(listElement.fileSize)
+                                Layout.fillHeight: true
+                            }
+                        }
                         MouseArea {
                             id: mouseArea
-                            anchors.fill: parent
+                            anchors.fill: row
                             hoverEnabled: true
-                            onEntered: listView.currentIndex = index
+                            onEntered: listView.currentIndex = listElement.index
                             acceptedButtons: Qt.LeftButton
                             onClicked: {
-                                if (fileIsDir) {
-                                    sceneOpenDialog.folderUrl = fileUrl
+                                if (listElement.fileIsDir) {
+                                    sceneOpenDialog.folderUrl = listElement.fileUrl
+                                    page.folderPath = listElement.filePath
                                 } else {
-                                    page.fileAccessed = fileAccessed
-                                    page.fileSize = fileSize
-                                    page.fileUrl = fileUrl
-                                    page.fileModified = fileModified
-                                    page.fileBaseName = fileBaseName
-                                    page.filePath = filePath
-                                    page.fileName = fileName
-                                    page.fileSuffix = fileSuffix
-                                    page.fileIsDir = fileIsDir
+                                    page.fileAccessed = listElement.fileAccessed
+                                    page.fileSize = listElement.fileSize
+                                    page.fileUrl = listElement.fileUrl
+                                    page.fileModified = listElement.fileModified
+                                    page.fileBaseName = listElement.fileBaseName
+                                    page.filePath = listElement.filePath
+                                    page.fileName = listElement.fileName
+                                    page.fileSuffix = listElement.fileSuffix
+                                    page.fileIsDir = listElement.fileIsDir
                                     sceneOpenDialog.accept()
                                 }
                             }

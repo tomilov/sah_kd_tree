@@ -140,7 +140,7 @@ void CameraView::shift(const QVector3D & direction)
     Q_CHECK_PTR(viewer);
     const QVector3D & sceneAabbMin = viewer->scene->sceneAabbMin;
     const QVector3D & sceneAabbMax = viewer->scene->sceneAabbMax;
-    const float & worldScale = viewer->scene->worldScale;
+    float worldScale = viewer->scene->worldScale;
     if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
         const QVector3D direction = position - 0.5f * (sceneAabbMin + sceneAabbMax);
         const float c = direction.length() - 0.5f * (sceneAabbMax - sceneAabbMin).length() * worldScale;
@@ -162,9 +162,9 @@ void CameraView::rotate(float pan, float tilt)
         float pitch, yaw, roll;
         orientation.getEulerAngles(&pitch, &yaw, &roll);
 
-        float rollRadians = qDegreesToRadians(roll);
-        pitch += tilt * qCos(rollRadians) - pan * qSin(rollRadians);
-        yaw += tilt * qSin(rollRadians) + pan * qCos(rollRadians);
+        float screenRoll = qDegreesToRadians(roll);
+        pitch += tilt * qCos(screenRoll) - pan * qSin(screenRoll);
+        yaw += tilt * qSin(screenRoll) + pan * qCos(screenRoll);
 
         while (pitch > 180.0f) {
             pitch -= 360.0f;
@@ -346,26 +346,32 @@ Viewer::Viewer(QQuickItem * parent)
             handleKeyboardInputTimer->stop();
             return;
         }
-        const auto onRefrashRateChanged = [this](qreal refreshRate)
+        const auto onRefreshRateChanged = [this](qreal refreshRate)
         {
             constexpr qreal kMsPerS = 1000.0;
             Q_ASSERT(!qFuzzyIsNull(refreshRate));
             handleKeyboardInputTimer->start(qFloor(kMsPerS / refreshRate));
         };
-        onRefrashRateChanged(primaryScreen->refreshRate());
-        refreshRateConnection = connect(primaryScreen, &QScreen::refreshRateChanged, this, onRefrashRateChanged);
+        onRefreshRateChanged(primaryScreen->refreshRate());
+        refreshRateConnection = connect(primaryScreen, &QScreen::refreshRateChanged, this, onRefreshRateChanged);
     };
     onPrimaryScreenChanged(qApp->primaryScreen());
     connect(qApp, &QGuiApplication::primaryScreenChanged, this, onPrimaryScreenChanged);
     connect(handleKeyboardInputTimer, &QTimer::timeout, this, &Viewer::handleKeyboardInput);
     const auto onActiveFocusChanged = [this](bool activeFocus)
     {
-        // qInfo() << activeFocus << objectName();
         if (!activeFocus) {
             pressedKeys.clear();
         }
     };
     connect(this, &QQuickItem::activeFocusChanged, this, onActiveFocusChanged);
+    const auto onVisibleChanged = [this]
+    {
+        if (!isVisible()) {
+            pressedKeys.clear();
+        }
+    };
+    connect(this, &QQuickItem::visibleChanged, this, onVisibleChanged);
 
     connect(scene, &SceneSettings::urlChanged, this, &QQuickItem::update);
     connect(scene, &SceneSettings::settingsChanged, this, &QQuickItem::update);
@@ -485,9 +491,9 @@ void Viewer::handleKeyboardInput()
     } else if (keyboardModifiers == Qt::KeyboardModifier::ControlModifier) {
         speedModifier = 5.0f;
     }
-    QPointF ortX = mapFromGlobal(1.0, 0.0) - mapFromGlobal(0.0, 0.0);  // mapToGlobal
+    QPointF ortX = mapToGlobal(1.0, 0.0) - mapToGlobal(0.0, 0.0);  // mapToGlobal
     QTransform transform;
-    transform.rotateRadians(-qAtan2(ortX.y(), ortX.x()));
+    transform.rotateRadians(qAtan2(ortX.y(), ortX.x()));
     if (pressedKeys.contains(Qt::Key_Z)) {
         if (0 == pressedKeys[Qt::Key_Z]++) {
             cameraView->resetPosition();
@@ -497,7 +503,7 @@ void Viewer::handleKeyboardInput()
         planeDirection = transform.map(planeDirection);
         direction.setX(utils::autoCast(planeDirection.x()));
         direction.setY(utils::autoCast(planeDirection.y()));
-        float refreshRate = utils::autoCast(qApp->primaryScreen()->refreshRate());
+        float refreshRate = utils::autoCast(window()->screen()->refreshRate());
         float step = speedModifier * cameraController->speed / refreshRate;
         cameraView->shift(direction.normalized() * step);
     }
@@ -609,12 +615,15 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                float screenDensity = utils::autoCast(qApp->primaryScreen()->physicalDotsPerInch());
+                auto screen = window()->screen();
+                float screenDensityX = utils::autoCast(screen->physicalDotsPerInchX());
+                float screenDensityY = utils::autoCast(screen->physicalDotsPerInchY());
+                float pixelRatio = window()->effectiveDevicePixelRatio();
                 float fovRatio = cameraView->getFovRatio();
-                float angularSpeed = cameraController->sensitivity * screenDensity * fovRatio;
+                float angularSpeed = cameraController->sensitivity * fovRatio * pixelRatio;
                 float pan = utils::autoCast(dragPosDelta.x());
                 float tilt = utils::autoCast(dragPosDelta.y());
-                cameraView->rotate(pan * angularSpeed, tilt * angularSpeed);
+                cameraView->rotate(pan * screenDensityX * angularSpeed, tilt * screenDensityY * angularSpeed);
             }
         }
         QCursor::setPos(mapToGlobal(startDragPos).toPoint());
