@@ -331,7 +331,7 @@ int main(int argc, char * argv[])
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         // TODO: QQuickRenderControl, QQuickWindow::setRenderTarget(QQuickRenderTarget::fromVulkanImage),
         // QQuickWindow::setGraphicsDevice(QQuickGraphicsDevice::fromDeviceAndContext),
-        {
+        if ((false)) {
             // TODO: test
             applicationWindow->setPersistentGraphics(false);
             applicationWindow->setPersistentSceneGraph(false);

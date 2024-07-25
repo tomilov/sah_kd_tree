@@ -135,5 +135,4 @@ CenteredDialog {
             }
         }
     }
-    Component.onCompleted: folderUrl = folderListModel.folder
 }

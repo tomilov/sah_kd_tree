@@ -20,13 +20,17 @@ target_sources(
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cu")
+        "${PROJECT_NAME}.cu"
+        "settings.hpp"
+        "settings.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC
         "libutils"
         "libsah_kd_tree"
-        "libscene_data")
+        "libscene_data"
+        CUDA::cuda_driver
+        Thrust)
 if(BUILD_SHARED_LIBS)
     target_link_libraries(
         "lib${PROJECT_NAME}"

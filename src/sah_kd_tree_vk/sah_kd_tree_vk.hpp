@@ -1,41 +1,41 @@
 #pragma once
 
 #include <sah_kd_tree_vk/fwd.hpp>
-#include <scene_data/scene_data.hpp>
+#include <sah_kd_tree_vk/settings.hpp>
+#include <scene_data/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <cstdint>
-
-#include <cuda_runtime.h>
+#include <memory>
 
 #include <sah_kd_tree_vk/sah_kd_tree_vk_export.h>
 
 namespace sah_kd_tree_vk
 {
 
-class SAH_KD_TREE_VK_EXPORT Tree : utils::NonCopyable
+class ShareableHandle
+{
+
+};
+
+class SAH_KD_TREE_VK_EXPORT Tree : utils::OneTime<Tree>
 {
 public:
-    struct Settings
-    {
-        float emptinessFactor;
-        float traversalCost;
-        float intersectionCost;
-        uint32_t maxDepth;
-
-        void check() const;
-    };
-
-    explicit Tree(const scene_data::SceneData & sceneData, const Settings & settings);
+    explicit Tree(const Settings & settings, const scene_data::SceneData & sceneData);
+    Tree(Tree &&) noexcept;
     ~Tree();
+
+    void build();
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 1;
-    static constexpr size_t kAlignment = 1;
-    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+    std::shared_ptr<Impl> impl_;
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace sah_kd_tree_vk

@@ -81,7 +81,7 @@ private:
     template<size_t kActualSize, size_t kActualAlignment>
     struct Validate
     {
-        static_assert(kSize == kActualSize);
+        static_assert(kSize == kActualSize);  // -D_GLIBCXX_DEBUG
         static_assert(kAlignment == kActualAlignment);
     };
 };

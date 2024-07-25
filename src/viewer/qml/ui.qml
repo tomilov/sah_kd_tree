@@ -8,19 +8,13 @@ import QtQuick3D
 
 import SahKdTree 1.0
 
+import "utils.js" as Utils
+
 pragma ComponentBehavior: Bound
 
 ApplicationWindow {
     id: root
     objectName: Application.name
-    function pprops(item) {
-        console.log("PPROPS:", (typeof item).toString())
-        for (let p in item)
-            console.log(p + ": " + item[p]);
-    }
-    function coloredText(text, color) {
-        return '<font color="%1">%2</font>'.arg(color).arg(text)
-    }
     x: Application.screens[0].width / 4
     y: Application.screens[0].height / 4
     width: Application.screens[0].width / 2
@@ -166,6 +160,7 @@ ApplicationWindow {
         id: actionUseOffscreenTexture
         text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
+        checked: true
         shortcut: "F2"
     }
     Action {
@@ -191,7 +186,7 @@ ApplicationWindow {
         }
         Component.onDestruction: {
             for (let i in texturingModeActionGroup.actions) {
-                if (texturingModeActionGroup.actions[a].checked) {
+                if (texturingModeActionGroup.actions[i].checked) {
                     settings.texturingModeIndex = i
                     break
                 }
@@ -883,10 +878,10 @@ ApplicationWindow {
                                 let description = []
                                 let renderMode = viewer.renderer.renderMode
                                 if (renderMode & RendererSettings.UseOffscreenTexture) {
-                                    description.push(coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
+                                    description.push(Utils.coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
                                 }
                                 if (renderMode & RendererSettings.DiscardInvisibleFragments) {
-                                    description.push(coloredText(verbose ? "Discard invisible pixels" : "D", "blue"))
+                                    description.push(Utils.coloredText(verbose ? "Discard invisible pixels" : "D", "blue"))
                                 }
                                 let texturingMode
                                 switch (viewer.renderer.texturingMode) {
@@ -899,7 +894,7 @@ ApplicationWindow {
                                     break
                                 }
                                 }
-                                description.push(coloredText(texturingMode, "green"))
+                                description.push(Utils.coloredText(texturingMode, "green"))
                                 return "%1<b>%2</b>"
                                     .arg(verbose ? "" : "Mode: ")
                                     .arg(description.join(verbose ? " AND " : "|"))

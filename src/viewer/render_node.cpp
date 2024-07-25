@@ -187,9 +187,9 @@ struct RenderNode::Impl
     }
 
 #define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
-    void updateRect(const QRectF & newRect)
+    void updateRect(const QRectF & rect)
     {
-        UPDATE_STATE(rect, newRect);
+        UPDATE_STATE(this->rect, rect);
     }
 
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
@@ -267,8 +267,12 @@ struct RenderNode::Impl
         renderer.value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }
 
-    void prepare(float alpha, const QSize & renderTargetSize, const QRectF & scissorRect, const glm::mat4 & mvp, bool isAxisAligned)
+    void prepare(float alpha, const QSize & renderTargetSize, const QMatrix4x4 & mvp, bool isAxisAligned)
     {
+        if (!rect.isValid()) {
+            return;
+        }
+
         frameSettings.alpha = alpha;
 
         frameSettings.width = utils::autoCast(std::ceil(rect.width()));
@@ -283,6 +287,7 @@ struct RenderNode::Impl
             .maxDepth = 1.0f,
         };
 
+        const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
         frameSettings.scissor = vk::Rect2D{
             .offset = {
                 .x = utils::autoCast(std::floor(scissorRect.x())),
@@ -294,7 +299,7 @@ struct RenderNode::Impl
             },
         };
         glm::mat4 & windowMvp = frameSettings.windowMvp;
-        windowMvp = mvp;
+        windowMvp = glm::make_mat4x4(mvp.constData());
         windowMvp = glm::scale(windowMvp, glm::vec3{frameSettings.width * 0.5f, frameSettings.height * 0.5f, 1.0f});
         windowMvp = glm::translate(windowMvp, glm::vec3{1.0f, 1.0f, 0.0f});
 
@@ -307,6 +312,10 @@ struct RenderNode::Impl
 
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
     {
+        if (!rect.isValid()) {
+            return;
+        }
+
         const auto & device = context.getDevice();
         device.setDebugUtilsObjectName(commandBuffer, "Qt command buffer");
 
@@ -398,7 +407,6 @@ void RenderNode::prepare()
     float alpha = utils::autoCast(inheritedOpacity());
     const QSize renderTargetSize = renderTarget()->pixelSize();
     const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
-    const QRectF scissorRect = impl_->getScissorRect(renderTargetSize, mvp);
     bool isAxisAligned = false;
     if ((false)) {  // sadly,  does not reset automatically w/o extra update()
         // optimization for axis aligned transform case
@@ -409,7 +417,7 @@ void RenderNode::prepare()
             }
         }
     }
-    return impl_->prepare(alpha, renderTargetSize, scissorRect, glm::make_mat4x4(mvp.constData()), isAxisAligned);
+    return impl_->prepare(alpha, renderTargetSize, mvp, isAxisAligned);
 }
 
 void RenderNode::render(const RenderState * renderState)
