@@ -1,4 +1,4 @@
-#include <debug/renderdoc.hpp>
+#include <debug_utils/renderdoc.hpp>  //
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/instance.hpp>
@@ -6,6 +6,7 @@
 #include <format/glm.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/checked_ptr.hpp>
 #include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
@@ -33,6 +34,7 @@
 #include <QtCore/QtAssert>
 #include <QtCore/QtLogging>
 #include <QtCore/QtNumeric>
+#include <QtGui/QGuiApplication>
 #include <QtGui/QMatrix4x4>
 #include <QtGui/QVulkanInstance>
 #include <QtGui/rhi/qrhi.h>
@@ -43,6 +45,8 @@
 #include <memory>
 #include <optional>
 #include <utility>
+
+#include <vulkan/vulkan.h>
 
 #include <cmath>
 #include <cstdint>
@@ -127,7 +131,8 @@ private:
 struct RenderNode::Impl
 {
     QQuickWindow * const window;
-    const EngineWrapper * const engineWrapper;
+    const engine::Context & context;
+    const Engine & engine;
 
     std::optional<Renderer> renderer;
     std::shared_ptr<const Scene> scene;
@@ -137,16 +142,19 @@ struct RenderNode::Impl
     QRectF rect;
     FrameSettings frameSettings;
 
+    int renderdocCaptureFrameCounter = 0;
+    int renderdocCaptureFrameCount = 0;
+    std::optional<debug_utils::Renderdoc::FrameCapture> frameCapture;
+
     QVector<quint32> renderPassFormat;
 
-    Impl(QQuickWindow * window, const EngineWrapper * engineWrapper)
+    Impl(QQuickWindow * window, utils::CheckedPtr<const EngineWrapper> engineWrapper)
         : window{window}
-        , engineWrapper{engineWrapper}
+        , context{engineWrapper->getContext()}
+        , engine{engineWrapper->getEngine()}
     {
-        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
         Q_ASSERT(window);
-        ASSERT(engineWrapper);
-        checkContext(window, engineWrapper->getContext());
+        checkContext(window, context);
     }
 
     template<typename T>
@@ -161,14 +169,21 @@ struct RenderNode::Impl
 
     void unsetScene()
     {
+        if (renderer) {
+            ASSERT(renderer.value().getScene() == scene);
+            renderer.value().unsetScene();
+        }
         scene.reset();
         isDirty = true;
     }
 
     void setScene(std::shared_ptr<const Scene> newScene)
     {
-        unsetScene();
+        ASSERT(newScene);
+        ASSERT(!scene);
+        ASSERT(!renderer || !renderer.value().getScene());
         scene = std::move(newScene);
+        isDirty = true;
     }
 
 #define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
@@ -197,6 +212,11 @@ struct RenderNode::Impl
     {
         UPDATE_STATE(frameSettings.clearColor, clearColor);
     }
+
+    void setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
+    {
+        UPDATE_STATE(this->renderdocCaptureFrameCounter, renderdocCaptureFrameCounter);
+    }
 #undef UPDATE_STATE
 
     bool markDirty()
@@ -210,7 +230,7 @@ struct RenderNode::Impl
 
     [[nodiscard]] QRectF getScissorRect(const QSize & renderTargetSize, const QMatrix4x4 & mvp)
     {
-        QRectF scissorRect = mvp.mapRect(rect);  // in NDC, turn back to window coordinates
+        QRectF scissorRect = mvp.mapRect(rect);
         scissorRect.translate(1.0, 1.0);
         scissorRect.setTopLeft(scissorRect.topLeft() * 0.5);
         scissorRect.setBottomRight(scissorRect.bottomRight() * 0.5);
@@ -234,13 +254,15 @@ struct RenderNode::Impl
         if (renderer) {
             ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
         } else {
-            renderer.emplace(engineWrapper->getContext(), engineWrapper->getEngine(), framesInFlight);
+            renderer.emplace(context, engine, framesInFlight);
         }
         renderer.value().setFrameSettings(frameSettings);
-        if (!scene) {
-            renderer.value().unsetScene();
-        } else if (scene != renderer.value().getScene()) {
+        if (scene && !renderer.value().getScene()) {
             renderer.value().setScene(scene);
+        }
+        if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
+            ++renderdocCaptureFrameCount;
+            frameCapture.emplace(debug_utils::Renderdoc::makeFrameCapture(context.getInstance().getInstance(), utils::autoCast(window->winId())));
         }
         renderer.value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }
@@ -285,8 +307,7 @@ struct RenderNode::Impl
 
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
     {
-        qInfo() << Q_FUNC_INFO;
-        const auto & device = engineWrapper->getContext().getDevice();
+        const auto & device = context.getDevice();
         device.setDebugUtilsObjectName(commandBuffer, "Qt command buffer");
 
         ASSERT(renderer);
@@ -294,17 +315,13 @@ struct RenderNode::Impl
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
         ASSERT(renderer.value().getFramesInFlight() == utils::safeCast<uint32_t>(graphicsStateInfo.framesInFlight));
         renderer.value().render(commandBuffer, renderPass, isRenderPassFormatChanged, utils::autoCast(graphicsStateInfo.currentFrameSlot));
+
+        frameCapture.reset();
     }
 
     void releaseResources()
     {
-        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
         renderer.reset();
-    }
-
-    ~Impl()
-    {
-        qCInfo(viewerRenderNodeCategory) << Q_FUNC_INFO;
     }
 
     void flags(QSGRenderNode::RenderingFlags & renderingFlags) const
@@ -333,6 +350,11 @@ void RenderNode::setScene(std::shared_ptr<const Scene> scene)
     return impl_->setScene(std::move(scene));
 }
 
+const std::shared_ptr<const Scene> & RenderNode::getScene() const &
+{
+    return impl_->scene;
+}
+
 void RenderNode::updateRect(const QRectF & rect)
 {
     return impl_->updateRect(rect);
@@ -356,6 +378,11 @@ void RenderNode::setClearColor(const QColor & clearColor)
     float r, g, b, a;
     clearColor.getRgbF(&r, &g, &b, &a);
     return impl_->setClearColor({r, g, b, a});
+}
+
+void RenderNode::setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
+{
+    return impl_->setRenderdocCaptureFrameCounter(renderdocCaptureFrameCounter);
 }
 
 void RenderNode::markDirty()

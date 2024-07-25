@@ -15,7 +15,7 @@ namespace engine
 Queue::Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo)
     : name{fmt::format("{} {}", queueCreateInfo.name, name)}
     , context{context}
-    , commandPool{this->name, context, queueCreateInfo.familyIndex}
+    , commandPool{name, context, queueCreateInfo.familyIndex}
     , queue{context.getDevice().getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
 {
     context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);

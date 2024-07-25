@@ -25,8 +25,6 @@ CenteredDialog {
     Page {
         id: page
         anchors.fill: parent
-        property string folderPath
-        Component.onCompleted: folderPath = sceneOpenDialog.folderUrl
         property date fileAccessed
         property int fileSize
         property url fileUrl
@@ -36,10 +34,24 @@ CenteredDialog {
         property string fileName
         property string fileSuffix
         property bool fileIsDir
-        header: Label {
-            textFormat: Text.StyledText
-            text: '<tt><a href="%1">%1</a></tt>'.arg(page.folderPath)
-            onLinkActivated: link => Qt.openUrlExternally(link)
+        header: RowLayout {
+            ToolButton {
+                icon.name: "go-up-symbolic"
+                onClicked: sceneOpenDialog.folderUrl = folderListModel.parentFolder
+            }
+            Label {
+                id: currentPathLabel
+                textFormat: Text.StyledText
+                text: {
+                    '<tt><a href="%1">%2</a></tt>'
+                    .arg(sceneOpenDialog.folderUrl)
+                    .arg(app.toLocalFile(sceneOpenDialog.folderUrl))
+                }
+                onLinkActivated: link => Qt.openUrlExternally(link)
+            }
+            Item {
+                Layout.fillWidth: true
+            }
         }
         Frame {
             anchors.fill: parent
@@ -54,13 +66,12 @@ CenteredDialog {
                     radius: Math.min(height, width) / 4
                 }
                 model: FolderListModel {
+                    id: folderListModel
                     folder: sceneOpenDialog.folderUrl
-                    nameFilters: SahKdTreeEngine.supportedSceneFileExtensions
+                    nameFilters: SahKdTreeEngine.supportedSceneFileExtensions.map((ext) => "*." + ext)
                     sortField: FolderListModel.Size
-                    sortReversed: true
                     showDirsFirst: true
                     showOnlyReadable: true
-                    showDotAndDotDot: true
                 }
                 delegate: Component {
                     Item {
@@ -102,7 +113,6 @@ CenteredDialog {
                             onClicked: {
                                 if (listElement.fileIsDir) {
                                     sceneOpenDialog.folderUrl = listElement.fileUrl
-                                    page.folderPath = listElement.filePath
                                 } else {
                                     page.fileAccessed = listElement.fileAccessed
                                     page.fileSize = listElement.fileSize
@@ -125,4 +135,5 @@ CenteredDialog {
             }
         }
     }
+    Component.onCompleted: folderUrl = folderListModel.folder
 }

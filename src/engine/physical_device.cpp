@@ -167,20 +167,21 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 {
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
+    auto deviceName = std::data(properties.deviceName);
     if (physicalDeviceType != requiredPhysicalDeviceType) {
-        SPDLOG_DEBUG("Expected {} physical device type, got {}", requiredPhysicalDeviceType, physicalDeviceType);
+        SPDLOG_DEBUG("{}: expected {} physical device type, got {}", deviceName, requiredPhysicalDeviceType, physicalDeviceType);
         return false;
     }
 
     uint32_t apiVersion = properties.apiVersion;
     if ((VK_VERSION_MAJOR(apiVersion) != 1) || (VK_VERSION_MINOR(apiVersion) != 3)) {
-        SPDLOG_DEBUG("Expected Vulkan device version 1.3, got {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
+        SPDLOG_DEBUG("{}: expected Vulkan device version 1.3, got {}.{}.{}", deviceName, VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
         return false;
     }
 
-    bool isAllFeaturesAvailable = true;
+    bool areAllFeaturesAvailable = true;
     size_t i = 0;
-    auto checkFeature = [this, &i, &isAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::*feature) mutable
+    auto checkFeature = [this, deviceName, &i, &areAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::*feature) mutable
     {
         ++i;
         bool isFeatureAvailable = true;
@@ -194,32 +195,41 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
             }
         }
         if (!isFeatureAvailable) {
-            SPDLOG_DEBUG("Feature {}.#{} is not available", typeid(Features).name(), i);
+            SPDLOG_DEBUG("{}: feature {}.#{} is not available", deviceName, typeid(Features).name(), i);
         }
-        isAllFeaturesAvailable = isFeatureAvailable;
+        areAllFeaturesAvailable = isFeatureAvailable;
     };
     const auto checkFeatures = [&checkFeature]<auto... features>(const FeatureList<features...> *)
     {
         (checkFeature(features), ...);
     };
     checkFeatures(std::add_pointer_t<RequiredFeatures>{});
+    if (!areAllFeaturesAvailable) {
+        SPDLOG_DEBUG("{}: not all required features available", deviceName);
+        return false;
+    }
     if (sah_kd_tree::kIsDebugBuild) {
         checkFeatures(std::add_pointer_t<DebugFeatures>{});
+        if (!areAllFeaturesAvailable) {
+            SPDLOG_DEBUG("{}: not all required debug features available", deviceName);
+            return false;
+        }
     }
-    if (!isAllFeaturesAvailable) {
-        SPDLOG_DEBUG("");
+    checkFeatures(std::add_pointer_t<OptionalFeatures>{});
+    if (!areAllFeaturesAvailable) {
+        SPDLOG_DEBUG("{}: not all optional features available", deviceName);
         return false;
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
     if (!std::empty(extensionsCannotBeEnabled)) {
-        SPDLOG_DEBUG("Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
+        SPDLOG_DEBUG("{}: extensions cannot be enabled: {}", deviceName, fmt::join(extensionsCannotBeEnabled, ", "));
         return false;
     }
 
     auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(context.requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
-        SPDLOG_DEBUG("External extensions cannot be enabled: {}", fmt::join(externalExtensionsCannotBeEnabled, ", "));
+        SPDLOG_DEBUG("{}: external extensions cannot be enabled: {}", deviceName, fmt::join(externalExtensionsCannotBeEnabled, ", "));
         return false;
     }
 
@@ -243,39 +253,39 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     transferHostToDeviceQueueCreateInfo.familyIndex = transferQueueFamilyIndex;
     transferDeviceToHostQueueCreateInfo.familyIndex = transferQueueFamilyIndex;
 
-    const auto calculateQueueIndex = [this](QueueCreateInfo & queueCreateInfo) -> bool
+    const auto calculateQueueIndex = [this, deviceName](QueueCreateInfo & queueCreateInfo) -> bool
     {
         if (queueCreateInfo.familyIndex == VK_QUEUE_FAMILY_IGNORED) {
-            SPDLOG_DEBUG("");
+            SPDLOG_DEBUG("{}", deviceName);
             return false;
         }
         auto queueIndex = usedQueueFamilySizes[queueCreateInfo.familyIndex]++;
         auto queueCount = queueFamilyProperties2Chains[queueCreateInfo.familyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueCount;
         if (queueIndex == queueCount) {
-            SPDLOG_DEBUG("");
+            SPDLOG_DEBUG("{}", deviceName);
             return false;
         }
         queueCreateInfo.index = queueIndex;
         return true;
     };
     if (!calculateQueueIndex(externalGraphicsQueueCreateInfo)) {
-        SPDLOG_DEBUG("");
+        SPDLOG_DEBUG("{}", deviceName);
         return false;
     }
     if (!calculateQueueIndex(graphicsQueueCreateInfo)) {
-        SPDLOG_DEBUG("");
+        SPDLOG_DEBUG("{}", deviceName);
         return false;
     }
     if (!calculateQueueIndex(computeQueueCreateInfo)) {
-        SPDLOG_DEBUG("");
+        SPDLOG_DEBUG("{}", deviceName);
         return false;
     }
     if (!calculateQueueIndex(transferHostToDeviceQueueCreateInfo)) {
-        SPDLOG_DEBUG("");
+        SPDLOG_DEBUG("{}", deviceName);
         return false;
     }
     if (!calculateQueueIndex(transferDeviceToHostQueueCreateInfo)) {
-        SPDLOG_DEBUG("");
+        SPDLOG_DEBUG("{}", deviceName);
         return false;
     }
 

@@ -38,7 +38,7 @@ public:
     using QObject::QObject;
 
 public Q_SLOTS:
-    void setUrl(const QUrl & url);
+    void setUrl(const QUrl & newUrl);
     void unsetUrl();
 
 Q_SIGNALS:
@@ -49,6 +49,7 @@ private:
     friend Viewer;
 
     void setScene(EngineWrapper * engine, RenderNode & renderNode);
+    void updateScene(EngineWrapper * engine, RenderNode & renderNode);
 };
 
 class RendererSettings : public QObject
@@ -62,11 +63,16 @@ class RendererSettings : public QObject
     Q_PROPERTY(QString modeDescriptionVerbose READ getModeDescriptionVerbose NOTIFY settingsChanged STORED false)
     Q_PROPERTY(QColor clearColor MEMBER clearColor NOTIFY settingsChanged)
 
+public Q_SLOTS:
+    void renderdocCaptureFrame();
+
 public:
     bool useOffscreenTexture = true;
     bool discardInvisible = true;
     bool wireFrame = false;
     QColor clearColor;
+
+    int renderdocCaptureFrameCounter = 0;
 
     using QObject::QObject;
 

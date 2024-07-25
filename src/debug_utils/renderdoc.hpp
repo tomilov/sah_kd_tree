@@ -8,12 +8,12 @@
 
 #include <mutex>
 
-#include <debug/debug_export.h>
+#include <debug_utils/debug_utils_export.h>
 
-namespace debug
+namespace debug_utils
 {
 
-class DEBUG_EXPORT Renderdoc : utils::NonCopyable
+class DEBUG_UTILS_EXPORT Renderdoc : utils::NonCopyable
 {
     struct Impl;
 
@@ -49,9 +49,9 @@ public:
     [[nodiscard]] static bool isFrameCapturing();
 
 private:
-    static constexpr size_t kSize = 32;
+    static constexpr size_t kSize = 72;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
-}  // namespace debug
+}  // namespace debug_utils

@@ -105,7 +105,7 @@ private:
 struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 {
     std::shared_ptr<const Shaders> shaders;
-    std::optional<engine::GraphicsPipeline> pipeline = {};
+    std::optional<engine::GraphicsPipeline> pipeline;
 
     explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders)
         : shaders{std::move(shaders)}

@@ -129,7 +129,7 @@ public:
     struct Settings
     {
         bool indexTypeUint8Enabled = true;
-        bool descriptorBufferEnabled = true;
+        bool descriptorBufferEnabled = false;
         bool multiDrawIndirectEnabled = true;
         bool drawIndirectCountEnabled = true;
     };

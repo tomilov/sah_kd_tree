@@ -1,12 +1,15 @@
-#include <debug/renderdoc.hpp>
+#include <debug_utils/renderdoc.hpp>
 #include <utils/auto_cast.hpp>
+
+#include <fmt/format.h>
+#include <spdlog/spdlog.h>
 
 #include <memory>
 
 #include <dlfcn.h>
 #include <renderdoc_app.h>
 
-namespace debug
+namespace debug_utils
 {
 namespace
 {
@@ -23,9 +26,10 @@ RENDERDOC_DevicePointer getDevice(vk::Instance instance)
 
 struct Renderdoc::Impl
 {
+    static constexpr const char * kLibraryName = "librenderdoc.so";
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
-    std::unique_ptr<void, decltype((::dlclose))> library{::dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD), ::dlclose};
+    std::unique_ptr<void, decltype((::dlclose))> library{::dlopen(kLibraryName, RTLD_NOW | RTLD_NOLOAD), ::dlclose};
 #pragma GCC diagnostic pop
     pRENDERDOC_GetAPI getApi = nullptr;
     RENDERDOC_API_1_6_0 * api = nullptr;
@@ -33,14 +37,20 @@ struct Renderdoc::Impl
 
     Impl()
     {
+        SPDLOG_INFO("About to create Renderdoc API");
         if (!library) {
+            SPDLOG_INFO("Cannot load dynamic library {}", kLibraryName);
             return;
         }
-        getApi = reinterpret_cast<pRENDERDOC_GetAPI>(::dlsym(library.get(), "RENDERDOC_GetAPI"));
+        constexpr const char * kGetApiFunctionName = "RENDERDOC_GetAPI";
+        getApi = reinterpret_cast<pRENDERDOC_GetAPI>(::dlsym(library.get(), kGetApiFunctionName));
         if (!getApi) {
+            SPDLOG_INFO("Cannot load function {}", kGetApiFunctionName);
             return;
         }
-        if (getApi(eRENDERDOC_API_Version_1_6_0, utils::autoCast(&api)) != 1) {
+        constexpr RENDERDOC_Version kRenderdocVersion = eRENDERDOC_API_Version_1_6_0;
+        if (getApi(kRenderdocVersion, utils::autoCast(&api)) != 1) {
+            SPDLOG_INFO("Cannot load API of version {}", fmt::underlying(kRenderdocVersion));
             return;
         }
     }
@@ -57,10 +67,16 @@ const Renderdoc & Renderdoc::renderdoc()
 
 Renderdoc::FrameCapture::~FrameCapture()
 {
+    if (!lock.mutex()) {
+        return;
+    }
     if (!impl.api) {
         return;
     }
+    SPDLOG_INFO("Frame capture end");
+    ASSERT(Renderdoc::isFrameCapturing());
     impl.api->EndFrameCapture(getDevice(instance), window);
+    ASSERT(!Renderdoc::isFrameCapturing());
 }
 
 void Renderdoc::FrameCapture::completeClassContext()
@@ -77,8 +93,10 @@ Renderdoc::FrameCapture::FrameCapture(const Impl & impl, vk::Instance instance, 
     if (!impl.api) {
         return;
     }
+    SPDLOG_INFO("Frame capture begin");
     ASSERT(!Renderdoc::isFrameCapturing());
     impl.api->StartFrameCapture(getDevice(instance), window);
+    ASSERT(Renderdoc::isFrameCapturing());
 }
 
 auto Renderdoc::makeFrameCapture(vk::Instance instance, WindowHandle window) -> FrameCapture
@@ -91,8 +109,7 @@ bool Renderdoc::isFrameCapturing()
     if (!renderdoc().impl_->api) {
         return false;
     }
-    ASSERT(Renderdoc::isFrameCapturing());
     return renderdoc().impl_->api->IsFrameCapturing() == 1;
 }
 
-}  // namespace debug
+}  // namespace debug_utils

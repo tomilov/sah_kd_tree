@@ -18,41 +18,52 @@ Device::Device(std::string_view name, Library & library, std::span<const char * 
     , library{library}
     , physicalDevice{physicalDevice}
 {
-    const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::*feature)
+    const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::*feature) -> bool
     {
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
-            createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.*feature = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature;
+            vk::Bool32 value = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature;
+            createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.*feature = value;
+            return value != VK_FALSE;
         } else {
-            createInfoChain.get<Features>().*feature = features2Chain.get<Features>().*feature;
+            vk::Bool32 value = features2Chain.get<Features>().*feature;
+            createInfoChain.get<Features>().*feature = value;
+            return value != VK_FALSE;
         }
     };
-    const auto setFeatures = [&setFeature]<auto... features>(const PhysicalDevice::FeatureList<features...> *)
+    const auto setFeatures = [&setFeature]<auto... features>(const PhysicalDevice::FeatureList<features...> *) -> bool
     {
-        (setFeature(features), ...);
+        return (setFeature(features) && ...);
     };
-    setFeatures(std::add_pointer_t<PhysicalDevice::RequiredFeatures>{});
+    if (!setFeatures(std::add_pointer_t<PhysicalDevice::RequiredFeatures>{})) {
+        INVARIANT(false, "{}", name);
+    }
     if (sah_kd_tree::kIsDebugBuild) {
-        setFeatures(std::add_pointer_t<PhysicalDevice::DebugFeatures>{});
+        if (!setFeatures(std::add_pointer_t<PhysicalDevice::DebugFeatures>{})) {
+            INVARIANT(false, "{}", name);
+        }
+    }
+    if (!setFeatures(std::add_pointer_t<PhysicalDevice::OptionalFeatures>{})) {
+        SPDLOG_WARN("{}", name);
     }
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, "Device extension '{}' should be available after checks", requiredExtension);
+            INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredExtension);
         }
     }
     for (const char * requiredExtension : requiredDeviceExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, "Device extension '{}' (configuration requirements) should be available after checks", requiredExtension);
+            INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredExtension);
         }
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
-            SPDLOG_WARN("Device extension '{}' is not available", optionalExtension);
+            SPDLOG_WARN("{}: device extension '{}' is not available", name, optionalExtension);
         }
     }
     for (const char * optionalVmaExtension : MemoryAllocator::kOptionalExtensions) {
         if (!physicalDevice.enableExtensionIfAvailable(optionalVmaExtension)) {
-            SPDLOG_WARN("Device extension '{}' optionally needed for VMA is not available", optionalVmaExtension);
+            SPDLOG_WARN("{}: device extension '{}' optionally needed for VMA is not available", name, optionalVmaExtension);
         }
     }
 

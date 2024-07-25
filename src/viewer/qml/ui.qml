@@ -41,8 +41,8 @@ ApplicationWindow {
     }
     SceneOpenDialog {
         id: sceneOpenDialog
-        width: Math.min(384, root.width)
-        height: Math.min(384, root.height)
+        width: Math.min(512, root.width)
+        height: Math.min(512, root.height)
         title: qsTr("Open scene file")
         property bool shouldReplaceScene
         function appendScene() {
@@ -73,6 +73,11 @@ ApplicationWindow {
                 let currentIndex = stackLayout.currentIndex
                 listModel.remove(currentIndex)
                 listModel.insert(currentIndex, listItem)
+                /*
+                for (let prop in listItem) {
+                    listModel.setProperty(currentIndex, prop, listItem[prop])
+                }
+                */
                 Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             }
         }
@@ -89,21 +94,28 @@ ApplicationWindow {
         text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Open
         onTriggered: sceneOpenDialog.replaceScene()
-        icon.name: "edit-find-replace-symbolic"
+        icon.name: "tab-new-symbolic"
     }
     Action {
         id: actionReplaceScene
-        text: qsTr("&Open in new tab (%1)").arg(app.keySequenceToString(shortcut))
+        text: qsTr("Open in &new tab (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.AddTab
         onTriggered: sceneOpenDialog.appendScene()
-        icon.name: "document-open-symbolic"
+        icon.name: "application-add-symbolic"
+    }
+    Action {
+        id: actionCloseAllTabs
+        text: qsTr("Close &all tabs")
+        enabled: listModel.count > 0
+        onTriggered: listModel.clear()
+        icon.name: "list-remove-all-symbolic"
     }
     Action {
         id: actionCloseScene
         text: qsTr("&Close")
         enabled: listModel.count > 0
         onTriggered: removeCurrentTab()
-        icon.name: "close-symbolic"
+        icon.name: "list-remove-symbolic"
     }
     Action {
         id: actionExit
@@ -124,6 +136,7 @@ ApplicationWindow {
                 tabBar.incrementCurrentIndex()
             }
         }
+        icon.name: "go-next-symbolic"
     }
     Action {
         id: actionPreviosTab
@@ -137,6 +150,7 @@ ApplicationWindow {
                 tabBar.decrementCurrentIndex()
             }
         }
+        icon.name: "go-previous-symbolic"
     }
     Action {
         id: actionUiVisibility
@@ -180,6 +194,9 @@ ApplicationWindow {
             }
             MenuItem {
                 action: actionReplaceScene
+            }
+            MenuItem {
+                action: actionCloseAllTabs
             }
             MenuItem {
                 action: actionCloseScene
@@ -302,7 +319,7 @@ ApplicationWindow {
                         id: actionLayerEnabled
                         text: qsTr("Layer enable/disable")
                         checkable: true
-                        icon.name: "application-add-symbolic"
+                        icon.name: "image-crop-symbolic"
                     }
                     Action {
                         id: actionRotatePos
@@ -380,21 +397,11 @@ ApplicationWindow {
                         }
                         MenuItem {
                             text: qsTr("Make window invisible")
-                            onTriggered: root.visible = false
-                            Timer {
-                                id: visibilityTimer
-                                interval: 2000
-                                repeat: false
-                                onTriggered: root.visible = true
-                            }
-                            Connections {
-                                target: root
-                                onVisibleChanged: {
-                                    if (!root.visible) {
-                                        visibilityTimer.start()
-                                    }
-                                }
-                            }
+                            onTriggered: root.hide()
+                        }
+                        MenuItem {
+                            text: qsTr("Renderdoc capture frame")
+                            onTriggered: sahKdTreeViewer.renderer.renderdocCaptureFrame()
                         }
                     }
                     header: ToolBar {
@@ -901,7 +908,7 @@ ApplicationWindow {
     }
     Settings {
         id: settings
-        property int visibility: Window.AutomaticVisibility
+        property int rootVisibility: Window.AutomaticVisibility
         property alias x: root.x
         property alias y: root.y
         property alias width: root.width
@@ -914,10 +921,21 @@ ApplicationWindow {
         property int currentTabIndex: -1
         property string jsonModel
     }
-    Component.onCompleted: visibility = settings.visibility
+    Component.onCompleted: visibility = settings.rootVisibility
     onClosing: close => {
-        settings.visibility = visibility
+        settings.rootVisibility = visibility
         //confirmationDialog.open()
         //close.accepted = false
+    }
+    Timer {
+        id: visibilityTimer
+        interval: 2000
+        repeat: false
+        onTriggered: root.show()
+    }
+    onVisibleChanged: {
+        if (!visible) {
+            visibilityTimer.start()
+        }
     }
 }

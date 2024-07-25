@@ -24,6 +24,7 @@ public:
     [[nodiscard]] static Q_INVOKABLE QString getWindowIconFilepath();
     [[nodiscard]] static Q_INVOKABLE QUrl getQtLogoUrl();
     [[nodiscard]] Q_INVOKABLE int getIndexOfClosestNamedColor(QColor color) const;
+    [[nodiscard]] static Q_INVOKABLE QString toLocalFile(QUrl url);
 
 public Q_SLOTS:
     void setClipboardImage(QVariant image) const;
@@ -46,6 +47,7 @@ public:
     [[nodiscard]] static Q_INVOKABLE QString getWindowIconFilepath();
     [[nodiscard]] static Q_INVOKABLE QUrl getQtLogoUrl();
     [[nodiscard]] Q_INVOKABLE int getIndexOfClosestNamedColor(QColor color) const;
+    [[nodiscard]] static Q_INVOKABLE QString toLocalFile(QUrl url);
 
 public Q_SLOTS:
     void setClipboardImage(QVariant image) const;

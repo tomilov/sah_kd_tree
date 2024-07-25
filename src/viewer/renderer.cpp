@@ -679,12 +679,12 @@ void Renderer::Impl::unsetScene()
     scene.reset();
 }
 
-void Renderer::Impl::setScene(std::shared_ptr<const Scene> scene)
+void Renderer::Impl::setScene(std::shared_ptr<const Scene> newScene)
 {
-    ASSERT(scene);
-    ASSERT(this->scene != scene);
-    unsetScene();
-    this->scene = std::move(scene);
+    ASSERT(!scene);
+    ASSERT(!sceneResourcesAndDescriptors);
+    ASSERT(newScene);
+    scene = std::move(newScene);
 }
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const
@@ -777,31 +777,30 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             if (wrapper) {
                 return wrapper.value();
             } else {
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
                 ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
                 return VK_NULL_HANDLE;
             }
         };
         vk::Buffer vertexBuffer = bufferOrNull(sceneResources.vertexBuffer);
         vk::DeviceSize vertexBufferOffset = 0;
-        commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffer, vertexBufferOffset, context.getDispatcher());
+        commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffer, vertexBufferOffset, context.getDispatcher());  // bindVertexBuffers2?
     }
 
+    const auto & features2Chain = context.getPhysicalDevice().features2Chain;
     vk::Buffer indexBuffer;
-    vk::DeviceSize indexBufferSize = 0;
     if (sceneResources.indexBuffer) {
         indexBuffer = sceneResources.indexBuffer.value();
-        indexBufferSize = sceneResources.indexBuffer.value().getSize();
     } else {
-        const auto & features2Chain = context.getPhysicalDevice().features2Chain;
         ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
         ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
-        // TODO: draw
+        // TODO: or draw non-indexed
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (engine.getSettings().multiDrawIndirectEnabled) {
         ASSERT(std::empty(sceneResources.indexTypes));
         auto indexType = sceneResources.maxIndexType;
-        commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, indexType, context.getDispatcher());
+        commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, indexType, context.getDispatcher());  // vkCmdBindIndexBuffer2KHR is not supported by Renderdoc
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = sceneResources.drawCount;
@@ -820,7 +819,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         auto indexType = std::cbegin(sceneResources.indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : sceneResources.instances) {
             ASSERT(indexType != std::cend(sceneResources.indexTypes));
-            commandBuffer.bindIndexBuffer2KHR(indexBuffer, kIndexBufferDeviceOffset, indexBufferSize, *indexType++, context.getDispatcher());
+            commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, *indexType++, context.getDispatcher());
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }

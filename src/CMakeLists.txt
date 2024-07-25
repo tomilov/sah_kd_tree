@@ -61,7 +61,7 @@ cmake_dependent_option(
 
 add_subdirectory("common")
 add_subdirectory("utils")
-add_subdirectory("debug")
+add_subdirectory("debug_utils")
 add_subdirectory("sah_kd_tree")
 add_subdirectory("scene_data")
 add_subdirectory("scene_loader")

@@ -87,6 +87,11 @@ int GuiApplication::getIndexOfClosestNamedColor(QColor color) const
     return viewer::getIndexOfClosestNamedColor(color, colorVectors);
 }
 
+QString GuiApplication::toLocalFile(QUrl url)
+{
+    return url.toLocalFile();
+}
+
 void GuiApplication::setClipboardImage(QVariant image) const
 {
     clipboard()->setImage(image.value<QImage>());
@@ -116,6 +121,11 @@ QUrl Application::getQtLogoUrl()
 int Application::getIndexOfClosestNamedColor(QColor color) const
 {
     return viewer::getIndexOfClosestNamedColor(color, colorVectors);
+}
+
+QString Application::toLocalFile(QUrl url)
+{
+    return GuiApplication::toLocalFile(url);
 }
 
 void Application::setClipboardImage(QVariant image) const

@@ -74,6 +74,7 @@ target_link_libraries(
         "libcodegen_vulkan_utils"
         "libscene_data"
         "libscene_loader"
+        "libdebug_utils"
         "gli"
     PUBLIC
         "libutils")

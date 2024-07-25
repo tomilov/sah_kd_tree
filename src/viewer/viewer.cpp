@@ -49,13 +49,13 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
 }  // namespace
 
-void SceneSettings::setUrl(const QUrl & url)
+void SceneSettings::setUrl(const QUrl & newUrl)
 {
-    if (this->url == url) {
+    if (url == newUrl) {
         return;
     }
     isUrlChanged = true;
-    this->url = url;
+    url = newUrl;
     Q_EMIT urlChanged();
 }
 
@@ -71,16 +71,6 @@ void SceneSettings::unsetUrl()
 
 void SceneSettings::setScene(EngineWrapper * engine, RenderNode & renderNode)
 {
-    if (!isUrlChanged) {
-        return;
-    }
-    isUrlChanged = false;
-    renderNode.unsetScene();
-    {
-        sceneAabbMin = {};
-        sceneAabbMax = {};
-    }
-    Q_EMIT settingsChanged();
     if (url.isEmpty()) {
         return;
     }
@@ -88,20 +78,40 @@ void SceneSettings::setScene(EngineWrapper * engine, RenderNode & renderNode)
         qCWarning(viewerCategory) << u"Scene URL is not local file:"_s << url;
         return;
     }
-    const auto scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
     QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
-    auto newScene = engine->getEngine().getScenes().getScene(scenePath);
+    const auto scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
+    auto scene = engine->getEngine().getScenes().getScene(scenePath);
     QGuiApplication::restoreOverrideCursor();
-    if (!newScene) {
+    if (!scene) {
         return;
     }
     {
-        const auto & [aabbMin, aabbMax] = newScene->sceneData.aabb;
+        const auto & [aabbMin, aabbMax] = scene->sceneData.aabb;
         sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
         sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
         Q_EMIT settingsChanged();
     }
-    renderNode.setScene(std::move(newScene));
+    renderNode.setScene(std::move(scene));
+}
+
+void SceneSettings::updateScene(EngineWrapper * engine, RenderNode & renderNode)
+{
+    if (!isUrlChanged) {
+        return;
+    }
+    isUrlChanged = false;
+    {
+        sceneAabbMin = {};
+        sceneAabbMax = {};
+        Q_EMIT settingsChanged();
+    }
+    renderNode.unsetScene();
+    setScene(engine, renderNode);
+}
+
+void RendererSettings::renderdocCaptureFrame()
+{
+    ++renderdocCaptureFrameCounter;
 }
 
 QString RendererSettings::getModeDescription() const
@@ -232,30 +242,30 @@ float CameraView::getFovRatio() const
     return fov / kDefaultFov;
 }
 
-void CameraView::setPosition(const QVector3D & position)
+void CameraView::setPosition(const QVector3D & newPosition)
 {
-    if (qFuzzyCompare(this->position, position)) {
+    if (qFuzzyCompare(position, newPosition)) {
         return;
     }
-    this->position = position;
+    position = newPosition;
     Q_EMIT viewChanged();
 }
 
-void CameraView::setOrientation(const QQuaternion & orientation)
+void CameraView::setOrientation(const QQuaternion & newOrientation)
 {
-    if (qFuzzyCompare(this->orientation, orientation)) {
+    if (qFuzzyCompare(orientation, newOrientation)) {
         return;
     }
-    this->orientation = orientation;
+    orientation = newOrientation;
     Q_EMIT viewChanged();
 }
 
-void CameraView::setFov(float fov)
+void CameraView::setFov(float newFov)
 {
-    if (qFuzzyCompare(this->fov, fov)) {
+    if (qFuzzyCompare(fov, newFov)) {
         return;
     }
-    this->fov = fov;
+    fov = newFov;
     Q_EMIT viewChanged();
 }
 
@@ -491,7 +501,7 @@ void Viewer::handleKeyboardInput()
     } else if (keyboardModifiers == Qt::KeyboardModifier::ControlModifier) {
         speedModifier = 5.0f;
     }
-    QPointF ortX = mapToGlobal(1.0, 0.0) - mapToGlobal(0.0, 0.0);  // mapToGlobal
+    QPointF ortX = mapToGlobal(1.0, 0.0) - mapToGlobal(0.0, 0.0);
     QTransform transform;
     transform.rotateRadians(qAtan2(ortX.y(), ortX.x()));
     if (pressedKeys.contains(Qt::Key_Z)) {
@@ -707,10 +717,11 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     auto node = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
+        scene->updateScene(engine, *node);
     } else {
         node = new RenderNode{window(), engine};
+        scene->setScene(engine, *node);
     }
-    scene->setScene(engine, *node);
     node->updateRect(boundingRect());
     node->updateMode(renderer->useOffscreenTexture, renderer->discardInvisible, renderer->wireFrame);
     {
@@ -719,6 +730,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         node->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }
     node->setClearColor(renderer->clearColor);
+    node->setRenderdocCaptureFrameCounter(renderer->renderdocCaptureFrameCounter);
     node->markDirty();
     return node;
 }

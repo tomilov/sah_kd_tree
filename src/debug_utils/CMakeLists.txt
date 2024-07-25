@@ -1,4 +1,4 @@
-project("debug")
+project("debug_utils")
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(

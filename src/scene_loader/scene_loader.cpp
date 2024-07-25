@@ -413,7 +413,12 @@ QStringList getSupportedExtensions()
 {
     aiString extensionsString;
     Assimp::Importer{}.GetExtensionList(extensionsString);
-    return QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
+    QStringList globs = QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
+    for (QString & glob : globs) {
+        INVARIANT(glob.startsWith("*."), "{}", glob.toStdString());
+        glob = glob.remove(0, 2);
+    }
+    return globs;
 }
 
 bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)

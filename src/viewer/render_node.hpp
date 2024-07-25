@@ -25,17 +25,19 @@ public:
 
     void unsetScene();
     void setScene(std::shared_ptr<const Scene> scene);
+    [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
 
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
     void updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar);
     void setClearColor(const QColor & clearColor);
+    void setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter);
     void markDirty();
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 816;
+    static constexpr size_t kSize = 880;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
