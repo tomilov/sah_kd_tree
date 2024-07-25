@@ -109,37 +109,23 @@ void SceneSettings::updateScene(EngineWrapper * engine, RenderNode & renderNode)
     setScene(engine, renderNode);
 }
 
+auto RendererSettings::getRenderMode() const -> RenderModeFlags
+{
+    return renderMode;
+}
+
+void RendererSettings::setRenderMode(RenderModeFlags newRenderMode)
+{
+    if (renderMode == newRenderMode) {
+        return;
+    }
+    renderMode = newRenderMode;
+    Q_EMIT settingsChanged();
+}
+
 void RendererSettings::renderdocCaptureFrame()
 {
     ++renderdocCaptureFrameCounter;
-}
-
-QString RendererSettings::getModeDescription() const
-{
-    QStringList mode;
-    if (useOffscreenTexture) {
-        mode << addRichTextColor(u"O"_s, u"fuchsia"_s);
-    }
-    if (discardInvisible) {
-        mode << addRichTextColor(u"D"_s, u"blue"_s);
-    }
-    if (wireFrame) {
-        mode << addRichTextColor(u"W"_s, u"green"_s);
-    }
-    return uR"xml(<b>%1</b>)xml"_s.arg(mode.join(QChar(u'|')));
-}
-
-QString RendererSettings::getModeDescriptionVerbose() const
-{
-    QStringList mode;
-    if (useOffscreenTexture) {
-        mode << addRichTextColor(u"Use offscreen texture"_s, u"fuchsia"_s);
-    }
-    if (discardInvisible) {
-        mode << addRichTextColor(u"Discard invisible pixels"_s, u"blue"_s);
-    }
-    mode << addRichTextColor(u"%1 mode"_s.arg(wireFrame ? u"Wireframe"_s : u"Barycentric Color"_s), u"green"_s);
-    return u"<b>%1</b>"_s.arg(mode.join(u" AND "_s));
 }
 
 void CameraView::shift(const QVector3D & direction)
@@ -302,20 +288,6 @@ void CameraView::reflectOrientation()
     setOrientation(QQuaternion::fromEulerAngles(-pitch, yaw + 180.0f, -roll));
 }
 
-QString CameraView::getDescription() const
-{
-    float pitch, yaw, roll;
-    orientation.getEulerAngles(&pitch, &yaw, &roll);
-    return u"xyz(%1, %2, %3) \x3C6\x3B8\x3C8(%4, %5, %6) fov(%7)"_s  //
-        .arg(position.x(), 5, 'f', 3)                                //
-        .arg(position.y(), 5, 'f', 3)                                //
-        .arg(position.z(), 5, 'f', 3)                                //
-        .arg(pitch, 5, 'f', 1)                                       //
-        .arg(yaw, 5, 'f', 1)                                         //
-        .arg(roll, 5, 'f', 1)                                        //
-        .arg(fov, 5, 'f', 1);                                        //
-}
-
 void CameraController::resetSensitivity()
 {
     sensitivity = kDefaultSensitivity;
@@ -324,13 +296,6 @@ void CameraController::resetSensitivity()
 void CameraController::resetSpeed()
 {
     speed = kDefaultSpeed;
-}
-
-QString CameraController::getDescription() const
-{
-    return u"sens(%1) speed(%2)"_s    //
-        .arg(sensitivity, 5, 'f', 4)  //
-        .arg(speed, 5, 'f', 2);       //
 }
 
 Viewer::Viewer(QQuickItem * parent)
@@ -579,7 +544,7 @@ void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
 void Viewer::wheelEvent(QWheelEvent * event)
 {
     constexpr qreal kUnitsPerDegree = 8.0f;
-    float angle = utils::safeCast<float>(event->angleDelta().y()) / kUnitsPerDegree;
+    float angle = utils::safeCast<float>(event->angleDelta().y() / kUnitsPerDegree);
     if (keyboardModifiers == Qt::KeyboardModifier::ShiftModifier) {
         cameraView->roll(angle);
     } else {
@@ -723,7 +688,10 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         scene->setScene(engine, *node);
     }
     node->updateRect(boundingRect());
-    node->updateMode(renderer->useOffscreenTexture, renderer->discardInvisible, renderer->wireFrame);
+    bool useOffscreenTexture = renderer->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
+    bool discardInvisible = renderer->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
+    bool wireFrame = renderer->texturingMode == RendererSettings::TexturingMode::WireFrame;
+    node->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
     {
         float zFar = (scene->sceneAabbMax - scene->sceneAabbMin).length() * scene->worldScale;
         float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;

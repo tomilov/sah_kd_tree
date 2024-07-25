@@ -55,33 +55,48 @@ private:
 class RendererSettings : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
 
-    Q_PROPERTY(bool useOffscreenTexture MEMBER useOffscreenTexture NOTIFY settingsChanged)  // TODO: QQuickRhiItem instead?
-    Q_PROPERTY(bool discardInvisible MEMBER discardInvisible NOTIFY settingsChanged)
-    Q_PROPERTY(bool wireFrame MEMBER wireFrame NOTIFY settingsChanged)
-    Q_PROPERTY(QString modeDescription READ getModeDescription NOTIFY settingsChanged STORED false)
-    Q_PROPERTY(QString modeDescriptionVerbose READ getModeDescriptionVerbose NOTIFY settingsChanged STORED false)
+    Q_PROPERTY(RenderModeFlags renderMode READ getRenderMode WRITE setRenderMode NOTIFY settingsChanged)
+    Q_PROPERTY(TexturingMode texturingMode MEMBER texturingMode NOTIFY settingsChanged)
+
     Q_PROPERTY(QColor clearColor MEMBER clearColor NOTIFY settingsChanged)
 
-public Q_SLOTS:
-    void renderdocCaptureFrame();
-
 public:
-    bool useOffscreenTexture = true;
-    bool discardInvisible = true;
-    bool wireFrame = false;
+    enum class RenderModeFlag
+    {
+        Default = 0x0000,
+        UseOffscreenTexture = 0x0001,  // TODO: QQuickRhiItem instead?
+        DiscardInvisibleFragments = 0x0002,
+    };
+    Q_DECLARE_FLAGS(RenderModeFlags, RenderModeFlag)
+    Q_FLAG(RenderModeFlags)
+
+    enum class TexturingMode
+    {
+        BarycentricColor,
+        WireFrame,
+    };
+    Q_ENUM(TexturingMode)
+
+    RenderModeFlags renderMode;
+    TexturingMode texturingMode = TexturingMode::BarycentricColor;
+
     QColor clearColor;
 
     int renderdocCaptureFrameCounter = 0;
 
     using QObject::QObject;
 
+    [[nodiscard]] Q_INVOKABLE RenderModeFlags getRenderMode() const;
+
+public Q_SLOTS:
+    void setRenderMode(viewer::RendererSettings::RenderModeFlags renderMode);
+
+    void renderdocCaptureFrame();
+
 Q_SIGNALS:
     void settingsChanged();
-
-private:
-    [[nodiscard]] QString getModeDescription() const;
-    [[nodiscard]] QString getModeDescriptionVerbose() const;
 };
 
 class CameraView : public QObject
@@ -91,7 +106,6 @@ class CameraView : public QObject
     Q_PROPERTY(QVector3D position MEMBER position WRITE setPosition NOTIFY viewChanged RESET resetPosition)
     Q_PROPERTY(QQuaternion orientation MEMBER orientation WRITE setOrientation NOTIFY viewChanged RESET resetOrientation)
     Q_PROPERTY(float fov MEMBER fov WRITE setFov NOTIFY viewChanged RESET resetFov)
-    Q_PROPERTY(QString description READ getDescription NOTIFY viewChanged STORED false)
 
 public:
     QVector3D position;
@@ -124,8 +138,6 @@ Q_SIGNALS:
 
 private:
     static constexpr float kDefaultFov = 90.0f;
-
-    [[nodiscard]] QString getDescription() const;
 };
 
 class CameraController : public QObject
@@ -134,7 +146,6 @@ class CameraController : public QObject
 
     Q_PROPERTY(float sensitivity MEMBER sensitivity NOTIFY controllerChanged RESET resetSensitivity)
     Q_PROPERTY(float speed MEMBER speed NOTIFY controllerChanged RESET resetSpeed)
-    Q_PROPERTY(QString description READ getDescription NOTIFY controllerChanged STORED false)
 
 public:
     float sensitivity = kDefaultSensitivity;
@@ -152,14 +163,12 @@ Q_SIGNALS:
 private:
     static constexpr float kDefaultSensitivity = 0.0012f;
     static constexpr float kDefaultSpeed = 1.0;
-
-    [[nodiscard]] QString getDescription() const;
 };
 
 class Viewer : public QQuickItem
 {
     Q_OBJECT
-    QML_NAMED_ELEMENT(SahKdTreeViewer)
+    QML_ELEMENT
 
     Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
     Q_PROPERTY(SceneSettings * scene MEMBER scene CONSTANT)

@@ -18,6 +18,9 @@ ApplicationWindow {
         for (let p in item)
             console.log(p + ": " + item[p]);
     }
+    function coloredText(text, color) {
+        return '<font color="%1">%2</font>'.arg(color).arg(text)
+    }
     x: Application.screens[0].width / 4
     y: Application.screens[0].height / 4
     width: Application.screens[0].width / 2
@@ -171,11 +174,29 @@ ApplicationWindow {
         checkable: true
         shortcut: "F4"
     }
-    Action {
-        id: actionWireFrame
-        text: qsTr("Wireframe (%1)").arg(app.keySequenceToString(shortcut))
-        checkable: true
-        shortcut: "F6"
+    ActionGroup {
+        id: texturingModeActionGroup
+        Action {
+            id: actionBarycentricColor
+            text: qsTr("Barycentric")
+            checkable: true
+        }
+        Action {
+            id: actionWireFrame
+            text: qsTr("Wireframe")
+            checkable: true
+        }
+        Component.onCompleted: {
+            texturingModeActionGroup.actions[settings.texturingModeIndex].checked = true
+        }
+        Component.onDestruction: {
+            for (let i in texturingModeActionGroup.actions) {
+                if (texturingModeActionGroup.actions[a].checked) {
+                    settings.texturingModeIndex = i
+                    break
+                }
+            }
+        }
     }
     Action {
         id: actionShowAboutQt
@@ -222,6 +243,10 @@ ApplicationWindow {
             }
             MenuItem {
                 action: actionDiscardInvisible
+            }
+            MenuSeparator {}
+            MenuItem {
+                action: actionBarycentricColor
             }
             MenuItem {
                 action: actionWireFrame
@@ -360,7 +385,7 @@ ApplicationWindow {
                     Action {
                         id: actionSaveSceneScreenshot
                         text: qsTr("Screenshot")
-                        onTriggered: sahKdTreeViewer.grabToImage(result => app.setClipboardImage(result.image))
+                        onTriggered: viewer.grabToImage(result => app.setClipboardImage(result.image))
                         icon.name: "edit-copy-symbolic"
                     }
                     Action {
@@ -383,6 +408,10 @@ ApplicationWindow {
                         MenuItem {
                             action: actionDiscardInvisible
                         }
+                        MenuSeparator {}
+                        MenuItem {
+                            action: actionBarycentricColor
+                        }
                         MenuItem {
                             action: actionWireFrame
                         }
@@ -401,7 +430,7 @@ ApplicationWindow {
                         }
                         MenuItem {
                             text: qsTr("Renderdoc capture frame")
-                            onTriggered: sahKdTreeViewer.renderer.renderdocCaptureFrame()
+                            onTriggered: viewer.renderer.renderdocCaptureFrame()
                         }
                     }
                     header: ToolBar {
@@ -414,9 +443,9 @@ ApplicationWindow {
                                     ToolButton {
                                         text: qsTr("Reset cam")
                                         onClicked: {
-                                            sahKdTreeViewer.cameraView.orientation = undefined
-                                            sahKdTreeViewer.cameraView.position = undefined
-                                            sahKdTreeViewer.cameraView.filedOfView = undefined
+                                            viewer.cameraView.orientation = undefined
+                                            viewer.cameraView.position = undefined
+                                            viewer.cameraView.filedOfView = undefined
                                         }
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Reset camera view")
@@ -428,7 +457,7 @@ ApplicationWindow {
                                     }
                                     ToolButton {
                                         text: qsTr("Align cam")
-                                        onClicked: sahKdTreeViewer.cameraView.alignOrientation()
+                                        onClicked: viewer.cameraView.alignOrientation()
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Align camera view")
                                         ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
@@ -439,7 +468,7 @@ ApplicationWindow {
                                     }
                                     ToolButton {
                                         text: qsTr("Reflect cam")
-                                        onClicked: sahKdTreeViewer.cameraView.reflectOrientation()
+                                        onClicked: viewer.cameraView.reflectOrientation()
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Reflect camera view")
                                         ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
@@ -502,6 +531,15 @@ ApplicationWindow {
                                         snapMode: Slider.SnapAlways
                                         ToolTip.visible: pressed || hovered
                                         ToolTip.text: value
+                                        WheelHandler {
+                                            onWheel: (wheel) => {
+                                                if (wheel.angleDelta.y < 0) {
+                                                    rotationSlider.increase()
+                                                } else {
+                                                    rotationSlider.decrease()
+                                                }
+                                            }
+                                        }
                                     }
                                     ToolButton {
                                         text: qsTr("")
@@ -532,6 +570,15 @@ ApplicationWindow {
                                         stepSize: 0.125
                                         ToolTip.visible: pressed || hovered
                                         ToolTip.text: value
+                                        WheelHandler {
+                                            onWheel: (wheel) => {
+                                                if (wheel.angleDelta.y < 0) {
+                                                    scaleSlider.increase()
+                                                } else {
+                                                    scaleSlider.decrease()
+                                                }
+                                            }
+                                        }
                                     }
                                     ToolButton {
                                         text: qsTr("")
@@ -562,6 +609,15 @@ ApplicationWindow {
                                         stepSize: 0.0625
                                         ToolTip.visible: pressed || hovered
                                         ToolTip.text: value
+                                        WheelHandler {
+                                            onWheel: (wheel) => {
+                                                if (wheel.angleDelta.y < 0) {
+                                                    opacitySlider.increase()
+                                                } else {
+                                                    opacitySlider.decrease()
+                                                }
+                                            }
+                                        }
                                     }
                                     ToolButton {
                                         text: qsTr("")
@@ -690,12 +746,12 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Mode: " + sahKdTreeViewer.renderer.modeDescription
+                                        text: viewer.getRenderModeDescription(false)
                                         HoverHandler {
                                             id: modeTextHoverHandler
                                         }
                                         ToolTip.visible: modeTextHoverHandler.hovered
-                                        ToolTip.text: sahKdTreeViewer.renderer.modeDescriptionVerbose
+                                        ToolTip.text: viewer.getRenderModeDescription(true)
                                         ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                         ToolTip.timeout: root.toolTipTimeout
                                     }
@@ -705,7 +761,11 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: sahKdTreeViewer.cameraController.description
+                                        text: {
+                                            "sens(%1) speed(%2)"
+                                            .arg(viewer.cameraController.sensitivity.toFixed(4))
+                                            .arg(viewer.cameraController.speed.toExponential(3))
+                                        }
                                     }
                                 }
                             }
@@ -715,8 +775,8 @@ ApplicationWindow {
                                     Text {
                                         text: {
                                             "rot(%1) scale(%2)"
-                                            .arg(content.rotation)
-                                            .arg(content.scale)
+                                            .arg(content.rotation.toFixed(0))
+                                            .arg(content.scale.toFixed(3))
                                         }
                                     }
                                 }
@@ -725,13 +785,13 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: "Clear color: %1".arg(sahKdTreeViewer.renderer.clearColor)
+                                        text: "Clear color: %1".arg(viewer.renderer.clearColor)
                                     }
                                     Rectangle {
                                         Layout.fillHeight: true
                                         Layout.preferredWidth: height
                                         Layout.margins: height / 8
-                                        color: Qt.alpha(sahKdTreeViewer.renderer.clearColor, 1.0)
+                                        color: Qt.alpha(viewer.renderer.clearColor, 1.0)
                                         radius: height / 4
                                         border.width: 1
                                         border.color: "black"
@@ -741,10 +801,10 @@ ApplicationWindow {
                                     }
                                     ToolTip.visible: clearColorHoveredHandler.hovered
                                     ToolTip.text: {
-                                        'Is %1 "<font color="%2">%3</font>" color'
-                                        .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
-                                        .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
-                                        .arg(clearColorComboBox.currentText)
+                                        return 'Is %1 "<font color="%2">%3</font>" color'
+                                            .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
+                                            .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
+                                            .arg(clearColorComboBox.currentText)
                                     }
                                     ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                     ToolTip.timeout: root.toolTipTimeout
@@ -754,7 +814,14 @@ ApplicationWindow {
                                 RowLayout {
                                     anchors.fill: parent
                                     Text {
-                                        text: sahKdTreeViewer.cameraView.description
+                                        text: {
+                                            let position = viewer.cameraView.position
+                                            let orientation = viewer.cameraView.orientation.toEulerAngles()
+                                            return "xyz(%1, %2, %3) \u03C6\u03B8\u03C8(%4, %5, %6) fov(%7)"
+                                                .arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
+                                                .arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
+                                                .arg(viewer.cameraView.fov.toFixed(0))
+                                        }
                                     }
                                 }
                             }
@@ -806,21 +873,61 @@ ApplicationWindow {
                             }
                             color: "transparent"
                         }
-                        SahKdTreeViewer {
-                            id: sahKdTreeViewer
+                        Viewer {
+                            id: viewer
                             objectName: fileUrlHash
                             anchors.fill: boundingRect
                             anchors.margins: boundingRect.border.width
                             readonly property int animationDuration: 1000
+                            function getRenderModeDescription(verbose) {
+                                let description = []
+                                let renderMode = viewer.renderer.renderMode
+                                if (renderMode & RendererSettings.UseOffscreenTexture) {
+                                    description.push(coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
+                                }
+                                if (renderMode & RendererSettings.DiscardInvisibleFragments) {
+                                    description.push(coloredText(verbose ? "Discard invisible pixels" : "D", "blue"))
+                                }
+                                let texturingMode
+                                switch (viewer.renderer.texturingMode) {
+                                case RendererSettings.BarycentricColor: {
+                                    texturingMode = verbose ? "Barycentric Color" : "B";
+                                    break
+                                }
+                                case RendererSettings.WireFrame: {
+                                    texturingMode = verbose ? "Wireframe" : "W";
+                                    break
+                                }
+                                }
+                                description.push(coloredText(texturingMode, "green"))
+                                return "%1<b>%2</b>"
+                                    .arg(verbose ? "" : "Mode: ")
+                                    .arg(description.join(verbose ? " AND " : "|"))
+                            }
                             engine: SahKdTreeEngine
                             scene {
                                 url: page.fileUrl
                                 worldScale: 1.5
                             }
                             renderer {
-                                useOffscreenTexture: actionUseOffscreenTexture.checked
-                                discardInvisible: actionDiscardInvisible.checked
-                                wireFrame: actionWireFrame.checked
+                                renderMode: {
+                                    let value = 0
+                                    if (actionUseOffscreenTexture.checked) {
+                                        value |= RendererSettings.UseOffscreenTexture
+                                    }
+                                    if (actionDiscardInvisible.checked) {
+                                        value |= RendererSettings.DiscardInvisibleFragments
+                                    }
+                                    return value
+                                }
+                                texturingMode: {
+                                    if (actionBarycentricColor.checked) {
+                                        return RendererSettings.BarycentricColor
+                                    }
+                                    if (actionWireFrame.checked) {
+                                        return RendererSettings.WireFrame
+                                    }
+                                }
                                 clearColor: clearColorDialog.selectedColor
                             }
                             cameraController {
@@ -829,19 +936,19 @@ ApplicationWindow {
                             cameraView {
                                 Behavior on position {
                                     Vector3dAnimation {
-                                        duration: sahKdTreeViewer.animationDuration
+                                        duration: viewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                                 Behavior on orientation {
                                     QuaternionAnimation {
-                                        duration: sahKdTreeViewer.animationDuration
+                                        duration: viewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
                                 Behavior on fov {
                                     NumberAnimation {
-                                        duration: sahKdTreeViewer.animationDuration
+                                        duration: viewer.animationDuration
                                         easing.type: Easing.InOutQuad
                                     }
                                 }
@@ -849,7 +956,7 @@ ApplicationWindow {
                         }
                         MouseArea {
                             anchors.fill: parent
-                            cursorShape: sahKdTreeViewer.cursor
+                            cursorShape: viewer.cursor
                             acceptedButtons: Qt.RightButton
                             onClicked: contextMenu.popup()
                         }
@@ -862,14 +969,14 @@ ApplicationWindow {
                             }
                             function saveCameraView(key) {
                                 let keyPrefix = getKeyPrefix(key)
-                                let cameraView = sahKdTreeViewer.cameraView
+                                let cameraView = viewer.cameraView
                                 setValue(keyPrefix + "position", cameraView.position)
                                 setValue(keyPrefix + "orientation", cameraView.orientation)
                                 setValue(keyPrefix + "fov", cameraView.fov)
                             }
                             function loadCameraView(key, animate) {
                                 let keyPrefix = getKeyPrefix(key)
-                                let cameraView = sahKdTreeViewer.cameraView
+                                let cameraView = viewer.cameraView
                                 let position = value(keyPrefix + "position", cameraView.position)
                                 let orientation = value(keyPrefix + "orientation", cameraView.orientation)
                                 let fov = value(keyPrefix + "fov", cameraView.fov)
@@ -915,9 +1022,7 @@ ApplicationWindow {
         property alias height: root.height
         property alias uiVisibility: actionUiVisibility.checked
         property alias useOffscreenTexture: actionUseOffscreenTexture.checked
-        property alias discardInvisible: actionDiscardInvisible.checked
-        property alias wireFrame: actionWireFrame.checked
-        property alias folderUrl: sceneOpenDialog.folderUrl
+        property int texturingModeIndex: 0
         property int currentTabIndex: -1
         property string jsonModel
     }
