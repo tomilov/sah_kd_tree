@@ -4,4 +4,4 @@
 #include <sah_kd_tree/merge_event.inl>
 #endif
 
-template void sah_kd_tree::Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
+template void sah_kd_tree::Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U, Allocator<U>> & polygonNode, const thrust::device_vector<U, Allocator<U>> & splittedPolygon);

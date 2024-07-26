@@ -19,7 +19,8 @@ struct DefaultTraits
     using I = int;
     using U = unsigned int;
     using F = float;
-    using MemoryResource = void;
+    template<typename T>
+    using Allocator = thrust::device_allocator<T>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -28,7 +29,8 @@ struct Params
     using I = typename Traits::I;
     using U = typename Traits::U;
     using F = typename Traits::F;
-    using MemoryResource = typename Traits::MemoryResource;
+    template<typename T>
+    using Allocator = typename Traits::template Allocator<T>;
 
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
@@ -42,7 +44,8 @@ struct Tree
     using I = typename Traits::I;
     using U = typename Traits::U;
     using F = typename Traits::F;
-    using MemoryResource = typename Traits::MemoryResource;
+    template<typename T>
+    using Allocator = typename Traits::template Allocator<T>;
 
     thrust::host_vector<U> layerDepth;
 
@@ -50,22 +53,22 @@ struct Tree
     {
         struct Node
         {
-            thrust::device_vector<F> min, max;
-            thrust::device_vector<U> leftRope, rightRope;
+            thrust::device_vector<F, Allocator<F>> min, max;
+            thrust::device_vector<U, Allocator<U>> leftRope, rightRope;
         } node;
     } x, y, z;
 
     struct Polygon
     {
-        thrust::device_vector<U> triangle;
+        thrust::device_vector<U, Allocator<U>> triangle;
     } polygon;
 
     struct Node
     {
-        thrust::device_vector<I> splitDimension;
-        thrust::device_vector<F> splitPos;
-        thrust::device_vector<U> leftChild, rightChild;
-        thrust::device_vector<U> parent;
+        thrust::device_vector<I, Allocator<I>> splitDimension;
+        thrust::device_vector<F, Allocator<F>> splitPos;
+        thrust::device_vector<U, Allocator<U>> leftChild, rightChild;
+        thrust::device_vector<U, Allocator<U>> parent;
     } node;
 };
 
@@ -75,7 +78,8 @@ struct Projection
     using I = typename Traits::I;
     using U = typename Traits::U;
     using F = typename Traits::F;
-    using MemoryResource = typename Traits::MemoryResource;
+    template<typename T>
+    using Allocator = typename Traits::template Allocator<T>;
 
     struct ToPair
     {
@@ -101,44 +105,44 @@ struct Projection
 
     struct Polygon
     {
-        thrust::device_vector<F> min, max;
+        thrust::device_vector<F, Allocator<F>> min, max;
     } polygon;
 
     struct Node
     {
-        thrust::device_vector<F> min, max;
-        thrust::device_vector<U> leftRope, rightRope;
+        thrust::device_vector<F, Allocator<F>> min, max;
+        thrust::device_vector<U, Allocator<U>> leftRope, rightRope;
     } node;
 
     struct Event
     {
         U count = 0;
-        thrust::device_vector<U> node;
-        thrust::device_vector<F> pos;
-        thrust::device_vector<I> kind;  // TODO: scale event kind by polygon value
-        thrust::device_vector<U> polygon;
+        thrust::device_vector<U, Allocator<U>> node;
+        thrust::device_vector<F, Allocator<F>> pos;
+        thrust::device_vector<I, Allocator<I>> kind;  // TODO: scale event kind by polygon value
+        thrust::device_vector<U, Allocator<U>> polygon;
 
-        thrust::device_vector<U> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
+        thrust::device_vector<U, Allocator<U>> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
     } event;
 
     struct Layer
     {
-        thrust::device_vector<F> splitCost;
-        thrust::device_vector<U> splitEvent;
-        thrust::device_vector<F> splitPos;
+        thrust::device_vector<F, Allocator<F>> splitCost;
+        thrust::device_vector<U, Allocator<U>> splitEvent;
+        thrust::device_vector<F, Allocator<F>> splitPos;
 
-        thrust::device_vector<U> polygonCountLeft, polygonCountRight;
-        thrust::device_vector<U> splittedPolygonCount;  // can be optimized out
+        thrust::device_vector<U, Allocator<U>> polygonCountLeft, polygonCountRight;
+        thrust::device_vector<U, Allocator<U>> splittedPolygonCount;  // can be optimized out
     } layer;
 
     void calculateTriangleBbox();
     void calculateRootNodeBbox();
     void generateInitialEvent();
 
-    void findPerfectSplit(const Params<Traits> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
-    void decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
+    void findPerfectSplit(const Params<Traits> & sah, U layerSize, const thrust::device_vector<U, Allocator<U>> & layerNodeOffset, const thrust::device_vector<U, Allocator<U>> & nodePolygonCount, const Projection & y, const Projection & z);
+    void decoupleEventBoth(const thrust::device_vector<I, Allocator<I>> & nodeSplitDimension, const thrust::device_vector<I, Allocator<I>> & polygonSide);
 
-    void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
+    void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U, Allocator<U>> & polygonNode, const thrust::device_vector<U, Allocator<U>> & splittedPolygon);
 };
 
 template<typename Traits = DefaultTraits>
@@ -147,7 +151,8 @@ struct Builder
     using I = typename Traits::I;
     using U = typename Traits::U;
     using F = typename Traits::F;
-    using MemoryResource = typename Traits::MemoryResource;
+    template<typename T>
+    using Allocator = typename Traits::template Allocator<T>;
 
     struct IsNotLeaf
     {
@@ -170,28 +175,28 @@ struct Builder
         U count = 0;
         U splittedCount = 0;
 
-        thrust::device_vector<U> triangle;
-        thrust::device_vector<U> node;
-        thrust::device_vector<I> side;
-        thrust::device_vector<U> eventRight;  // right event in diverse best dimensions
+        thrust::device_vector<U, Allocator<U>> triangle;
+        thrust::device_vector<U, Allocator<U>> node;
+        thrust::device_vector<I, Allocator<I>> side;
+        thrust::device_vector<U, Allocator<U>> eventRight;  // right event in diverse best dimensions
     } polygon;
 
     struct Node
     {
         U count = 1;  // always equal layer.base + layer.size
 
-        thrust::device_vector<I> splitDimension;
-        thrust::device_vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
-        thrust::device_vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
-        thrust::device_vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
-        thrust::device_vector<U> parent;                                             // temporarily needed to build ropes
+        thrust::device_vector<I, Allocator<I>> splitDimension;
+        thrust::device_vector<F, Allocator<F>> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
+        thrust::device_vector<U, Allocator<U>> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
+        thrust::device_vector<U, Allocator<U>> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
+        thrust::device_vector<U, Allocator<U>> parent;                                             // temporarily needed to build ropes
     } node;                                                                          // TODO: optimize out node.rightChild
 
     struct Leaf
     {
         U count = 0;
 
-        thrust::device_vector<U> node;
+        thrust::device_vector<U, Allocator<U>> node;
     } leaf;
 
     struct Layer
@@ -199,10 +204,10 @@ struct Builder
         U base = 0;
         U size = 1;
 
-        thrust::device_vector<U> nodeOffset;
+        thrust::device_vector<U, Allocator<U>> nodeOffset;
     } layer;
 
-    thrust::device_vector<U> splittedPolygon;
+    thrust::device_vector<U, Allocator<U>> splittedPolygon;
 
     void filterLayerNodeOffset();
     void selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z);
@@ -235,7 +240,8 @@ struct Triangle
     using I = typename Traits::I;
     using U = typename Traits::U;
     using F = typename Traits::F;
-    using MemoryResource = typename Traits::MemoryResource;
+    template<typename T>
+    using Allocator = typename Traits::template Allocator<T>;
 
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
@@ -250,7 +256,7 @@ struct Triangle
 
     struct Component
     {
-        thrust::device_vector<F> a, b, c;
+        thrust::device_vector<F, Allocator<F>> a, b, c;
     } x, y, z;
 
     // For non-CUDA THRUST_DEVICE_SYSTEM a using of the function works fine in pure .cpp,
@@ -322,15 +328,15 @@ extern template void Builder<>::calculateRope<2, false>(Projection<> & z, const 
 extern template void Builder<>::calculateRope<2, true>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
 extern template void Projection<>::calculateTriangleBbox();
 extern template bool Builder<>::checkTree(const Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Projection<>::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
+extern template void Projection<>::decoupleEventBoth(const thrust::device_vector<I, Allocator<I>> & nodeSplitDimension, const thrust::device_vector<I, Allocator<I>> & polygonSide);
 extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
 extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
 extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
 extern template void Builder<>::filterLayerNodeOffset();
-extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
+extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const thrust::device_vector<U, Allocator<U>> & layerNodeOffset, const thrust::device_vector<U, Allocator<U>> & nodePolygonCount, const Projection & y, const Projection & z);
 extern template void Projection<>::generateInitialEvent();
 extern template void linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder);
-extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
+extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U, Allocator<U>> & polygonNode, const thrust::device_vector<U, Allocator<U>> & splittedPolygon);
 extern template void Builder<>::populateLeafNodeTriangleRange();
 extern template void Builder<>::populateNodeParent();
 extern template void Builder<>::resizeNode();

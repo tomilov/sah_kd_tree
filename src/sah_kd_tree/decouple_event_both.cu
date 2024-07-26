@@ -6,5 +6,5 @@
 
 namespace sah_kd_tree
 {
-template void Projection<>::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
+template void Projection<>::decoupleEventBoth(const thrust::device_vector<I, Allocator<I>> & nodeSplitDimension, const thrust::device_vector<I, Allocator<I>> & polygonSide);
 }  // namespace sah_kd_tree

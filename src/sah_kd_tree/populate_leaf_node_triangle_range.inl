@@ -14,13 +14,13 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRa
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 
     leaf.node.resize(leaf.count);
-    thrust::device_vector<U> leafPolygonCount(leaf.count);
+    thrust::device_vector<U, Allocator<U>> leafPolygonCount(leaf.count);
     auto leafPolygonCountEnd = thrust::reduce_by_key(polygon.node.begin(), polygon.node.end(), thrust::make_constant_iterator<U>(1), leaf.node.begin(), leafPolygonCount.begin());
     // erase window for empty leaf nodes:
     leaf.node.erase(leafPolygonCountEnd.first, leaf.node.end());
     leafPolygonCount.erase(leafPolygonCountEnd.second, leafPolygonCount.end());
 
-    thrust::device_vector<U> leafPolygonOffset(leafPolygonCount.size());
+    thrust::device_vector<U, Allocator<U>> leafPolygonOffset(leafPolygonCount.size());
     thrust::exclusive_scan(leafPolygonCount.cbegin(), leafPolygonCount.cend(), leafPolygonOffset.begin());
 
     auto leafPolygonBegin = thrust::make_zip_iterator(leafPolygonOffset.cbegin(), leafPolygonCount.cbegin());
