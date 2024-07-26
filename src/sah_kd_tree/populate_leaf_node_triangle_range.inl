@@ -8,7 +8,8 @@
 #include <thrust/scatter.h>
 #include <thrust/sort.h>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder::populateLeafNodeTriangleRange()
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::populateLeafNodeTriangleRange()
 {
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 

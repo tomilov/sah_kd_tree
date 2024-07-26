@@ -5,7 +5,8 @@
 
 #include <cassert>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide)
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<MemoryResource>::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide)
 {
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(event.count);

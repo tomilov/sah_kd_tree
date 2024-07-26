@@ -188,7 +188,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     const scene_data::SceneData & sceneData;
 
     CudaDevice device;
-    sah_kd_tree::Tree tree;
+    sah_kd_tree::Tree<> tree;
 
     Impl(const Settings & settings, const scene_data::SceneData & sceneData)
         : settings{settings}
@@ -279,12 +279,13 @@ struct Tree::Impl : utils::OneTime<Impl>
 #endif
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        SPDLOG_INFO("START");
         auto triangles = sceneData.makeTriangles();
-        sah_kd_tree::Triangle triangle;
+        sah_kd_tree::Triangle<> triangle;
         triangle.setTriangle(triangles.begin(), triangles.end());
 
-        sah_kd_tree::Builder builder;
-        sah_kd_tree::Projection x, y, z;
+        sah_kd_tree::Builder<> builder;
+        sah_kd_tree::Projection<> x, y, z;
         sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
         sah_kd_tree::Params params = {
             .emptinessFactor = settings.emptinessFactor,
@@ -293,6 +294,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             .maxDepth = settings.maxDepth,
         };
         tree = builder(params, x, y, z);
+        SPDLOG_INFO("STOP");
         return true;
     }
 

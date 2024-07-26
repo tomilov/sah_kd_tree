@@ -10,7 +10,8 @@
 
 #include <cassert>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder::selectNodeBestSplit(const Params & sah, const Projection & x, const Projection & y, const Projection & z)
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::selectNodeBestSplit(const Params & sah, const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z)
 {
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);

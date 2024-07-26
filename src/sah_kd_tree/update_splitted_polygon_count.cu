@@ -3,3 +3,5 @@
 #else
 #include <sah_kd_tree/update_splitted_polygon_count.inl>
 #endif
+
+template void sah_kd_tree::Builder<>::updateSplittedPolygonCount();

@@ -1,8 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-namespace sah_kd_tree
-{
-SAH_KD_TREE_INLINE void Builder::resizeNode()
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::resizeNode()
 {
     node.splitDimension.resize(node.count, I(-1));
     node.splitPos.resize(node.count);
@@ -11,4 +10,3 @@ SAH_KD_TREE_INLINE void Builder::resizeNode()
     node.polygonCountLeft.resize(node.count);
     node.polygonCountRight.resize(node.count);
 }
-}  // namespace sah_kd_tree

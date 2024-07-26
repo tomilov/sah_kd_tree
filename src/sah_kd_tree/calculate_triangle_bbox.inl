@@ -7,7 +7,8 @@
 #include <thrust/transform.h>
 #include <thrust/zip_function.h>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection::calculateTriangleBbox()
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<MemoryResource>::calculateTriangleBbox()
 {
     polygon.min.resize(triangle.count);
     polygon.max.resize(triangle.count);

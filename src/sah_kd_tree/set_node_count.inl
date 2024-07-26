@@ -1,6 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder::setNodeCount(Projection & x, Projection & y, Projection & z) const
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::setNodeCount(Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) const
 {
     x.node.min.resize(node.count);
     x.node.max.resize(node.count);

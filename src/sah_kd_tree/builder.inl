@@ -13,7 +13,8 @@
 
 #include <cassert>
 
-SAH_KD_TREE_INLINE auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projection & y, Projection & z) -> Tree
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<MemoryResource>::operator()(const Params & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) -> Tree<MemoryResource>
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
@@ -39,7 +40,7 @@ SAH_KD_TREE_INLINE auto sah_kd_tree::Builder::operator()(const Params & sah, Pro
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
-    Tree tree;
+    Tree<MemoryResource> tree;
     for (; tree.layerDepth.size() < sah.maxDepth; tree.layerDepth.push_back(node.count)) {
         filterLayerNodeOffset();
 

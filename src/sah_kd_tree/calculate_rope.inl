@@ -7,8 +7,9 @@
 
 namespace sah_kd_tree
 {
+template<typename MemoryResource>
 template<I dimension, bool forth>
-void Builder::calculateRope(Projection & x, const Projection & y, const Projection & z) const
+void Builder<MemoryResource>::calculateRope(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const
 {
     auto & nodeRope = forth ? x.node.rightRope : x.node.leftRope;
     nodeRope.resize(node.count);
@@ -80,10 +81,4 @@ void Builder::calculateRope(Projection & x, const Projection & y, const Projecti
     thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRope.begin(), getRightRope);
 }
 
-template void Builder::calculateRope<0, false>(Projection & x, const Projection & y, const Projection & z) const;
-template void Builder::calculateRope<0, true>(Projection & x, const Projection & y, const Projection & z) const;
-template void Builder::calculateRope<1, false>(Projection & y, const Projection & z, const Projection & x) const;
-template void Builder::calculateRope<1, true>(Projection & y, const Projection & z, const Projection & x) const;
-template void Builder::calculateRope<2, false>(Projection & z, const Projection & x, const Projection & y) const;
-template void Builder::calculateRope<2, true>(Projection & z, const Projection & x, const Projection & y) const;
 }  // namespace sah_kd_tree

@@ -9,7 +9,8 @@
 
 #include <cassert>
 
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder::separateSplittedPolygon()
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::separateSplittedPolygon()
 {
     polygon.triangle.resize(polygon.count + polygon.splittedCount);
     polygon.node.resize(polygon.count + polygon.splittedCount);

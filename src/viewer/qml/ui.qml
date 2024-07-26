@@ -1035,6 +1035,7 @@ ApplicationWindow {
         property alias y: root.y
         property alias width: root.width
         property alias height: root.height
+        property alias sceneOpenFolderUrl: sceneOpenDialog.folderUrl
         property alias uiVisibility: actionUiVisibility.checked
         property alias traceSahKdTree: actionTraceSahKdTree.checked
         property alias useOffscreenTexture: actionUseOffscreenTexture.checked

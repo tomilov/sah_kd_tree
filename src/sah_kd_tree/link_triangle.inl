@@ -1,8 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-namespace sah_kd_tree
-{
-SAH_KD_TREE_INLINE void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE void sah_kd_tree::linkTriangles(const Triangle<MemoryResource> & triangle, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z, Builder<MemoryResource> & builder)
 {
     x.triangle.count = triangle.count;
     x.triangle.a = triangle.x.a.data();
@@ -21,4 +20,3 @@ SAH_KD_TREE_INLINE void linkTriangles(const Triangle & triangle, Projection & x,
 
     builder.polygon.count = triangle.count;
 }
-}  // namespace sah_kd_tree

@@ -32,7 +32,8 @@ inline __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F
     return true;
 }
 
-SAH_KD_TREE_INLINE bool Builder::checkTree(const Projection & x, const Projection & y, const Projection & z) const
+template<typename MemoryResource>
+SAH_KD_TREE_INLINE bool Builder<MemoryResource>::checkTree(const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const
 {
     auto nodeXMins = x.node.min.data().get();
     auto nodeXMaxs = x.node.max.data().get();

@@ -17,14 +17,14 @@ bool builder::buildSceneFromTriangles(const scene_data::Triangle * triangleBegin
         params.maxDepth = static_cast<sah_kd_tree::U>(maxDepth);
     }
 
-    sah_kd_tree::Triangle triangle;
+    sah_kd_tree::Triangle<> triangle;
     triangle.setTriangle(triangleBegin, triangleEnd);
 
-    sah_kd_tree::Projection x, y, z;
-    sah_kd_tree::Builder builder;
+    sah_kd_tree::Projection<> x, y, z;
+    sah_kd_tree::Builder<> builder;
 
     sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
 
-    sah_kd_tree::Tree tree = builder(params, x, y, z);
+    sah_kd_tree::Tree<> tree = builder(params, x, y, z);
     return true;
 }

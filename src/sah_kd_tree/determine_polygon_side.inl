@@ -13,8 +13,9 @@
 
 namespace sah_kd_tree
 {
+template<typename MemoryResource>
 template<I dimension>
-void Builder::determinePolygonSide(const Projection & projection)
+void Builder<MemoryResource>::determinePolygonSide(const Projection<MemoryResource> & projection)
 {
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(projection.event.count);
@@ -65,8 +66,4 @@ void Builder::determinePolygonSide(const Projection & projection)
     thrust::scatter_if(eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygonSideBegin, isNotRightEvent);
 #endif
 }
-
-template void Builder::determinePolygonSide<0>(const Projection & x);
-template void Builder::determinePolygonSide<1>(const Projection & y);
-template void Builder::determinePolygonSide<2>(const Projection & z);
 }  // namespace sah_kd_tree
