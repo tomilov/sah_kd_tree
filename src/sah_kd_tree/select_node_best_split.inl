@@ -7,6 +7,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -18,23 +19,23 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const 
 
     auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layer.base);
 
-    auto nodeXSplitCosts = x.layer.splitCost.data().get();
-    auto nodeYSplitCosts = y.layer.splitCost.data().get();
-    auto nodeZSplitCosts = z.layer.splitCost.data().get();
+    auto nodeXSplitCosts = thrust::raw_pointer_cast(x.layer.splitCost.data());
+    auto nodeYSplitCosts = thrust::raw_pointer_cast(y.layer.splitCost.data());
+    auto nodeZSplitCosts = thrust::raw_pointer_cast(z.layer.splitCost.data());
 
-    auto nodeXLeftChildPolygonCounts = x.layer.polygonCountLeft.data().get();
-    auto nodeYLeftChildPolygonCounts = y.layer.polygonCountLeft.data().get();
-    auto nodeZLeftChildPolygonCounts = z.layer.polygonCountLeft.data().get();
+    auto nodeXLeftChildPolygonCounts = thrust::raw_pointer_cast(x.layer.polygonCountLeft.data());
+    auto nodeYLeftChildPolygonCounts = thrust::raw_pointer_cast(y.layer.polygonCountLeft.data());
+    auto nodeZLeftChildPolygonCounts = thrust::raw_pointer_cast(z.layer.polygonCountLeft.data());
 
-    auto nodeXRightChildPolygonCounts = x.layer.polygonCountRight.data().get();
-    auto nodeYRightChildPolygonCounts = y.layer.polygonCountRight.data().get();
-    auto nodeZRightChildPolygonCounts = z.layer.polygonCountRight.data().get();
+    auto nodeXRightChildPolygonCounts = thrust::raw_pointer_cast(x.layer.polygonCountRight.data());
+    auto nodeYRightChildPolygonCounts = thrust::raw_pointer_cast(y.layer.polygonCountRight.data());
+    auto nodeZRightChildPolygonCounts = thrust::raw_pointer_cast(z.layer.polygonCountRight.data());
 
-    auto nodePolygonCounts = thrust::next(node.polygonCount.data(), layer.base).get();
+    auto nodePolygonCounts = thrust::raw_pointer_cast(thrust::next(node.polygonCount.data(), layer.base));
 
-    auto nodeXSplitPositions = x.layer.splitPos.data().get();
-    auto nodeYSplitPositions = y.layer.splitPos.data().get();
-    auto nodeZSplitPositions = z.layer.splitPos.data().get();
+    auto nodeXSplitPositions = thrust::raw_pointer_cast(x.layer.splitPos.data());
+    auto nodeYSplitPositions = thrust::raw_pointer_cast(y.layer.splitPos.data());
+    auto nodeZSplitPositions = thrust::raw_pointer_cast(z.layer.splitPos.data());
 
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     using NodeBestSplitType = thrust::iterator_value_t<decltype(nodeBestSplitBegin)>;

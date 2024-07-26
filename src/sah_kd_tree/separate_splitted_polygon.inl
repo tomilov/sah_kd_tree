@@ -6,6 +6,7 @@
 #include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -18,9 +19,9 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
 
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
 
-    auto polygonNodes = polygon.node.data().get();
-    auto nodeSplitDimensions = node.splitDimension.data().get();
-    auto polygonSides = polygon.side.data().get();
+    auto polygonNodes = thrust::raw_pointer_cast(polygon.node.data());
+    auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
+    auto polygonSides = thrust::raw_pointer_cast(polygon.side.data());
     U layerBase = layer.base;
     const auto isSplittedPolygon = [layerBase, polygonNodes, nodeSplitDimensions, polygonSides] __host__ __device__(U polygon) -> bool {
         U polygonNode = polygonNodes[polygon];
@@ -32,7 +33,7 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
         }
         return polygonSides[polygon] == 0;
     };
-    auto polygonTriangles = polygon.triangle.data().get();
+    auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
     auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
     using SplittedPolygonType = thrust::iterator_value_t<decltype(splittedPolygonOutputBegin)>;

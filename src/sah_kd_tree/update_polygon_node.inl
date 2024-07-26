@@ -2,6 +2,7 @@
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
+#include <thrust/memory.h>
 
 template<typename Traits>
 SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updatePolygonNode()
@@ -9,13 +10,13 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updatePolygonNode()
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
     auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);
 
-    auto polygonSides = polygon.side.data().get();
-    auto polygonNodes = polygon.node.data().get();
+    auto polygonSides = thrust::raw_pointer_cast(polygon.side.data());
+    auto polygonNodes = thrust::raw_pointer_cast(polygon.node.data());
 
-    auto nodeLeftChilds = node.leftChild.data().get();
-    auto nodeRightChilds = node.rightChild.data().get();
+    auto nodeLeftChilds = thrust::raw_pointer_cast(node.leftChild.data());
+    auto nodeRightChilds = thrust::raw_pointer_cast(node.rightChild.data());
 
-    auto nodeSplitDimensions = node.splitDimension.data().get();
+    auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
 
     U layerBase = layer.base;
 

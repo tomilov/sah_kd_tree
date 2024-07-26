@@ -8,6 +8,7 @@
 #endif
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -20,9 +21,9 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(projection.event.count);
 
-    auto eventNodes = projection.event.node.data().get();
-    auto nodeSplitDimensions = node.splitDimension.data().get();
-    auto eventKinds = projection.event.kind.data().get();
+    auto eventNodes = thrust::raw_pointer_cast(projection.event.node.data());
+    auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
+    auto eventKinds = thrust::raw_pointer_cast(projection.event.kind.data());
 
     const auto isNotLeftEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool {
         if (nodeSplitDimensions[eventNodes[event]] != dimension) {
@@ -32,9 +33,9 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
     };
     thrust::scatter_if(eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygon.eventRight.begin(), isNotLeftEvent);
 
-    auto polygonRightEvents = polygon.eventRight.data().get();
-    auto eventPolygons = projection.event.polygon.data().get();
-    auto layerSplitEvents = projection.layer.splitEvent.data().get();
+    auto polygonRightEvents = thrust::raw_pointer_cast(polygon.eventRight.data());
+    auto eventPolygons = thrust::raw_pointer_cast(projection.event.polygon.data());
+    auto layerSplitEvents = thrust::raw_pointer_cast(projection.layer.splitEvent.data());
     U layerBase = layer.base;
     const auto toPolygonSide = [polygonRightEvents, eventPolygons, eventNodes, layerBase, layerSplitEvents, eventKinds] __host__ __device__(U eventLeft) -> I {
         U eventRight = polygonRightEvents[eventPolygons[eventLeft]];

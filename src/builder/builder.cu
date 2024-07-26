@@ -184,11 +184,21 @@ struct Tree::Impl : utils::OneTime<Impl>
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
+    struct Traits : sah_kd_tree::DefaultTraits
+    {
+        using DefaultTraits::I;
+        using DefaultTraits::U;
+        using DefaultTraits::F;
+        using Allocator = thrust::mr::allocator<void, thrust::mr::new_delete_resource>;
+    };
+
     const Settings settings;
     const scene_data::SceneData & sceneData;
 
     CudaDevice device;
-    sah_kd_tree::Tree<> tree;
+    thrust::mr::new_delete_resource memoryResource;
+    typename Traits::Allocator allocator{&memoryResource};
+    sah_kd_tree::Tree<Traits> tree{allocator};
 
     Impl(const Settings & settings, const scene_data::SceneData & sceneData)
         : settings{settings}
@@ -267,6 +277,11 @@ struct Tree::Impl : utils::OneTime<Impl>
         using T = int;
         {
             using Allocator = thrust::mr::allocator<void, MemoryResourceBase>;
+            Allocator a{&vmr};
+            thrust::device_vector<T, Allocator::template rebind<T>::other> v{a};
+        }
+        {
+            using Allocator = thrust::mr::allocator<void, MemoryResourceBase>;
             thrust::device_vector<T, Allocator::template rebind<T>::other> v{&vmr};
         }
         {
@@ -281,13 +296,14 @@ struct Tree::Impl : utils::OneTime<Impl>
 
         SPDLOG_INFO("START");
         auto triangles = sceneData.makeTriangles();
-        sah_kd_tree::Triangle<> triangle;
+
+        sah_kd_tree::Triangle<Traits> triangle{allocator};
         triangle.setTriangle(triangles.begin(), triangles.end());
 
-        sah_kd_tree::Builder<> builder;
-        sah_kd_tree::Projection<> x, y, z;
+        sah_kd_tree::Builder<Traits> builder{allocator};
+        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
         sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
-        sah_kd_tree::Params<> params = {
+        sah_kd_tree::Params<Traits> params = {
             .emptinessFactor = settings.emptinessFactor,
             .traversalCost = settings.traversalCost,
             .intersectionCost = settings.intersectionCost,

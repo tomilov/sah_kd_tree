@@ -30,17 +30,19 @@ SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const Params<Tr
 
     polygon.triangle.resize(polygon.count);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
-    polygon.node.assign(polygon.count, U(0));
+    //polygon.node.assign(polygon.count, U(0));
+    polygon.node.resize(polygon.count, U(0));
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
     node.leftChild.resize(1);
     node.rightChild.resize(1);
-    node.polygonCount.assign(1, polygon.count);
+    //node.polygonCount.assign(1, polygon.count);
+    node.polygonCount.resize(1, polygon.count);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
-    Tree<Traits> tree;
+    Tree<Traits> tree{allocator};
     for (; tree.layerDepth.size() < sah.maxDepth; tree.layerDepth.push_back(node.count)) {
         filterLayerNodeOffset();
 

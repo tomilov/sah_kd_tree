@@ -3,6 +3,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
 #include <thrust/tuple.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -36,21 +37,21 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 template<typename Traits>
 SAH_KD_TREE_INLINE bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
-    auto nodeXMins = x.node.min.data().get();
-    auto nodeXMaxs = x.node.max.data().get();
-    auto nodeYMins = y.node.min.data().get();
-    auto nodeYMaxs = y.node.max.data().get();
-    auto nodeZMins = z.node.min.data().get();
-    auto nodeZMaxs = z.node.max.data().get();
+    auto nodeXMins = thrust::raw_pointer_cast(x.node.min.data());
+    auto nodeXMaxs = thrust::raw_pointer_cast(x.node.max.data());
+    auto nodeYMins = thrust::raw_pointer_cast(y.node.min.data());
+    auto nodeYMaxs = thrust::raw_pointer_cast(y.node.max.data());
+    auto nodeZMins = thrust::raw_pointer_cast(z.node.min.data());
+    auto nodeZMaxs = thrust::raw_pointer_cast(z.node.max.data());
 
-    auto polygonNodes = polygon.node.data().get();
+    auto polygonNodes = thrust::raw_pointer_cast(polygon.node.data());
 
-    auto polygonXMins = x.polygon.min.data().get();
-    auto polygonXMaxs = x.polygon.max.data().get();
-    auto polygonYMins = y.polygon.min.data().get();
-    auto polygonYMaxs = y.polygon.max.data().get();
-    auto polygonZMins = z.polygon.min.data().get();
-    auto polygonZMaxs = z.polygon.max.data().get();
+    auto polygonXMins = thrust::raw_pointer_cast(x.polygon.min.data());
+    auto polygonXMaxs = thrust::raw_pointer_cast(x.polygon.max.data());
+    auto polygonYMins = thrust::raw_pointer_cast(y.polygon.min.data());
+    auto polygonYMaxs = thrust::raw_pointer_cast(y.polygon.max.data());
+    auto polygonZMins = thrust::raw_pointer_cast(z.polygon.min.data());
+    auto polygonZMaxs = thrust::raw_pointer_cast(z.polygon.max.data());
 
     const auto checkPolygon = [polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
         F polygonXMin = polygonXMins[polygon];
@@ -91,11 +92,11 @@ SAH_KD_TREE_INLINE bool Builder<Traits>::checkTree(const Projection<Traits> & x,
         return false;
     }
 
-    auto parents = node.parent.data().get();
-    auto leftChildren = node.leftChild.data().get();
-    auto rightChildren = node.rightChild.data().get();
-    auto splitDimensions = node.splitDimension.data().get();
-    auto splitPositions = node.splitPos.data().get();
+    auto parents = thrust::raw_pointer_cast(node.parent.data());
+    auto leftChildren = thrust::raw_pointer_cast(node.leftChild.data());
+    auto rightChildren = thrust::raw_pointer_cast(node.rightChild.data());
+    auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
+    auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
 
     const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool {
         I splitDimension = splitDimensions[node];

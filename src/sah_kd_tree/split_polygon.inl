@@ -7,6 +7,7 @@
 #include <thrust/swap.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+#include <thrust/memory.h>
 
 #include <type_traits>
 
@@ -23,23 +24,23 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
     x.polygon.min.resize(polygon.count + polygon.splittedCount);
     x.polygon.max.resize(polygon.count + polygon.splittedCount);
 
-    auto nodeSplitDimensions = node.splitDimension.data().get();
-    auto nodeSplitPositions = node.splitPos.data().get();
-    auto polygonNodes = polygon.node.data().get();
+    auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
+    auto nodeSplitPositions = thrust::raw_pointer_cast(node.splitPos.data());
+    auto polygonNodes = thrust::raw_pointer_cast(polygon.node.data());
 
-    auto polygonTriangles = polygon.triangle.data().get();
+    auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
 
-    auto AX = x.triangle.a.get();
-    auto BX = x.triangle.b.get();
-    auto CX = x.triangle.c.get();
+    auto AX = thrust::raw_pointer_cast(x.triangle.a);
+    auto BX = thrust::raw_pointer_cast(x.triangle.b);
+    auto CX = thrust::raw_pointer_cast(x.triangle.c);
 
-    auto AY = y.triangle.a.get();
-    auto BY = y.triangle.b.get();
-    auto CY = y.triangle.c.get();
+    auto AY = thrust::raw_pointer_cast(y.triangle.a);
+    auto BY = thrust::raw_pointer_cast(y.triangle.b);
+    auto CY = thrust::raw_pointer_cast(y.triangle.c);
 
-    auto AZ = z.triangle.a.get();
-    auto BZ = z.triangle.b.get();
-    auto CZ = z.triangle.c.get();
+    auto AZ = thrust::raw_pointer_cast(z.triangle.a);
+    auto BZ = thrust::raw_pointer_cast(z.triangle.b);
+    auto CZ = thrust::raw_pointer_cast(z.triangle.c);
 
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
     using PolygonBboxInputType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;

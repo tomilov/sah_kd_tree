@@ -2,6 +2,7 @@
 
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -11,10 +12,10 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(event.count);
 
-    auto eventNodes = event.node.data().get();
-    auto nodeSplitDimensions = nodeSplitDimension.data().get();
-    auto eventPolygons = event.polygon.data().get();
-    auto polygonSides = polygonSide.data().get();
+    auto eventNodes = thrust::raw_pointer_cast(event.node.data());
+    auto nodeSplitDimensions = thrust::raw_pointer_cast(nodeSplitDimension.data());
+    auto eventPolygons = thrust::raw_pointer_cast(event.polygon.data());
+    auto polygonSides = thrust::raw_pointer_cast(polygonSide.data());
 
     auto & eventLeft = event.polygonCountLeft;
     assert(!(eventLeft.size() < event.count));

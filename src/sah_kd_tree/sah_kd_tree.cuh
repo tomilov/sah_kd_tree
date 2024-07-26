@@ -19,8 +19,7 @@ struct DefaultTraits
     using I = int;
     using U = unsigned int;
     using F = float;
-    template<typename T>
-    using Allocator = thrust::device_allocator<T>;
+    using Allocator = thrust::device_allocator<void>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -30,7 +29,7 @@ struct Params
     using U = typename Traits::U;
     using F = typename Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = typename Traits::Allocator::template rebind<T>::other;
 
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
@@ -45,7 +44,9 @@ struct Tree
     using U = typename Traits::U;
     using F = typename Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = typename Traits::Allocator::template rebind<T>::other;
+
+    typename Traits::Allocator allocator;
 
     thrust::host_vector<U> layerDepth;
 
@@ -70,6 +71,44 @@ struct Tree
         thrust::device_vector<U, Allocator<U>> leftChild, rightChild;
         thrust::device_vector<U, Allocator<U>> parent;
     } node;
+
+    Tree(const typename Traits::Allocator & allocator)
+        : allocator{allocator}
+        , x{
+            .node{
+                  .min{allocator},
+                  .max{allocator},
+                  .leftRope{allocator},
+                  .rightRope{allocator},
+            },
+          }
+        , y{
+            .node{
+                  .min{allocator},
+                  .max{allocator},
+                  .leftRope{allocator},
+                  .rightRope{allocator},
+            },
+          }
+        , z{
+            .node{
+                  .min{allocator},
+                  .max{allocator},
+                  .leftRope{allocator},
+                  .rightRope{allocator},
+            },
+          }
+        , polygon{
+              .triangle{allocator}
+          }
+        , node{
+              .splitDimension{allocator},
+              .splitPos{allocator},
+              .leftChild{allocator},
+              .rightChild{allocator},
+              .parent{allocator},
+          }
+    {}
 };
 
 template<typename Traits = DefaultTraits>
@@ -79,7 +118,9 @@ struct Projection
     using U = typename Traits::U;
     using F = typename Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = typename Traits::Allocator::template rebind<T>::other;
+
+    typename Traits::Allocator allocator;
 
     struct ToPair
     {
@@ -135,6 +176,36 @@ struct Projection
         thrust::device_vector<U, Allocator<U>> splittedPolygonCount;  // can be optimized out
     } layer;
 
+    Projection(const typename Traits::Allocator & allocator)
+        : allocator{allocator}
+        , polygon{
+              .min{allocator},
+              .max{allocator},
+          }
+        , node{
+              .min{allocator},
+              .max{allocator},
+              .leftRope{allocator},
+              .rightRope{allocator},
+          }
+        , event{
+              .node{allocator},
+              .pos{allocator},
+              .kind{allocator},
+              .polygon{allocator},
+              .polygonCountLeft{allocator},
+              .polygonCountRight{allocator},
+          }
+        , layer{
+              .splitCost{allocator},
+              .splitEvent{allocator},
+              .splitPos{allocator},
+              .polygonCountLeft{allocator},
+              .polygonCountRight{allocator},
+              .splittedPolygonCount{allocator},
+          }
+    {}
+
     void calculateTriangleBbox();
     void calculateRootNodeBbox();
     void generateInitialEvent();
@@ -152,7 +223,9 @@ struct Builder
     using U = typename Traits::U;
     using F = typename Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = typename Traits::Allocator::template rebind<T>::other;
+
+    typename Traits::Allocator allocator;
 
     struct IsNotLeaf
     {
@@ -209,6 +282,35 @@ struct Builder
 
     thrust::device_vector<U, Allocator<U>> splittedPolygon;
 
+    // Builder() = default;
+
+    Builder(const typename Traits::Allocator & allocator)
+        : allocator{allocator}
+        , polygon{
+              .triangle{allocator},
+              .node{allocator},
+              .side{allocator},
+              .eventRight{allocator},
+          }
+        , node{
+              .splitDimension{allocator},
+              .splitPos{allocator},
+              .leftChild{allocator},
+              .rightChild{allocator},
+              .polygonCount{allocator},
+              .polygonCountLeft{allocator},
+              .polygonCountRight{allocator},
+              .parent{allocator},
+          }
+        , leaf{
+              .node{allocator},
+          }
+        , layer{
+              .nodeOffset{allocator},
+          }
+        , splittedPolygon{allocator}
+    {}
+
     void filterLayerNodeOffset();
     void selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z);
     template<I dimension>
@@ -241,7 +343,9 @@ struct Triangle
     using U = typename Traits::U;
     using F = typename Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = typename Traits::Allocator::template rebind<T>::other;
+
+    typename Traits::Allocator allocator;
 
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
@@ -259,6 +363,25 @@ struct Triangle
         thrust::device_vector<F, Allocator<F>> a, b, c;
     } x, y, z;
 
+    Triangle(const typename Traits::Allocator & allocator)
+        : allocator{allocator}
+        , x{
+              .a{allocator},
+              .b{allocator},
+              .c{allocator},
+          }
+        , y{
+              .a{allocator},
+              .b{allocator},
+              .c{allocator},
+          }
+        , z{
+              .a{allocator},
+              .b{allocator},
+              .c{allocator},
+          }
+    {}
+
     // For non-CUDA THRUST_DEVICE_SYSTEM a using of the function works fine in pure .cpp,
     // but to conduct with .cpp code in case of CUDA THRUST_DEVICE_SYSTEM
     // a "glue" .hpp+.cu pair is required (ideally .hpp should contain only C++).
@@ -269,7 +392,8 @@ struct Triangle
     void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
     {
         using TriangleType = std::remove_const_t<thrust::iterator_value_t<TriangleIterator>>;
-        thrust::device_vector<TriangleType> t{triangleBegin, triangleEnd};
+        thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
+        t.assign(triangleBegin, triangleEnd);
         count = U(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)
         {

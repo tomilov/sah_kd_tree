@@ -2,6 +2,7 @@
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
+#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -14,15 +15,15 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
     auto & nodeRope = forth ? x.node.rightRope : x.node.leftRope;
     nodeRope.resize(node.count);
 
-    auto yMins = y.node.min.data().get();
-    auto yMaxs = y.node.max.data().get();
-    auto zMins = z.node.min.data().get();
-    auto zMaxs = z.node.max.data().get();
-    auto parents = node.parent.data().get();
-    auto leftChildren = node.leftChild.data().get();
-    auto rightChildren = node.rightChild.data().get();
-    auto splitDimensions = node.splitDimension.data().get();
-    auto splitPositions = node.splitPos.data().get();
+    auto yMins = thrust::raw_pointer_cast(y.node.min.data());
+    auto yMaxs = thrust::raw_pointer_cast(y.node.max.data());
+    auto zMins = thrust::raw_pointer_cast(z.node.min.data());
+    auto zMaxs = thrust::raw_pointer_cast(z.node.max.data());
+    auto parents = thrust::raw_pointer_cast(node.parent.data());
+    auto leftChildren = thrust::raw_pointer_cast(node.leftChild.data());
+    auto rightChildren = thrust::raw_pointer_cast(node.rightChild.data());
+    auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
+    auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
     const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
         U siblingNode = node;
         for (;;) {

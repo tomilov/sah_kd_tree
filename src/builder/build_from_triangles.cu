@@ -18,11 +18,12 @@ bool builder::buildSceneFromTriangles(const scene_data::Triangle * triangleBegin
         params.maxDepth = utils::autoCast(maxDepth);
     }
 
-    sah_kd_tree::Triangle<> triangle;
+    thrust::device_allocator<void> allocator;
+    sah_kd_tree::Triangle<> triangle{allocator};
     triangle.setTriangle(triangleBegin, triangleEnd);
 
-    sah_kd_tree::Projection<> x, y, z;
-    sah_kd_tree::Builder<> builder;
+    sah_kd_tree::Projection<> x{allocator}, y{allocator}, z{allocator};
+    sah_kd_tree::Builder<> builder{allocator};
 
     sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
 

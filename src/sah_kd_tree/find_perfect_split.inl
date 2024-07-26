@@ -8,6 +8,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
+#include <thrust/memory.h>
 
 #include <limits>
 
@@ -35,19 +36,19 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::findPerfectSplit(const 
     layer.polygonCountRight.resize(layerSize);
     layer.splittedPolygonCount.resize(layerSize);
 
-    auto eventNodes = event.node.data().get();
-    auto eventPositions = event.pos.data().get();
-    auto eventKinds = event.kind.data().get();
-    auto polygonCountLefts = event.polygonCountLeft.data().get();  // lefts, rights is just notation
-    auto polygonCountRights = event.polygonCountRight.data().get();
-    auto nodePolygonCounts = nodePolygonCount.data().get();
+    auto eventNodes = thrust::raw_pointer_cast(event.node.data());
+    auto eventPositions = thrust::raw_pointer_cast(event.pos.data());
+    auto eventKinds = thrust::raw_pointer_cast(event.kind.data());
+    auto polygonCountLefts = thrust::raw_pointer_cast(event.polygonCountLeft.data());  // lefts, rights is just notation
+    auto polygonCountRights = thrust::raw_pointer_cast(event.polygonCountRight.data());
+    auto nodePolygonCounts = thrust::raw_pointer_cast(nodePolygonCount.data());
 
-    auto nodeXMins = node.min.data().get();
-    auto nodeXMaxs = node.max.data().get();
-    auto nodeYMins = y.node.min.data().get();
-    auto nodeYMaxs = y.node.max.data().get();
-    auto nodeZMins = z.node.min.data().get();
-    auto nodeZMaxs = z.node.max.data().get();
+    auto nodeXMins = thrust::raw_pointer_cast(node.min.data());
+    auto nodeXMaxs = thrust::raw_pointer_cast(node.max.data());
+    auto nodeYMins = thrust::raw_pointer_cast(y.node.min.data());
+    auto nodeYMaxs = thrust::raw_pointer_cast(y.node.max.data());
+    auto nodeZMins = thrust::raw_pointer_cast(z.node.min.data());
+    auto nodeZMaxs = thrust::raw_pointer_cast(z.node.max.data());
 
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splittedPolygonCount.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin(), layer.splitEvent.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
