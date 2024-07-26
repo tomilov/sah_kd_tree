@@ -14,7 +14,7 @@
 #include <cassert>
 
 template<typename MemoryResource>
-SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<MemoryResource>::operator()(const Params & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) -> Tree<MemoryResource>
+SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<MemoryResource>::operator()(const Params<MemoryResource> & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) -> Tree<MemoryResource>
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();

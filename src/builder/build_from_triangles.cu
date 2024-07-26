@@ -3,7 +3,7 @@
 
 bool builder::buildSceneFromTriangles(const scene_data::Triangle * triangleBegin, const scene_data::Triangle * triangleEnd, float emptinessFactor, float traversalCost, float intersectionCost, int maxDepth)
 {
-    sah_kd_tree::Params params;
+    sah_kd_tree::Params<> params;
     if (emptinessFactor > 0.0f) {
         params.emptinessFactor = emptinessFactor;
     }

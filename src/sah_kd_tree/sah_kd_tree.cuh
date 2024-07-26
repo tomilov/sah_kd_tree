@@ -17,6 +17,7 @@ using I = int;
 using U = unsigned int;
 using F = float;
 
+template<typename MemoryResource = void>
 struct Params
 {
     F emptinessFactor = 0.8f;   // (0, 1]
@@ -114,7 +115,7 @@ struct Projection
     void calculateRootNodeBbox();
     void generateInitialEvent();
 
-    void findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
+    void findPerfectSplit(const Params<MemoryResource> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
     void decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
 
     void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
@@ -179,7 +180,7 @@ struct Builder
     thrust::device_vector<U> splittedPolygon;
 
     void filterLayerNodeOffset();
-    void selectNodeBestSplit(const Params & sah, const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z);
+    void selectNodeBestSplit(const Params<MemoryResource> & sah, const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z);
     template<I dimension>
     void determinePolygonSide(const Projection<MemoryResource> & projection);
     void updateSplittedPolygonCount();
@@ -200,7 +201,7 @@ struct Builder
     template<I dimension, bool forth>
     void calculateRope(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const;
 
-    Tree<MemoryResource> operator()(const Params & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) SAH_KD_TREE_EXPORT;
+    Tree<MemoryResource> operator()(const Params<MemoryResource> & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) SAH_KD_TREE_EXPORT;
 };
 
 template<typename MemoryResource = void>
@@ -281,7 +282,7 @@ void linkTriangles(const Triangle<MemoryResource> & triangle, Projection<MemoryR
 #define SAH_KD_TREE_INLINE
 namespace sah_kd_tree
 {
-extern template auto Builder<>::operator()(const Params & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
+extern template auto Builder<>::operator()(const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
 extern template void Projection<>::calculateRootNodeBbox();
 extern template void Builder<>::calculateRope<0, false>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
 extern template void Builder<>::calculateRope<0, true>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
@@ -296,15 +297,14 @@ extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
 extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
 extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
 extern template void Builder<>::filterLayerNodeOffset();
-extern template void Projection<>::findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
+extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
 extern template void Projection<>::generateInitialEvent();
 extern template void linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder);
 extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
 extern template void Builder<>::populateLeafNodeTriangleRange();
 extern template void Builder<>::populateNodeParent();
 extern template void Builder<>::resizeNode();
-extern template auto Builder<>::operator()(const Params & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
-extern template void Builder<>::selectNodeBestSplit(const Params & sah, const Projection<> & x, const Projection<> & y, const Projection<> & z);
+extern template void Builder<>::selectNodeBestSplit(const Params<> & sah, const Projection<> & x, const Projection<> & y, const Projection<> & z);
 extern template void Builder<>::separateSplittedPolygon();
 extern template void Builder<>::setNodeCount(Projection<> & x, Projection<> & y, Projection<> & z) const;
 extern template void Builder<>::splitNode<0>(U layerBasePrev, Projection<> & x) const;

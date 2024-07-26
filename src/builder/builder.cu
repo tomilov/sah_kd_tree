@@ -287,7 +287,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         sah_kd_tree::Builder<> builder;
         sah_kd_tree::Projection<> x, y, z;
         sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
-        sah_kd_tree::Params params = {
+        sah_kd_tree::Params<> params = {
             .emptinessFactor = settings.emptinessFactor,
             .traversalCost = settings.traversalCost,
             .intersectionCost = settings.intersectionCost,
