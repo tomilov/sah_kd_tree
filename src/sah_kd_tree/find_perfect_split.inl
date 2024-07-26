@@ -13,8 +13,8 @@
 
 #include <cassert>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection<MemoryResource>::findPerfectSplit(const Params<MemoryResource> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
 {
     {
         event.polygonCountLeft.resize(event.count);

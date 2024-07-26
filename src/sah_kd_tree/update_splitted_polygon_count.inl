@@ -5,8 +5,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform_reduce.h>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::updateSplittedPolygonCount()
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
 {
     auto nodeSplitDimensions = node.splitDimension.data().get();
     auto nodePolygonCountLefts = node.polygonCountLeft.data().get();

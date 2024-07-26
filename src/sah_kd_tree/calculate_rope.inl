@@ -7,9 +7,9 @@
 
 namespace sah_kd_tree
 {
-template<typename MemoryResource>
-template<I dimension, bool forth>
-void Builder<MemoryResource>::calculateRope(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const
+template<typename Traits>
+template<typename Traits::I dimension, bool forth>
+void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
     auto & nodeRope = forth ? x.node.rightRope : x.node.leftRope;
     nodeRope.resize(node.count);

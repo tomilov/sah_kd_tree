@@ -5,9 +5,9 @@
 
 namespace sah_kd_tree
 {
-template<typename MemoryResource>
-template<I dimension>
-void Builder<MemoryResource>::splitNode(U layerBasePrev, Projection<MemoryResource> & projection) const
+template<typename Traits>
+template<typename Traits::I dimension>
+void Builder<Traits>::splitNode(U layerBasePrev, Projection<Traits> & projection) const
 {
     auto nodeSplitPosBegin = thrust::next(node.splitPos.cbegin(), layerBasePrev);
     auto nodeSplitPosEnd = thrust::next(node.splitPos.cbegin(), layer.base);

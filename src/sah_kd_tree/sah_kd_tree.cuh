@@ -11,24 +11,39 @@
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
-namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
+namespace sah_kd_tree
 {
-using I = int;
-using U = unsigned int;
-using F = float;
 
-template<typename MemoryResource = void>
+struct DefaultTraits
+{
+    using I = int;
+    using U = unsigned int;
+    using F = float;
+    using MemoryResource = void;
+};
+
+template<typename Traits = DefaultTraits>
 struct Params
 {
+    using I = typename Traits::I;
+    using U = typename Traits::U;
+    using F = typename Traits::F;
+    using MemoryResource = typename Traits::MemoryResource;
+
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
     F intersectionCost = 1.0f;  // (0, inf)
     U maxDepth = std::numeric_limits<U>::max();
 };
 
-template<typename MemoryResource = void>
+template<typename Traits = DefaultTraits>
 struct Tree
 {
+    using I = typename Traits::I;
+    using U = typename Traits::U;
+    using F = typename Traits::F;
+    using MemoryResource = typename Traits::MemoryResource;
+
     thrust::host_vector<U> layerDepth;
 
     struct Projection
@@ -54,9 +69,14 @@ struct Tree
     } node;
 };
 
-template<typename MemoryResource = void>
+template<typename Traits = DefaultTraits>
 struct Projection
 {
+    using I = typename Traits::I;
+    using U = typename Traits::U;
+    using F = typename Traits::F;
+    using MemoryResource = typename Traits::MemoryResource;
+
     struct ToPair
     {
         __host__ __device__ thrust::pair<U, U> operator()(U value) const
@@ -115,15 +135,20 @@ struct Projection
     void calculateRootNodeBbox();
     void generateInitialEvent();
 
-    void findPerfectSplit(const Params<MemoryResource> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
+    void findPerfectSplit(const Params<Traits> & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
     void decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
 
     void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
 };
 
-template<typename MemoryResource = void>
+template<typename Traits = DefaultTraits>
 struct Builder
 {
+    using I = typename Traits::I;
+    using U = typename Traits::U;
+    using F = typename Traits::F;
+    using MemoryResource = typename Traits::MemoryResource;
+
     struct IsNotLeaf
     {
         __host__ __device__ bool operator()(I nodeSplitDimension) const
@@ -180,33 +205,38 @@ struct Builder
     thrust::device_vector<U> splittedPolygon;
 
     void filterLayerNodeOffset();
-    void selectNodeBestSplit(const Params<MemoryResource> & sah, const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z);
+    void selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z);
     template<I dimension>
-    void determinePolygonSide(const Projection<MemoryResource> & projection);
+    void determinePolygonSide(const Projection<Traits> & projection);
     void updateSplittedPolygonCount();
     void separateSplittedPolygon();
     void updatePolygonNode();
     template<I dimension>
-    void splitPolygon(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const;
+    void splitPolygon(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
     void updateSplittedPolygonNode();
-    void setNodeCount(Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) const;
+    void setNodeCount(Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) const;
     template<I dimension>
-    void splitNode(U layerBasePrev, Projection<MemoryResource> & projection) const;
+    void splitNode(U layerBasePrev, Projection<Traits> & projection) const;
     void resizeNode();
     void populateNodeParent();
     void populateLeafNodeTriangleRange();
 
-    bool checkTree(const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const;
+    bool checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
     template<I dimension, bool forth>
-    void calculateRope(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const;
+    void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
-    Tree<MemoryResource> operator()(const Params<MemoryResource> & sah, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z) SAH_KD_TREE_EXPORT;
+    Tree<Traits> operator()(const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
 };
 
-template<typename MemoryResource = void>
+template<typename Traits = DefaultTraits>
 struct Triangle
 {
+    using I = typename Traits::I;
+    using U = typename Traits::U;
+    using F = typename Traits::F;
+    using MemoryResource = typename Traits::MemoryResource;
+
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
     {
@@ -248,8 +278,8 @@ struct Triangle
     }
 };
 
-template<typename MemoryResource = void>
-void linkTriangles(const Triangle<MemoryResource> & triangle, Projection<MemoryResource> & x, Projection<MemoryResource> & y, Projection<MemoryResource> & z, Builder<MemoryResource> & builder) SAH_KD_TREE_EXPORT;
+template<typename Traits = DefaultTraits>
+void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder) SAH_KD_TREE_EXPORT;
 
 }  // namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
 

@@ -42,7 +42,7 @@ target_sources(
 option(
     ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY
     "Make lib${PROJECT_NAME} header-only library"
-    YES)
+    OFF)
 if(${UPPERCASE_PROJECT_NAME}_HEADER_ONLY OR NOT BUILD_SHARED_LIBS)
     target_compile_definitions(
         "lib${PROJECT_NAME}"

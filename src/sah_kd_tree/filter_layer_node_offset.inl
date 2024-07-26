@@ -4,8 +4,8 @@
 #include <thrust/copy.h>
 #include <thrust/iterator/counting_iterator.h>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::filterLayerNodeOffset()
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::filterLayerNodeOffset()
 {
     layer.nodeOffset.resize(layer.size);
 

@@ -3,8 +3,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::updatePolygonNode()
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updatePolygonNode()
 {
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
     auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);

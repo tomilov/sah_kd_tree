@@ -3,8 +3,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/scatter.h>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::populateNodeParent()
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::populateNodeParent()
 {
     node.parent.resize(node.count);
 

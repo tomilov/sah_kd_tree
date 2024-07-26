@@ -8,7 +8,8 @@
 
 namespace sah_kd_tree
 {
-inline __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
+template<typename F, typename U>
+__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
 {
     if (nodeXMins[leftChild] != nodeXMins[node]) {
         return false;
@@ -32,8 +33,8 @@ inline __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F
     return true;
 }
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE bool Builder<MemoryResource>::checkTree(const Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const
+template<typename Traits>
+SAH_KD_TREE_INLINE bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
     auto nodeXMins = x.node.min.data().get();
     auto nodeXMaxs = x.node.max.data().get();
@@ -111,15 +112,15 @@ SAH_KD_TREE_INLINE bool Builder<MemoryResource>::checkTree(const Projection<Memo
         }
         F splitPos = splitPositions[node];
         if (splitDimension == 0) {
-            if (!checkNodeProjection(nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, splitPos, node, leftChild, rightChild)) {
                 return false;
             }
         } else if (splitDimension == 1) {
-            if (!checkNodeProjection(nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, splitPos, node, leftChild, rightChild)) {
                 return false;
             }
         } else if (splitDimension == 2) {
-            if (!checkNodeProjection(nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, splitPos, node, leftChild, rightChild)) {
                 return false;
             }
         } else {

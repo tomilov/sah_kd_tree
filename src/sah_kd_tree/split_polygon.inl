@@ -14,9 +14,9 @@
 
 namespace sah_kd_tree
 {
-template<typename MemoryResource>
-template<I dimension>
-void sah_kd_tree::Builder<MemoryResource>::splitPolygon(Projection<MemoryResource> & x, const Projection<MemoryResource> & y, const Projection<MemoryResource> & z) const
+template<typename Traits>
+template<typename Traits::I dimension>
+void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
     // node of right part of splitted polygon (starting from polygon.count) is still node from previous layer
 

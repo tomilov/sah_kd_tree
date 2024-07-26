@@ -1,7 +1,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-template<typename MemoryResource>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<MemoryResource>::resizeNode()
+template<typename Traits>
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::resizeNode()
 {
     node.splitDimension.resize(node.count, I(-1));
     node.splitPos.resize(node.count);

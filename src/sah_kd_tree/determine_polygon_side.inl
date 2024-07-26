@@ -13,9 +13,9 @@
 
 namespace sah_kd_tree
 {
-template<typename MemoryResource>
-template<I dimension>
-void Builder<MemoryResource>::determinePolygonSide(const Projection<MemoryResource> & projection)
+template<typename Traits>
+template<typename Traits::I dimension>
+void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection)
 {
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(projection.event.count);
