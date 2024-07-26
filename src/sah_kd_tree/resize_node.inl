@@ -2,7 +2,7 @@
 
 namespace sah_kd_tree
 {
-void Builder::resizeNode()
+SAH_KD_TREE_INLINE void Builder::resizeNode()
 {
     node.splitDimension.resize(node.count, I(-1));
     node.splitPos.resize(node.count);

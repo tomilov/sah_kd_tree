@@ -32,7 +32,7 @@ inline __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F
     return true;
 }
 
-bool Builder::checkTree(const Projection & x, const Projection & y, const Projection & z) const
+SAH_KD_TREE_INLINE bool Builder::checkTree(const Projection & x, const Projection & y, const Projection & z) const
 {
     auto nodeXMins = x.node.min.data().get();
     auto nodeXMaxs = x.node.max.data().get();

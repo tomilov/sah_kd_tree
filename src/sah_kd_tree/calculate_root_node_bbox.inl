@@ -3,7 +3,7 @@
 #include <thrust/advance.h>
 #include <thrust/extrema.h>
 
-void sah_kd_tree::Projection::calculateRootNodeBbox()
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection::calculateRootNodeBbox()
 {
     auto rootBboxMinBegin = thrust::min_element(polygon.min.cbegin(), polygon.min.cend());
     node.min.assign(rootBboxMinBegin, thrust::next(rootBboxMinBegin));

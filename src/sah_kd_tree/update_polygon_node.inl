@@ -3,7 +3,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
-void sah_kd_tree::Builder::updatePolygonNode()
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder::updatePolygonNode()
 {
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
     auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);

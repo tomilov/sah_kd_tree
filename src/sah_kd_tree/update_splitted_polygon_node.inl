@@ -6,7 +6,7 @@
 
 #include <cassert>
 
-void sah_kd_tree::Builder::updateSplittedPolygonNode()
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder::updateSplittedPolygonNode()
 {
     polygon.node.resize(polygon.count + polygon.splittedCount * 2);
     auto splittedPolygonNodeBegin = thrust::next(polygon.node.begin(), polygon.count);

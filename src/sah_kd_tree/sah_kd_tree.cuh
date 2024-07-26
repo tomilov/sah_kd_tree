@@ -113,7 +113,7 @@ struct Projection
     void generateInitialEvent();
 
     void findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
-    void decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
+    inline void decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
 
     void mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
 };
@@ -197,7 +197,7 @@ struct Builder
     template<I dimension, bool forth>
     void calculateRope(Projection & x, const Projection & y, const Projection & z) const;
 
-    SAH_KD_TREE_EXPORT Tree operator()(const Params & sah, Projection & x, Projection & y, Projection & z);
+    Tree operator()(const Params & sah, Projection & x, Projection & y, Projection & z);
 };
 
 extern template void Builder::determinePolygonSide<0>(const Projection & x);
@@ -262,9 +262,12 @@ struct Triangle
     }
 };
 
-void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder) SAH_KD_TREE_EXPORT;
+void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder);
+
 }  // namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
-#if SAH_KD_TREE_INLINE
+
+#if SAH_KD_TREE_HEADER_ONLY
+#define SAH_KD_TREE_INLINE inline
 #include <sah_kd_tree/builder.inl>
 #include <sah_kd_tree/calculate_root_node_bbox.inl>
 #include <sah_kd_tree/calculate_rope.inl>
@@ -288,4 +291,6 @@ void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Pr
 #include <sah_kd_tree/update_polygon_node.inl>
 #include <sah_kd_tree/update_splitted_polygon_count.inl>
 #include <sah_kd_tree/update_splitted_polygon_node.inl>
+#else
+#define SAH_KD_TREE_INLINE
 #endif

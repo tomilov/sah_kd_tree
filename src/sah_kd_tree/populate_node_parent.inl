@@ -3,7 +3,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/scatter.h>
 
-void sah_kd_tree::Builder::populateNodeParent()
+SAH_KD_TREE_INLINE void sah_kd_tree::Builder::populateNodeParent()
 {
     node.parent.resize(node.count);
 

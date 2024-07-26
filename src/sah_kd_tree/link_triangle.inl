@@ -2,7 +2,7 @@
 
 namespace sah_kd_tree
 {
-void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
+SAH_KD_TREE_INLINE void linkTriangles(const Triangle & triangle, Projection & x, Projection & y, Projection & z, Builder & builder)
 {
     x.triangle.count = triangle.count;
     x.triangle.a = triangle.x.a.data();

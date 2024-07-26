@@ -2,6 +2,7 @@ project(
     "sah_kd_tree"
     LANGUAGES
         CUDA)
+string(TOUPPER ${PROJECT_NAME} UPPERCASE_PROJECT_NAME)
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
@@ -10,41 +11,77 @@ set_target_properties(
         LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
         ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
 generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
-if(NOT BUILD_SHARED_LIBS)
-    string(TOUPPER ${PROJECT_NAME} STATIC_DEFINE_PREFIX)
-    target_compile_definitions(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
-endif()
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
-        "calculate_triangle_bbox.cu"
-        "calculate_root_node_bbox.cu"
-        "generate_initial_event.cu"
-        "filter_layer_node_offset.cu"
-        "find_perfect_split.cu"
-        "select_node_best_split.cu"
-        "determine_polygon_side.cu"
-        "update_splitted_polygon_count.cu"
-        "separate_splitted_polygon.cu"
-        "decouple_event_both.cu"
-        "update_polygon_node.cu"
-        "split_polygon.cu"
-        "update_splitted_polygon_node.cu"
-        "merge_event.cu"
-        "set_node_count.cu"
-        "split_node.cu"
-        "resize_node.cu"
-        "populate_node_parent.cu"
-        "populate_leaf_node_triangle_range.cu"
-        "check_tree.cu"
-        "calculate_rope.cu"
-        "builder.cu"
-        "link_triangle.cu")
+        "builder.inl"
+        "calculate_root_node_bbox.inl"
+        "calculate_rope.inl"
+        "calculate_triangle_bbox.inl"
+        "check_tree.inl"
+        "decouple_event_both.inl"
+        "determine_polygon_side.inl"
+        "filter_layer_node_offset.inl"
+        "find_perfect_split.inl"
+        "generate_initial_event.inl"
+        "link_triangle.inl"
+        "merge_event.inl"
+        "populate_leaf_node_triangle_range.inl"
+        "populate_node_parent.inl"
+        "resize_node.inl"
+        "select_node_best_split.inl"
+        "separate_splitted_polygon.inl"
+        "set_node_count.inl"
+        "split_node.inl"
+        "split_polygon.inl"
+        "update_polygon_node.inl"
+        "update_splitted_polygon_count.inl"
+        "update_splitted_polygon_node.inl")
+option(
+    ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY
+    "Make lib${PROJECT_NAME} header-only library"
+    YES)
+if(${UPPERCASE_PROJECT_NAME}_HEADER_ONLY OR NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            ${UPPERCASE_PROJECT_NAME}_STATIC_DEFINE)
+endif()
+if(${UPPERCASE_PROJECT_NAME}_HEADER_ONLY)
+    target_compile_definitions(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY)
+else()
+    target_sources(
+        "lib${PROJECT_NAME}"
+        PRIVATE
+            "builder.cu"
+            "calculate_root_node_bbox.cu"
+            "calculate_rope.cu"
+            "calculate_triangle_bbox.cu"
+            "check_tree.cu"
+            "decouple_event_both.cu"
+            "determine_polygon_side.cu"
+            "filter_layer_node_offset.cu"
+            "find_perfect_split.cu"
+            "generate_initial_event.cu"
+            "link_triangle.cu"
+            "merge_event.cu"
+            "populate_leaf_node_triangle_range.cu"
+            "populate_node_parent.cu"
+            "resize_node.cu"
+            "select_node_best_split.cu"
+            "separate_splitted_polygon.cu"
+            "set_node_count.cu"
+            "split_node.cu"
+            "split_polygon.cu"
+            "update_polygon_node.cu"
+            "update_splitted_polygon_count.cu"
+            "update_splitted_polygon_node.cu")
+endif()
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PUBLIC

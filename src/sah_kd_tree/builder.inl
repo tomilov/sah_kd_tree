@@ -13,7 +13,7 @@
 
 #include <cassert>
 
-auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projection & y, Projection & z) -> Tree
+SAH_KD_TREE_INLINE auto sah_kd_tree::Builder::operator()(const Params & sah, Projection & x, Projection & y, Projection & z) -> Tree
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();

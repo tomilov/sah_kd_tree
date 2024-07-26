@@ -60,9 +60,7 @@ namespace builder
 namespace
 {
 
-#if THRUST_DEVICE_SYSTEM != THRUST_DEVICE_SYSTEM_CUDA
-#error "Only Thrust device system CUDA is currently supported"
-#endif
+#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
 using MemoryResourceBase = thrust::mr::memory_resource<thrust::cuda::pointer<void>>;
 
 class VulkanMemoryResource final : public MemoryResourceBase
@@ -85,6 +83,7 @@ public:
         (void)alignment;
     }
 };
+#endif
 
 class CudaDevice : utils::OneTime<CudaDevice>
 {
@@ -92,6 +91,7 @@ public:
     CudaDevice(const Settings & settings)
         : settings{settings}
     {
+        checkTraits();
         selectDevice();
     }
 
@@ -174,11 +174,6 @@ private:
     void resetDevice()
     {
         CUDA_CHECK_ERROR(cudaDeviceReset());
-    }
-
-    static constexpr void completeClassContext()
-    {
-        checkTraits();
     }
 };
 
@@ -267,6 +262,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     {
         test(1, 0);
 
+#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
         VulkanMemoryResource vmr;
         using T = int;
         {
@@ -280,7 +276,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             Allocator allocator{&adaptor};
             thrust::device_vector<T, Allocator> v{allocator};
         }
-
+#endif
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         auto triangles = sceneData.makeTriangles();

@@ -14,7 +14,7 @@
 #include <thrust/tuple.h>
 #include <thrust/zip_function.h>
 
-void sah_kd_tree::Projection::generateInitialEvent()
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection::generateInitialEvent()
 {
     auto triangleBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     // using BboxType = thrust::iterator_value_t<decltype(triangleBboxBegin)>;
