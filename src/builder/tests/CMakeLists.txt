@@ -14,7 +14,8 @@ target_link_libraries(
         GTest::GTest
         GTest::Main
         "libsah_kd_tree"
-        "libscene_loader")
+        "libscene_loader"
+        Qt::Core)
 
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"

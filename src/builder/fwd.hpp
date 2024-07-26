@@ -1,6 +1,7 @@
 #pragma once
 
-namespace sah_kd_tree_fd
+namespace builder
 {
+struct Settings;
 class Tree;
-}  // namespace sah_kd_tree_fd
+}  // namespace builder

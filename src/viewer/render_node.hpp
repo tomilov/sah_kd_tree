@@ -1,7 +1,7 @@
 #pragma once
 
 #include <utils/fast_pimpl.hpp>
-
+#include <builder/fwd.hpp>
 #include <QtCore/QRectF>
 #include <QtGui/QColor>
 #include <QtGui/QQuaternion>
@@ -27,6 +27,10 @@ public:
     void setScene(std::shared_ptr<const Scene> scene);
     [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
 
+    void unsetTree();
+    void setTree(std::shared_ptr<const builder::Tree> tree);
+    [[nodiscard]] const std::shared_ptr<const builder::Tree> & getTree() const &;
+
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
     void updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar);
@@ -37,7 +41,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 976;
+    static constexpr size_t kSize = 896;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

@@ -1,20 +1,21 @@
 #pragma once
 
-#include <sah_kd_tree_fd/fwd.hpp>
+#include <builder/fwd.hpp>
 
-#include <vector>
+#include <array>
 
 #include <cstdint>
+#include <cstddef>
 
-#include <sah_kd_tree_fd/sah_kd_tree_fd_export.h>
+#include <builder/builder_export.h>
 
 
-namespace sah_kd_tree_fd
+namespace builder
 {
 
-struct SAH_KD_TREE_FD_EXPORT Settings
+struct BUILDER_EXPORT Settings
 {
-    std::vector<std::byte> deviceUuid;
+    std::array<std::byte, 16> deviceUuid;
     size_t minAlignment;
 
     float emptinessFactor;
@@ -22,7 +23,10 @@ struct SAH_KD_TREE_FD_EXPORT Settings
     float intersectionCost;
     uint32_t maxDepth;
 
+    bool operator==(const Settings &) const = default;
+    bool operator!=(const Settings &) const = default;
+
     void check() const;
 };
 
-}
+}  // namespace builder

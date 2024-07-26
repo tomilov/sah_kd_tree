@@ -40,10 +40,10 @@ struct fmt::formatter<cudaError> : fmt::formatter<fmt::string_view>
 };
 
 template<>
-struct fmt::formatter<CUresult> : fmt::formatter<fmt::string_view>
+struct fmt::formatter<::CUresult> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(CUresult result, FormatContext & ctx) const
+    auto format(::CUresult result, FormatContext & ctx) const
     {
         const char * errorName = "unknown";
         const char * errorString = "unknown";
@@ -53,7 +53,7 @@ struct fmt::formatter<CUresult> : fmt::formatter<fmt::string_view>
     }
 };
 
-namespace sah_kd_tree_fd
+namespace builder
 {
 
 namespace
@@ -90,23 +90,29 @@ public:
 struct Tree::Impl : utils::OneTime<Impl>
 {
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
-    static constexpr CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
     const Settings settings;
     const scene_data::SceneData & sceneData;
 
-    CUdevice cuDev = {};
+    ::CUdevice cuDev = CU_DEVICE_INVALID;
     sah_kd_tree::Tree tree;
 
     Impl(const Settings & settings, const scene_data::SceneData & sceneData)
         : settings{settings}
         , sceneData{sceneData}
     {
-        printThrustVersion();
         settings.check();
+        printThrustVersion();
+        selectDevice();
     }
 
     Impl(Impl &&) noexcept = default;
+
+    ~Impl()
+    {
+        resetDevice();
+    }
 
     static void printThrustVersion()
     {
@@ -119,80 +125,89 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     void selectDevice()
     {
-        int devCount = 0;
-        CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
-        INVARIANT(devCount > 0, "");
         {
+            ASSERT(std::size(settings.deviceUuid) == sizeof(CUuuid));
             int cuDevCount = 0;
             CU_CHECK_ERROR(cuDeviceGetCount(&cuDevCount));
-            ASSERT(devCount == cuDevCount);
-        }
-
-        ASSERT(std::size(settings.deviceUuid) == sizeof cudaDeviceProp::uuid);
-        ASSERT(std::size(settings.deviceUuid) == sizeof(CUuuid));
-        int cudaDev = cudaInvalidDeviceId;
-        for (int i = 0; i < devCount; ++i) {
-            cudaDeviceProp devProp = {};
-            CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, i));
-            if (std::memcmp(&devProp.uuid, std::data(settings.deviceUuid), sizeof devProp.uuid) == 0) {
-                cudaDev = i;
-                {
-                    CU_CHECK_ERROR(cuDeviceGet(&cuDev, i));
-                    CUuuid uuid = {};
-                    CU_CHECK_ERROR(cuDeviceGetUuid_v2(&uuid, cuDev));
-                    INVARIANT(std::memcmp(&uuid, std::data(settings.deviceUuid), sizeof uuid), "");
+            int cuDevIndex = 0;
+            for (; cuDevIndex < cuDevCount; ++cuDevIndex) {
+                CU_CHECK_ERROR(cuDeviceGet(&cuDev, cuDevIndex));
+                ::CUuuid uuid = {};
+                CU_CHECK_ERROR(cuDeviceGetUuid(&uuid, cuDev));
+                if (std::memcmp(&uuid, std::data(settings.deviceUuid), sizeof uuid) == 0) {
+                    break;
                 }
-                break;
             }
+            INVARIANT(cuDevIndex != cuDevCount, "No matching by UUID devices found using CUDA Driver API");
         }
-        INVARIANT(cudaDev != cudaInvalidDeviceId, "No matching by UUID devices found");
+        {
+            int deviceAttribute = 0;
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev));
+            INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
+        }
+        {
+            int deviceAttribute = 0;
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev));
+            INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
+        }
+        {
+            int deviceAttribute = 0;
+            // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
+            INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
+        }
+        {
+            ASSERT(std::size(settings.deviceUuid) == sizeof cudaDeviceProp::uuid);
+            int devCount = 0;
+            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
+            INVARIANT(devCount > 0, "");
+            int cudaDev = 0;
+            for (; cudaDev < devCount; ++cudaDev) {
+                cudaDeviceProp devProp = {};
+                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
+                if (std::memcmp(&devProp.uuid, std::data(settings.deviceUuid), sizeof devProp.uuid) == 0) {
+                    CUDA_CHECK_ERROR(cudaInitDevice(cudaDev, 0, 0));
+                    CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
+                    break;
+                }
+            }
+            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
+        }
+    }
 
-
-        int devComputeModeSupported = 0;
-        CU_CHECK_ERROR(cuDeviceGetAttribute(
-            &devComputeModeSupported, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev));
-        INVARIANT(devComputeModeSupported != CU_COMPUTEMODE_DEFAULT, "{}", devComputeModeSupported);
-
-        int virtualAddressManagementSupported = 0;
-        CU_CHECK_ERROR(cuDeviceGetAttribute(&virtualAddressManagementSupported, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev));
-        INVARIANT(virtualAddressManagementSupported != 0, "Virtual address management is not supported");
-
-        int fdSupported = 0;
-        // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
-        CU_CHECK_ERROR(cuDeviceGetAttribute(&fdSupported, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
-        INVARIANT(fdSupported != 0, "Posix file descriptor handle type is not supported");
-
-        CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
+    void resetDevice()
+    {
+        CUDA_CHECK_ERROR(cudaDeviceReset());
     }
 
     void test(size_t allocationSize, size_t allocationAlignment)
     {
-        CUmemAllocationProp memAllocationProp = {
-                                                 .type = CU_MEM_ALLOCATION_TYPE_PINNED,
-                                                 .requestedHandleTypes = kHandleType,
-                                                 .location = {
-                                                     .type = CU_MEM_LOCATION_TYPE_DEVICE,
-                                                     .id = cuDev,
-                                                 },
-                                                 .win32HandleMetaData = nullptr,  // Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
-                                                 .allocFlags = {},
-                                                 };
+        ::CUmemAllocationProp memAllocationProp = {
+            .type = CU_MEM_ALLOCATION_TYPE_PINNED,
+            .requestedHandleTypes = kHandleType,
+            .location = {
+                .type = CU_MEM_LOCATION_TYPE_DEVICE,
+                .id = cuDev,
+            },
+            .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
+            .allocFlags = {},
+        };
         size_t allocGranularity = 0;
         CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
-        SPDLOG_INFO("Minimum allocGranularity {}", allocGranularity);
-        allocationSize = utils::divUp(allocationSize, allocGranularity) * allocationSize;
+        SPDLOG_INFO("minimum allocGranularity {}", allocGranularity);
+        allocationSize = utils::divUp(allocationSize, allocGranularity) * allocGranularity;
         CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, CU_MEM_ALLOC_GRANULARITY_RECOMMENDED));
-        SPDLOG_INFO("minAlignment {}, allocGranularity {}", settings.minAlignment, allocGranularity);
+        SPDLOG_INFO("minAlignment {}, recommended allocGranularity {}", settings.minAlignment, allocGranularity);
         allocGranularity = std::max({allocGranularity, allocationAlignment, settings.minAlignment});
 
-        CUmemGenericAllocationHandle allocationHandle = {};
+        ::CUmemGenericAllocationHandle allocationHandle = {};
         CU_CHECK_ERROR(cuMemCreate(&allocationHandle, allocationSize, &memAllocationProp, 0));
         {
-            CUdeviceptr devPtr = {};
+            ::CUdeviceptr devPtr = {};
             CU_CHECK_ERROR(cuMemAddressReserve(&devPtr, allocationSize, allocGranularity, devPtr, 0));
             CU_CHECK_ERROR(cuMemMap(devPtr, allocationSize, 0, allocationHandle, 0));
             {
-                CUmemAccessDesc accessDescriptor[] = {
+                ::CUmemAccessDesc accessDescriptor[] = {
                     {
                         .location = memAllocationProp.location,
                         .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
@@ -201,6 +216,7 @@ struct Tree::Impl : utils::OneTime<Impl>
                 CU_CHECK_ERROR(cuMemSetAccess(devPtr, allocationSize, std::data(accessDescriptor), std::size(accessDescriptor)));
                 void * p = utils::autoCast(devPtr);
             }
+            CU_CHECK_ERROR(cuMemUnmap(devPtr, allocationSize));
             CU_CHECK_ERROR(cuMemAddressFree(devPtr, allocationSize));
         }
         {
@@ -212,17 +228,15 @@ struct Tree::Impl : utils::OneTime<Impl>
         CU_CHECK_ERROR(cuMemRelease(allocationHandle)); // after both cuMemExportToShareableHandle and cuMemMap
     }
 
-    void build()
+    bool build()
     {
-        selectDevice();
         test(1, 0);
 
         VulkanMemoryResource vmr;
         using T = int;
         {
             using Allocator = thrust::mr::allocator<void, MemoryResourceBase>;
-            Allocator allocator{&vmr};
-            thrust::device_vector<T, Allocator::template rebind<T>::other> v{allocator};
+            thrust::device_vector<T, Allocator::template rebind<T>::other> v{&vmr};
         }
         {
             thrust::device_ptr_memory_resource<MemoryResourceBase> mr{&vmr};
@@ -248,6 +262,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             .maxDepth = settings.maxDepth,
         };
         tree = builder(params, x, y, z);
+        return true;
     }
 
     static constexpr void completeClassContext()
@@ -263,9 +278,14 @@ Tree::Tree(const Settings & settings, const scene_data::SceneData & sceneData)
 Tree::Tree(Tree &&) noexcept = default;
 Tree::~Tree() = default;
 
-void Tree::build()
+const Settings &Tree::getSettings() const &
+{
+    return impl_->settings;
+}
+
+bool Tree::build()
 {
     return impl_->build();
 }
 
-}  // namespace sah_kd_tree_fd
+}  // namespace builder

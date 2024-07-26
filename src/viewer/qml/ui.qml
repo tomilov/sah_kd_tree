@@ -161,13 +161,18 @@ ApplicationWindow {
         text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
         checked: true
-        shortcut: "F2"
+        shortcut: "F4"
     }
     Action {
         id: actionDiscardInvisible
-        text: qsTr("Discard (%1)").arg(app.keySequenceToString(shortcut))
+        text: qsTr("Discard")
         checkable: true
-        shortcut: "F4"
+    }
+    Action {
+        id: actionTraceSahKdTree
+        text: qsTr("Trace/Rasterize (%1)").arg(app.keySequenceToString(shortcut))
+        checkable: true
+        shortcut: "F2"
     }
     ActionGroup {
         id: texturingModeActionGroup
@@ -397,6 +402,9 @@ ApplicationWindow {
                             action: actionSaveSceneScreenshot
                         }
                         MenuSeparator {}
+                        MenuItem {
+                            action: actionTraceSahKdTree
+                        }
                         MenuItem {
                             action: actionUseOffscreenTexture
                         }
@@ -877,6 +885,11 @@ ApplicationWindow {
                             function getRenderModeDescription(verbose) {
                                 let description = []
                                 let renderMode = viewer.renderer.renderMode
+                                if (renderMode & RendererSettings.TraceSahKdTree) {
+                                    description.push(Utils.coloredText(verbose ? "Trace SAH kd-tree" : "T", "red"))
+                                } else {
+                                    description.push(Utils.coloredText(verbose ? "Rasterize" : "R", "springgreen"))
+                                }
                                 if (renderMode & RendererSettings.UseOffscreenTexture) {
                                     description.push(Utils.coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
                                 }
@@ -897,16 +910,23 @@ ApplicationWindow {
                                 description.push(Utils.coloredText(texturingMode, "green"))
                                 return "%1<b>%2</b>"
                                     .arg(verbose ? "" : "Mode: ")
-                                    .arg(description.join(verbose ? " AND " : "|"))
+                                    .arg(description.join(verbose ? " OR " : "|"))
                             }
                             engine: SahKdTreeEngine
                             scene {
                                 url: page.fileUrl
                                 worldScale: 1.5
+                                emptinessFactor: 0.8
+                                traversalCost: 2.0
+                                intersectionCost: 1.0
+                                maxDepth: 1000
                             }
                             renderer {
                                 renderMode: {
                                     let value = 0
+                                    if (actionTraceSahKdTree.checked) {
+                                        value |= RendererSettings.TraceSahKdTree
+                                    }
                                     if (actionUseOffscreenTexture.checked) {
                                         value |= RendererSettings.UseOffscreenTexture
                                     }
@@ -1016,7 +1036,9 @@ ApplicationWindow {
         property alias width: root.width
         property alias height: root.height
         property alias uiVisibility: actionUiVisibility.checked
+        property alias traceSahKdTree: actionTraceSahKdTree.checked
         property alias useOffscreenTexture: actionUseOffscreenTexture.checked
+        property alias discardInvisible: actionDiscardInvisible.checked
         property int texturingModeIndex: 0
         property int currentTabIndex: -1
         property string jsonModel

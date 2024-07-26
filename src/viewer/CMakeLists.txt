@@ -75,6 +75,7 @@ target_link_libraries(
         "libscene_data"
         "libscene_loader"
         "libdebug_utils"
+        "libbuilder"
         "gli"
     PUBLIC
         "libutils")

@@ -20,7 +20,7 @@ target_sources(
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cpp"
+        "${PROJECT_NAME}.cu"
         "settings.hpp"
         "settings.cpp"
         "build_from_triangles.hpp"
@@ -32,8 +32,8 @@ target_link_libraries(
         "libscene_data"
         "libscene_loader"
         "libutils"
-        CUDA::cuda_driver
-        Thrust)
+        Thrust
+        CUDA::cuda_driver)
 if(BUILD_SHARED_LIBS)
     target_link_libraries(
         "lib${PROJECT_NAME}"

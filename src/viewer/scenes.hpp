@@ -16,11 +16,6 @@ struct Scene : utils::OneTime<Scene>
     std::filesystem::path scenePath;
     scene_data::SceneData sceneData;
 
-    Scene(std::filesystem::path scenePath, scene_data::SceneData && sceneData)
-        : scenePath{std::move(scenePath)}
-        , sceneData{std::move(sceneData)}
-    {}
-
     static constexpr void completeClassContext()
     {
         checkTraits();
@@ -30,11 +25,11 @@ struct Scene : utils::OneTime<Scene>
 class Scenes : utils::NonCopyable
 {
 public:
-    [[nodiscard]] std::shared_ptr<const Scene> getScene(const std::filesystem::path & scenePath) const;
+    [[nodiscard]] std::shared_ptr<Scene> getScene(const std::filesystem::path & scenePath) const;
 
 private:
     mutable std::mutex mutex;
-    mutable std::unordered_map<std::filesystem::path, std::weak_ptr<const Scene>> scenes;
+    mutable std::unordered_map<std::filesystem::path, std::weak_ptr<Scene>> scenes;
 };
 
 }  // namespace viewer

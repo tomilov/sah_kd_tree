@@ -38,7 +38,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
         struct Impl;
 
-        static constexpr size_t kSize = 80;
+        static constexpr size_t kSize = 48;
         static constexpr size_t kAlignment = 8;
         utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

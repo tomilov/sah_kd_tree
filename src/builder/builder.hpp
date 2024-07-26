@@ -1,7 +1,7 @@
 #pragma once
 
-#include <sah_kd_tree_fd/fwd.hpp>
-#include <sah_kd_tree_fd/settings.hpp>
+#include <builder/fwd.hpp>
+#include <builder/settings.hpp>
 #include <scene_data/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
@@ -13,19 +13,21 @@
 namespace builder
 {
 
-class ShareableHandle
+class BUILDER_EXPORT ShareableHandle
 {
 
 };
 
-class SAH_KD_TREE_FD_EXPORT Tree : utils::OneTime<Tree>
+class BUILDER_EXPORT Tree : utils::OneTime<Tree>
 {
 public:
-    explicit Tree(const Settings & settings, const scene_data::SceneData & sceneData);
+    Tree(const Settings & settings, const scene_data::SceneData & sceneData);
     Tree(Tree &&) noexcept;
     ~Tree();
 
-    void build();
+    const Settings & getSettings() const &;
+
+    bool build();
 
 private:
     struct Impl;

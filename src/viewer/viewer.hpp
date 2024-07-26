@@ -26,16 +26,36 @@ class SceneSettings : public QObject
 
     Q_PROPERTY(QUrl url MEMBER url WRITE setUrl NOTIFY urlChanged RESET unsetUrl)
     Q_PROPERTY(float worldScale MEMBER worldScale NOTIFY settingsChanged)
-    Q_PROPERTY(QVector3D sceneAabbMin MEMBER sceneAabbMin NOTIFY settingsChanged)
-    Q_PROPERTY(QVector3D sceneAabbMax MEMBER sceneAabbMax NOTIFY settingsChanged)
+    Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY settingsChanged)
+    Q_PROPERTY(float traversalCost MEMBER emptinessFactor NOTIFY settingsChanged)
+    Q_PROPERTY(float intersectionCost MEMBER emptinessFactor NOTIFY settingsChanged)
+    Q_PROPERTY(int maxDepth MEMBER emptinessFactor NOTIFY settingsChanged)
+    Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY settingsChanged)
+    Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY settingsChanged)
+
 public:
     QUrl url;
     bool isUrlChanged = false;
     float worldScale = 1.0f;
-    QVector3D sceneAabbMin;
-    QVector3D sceneAabbMax;
+    float emptinessFactor = 0.8f;
+    float traversalCost = 2.0f;
+    float intersectionCost = 1.0f;
+    int maxDepth = 1000;
 
     using QObject::QObject;
+
+    void setNodeScene(EngineWrapper * engine, RenderNode & renderNode);
+    void updateNodeScene(EngineWrapper * engine, RenderNode & renderNode);
+
+    [[nodiscard]] const QVector3D & getSceneAabbMin() const &
+    {
+        return sceneAabbMin;
+    }
+
+    [[nodiscard]] const QVector3D & getSceneAabbMax() const &
+    {
+        return sceneAabbMax;
+    }
 
 public Q_SLOTS:
     void setUrl(const QUrl & newUrl);
@@ -46,10 +66,8 @@ Q_SIGNALS:
     void settingsChanged();
 
 private:
-    friend Viewer;
-
-    void setScene(EngineWrapper * engine, RenderNode & renderNode);
-    void updateScene(EngineWrapper * engine, RenderNode & renderNode);
+    QVector3D sceneAabbMin;
+    QVector3D sceneAabbMax;
 };
 
 class RendererSettings : public QObject
@@ -66,8 +84,9 @@ public:
     enum class RenderModeFlag
     {
         Default = 0x0000,
-        UseOffscreenTexture = 0x0001,  // TODO: QQuickRhiItem instead?
-        DiscardInvisibleFragments = 0x0002,
+        TraceSahKdTree = 0x0001,
+        UseOffscreenTexture = 0x0002,  // TODO: QQuickRhiItem instead?
+        DiscardInvisibleFragments = 0x0004,
     };
     Q_DECLARE_FLAGS(RenderModeFlags, RenderModeFlag)
     Q_FLAG(RenderModeFlags)

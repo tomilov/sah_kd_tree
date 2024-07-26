@@ -12,6 +12,7 @@
 #include <viewer/render_node.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
+#include <builder/builder.hpp>
 #include <viewer/utils.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -136,6 +137,7 @@ struct RenderNode::Impl
 
     std::optional<Renderer> renderer;
     std::shared_ptr<const Scene> scene;
+    std::shared_ptr<const builder::Tree> tree;
 
     bool isDirty = false;
 
@@ -183,6 +185,20 @@ struct RenderNode::Impl
         ASSERT(!scene);
         ASSERT(!renderer || !renderer.value().getScene());
         scene = std::move(newScene);
+        isDirty = true;
+    }
+
+    void unsetTree()
+    {
+        tree.reset();
+        isDirty = true;
+    }
+
+    void setTree(std::shared_ptr<const builder::Tree> newTree)
+    {
+        ASSERT(newTree);
+        ASSERT(!tree);
+        tree = std::move(newTree);
         isDirty = true;
     }
 
@@ -362,6 +378,21 @@ void RenderNode::setScene(std::shared_ptr<const Scene> scene)
 const std::shared_ptr<const Scene> & RenderNode::getScene() const &
 {
     return impl_->scene;
+}
+
+void RenderNode::unsetTree()
+{
+    return impl_->unsetTree();
+}
+
+void RenderNode::setTree(std::shared_ptr<const builder::Tree> tree)
+{
+    return impl_->setTree(std::move(tree));
+}
+
+const std::shared_ptr<const builder::Tree> &RenderNode::getTree() const &
+{
+    return impl_->tree;
 }
 
 void RenderNode::updateRect(const QRectF & rect)

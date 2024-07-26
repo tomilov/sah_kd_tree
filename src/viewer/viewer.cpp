@@ -6,6 +6,9 @@
 #include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
+#include <builder/settings.hpp>
+#include <builder/builder.hpp>
+#include <engine/physical_device.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
@@ -35,6 +38,7 @@
 
 #include <limits>
 #include <utility>
+#include <algorithm>
 
 #include <cmath>
 
@@ -69,7 +73,7 @@ void SceneSettings::unsetUrl()
     Q_EMIT urlChanged();
 }
 
-void SceneSettings::setScene(EngineWrapper * engine, RenderNode & renderNode)
+void SceneSettings::setNodeScene(EngineWrapper * engine, RenderNode & renderNode)
 {
     if (url.isEmpty()) {
         return;
@@ -78,11 +82,12 @@ void SceneSettings::setScene(EngineWrapper * engine, RenderNode & renderNode)
         qCWarning(viewerCategory) << u"Scene URL is not local file:"_s << url;
         return;
     }
-    QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
     const auto scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
+    QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
     auto scene = engine->getEngine().getScenes().getScene(scenePath);
     QGuiApplication::restoreOverrideCursor();
     if (!scene) {
+        qCWarning(viewerCategory) << u"Loading scene '%1' failed"_s.arg(url.toString());
         return;
     }
     {
@@ -94,7 +99,7 @@ void SceneSettings::setScene(EngineWrapper * engine, RenderNode & renderNode)
     renderNode.setScene(std::move(scene));
 }
 
-void SceneSettings::updateScene(EngineWrapper * engine, RenderNode & renderNode)
+void SceneSettings::updateNodeScene(EngineWrapper * engine, RenderNode & renderNode)
 {
     if (!isUrlChanged) {
         return;
@@ -106,7 +111,7 @@ void SceneSettings::updateScene(EngineWrapper * engine, RenderNode & renderNode)
         Q_EMIT settingsChanged();
     }
     renderNode.unsetScene();
-    setScene(engine, renderNode);
+    setNodeScene(engine, renderNode);
 }
 
 auto RendererSettings::getRenderMode() const -> RenderModeFlags
@@ -134,8 +139,8 @@ void CameraView::shift(const QVector3D & direction)
 
     const Viewer * viewer = qobject_cast<const Viewer *>(parent());
     Q_CHECK_PTR(viewer);
-    const QVector3D & sceneAabbMin = viewer->scene->sceneAabbMin;
-    const QVector3D & sceneAabbMax = viewer->scene->sceneAabbMax;
+    const QVector3D & sceneAabbMin = viewer->scene->getSceneAabbMin();
+    const QVector3D & sceneAabbMax = viewer->scene->getSceneAabbMax();
     float worldScale = viewer->scene->worldScale;
     if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
         const QVector3D direction = position - 0.5f * (sceneAabbMin + sceneAabbMax);
@@ -682,10 +687,42 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     auto node = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
-        scene->updateScene(engine, *node);
+        scene->updateNodeScene(engine, *node);
     } else {
         node = new RenderNode{window(), engine};
-        scene->setScene(engine, *node);
+        scene->setNodeScene(engine, *node);
+    }
+    if (renderer->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+        if (auto currentScene = node->getScene()) {
+            const auto & physicalDevice = engine->getContext().getPhysicalDevice();
+            const auto & deviceUuid = physicalDevice.properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
+            decltype(builder::Settings::deviceUuid) vkDeviceUuid;
+            const auto uint8ToByte = [](uint8_t byte) -> std::byte
+            {
+                return utils::autoCast(byte);
+            };
+            std::transform(std::cbegin(deviceUuid), std::cend(deviceUuid), std::begin(vkDeviceUuid), uint8ToByte);
+            const builder::Settings settings = {
+                .deviceUuid = std::move(vkDeviceUuid),
+                .minAlignment = physicalDevice.getMinAlignment(),
+                .emptinessFactor = scene->emptinessFactor,
+                .traversalCost = scene->traversalCost,
+                .intersectionCost = scene->intersectionCost,
+                .maxDepth = utils::autoCast(scene->maxDepth),
+            };
+            const auto & tree = node->getTree();
+            if (!tree || (tree->getSettings() != settings)) {
+                if (tree) {
+                    node->unsetTree();
+                }
+                builder::Tree newTree{settings, currentScene->sceneData};
+                if (newTree.build()) {
+                    node->setTree(std::make_shared<builder::Tree>(std::move(newTree)));
+                } else {
+                    qCWarning(viewerCategory) << u"Cannot build tree"_s;
+                }
+            }
+        }
     }
     node->updateRect(boundingRect());
     bool useOffscreenTexture = renderer->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
@@ -693,7 +730,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     bool wireFrame = renderer->texturingMode == RendererSettings::TexturingMode::WireFrame;
     node->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
     {
-        float zFar = (scene->sceneAabbMax - scene->sceneAabbMin).length() * scene->worldScale;
+        float zFar = (scene->getSceneAabbMax() - scene->getSceneAabbMin()).length() * scene->worldScale;
         float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
         node->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }

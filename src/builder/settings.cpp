@@ -1,10 +1,10 @@
-#include <sah_kd_tree_fd/settings.hpp>
+#include <builder/settings.hpp>
 #include <utils/assert.hpp>
 
 #include <limits>
 #include <bit>
 
-namespace sah_kd_tree_fd
+namespace builder
 {
 
 void Settings::check() const
@@ -17,4 +17,4 @@ void Settings::check() const
     ASSERT(maxDepth < std::numeric_limits<uint32_t>::max());
 }
 
-}
+} // namespace builder
