@@ -281,23 +281,40 @@ void linkTriangles(const Triangle<MemoryResource> & triangle, Projection<MemoryR
 #define SAH_KD_TREE_INLINE
 namespace sah_kd_tree
 {
-extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
-extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
-extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
-
-extern template void Builder<>::splitPolygon<0>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Builder<>::splitPolygon<1>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
-extern template void Builder<>::splitPolygon<2>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
-
-extern template void Builder<>::splitNode<0>(U layerBasePrev, Projection<> & x) const;
-extern template void Builder<>::splitNode<1>(U layerBasePrev, Projection<> & y) const;
-extern template void Builder<>::splitNode<2>(U layerBasePrev, Projection<> & z) const;
-
+extern template auto Builder<>::operator()(const Params & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
+extern template void Projection<>::calculateRootNodeBbox();
 extern template void Builder<>::calculateRope<0, false>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
 extern template void Builder<>::calculateRope<0, true>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
 extern template void Builder<>::calculateRope<1, false>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
 extern template void Builder<>::calculateRope<1, true>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
 extern template void Builder<>::calculateRope<2, false>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
 extern template void Builder<>::calculateRope<2, true>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
+extern template void Projection<>::calculateTriangleBbox();
+extern template bool Builder<>::checkTree(const Projection<> & x, const Projection<> & y, const Projection<> & z) const;
+extern template void Projection<>::decoupleEventBoth(const thrust::device_vector<I> & nodeSplitDimension, const thrust::device_vector<I> & polygonSide);
+extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
+extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
+extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
+extern template void Builder<>::filterLayerNodeOffset();
+extern template void Projection<>::findPerfectSplit(const Params & sah, U layerSize, const thrust::device_vector<U> & layerNodeOffset, const thrust::device_vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
+extern template void Projection<>::generateInitialEvent();
+extern template void linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder);
+extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U> & polygonNode, const thrust::device_vector<U> & splittedPolygon);
+extern template void Builder<>::populateLeafNodeTriangleRange();
+extern template void Builder<>::populateNodeParent();
+extern template void Builder<>::resizeNode();
+extern template auto Builder<>::operator()(const Params & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
+extern template void Builder<>::selectNodeBestSplit(const Params & sah, const Projection<> & x, const Projection<> & y, const Projection<> & z);
+extern template void Builder<>::separateSplittedPolygon();
+extern template void Builder<>::setNodeCount(Projection<> & x, Projection<> & y, Projection<> & z) const;
+extern template void Builder<>::splitNode<0>(U layerBasePrev, Projection<> & x) const;
+extern template void Builder<>::splitNode<1>(U layerBasePrev, Projection<> & y) const;
+extern template void Builder<>::splitNode<2>(U layerBasePrev, Projection<> & z) const;
+extern template void Builder<>::splitPolygon<0>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
+extern template void Builder<>::splitPolygon<1>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
+extern template void Builder<>::splitPolygon<2>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
+extern template void Builder<>::updatePolygonNode();
+extern template void Builder<>::updateSplittedPolygonCount();
+extern template void Builder<>::updateSplittedPolygonNode();
 }
 #endif
