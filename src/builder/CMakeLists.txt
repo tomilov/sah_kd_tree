@@ -17,18 +17,34 @@ endif()
 target_sources(
     "lib${PROJECT_NAME}"
     PRIVATE
+        "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "settings.hpp"
+        "settings.cpp"
         "build_from_triangles.hpp"
         "build_from_triangles.cu")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
+        "libscene_data"
         "libscene_loader"
-    PUBLIC
-        Qt6::Core)
+        "libutils"
+        CUDA::cuda_driver
+        Thrust)
+if(BUILD_SHARED_LIBS)
+    target_link_libraries(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            CUDA::cudart)
+else()
+    target_link_libraries(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            CUDA::cudart_static)
+endif()
 
 add_executable("${PROJECT_NAME}")
 target_sources(
@@ -39,5 +55,9 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "lib${PROJECT_NAME}")
+target_compile_definitions(
+    "${PROJECT_NAME}"
+    PRIVATE
+        APPLICATION_NAME="${PROJECT_NAME}")
 
 add_subdirectory("tests")

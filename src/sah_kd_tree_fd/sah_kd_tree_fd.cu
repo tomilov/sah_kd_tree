@@ -1,4 +1,4 @@
-#include <sah_kd_tree_vk/sah_kd_tree_vk.hpp>
+#include <sah_kd_tree_fd/sah_kd_tree_fd.hpp>
 #include <utils/assert.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 #include <utils/assert.hpp>
@@ -33,10 +33,8 @@ struct fmt::formatter<cudaError> : fmt::formatter<fmt::string_view>
     template<typename FormatContext>
     auto format(cudaError error, FormatContext & ctx) const
     {
-        const char * errorName = "unknown";
-        const char * errorString = "unknown";
-        errorName = ::cudaGetErrorName(error);
-        errorString = ::cudaGetErrorString(error);
+        const char * errorName = ::cudaGetErrorName(error);
+        const char * errorString = ::cudaGetErrorString(error);
         return fmt::format_to(ctx.out(), "{}: {}", errorName, errorString);
     }
 };
@@ -55,7 +53,7 @@ struct fmt::formatter<CUresult> : fmt::formatter<fmt::string_view>
     }
 };
 
-namespace sah_kd_tree_vk
+namespace sah_kd_tree_fd
 {
 
 namespace
@@ -156,17 +154,12 @@ struct Tree::Impl : utils::OneTime<Impl>
         INVARIANT(devComputeModeSupported != CU_COMPUTEMODE_DEFAULT, "{}", devComputeModeSupported);
 
         int virtualAddressManagementSupported = 0;
-        CU_CHECK_ERROR(cuDeviceGetAttribute(
-            &virtualAddressManagementSupported, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED,
-            cuDev));
+        CU_CHECK_ERROR(cuDeviceGetAttribute(&virtualAddressManagementSupported, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev));
         INVARIANT(virtualAddressManagementSupported != 0, "Virtual address management is not supported");
 
         int fdSupported = 0;
         // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
-        CU_CHECK_ERROR(cuDeviceGetAttribute(
-            &fdSupported,
-            CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED,
-            cuDev));
+        CU_CHECK_ERROR(cuDeviceGetAttribute(&fdSupported, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
         INVARIANT(fdSupported != 0, "Posix file descriptor handle type is not supported");
 
         CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
@@ -275,4 +268,4 @@ void Tree::build()
     return impl_->build();
 }
 
-}  // namespace sah_kd_tree_vk
+}  // namespace sah_kd_tree_fd

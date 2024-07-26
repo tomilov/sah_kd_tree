@@ -1,16 +1,16 @@
 #pragma once
 
-#include <sah_kd_tree_vk/fwd.hpp>
-#include <sah_kd_tree_vk/settings.hpp>
+#include <sah_kd_tree_fd/fwd.hpp>
+#include <sah_kd_tree_fd/settings.hpp>
 #include <scene_data/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <memory>
 
-#include <sah_kd_tree_vk/sah_kd_tree_vk_export.h>
+#include <sah_kd_tree_fd/sah_kd_tree_fd_export.h>
 
-namespace sah_kd_tree_vk
+namespace sah_kd_tree_fd
 {
 
 class ShareableHandle
@@ -18,7 +18,7 @@ class ShareableHandle
 
 };
 
-class SAH_KD_TREE_VK_EXPORT Tree : utils::OneTime<Tree>
+class SAH_KD_TREE_FD_EXPORT Tree : utils::OneTime<Tree>
 {
 public:
     explicit Tree(const Settings & settings, const scene_data::SceneData & sceneData);
@@ -38,4 +38,4 @@ private:
     }
 };
 
-}  // namespace sah_kd_tree_vk
+}  // namespace sah_kd_tree_fd

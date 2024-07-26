@@ -70,6 +70,6 @@ add_subdirectory("fuzzer")
 add_subdirectory("format")
 add_subdirectory("codegen")
 add_subdirectory("engine")
-add_subdirectory("sah_kd_tree_vk")
+add_subdirectory("sah_kd_tree_fd")
 add_subdirectory("viewer")
 

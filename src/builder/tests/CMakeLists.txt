@@ -12,7 +12,9 @@ target_link_libraries(
     PRIVATE
         "lib${PROJECT_NAME}"
         GTest::GTest
-        GTest::Main)
+        GTest::Main
+        "libsah_kd_tree"
+        "libscene_loader")
 
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"

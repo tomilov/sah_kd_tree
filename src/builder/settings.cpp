@@ -1,10 +1,10 @@
-#include <sah_kd_tree_vk/settings.hpp>
+#include <sah_kd_tree_fd/settings.hpp>
 #include <utils/assert.hpp>
 
 #include <limits>
 #include <bit>
 
-namespace sah_kd_tree_vk
+namespace sah_kd_tree_fd
 {
 
 void Settings::check() const

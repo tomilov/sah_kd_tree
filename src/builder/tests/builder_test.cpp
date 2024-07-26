@@ -1,13 +1,51 @@
-#include <builder/builder.hpp>
+#include <builder/build_from_triangles.hpp>
+#include <scene_data/scene_data.hpp>
+#include <scene_loader/scene_loader.hpp>
 
 #include <gtest/gtest.h>
 
+#include <QtCore/QDebug>
 #include <QtCore/QDir>
+#include <QtCore/QFileInfo>
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QString>
-#include <QtCore/QtContainerFwd>
+#include <QtCore/QtLogging>
 
-using builder::buildSceneFromFile;
-using builder::buildSceneFromFileOrCache;
+using namespace Qt::StringLiterals;
+
+namespace
+{
+namespace
+{
+Q_DECLARE_LOGGING_CATEGORY(builderTest)
+Q_LOGGING_CATEGORY(builderTest, "builder.test")
+}  // namespace
+
+bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0)
+{
+    scene_data::SceneData sceneData;
+    QFileInfo sceneFileInfo{sceneFileName};
+    if (!scene_loader::load(sceneData, sceneFileInfo)) {
+        qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
+        return false;
+    }
+    auto triangles = sceneData.makeTriangles();
+    return builder::buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
+}
+
+bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0)
+{
+    scene_data::SceneData sceneData;
+    QFileInfo sceneFileInfo{sceneFileName};
+    if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+        qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
+        return false;
+    }
+    auto triangles = sceneData.makeTriangles();
+    return builder::buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
+}
+
+}  // namespace
 
 TEST(Builder, SimpleGeometry)
 {

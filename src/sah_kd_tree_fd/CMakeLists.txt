@@ -1,4 +1,4 @@
-project("sah_kd_tree_vk")
+project("sah_kd_tree_fd")
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
