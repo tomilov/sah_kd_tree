@@ -8,9 +8,7 @@
 
 namespace sah_kd_tree
 {
-namespace
-{
-__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
+inline __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
 {
     if (nodeXMins[leftChild] != nodeXMins[node]) {
         return false;
@@ -33,7 +31,6 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
     }
     return true;
 }
-}  // namespace
 
 bool Builder::checkTree(const Projection & x, const Projection & y, const Projection & z) const
 {
