@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <utility>
 
 #include <cstddef>
 #include <cstring>
@@ -85,43 +86,38 @@ public:
     }
 };
 
-}
-
-struct Tree::Impl : utils::OneTime<Impl>
+class CudaDevice : utils::OneTime<CudaDevice>
 {
-    // Win32 CU_MEM_HANDLE_TYPE_WIN32
-    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
-
-    const Settings settings;
-    const scene_data::SceneData & sceneData;
-
-    ::CUdevice cuDev = CU_DEVICE_INVALID;
-    sah_kd_tree::Tree tree;
-
-    Impl(const Settings & settings, const scene_data::SceneData & sceneData)
+public:
+    CudaDevice(const Settings & settings)
         : settings{settings}
-        , sceneData{sceneData}
     {
-        settings.check();
-        printThrustVersion();
         selectDevice();
     }
 
-    Impl(Impl &&) noexcept = default;
-
-    ~Impl()
+    CudaDevice(CudaDevice && rhs) noexcept
+        : settings{rhs.settings}
     {
+        std::swap(cuDev, rhs.cuDev);
+    }
+
+    ~CudaDevice()
+    {
+        if (cuDev == CU_DEVICE_INVALID) {
+            return;
+        }
         resetDevice();
     }
 
-    static void printThrustVersion()
+    const ::CUdevice & getDevice() const &
     {
-        int major    = THRUST_MAJOR_VERSION;
-        int minor    = THRUST_MINOR_VERSION;
-        int subminor = THRUST_SUBMINOR_VERSION;
-        int patch    = THRUST_PATCH_NUMBER;
-        SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
+        return cuDev;
     }
+
+private:
+    const Settings & settings;
+
+    ::CUdevice cuDev = CU_DEVICE_INVALID;
 
     void selectDevice()
     {
@@ -180,6 +176,45 @@ struct Tree::Impl : utils::OneTime<Impl>
         CUDA_CHECK_ERROR(cudaDeviceReset());
     }
 
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
+
+}
+
+struct Tree::Impl : utils::OneTime<Impl>
+{
+    // Win32 CU_MEM_HANDLE_TYPE_WIN32
+    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+
+    const Settings settings;
+    const scene_data::SceneData & sceneData;
+
+    CudaDevice device;
+    sah_kd_tree::Tree tree;
+
+    Impl(const Settings & settings, const scene_data::SceneData & sceneData)
+        : settings{settings}
+        , sceneData{sceneData}
+        , device{settings}
+    {
+        settings.check();
+        printThrustVersion();
+    }
+
+    Impl(Impl &&) noexcept = default;
+
+    static void printThrustVersion()
+    {
+        int major    = THRUST_MAJOR_VERSION;
+        int minor    = THRUST_MINOR_VERSION;
+        int subminor = THRUST_SUBMINOR_VERSION;
+        int patch    = THRUST_PATCH_NUMBER;
+        SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
+    }
+
     void test(size_t allocationSize, size_t allocationAlignment)
     {
         ::CUmemAllocationProp memAllocationProp = {
@@ -187,7 +222,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             .requestedHandleTypes = kHandleType,
             .location = {
                 .type = CU_MEM_LOCATION_TYPE_DEVICE,
-                .id = cuDev,
+                .id = device.getDevice(),
             },
             .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
             .allocFlags = {},
