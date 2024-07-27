@@ -4,10 +4,14 @@
 
 #include <QtCore/QDebug>
 #include <QtCore/QString>
+#include <QtCore/QElapsedTimer>
 #include <QtGui/QColor>
+#include <QtCore/QLoggingCategory>
 
 namespace viewer
 {
+
+using LoggingCategory = const QLoggingCategory & (*)();
 
 template<typename Type>
 QString toString(const Type & value)
@@ -21,6 +25,19 @@ QString toCamelCase(const QString & s, bool startFromFirstWord = false);
 
 QString addRichTextColor(QString str, QString color);
 QString addRichTextColor(QString str, QColor color);
+
+class ElapsedTimer
+{
+public:
+    explicit ElapsedTimer(LoggingCategory loggingCategory, QString message = {});
+    explicit ElapsedTimer(QString message = {});
+    ~ElapsedTimer();
+
+private:
+    const QLoggingCategory * loggingCategory;
+    QString message;
+    QElapsedTimer elapsedTimer;
+};
 
 }  // namespace viewer
 

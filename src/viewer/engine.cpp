@@ -281,6 +281,22 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
             INVARIANT(false, "");
         }
     }
+    {
+        const auto & physicalDevice = context.getPhysicalDevice();
+        const auto & vkDeviceUuid = physicalDevice.properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
+        builder::Builder::Settings::DeviceUuidType deviceUuid;
+        ASSERT(VK_UUID_SIZE == std::size(deviceUuid));
+        const auto uint8ToByte = [](uint8_t byte) -> std::byte
+        {
+            return utils::autoCast(byte);
+        };
+        std::transform(std::cbegin(vkDeviceUuid), std::cend(vkDeviceUuid), std::begin(deviceUuid), uint8ToByte);
+        const builder::Builder::Settings builderSettings = {
+            .deviceUuid = std::move(deviceUuid),
+            .minAlignment = physicalDevice.getMinAlignment(),
+        };
+        builder.emplace(builderSettings);
+    }
 }
 
 auto Engine::createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>

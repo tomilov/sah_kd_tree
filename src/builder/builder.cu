@@ -1,7 +1,6 @@
 #include <builder/builder.hpp>
 #include <utils/assert.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <utils/assert.hpp>
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/memory_resource.h>
 #include <thrust/device_vector.h>
@@ -14,8 +13,10 @@
 #include <utils/math.hpp>
 #include <utils/auto_cast.hpp>
 #include <scene_data/scene_data.hpp>
-#include <thrust/device_ptr.h>
+#include <fmt/std.h>
 
+#include <limits>
+#include <bit>
 #include <algorithm>
 #include <iterator>
 #include <utility>
@@ -87,44 +88,79 @@ public:
 };
 #endif
 
+#if SAH_KD_TREE_HEADER_ONLY
+struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
+{
+    using DefaultTraits::I;
+    using DefaultTraits::U;
+    using DefaultTraits::F;
+    using MemoryResource = thrust::device_memory_resource;
+    using Allocator = thrust::mr::allocator<void, MemoryResource>;
+};
+#else
+using Traits = sah_kd_tree::DefaultTraits;
+#endif
+
+}
+
 class CudaDevice : utils::OneTime<CudaDevice>
 {
 public:
-    CudaDevice(const Settings & settings)
-        : settings{settings}
+    CudaDevice(bool skipDeviceCheck, const Builder::Settings::DeviceUuidType & deviceUuid)
+        : skipDeviceCheck{skipDeviceCheck}
+        , deviceUuid{deviceUuid}
     {
         checkTraits();
-        selectDevice();
+        selectCudaDevice();
     }
 
     CudaDevice(CudaDevice && rhs) noexcept
-        : settings{rhs.settings}
+        : skipDeviceCheck{rhs.skipDeviceCheck}
+        , deviceUuid{rhs.deviceUuid}
     {
+        std::swap(cudaDev, rhs.cudaDev);
         std::swap(cuDev, rhs.cuDev);
     }
 
-    ~CudaDevice()
-    {
-        if (cuDev == CU_DEVICE_INVALID) {
-            return;
-        }
-        resetDevice();
-    }
-
-    const ::CUdevice & getDevice() const &
+    const ::CUdevice & getCuDevice() const &
     {
         return cuDev;
     }
 
 private:
-    const Settings & settings;
+    const bool skipDeviceCheck;
+    const Builder::Settings::DeviceUuidType deviceUuid;
 
+    int cudaDev = cudaInvalidDeviceId;
     ::CUdevice cuDev = CU_DEVICE_INVALID;
 
-    void selectDevice()
+    void selectCudaDevice()
+    {
+        cudaDeviceProp devProp = {};
+        ASSERT(std::size(deviceUuid) == sizeof cudaDeviceProp::uuid);
+        CUDA_CHECK_ERROR(cudaGetDevice(&cudaDev));
+        if (cudaDev != cudaInvalidDeviceId) {
+            CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
+            selectCuDevice(devProp.uuid);
+        } else {
+            int devCount = 0;
+            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
+            INVARIANT(devCount > 0, "");
+            for (cudaDev = 0; cudaDev < devCount; ++cudaDev) {
+                if (skipDeviceCheck || (std::memcmp(&devProp.uuid, std::data(deviceUuid), sizeof devProp.uuid) == 0)) {
+                    break;
+                }
+            }
+            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
+            selectCuDevice(devProp.uuid);
+            CUDA_CHECK_ERROR(cudaInitDevice(cudaDev, 0, 0));
+            CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
+        }
+    }
+
+    void selectCuDevice(const cudaUUID_t & cudaDeviceUuid)
     {
         {
-            ASSERT(std::size(settings.deviceUuid) == sizeof(CUuuid));
             int cuDevCount = 0;
             CU_CHECK_ERROR(cuDeviceGetCount(&cuDevCount));
             int cuDevIndex = 0;
@@ -132,7 +168,8 @@ private:
                 CU_CHECK_ERROR(cuDeviceGet(&cuDev, cuDevIndex));
                 ::CUuuid uuid = {};
                 CU_CHECK_ERROR(cuDeviceGetUuid(&uuid, cuDev));
-                if (std::memcmp(&uuid, std::data(settings.deviceUuid), sizeof uuid) == 0) {
+                static_assert(sizeof cudaDeviceUuid == sizeof uuid);
+                if (std::memcmp(&cudaDeviceUuid, &uuid, sizeof(uuid)) == 0) {
                     break;
                 }
             }
@@ -154,83 +191,124 @@ private:
             CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
             INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
         }
-        {
-            ASSERT(std::size(settings.deviceUuid) == sizeof cudaDeviceProp::uuid);
-            int devCount = 0;
-            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
-            INVARIANT(devCount > 0, "");
-            int cudaDev = 0;
-            for (; cudaDev < devCount; ++cudaDev) {
-                cudaDeviceProp devProp = {};
-                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
-                if (std::memcmp(&devProp.uuid, std::data(settings.deviceUuid), sizeof devProp.uuid) == 0) {
-                    CUDA_CHECK_ERROR(cudaInitDevice(cudaDev, 0, 0));
-                    CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
-                    break;
-                }
-            }
-            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
-        }
-    }
-
-    void resetDevice()
-    {
-        CUDA_CHECK_ERROR(cudaDeviceReset());
     }
 };
-
-struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
-{
-    using DefaultTraits::I;
-    using DefaultTraits::U;
-    using DefaultTraits::F;
-    using MemoryResource = thrust::device_ptr_memory_resource<thrust::device_memory_resource>;
-    using Allocator = thrust::mr::allocator<void, MemoryResource>;
-};
-
-}
 
 struct Tree::Impl : utils::OneTime<Impl>
+{
+    const Settings settings;
+    const CudaDevice & cudaDevice;
+    const scene_data::SceneData & sceneData;
+
+#if SAH_KD_TREE_HEADER_ONLY
+    typename Traits::MemoryResource memoryResource;
+    typename Traits::Allocator allocator{&memoryResource};
+    sah_kd_tree::Tree<Traits> tree{allocator};
+#else
+    sah_kd_tree::Tree<Traits> tree;
+#endif
+
+    Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData)
+        : settings{settings}
+        , cudaDevice{cudaDevice}
+        , sceneData{sceneData}
+    {}
+
+    Impl(Impl &&) noexcept = default;
+
+    bool build()
+    {
+        SPDLOG_INFO("START");
+        auto triangles = sceneData.makeTriangles();
+
+#if SAH_KD_TREE_HEADER_ONLY
+        sah_kd_tree::Triangle<Traits> triangle{allocator};
+#else
+        sah_kd_tree::Triangle<Traits> triangle;
+#endif
+        triangle.setTriangle(triangles.begin(), triangles.end());
+
+#if SAH_KD_TREE_HEADER_ONLY
+        sah_kd_tree::Builder<Traits> builder{allocator};
+        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+#else
+        sah_kd_tree::Builder<Traits> builder;
+        sah_kd_tree::Projection<Traits> x, y, z;
+#endif
+        sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
+        const sah_kd_tree::Params<Traits> params = {
+            .emptinessFactor = settings.emptinessFactor,
+            .traversalCost = settings.traversalCost,
+            .intersectionCost = settings.intersectionCost,
+            .maxDepth = settings.maxDepth,
+        };
+        tree = builder(params, x, y, z);
+        SPDLOG_INFO("STOP");
+        return true;
+    }
+
+    static constexpr void completeClassContext()
+    {
+        checkTraits();
+    }
+};
+
+Tree::Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData)
+    : impl_{std::make_shared<Impl>(settings, cudaDevice, sceneData)}
+{}
+
+Tree::Tree(Tree &&) noexcept = default;
+Tree::~Tree() = default;
+
+auto Tree::getSettings() const & -> const Settings &
+{
+    return impl_->settings;
+}
+
+bool Tree::build()
+{
+    return impl_->build();
+}
+
+struct Builder::Impl : utils::OneTime<Impl>
 {
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
     const Settings settings;
-    const scene_data::SceneData & sceneData;
+    CudaDevice cudaDevice;
 
-    CudaDevice device;
-    typename Traits::MemoryResource memoryResource;
-    typename Traits::Allocator allocator{&memoryResource};
-    sah_kd_tree::Tree<Traits> tree{allocator};
-
-    Impl(const Settings & settings, const scene_data::SceneData & sceneData)
+    Impl(const Settings & settings)
         : settings{settings}
-        , sceneData{sceneData}
-        , device{settings}
+        , cudaDevice{settings.skipDeviceCheck, settings.deviceUuid}
     {
-        settings.check();
         printThrustVersion();
     }
 
-    Impl(Impl &&) noexcept = default;
-
-    static void printThrustVersion()
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData) const
     {
-        int major    = THRUST_MAJOR_VERSION;
-        int minor    = THRUST_MINOR_VERSION;
-        int subminor = THRUST_SUBMINOR_VERSION;
-        int patch    = THRUST_PATCH_NUMBER;
-        SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
+        //test(1, 0);
+
+        Tree tree{treeSettings, cudaDevice, sceneData};
+        try {
+            if (!tree.build()) {
+                return {};
+            }
+        } catch (const std::bad_alloc & e) {
+            SPDLOG_ERROR("{}", e);
+            return {};
+        }
+        return tree;
     }
 
-    void test(size_t allocationSize, size_t allocationAlignment)
+    void test(size_t allocationSize, size_t allocationAlignment) const
     {
-        ::CUmemAllocationProp memAllocationProp = {
+        const ::CUmemAllocationProp memAllocationProp = {
             .type = CU_MEM_ALLOCATION_TYPE_PINNED,
             .requestedHandleTypes = kHandleType,
             .location = {
                 .type = CU_MEM_LOCATION_TYPE_DEVICE,
-                .id = device.getDevice(),
+                .id = cudaDevice.getCuDevice(),
             },
             .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
             .allocFlags = {},
@@ -271,50 +349,13 @@ struct Tree::Impl : utils::OneTime<Impl>
         CU_CHECK_ERROR(cuMemRelease(allocationHandle)); // after both cuMemExportToShareableHandle and cuMemMap
     }
 
-    bool build()
+    static void printThrustVersion()
     {
-        test(1, 0);
-
-#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
-        VulkanMemoryResource vmr;
-        using T = int;
-        {
-            using Allocator = thrust::mr::allocator<void, MemoryResourceBase>;
-            Allocator a{&vmr};
-            thrust::device_vector<T, Allocator::template rebind<T>::other> v{a};
-        }
-        {
-            using Allocator = thrust::mr::allocator<void, MemoryResourceBase>;
-            thrust::device_vector<T, Allocator::template rebind<T>::other> v{&vmr};
-        }
-        {
-            thrust::device_ptr_memory_resource<MemoryResourceBase> mr{&vmr};
-            thrust::mr::polymorphic_adaptor_resource<thrust::device_ptr<void>> adaptor{&mr};
-            using Allocator = thrust::mr::polymorphic_allocator<T, thrust::device_ptr<void>>;
-            Allocator allocator{&adaptor};
-            thrust::device_vector<T, Allocator> v{allocator};
-        }
-#endif
-                ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        SPDLOG_INFO("START");
-        auto triangles = sceneData.makeTriangles();
-
-        sah_kd_tree::Triangle<Traits> triangle{allocator};
-        triangle.setTriangle(triangles.begin(), triangles.end());
-
-        sah_kd_tree::Builder<Traits> builder{allocator};
-        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
-        sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
-        sah_kd_tree::Params<Traits> params = {
-            .emptinessFactor = settings.emptinessFactor,
-            .traversalCost = settings.traversalCost,
-            .intersectionCost = settings.intersectionCost,
-            .maxDepth = settings.maxDepth,
-        };
-        tree = builder(params, x, y, z);
-        SPDLOG_INFO("STOP");
-        return true;
+        int major = THRUST_MAJOR_VERSION;
+        int minor = THRUST_MINOR_VERSION;
+        int subminor = THRUST_SUBMINOR_VERSION;
+        int patch = THRUST_PATCH_NUMBER;
+        SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
     }
 
     static constexpr void completeClassContext()
@@ -323,21 +364,18 @@ struct Tree::Impl : utils::OneTime<Impl>
     }
 };
 
-Tree::Tree(const Settings & settings, const scene_data::SceneData & sceneData)
-    : impl_{std::make_shared<Impl>(settings, sceneData)}
-{}
-
-Tree::Tree(Tree &&) noexcept = default;
-Tree::~Tree() = default;
-
-const Settings &Tree::getSettings() const &
+Builder::Builder(const Settings & settings)
+    : impl_{std::make_shared<Impl>(settings)}
 {
-    return impl_->settings;
+    ASSERT((settings.minAlignment == 0) || std::has_single_bit(settings.minAlignment));
 }
 
-bool Tree::build()
+Builder::Builder(Builder &&) noexcept = default;
+Builder::~Builder() = default;
+
+std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneData & sceneData) const
 {
-    return impl_->build();
+    return impl_->build(settings, sceneData);
 }
 
 }  // namespace builder

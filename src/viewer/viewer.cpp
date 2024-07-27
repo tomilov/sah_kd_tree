@@ -6,7 +6,6 @@
 #include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
-#include <builder/settings.hpp>
 #include <builder/builder.hpp>
 #include <engine/physical_device.hpp>
 
@@ -38,7 +37,6 @@
 
 #include <limits>
 #include <utility>
-#include <algorithm>
 
 #include <cmath>
 
@@ -694,32 +692,27 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     }
     if (renderer->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
         if (auto currentScene = node->getScene()) {
-            const auto & physicalDevice = engine->getContext().getPhysicalDevice();
-            const auto & deviceUuid = physicalDevice.properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
-            decltype(builder::Settings::deviceUuid) vkDeviceUuid;
-            const auto uint8ToByte = [](uint8_t byte) -> std::byte
-            {
-                return utils::autoCast(byte);
-            };
-            std::transform(std::cbegin(deviceUuid), std::cend(deviceUuid), std::begin(vkDeviceUuid), uint8ToByte);
-            const builder::Settings settings = {
-                .deviceUuid = std::move(vkDeviceUuid),
-                .minAlignment = physicalDevice.getMinAlignment(),
+            const builder::Tree::Settings treeSettings = {
                 .emptinessFactor = scene->emptinessFactor,
                 .traversalCost = scene->traversalCost,
                 .intersectionCost = scene->intersectionCost,
                 .maxDepth = utils::autoCast(scene->maxDepth),
             };
             const auto & tree = node->getTree();
-            if (!tree || (tree->getSettings() != settings)) {
+            if (!tree || (tree->getSettings() != treeSettings)) {
                 if (tree) {
                     node->unsetTree();
                 }
-                builder::Tree newTree{settings, currentScene->sceneData};
-                if (newTree.build()) {
-                    node->setTree(std::make_shared<builder::Tree>(std::move(newTree)));
+                const builder::Builder & builder = engine->getEngine().getBuilder();
+                const auto getNewTree = [this, &builder, &treeSettings, &currentScene]
+                {
+                    ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scene->url.toString())};
+                    return builder.build(treeSettings, currentScene->sceneData);
+                };
+                if (auto newTree = getNewTree()) {
+                    node->setTree(std::make_shared<builder::Tree>(std::move(newTree).value()));
                 } else {
-                    qCWarning(viewerCategory) << u"Cannot build tree"_s;
+                    qCWarning(viewerCategory) << u"Cannot build tree for '%1'"_s.arg(scene->url.toString());
                 }
             }
         }

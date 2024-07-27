@@ -9,6 +9,7 @@
 #include <viewer/descriptors.hpp>
 #include <viewer/pipelines.hpp>
 #include <viewer/scenes.hpp>
+#include <builder/builder.hpp>
 
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan.hpp>
@@ -151,6 +152,11 @@ public:
         return pipelines;
     }
 
+    [[nodiscard]] const builder::Builder & getBuilder() const &
+    {
+        return builder.value();
+    }
+
     [[nodiscard]] auto createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>;
 
     [[nodiscard]] SceneResources makeResources(const Scene & scene) const;
@@ -170,6 +176,7 @@ private:
 
     Scenes scenes;
     Pipelines pipelines;
+    std::optional<builder::Builder> builder;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
     [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;

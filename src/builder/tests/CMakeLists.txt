@@ -16,6 +16,17 @@ target_link_libraries(
         "libsah_kd_tree"
         "libscene_loader"
         Qt::Core)
+if(BUILD_SHARED_LIBS)
+    target_link_libraries(
+        "${PROJECT_NAME}_tests"
+        PUBLIC
+            CUDA::cudart)
+else()
+    target_link_libraries(
+        "${PROJECT_NAME}_tests"
+        PUBLIC
+            CUDA::cudart_static)
+endif()
 
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"

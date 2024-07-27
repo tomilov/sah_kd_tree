@@ -28,4 +28,23 @@ QString addRichTextColor(QString str, QColor color)
     return addRichTextColor(str, color.name());
 }
 
+ElapsedTimer::ElapsedTimer(LoggingCategory loggingCategory, QString message)
+    : loggingCategory{&loggingCategory()}
+    , message{message}
+{
+    elapsedTimer.start();
+}
+
+ElapsedTimer::ElapsedTimer(QString message)
+    : loggingCategory{QLoggingCategory::defaultCategory()}
+    , message{message}
+{
+    elapsedTimer.start();
+}
+
+ElapsedTimer::~ElapsedTimer()
+{
+    qCInfo(*loggingCategory) << u"%1: %2 ms"_s.arg(message).arg(1E-6 * elapsedTimer.nsecsElapsed(), 0, 'f', 3);
+}
+
 }  // namespace viewer

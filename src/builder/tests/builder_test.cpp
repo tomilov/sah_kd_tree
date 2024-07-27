@@ -1,6 +1,7 @@
-#include <builder/build_from_triangles.hpp>
+#include <builder/builder.hpp>
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <gtest/gtest.h>
 
@@ -8,73 +9,167 @@
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QStandardPaths>
 #include <QtCore/QString>
 #include <QtCore/QtLogging>
+
+#include <optional>
+#include <ostream>
+#include <utility>
+
+#include <cuda_runtime.h>
 
 using namespace Qt::StringLiterals;
 
 namespace
 {
-namespace
-{
 Q_DECLARE_LOGGING_CATEGORY(builderTest)
 Q_LOGGING_CATEGORY(builderTest, "builder.test")
+
+constexpr float kEmptinessFactor = 0.8f;
+constexpr float kTraversalCost = 2.0f;
+constexpr float kIntersectionCost = 1.0f;
+constexpr int kMaxdepth = 1000;
 }  // namespace
 
-bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0)
+class Builder
+    : public testing::Test
 {
-    scene_data::SceneData sceneData;
-    QFileInfo sceneFileInfo{sceneFileName};
-    if (!scene_loader::load(sceneData, sceneFileInfo)) {
-        qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
-        return false;
+protected:
+    [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxDepth = kMaxdepth) const
+    {
+        scene_data::SceneData sceneData;
+        QFileInfo sceneFileInfo{sceneFileName};
+        if ((true)) {
+            if (!scene_loader::load(sceneData, sceneFileInfo)) {
+                qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
+                return false;
+            }
+        } else {
+            auto cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+            if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+                qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
+                return false;
+            }
+        }
+        const builder::Tree::Settings treeSettings = {
+            .emptinessFactor = emptinessFactor,
+            .traversalCost = traversalCost,
+            .intersectionCost = intersectionCost,
+            .maxDepth = utils::autoCast(maxDepth),
+        };
+        auto tree = builder.build(treeSettings, sceneData);
+        return tree.has_value();
     }
-    auto triangles = sceneData.makeTriangles();
-    return builder::buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
-}
 
-bool buildSceneFromFileOrCache(QString sceneFileName, QString cachePath, float emptinessFactor = 0.0f, float traversalCost = 0.0f, float intersectionCost = 0.0f, int maxDepth = 0)
-{
-    scene_data::SceneData sceneData;
-    QFileInfo sceneFileInfo{sceneFileName};
-    if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
-        qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
-        return false;
-    }
-    auto triangles = sceneData.makeTriangles();
-    return builder::buildSceneFromTriangles(triangles.begin(), triangles.end(), emptinessFactor, traversalCost, intersectionCost, maxDepth);
-}
+private:
+    const builder::Builder::Settings builderSettings = {
+        .skipDeviceCheck = true,
+        .deviceUuid = {},
+        .minAlignment = 0,
+    };
+    const builder::Builder builder{builderSettings};
+};
 
-}  // namespace
-
-TEST(Builder, SimpleGeometry)
-{
-    EXPECT_TRUE(buildSceneFromFile("pointlike_triangle.obj"));
-    EXPECT_TRUE(buildSceneFromFile("singularity.obj"));
-    EXPECT_TRUE(buildSceneFromFile("narrow_triangle.obj"));
-    EXPECT_TRUE(buildSceneFromFile("triangle.obj"));
-    EXPECT_TRUE(buildSceneFromFile("aa_triangle.obj"));
-    EXPECT_TRUE(buildSceneFromFile("coincident_triangles.obj"));
-    EXPECT_TRUE(buildSceneFromFile("aa_parallel_non_coincident_triangles.obj"));
-    EXPECT_TRUE(buildSceneFromFile("box.obj"));
-    EXPECT_TRUE(buildSceneFromFile("aa_box.obj"));
-    EXPECT_TRUE(buildSceneFromFile("tetrahedron.obj"));
-    EXPECT_TRUE(buildSceneFromFile("box_inside_box.obj"));
-}
-
-TEST(Builder, Fuzzed)
-{
-    EXPECT_TRUE(buildSceneFromFile("test0.obj", 0.285076, 0.0657117, 0.914504));
-    EXPECT_TRUE(buildSceneFromFile("test1.obj", 0x1.a538900000000p-2, 0x1.ddf3b40000000p-5, 0x1.ecdd120000000p-4));
-    EXPECT_TRUE(buildSceneFromFile("test2.obj", 0.7149041295051575, 0.060609497129917145, 0.17161905765533447));
-    EXPECT_TRUE(buildSceneFromFile("test3.obj", 0.7149041295051575, 0.18199801445007324, 0.3812173902988434));
-    EXPECT_TRUE(buildSceneFromFile("triangle_of_degenerate_triangles.obj", 0x1.2222aa0000000p-1, 0x1.5464960000000p-3, 0x1.152a640000000p-1));
-}
-
-TEST(Builder, DISABLED_AllScenes)
+TEST_F(Builder, DISABLED_AllScenes)
 {
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
-    for (const auto & fileName : scenes) {  // clazy:exclude=range-loop-detach
-        EXPECT_TRUE(buildSceneFromFileOrCache(fileName, {} /* cachePath */));
+    for (const auto & sceneFileName : std::as_const(scenes)) {
+        EXPECT_TRUE(buildSceneFromFile(sceneFileName));
     }
+}
+
+struct SceneFile
+{
+    QString sceneFileName;
+
+    friend void PrintTo [[maybe_unused]] (const SceneFile & sceneFile, std::ostream * os)
+    {
+        *os << sceneFile.sceneFileName.toStdString();
+    }
+};
+
+class BuilderSceneFile
+    : public Builder
+    , public testing::WithParamInterface<SceneFile>
+{
+protected:
+    [[nodiscard]] bool buildSceneFromFile(const SceneFile & sceneFile)
+    {
+        return Builder::buildSceneFromFile(sceneFile.sceneFileName);
+    }
+};
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(  // clazy:exclude=non-pod-global-static
+    SimpleGeometry,
+    BuilderSceneFile,
+    testing::Values(
+            u"pointlike_triangle.obj"_s,
+            u"singularity.obj"_s,
+            u"narrow_triangle.obj"_s,
+            u"triangle.obj"_s,
+            u"aa_triangle.obj"_s,
+            u"coincident_triangles.obj"_s,
+            u"aa_parallel_non_coincident_triangles.obj"_s,
+            u"box.obj"_s,
+            u"aa_box.obj"_s,
+            u"tetrahedron.obj"_s,
+            u"box_inside_box.obj"_s
+        )
+    );
+// clang-format on
+
+TEST_P(BuilderSceneFile, Build)
+{
+    EXPECT_TRUE(buildSceneFromFile(GetParam()));
+}
+
+struct SceneFileWithParams
+{
+    QString sceneFileName;
+
+    float emptinessFactor = kEmptinessFactor;
+    float traversalCost = kTraversalCost;
+    float intersectionCost = kIntersectionCost;
+    int maxDepth = kMaxdepth;
+
+    friend void PrintTo [[maybe_unused]] (const SceneFileWithParams & sceneFileWithParams, std::ostream * os)
+    {
+        *os << sceneFileWithParams.sceneFileName.toStdString()
+            << " " << sceneFileWithParams.emptinessFactor
+            << " " << sceneFileWithParams.traversalCost
+            << " " << sceneFileWithParams.intersectionCost
+            << " " << sceneFileWithParams.maxDepth;
+    }
+};
+
+class BuilderSceneFileWithParams
+    : public Builder
+    , public testing::WithParamInterface<SceneFileWithParams>
+{
+protected:
+    [[nodiscard]] bool buildSceneFromFile(const SceneFileWithParams & param)
+    {
+        return Builder::buildSceneFromFile(param.sceneFileName, param.emptinessFactor, param.traversalCost, param.intersectionCost, param.maxDepth);
+    }
+};
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(  // clazy:exclude=non-pod-global-static
+    Fuzzed,
+    BuilderSceneFileWithParams,
+    testing::Values(
+        SceneFileWithParams{u"test0.obj"_s, 0.285076f, 0.0657117f, 0.914504f, 123},
+        SceneFileWithParams{u"test1.obj"_s, 0x1.a538900000000p-2f, 0x1.ddf3b40000000p-5f, 0x1.ecdd120000000p-4f},
+        SceneFileWithParams{u"test2.obj"_s, 0.7149041295051575f, 0.060609497129917145f, 0.17161905765533447f},
+        SceneFileWithParams{u"test3.obj"_s, 0.7149041295051575f, 0.18199801445007324f, 0.3812173902988434f},
+        SceneFileWithParams{u"triangle_of_degenerate_triangles.obj"_s, 0x1.2222aa0000000p-1f, 0x1.5464960000000p-3f, 0x1.152a640000000p-1f}
+    )
+);
+// clang-format on
+
+TEST_P(BuilderSceneFileWithParams, Build)
+{
+    EXPECT_TRUE(buildSceneFromFile(GetParam()));
 }

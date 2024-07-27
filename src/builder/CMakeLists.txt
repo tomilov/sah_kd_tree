@@ -20,11 +20,7 @@ target_sources(
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cu"
-        "settings.hpp"
-        "settings.cpp"
-        "build_from_triangles.hpp"
-        "build_from_triangles.cu")
+        "${PROJECT_NAME}.cu")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE

@@ -2,6 +2,6 @@
 
 namespace builder
 {
-struct Settings;
+struct Builder;
 class Tree;
 }  // namespace builder

@@ -72,31 +72,33 @@ struct Tree
         thrust::device_vector<U, Allocator<U>> parent;
     } node;
 
+    Tree() = default;
+
     Tree(const typename Traits::Allocator & allocator)
         : allocator{allocator}
         , x{
-            .node{
+              .node{
                   .min{allocator},
                   .max{allocator},
                   .leftRope{allocator},
                   .rightRope{allocator},
-            },
+              },
           }
         , y{
-            .node{
+              .node{
                   .min{allocator},
                   .max{allocator},
                   .leftRope{allocator},
                   .rightRope{allocator},
-            },
+              },
           }
         , z{
-            .node{
+              .node{
                   .min{allocator},
                   .max{allocator},
                   .leftRope{allocator},
                   .rightRope{allocator},
-            },
+              },
           }
         , polygon{
               .triangle{allocator}
@@ -141,7 +143,7 @@ struct Projection
     struct Triangle
     {
         U count = 0;
-        thrust::device_ptr<const F> a, b, c;
+        typename Allocator<F>::const_pointer a, b, c;
     } triangle;
 
     struct Polygon
@@ -175,6 +177,8 @@ struct Projection
         thrust::device_vector<U, Allocator<U>> polygonCountLeft, polygonCountRight;
         thrust::device_vector<U, Allocator<U>> splittedPolygonCount;  // can be optimized out
     } layer;
+
+    Projection() = default;
 
     Projection(const typename Traits::Allocator & allocator)
         : allocator{allocator}
@@ -284,7 +288,7 @@ struct Builder
 
     thrust::device_vector<U, Allocator<U>> splittedPolygon;
 
-    // Builder() = default;
+    Builder() = default;
 
     Builder(const typename Traits::Allocator & allocator)
         : allocator{allocator}
@@ -366,6 +370,8 @@ struct Triangle
     {
         thrust::device_vector<F, Allocator<F>> a, b, c;
     } x, y, z;
+
+    Triangle() = default;
 
     Triangle(const typename Traits::Allocator & allocator)
         : allocator{allocator}
