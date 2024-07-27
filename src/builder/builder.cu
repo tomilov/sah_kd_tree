@@ -218,7 +218,6 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     bool build()
     {
-        SPDLOG_INFO("START");
         auto triangles = sceneData.makeTriangles();
 
 #if SAH_KD_TREE_HEADER_ONLY
@@ -243,7 +242,6 @@ struct Tree::Impl : utils::OneTime<Impl>
             .maxDepth = settings.maxDepth,
         };
         tree = builder(params, x, y, z);
-        SPDLOG_INFO("STOP");
         return true;
     }
 

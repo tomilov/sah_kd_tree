@@ -23,15 +23,21 @@ class Viewer;
 class SceneSettings : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
 
-    Q_PROPERTY(QUrl url MEMBER url WRITE setUrl NOTIFY urlChanged RESET unsetUrl)
+    Q_PROPERTY(QUrl url MEMBER url NOTIFY urlChanged)
+
     Q_PROPERTY(float worldScale MEMBER worldScale NOTIFY settingsChanged)
-    Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY settingsChanged)
-    Q_PROPERTY(float traversalCost MEMBER emptinessFactor NOTIFY settingsChanged)
-    Q_PROPERTY(float intersectionCost MEMBER emptinessFactor NOTIFY settingsChanged)
-    Q_PROPERTY(int maxDepth MEMBER emptinessFactor NOTIFY settingsChanged)
-    Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY settingsChanged)
-    Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY settingsChanged)
+
+    Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY buildSettingsChanged)
+    Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY buildSettingsChanged)
+    Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY buildSettingsChanged)
+    Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY buildSettingsChanged)
+
+    Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneCharacteristicsChanged)
+    Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneCharacteristicsChanged)
+
+    Q_PROPERTY(QString buildTreeSettingsStatus READ getBuildTreeSettingsStatus NOTIFY buildTreeSettingsStatusChanged)
 
 public:
     QUrl url;
@@ -42,10 +48,11 @@ public:
     float intersectionCost = 1.0f;
     int maxDepth = 1000;
 
-    using QObject::QObject;
+    explicit SceneSettings(QObject * parent = nullptr);
 
-    void setNodeScene(EngineWrapper * engine, RenderNode & renderNode);
-    void updateNodeScene(EngineWrapper * engine, RenderNode & renderNode);
+    void setNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode);
+    void updateNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode);
+    void updateTree(EngineWrapper * engineWrapper, RenderNode & renderNode);
 
     [[nodiscard]] const QVector3D & getSceneAabbMin() const &
     {
@@ -57,17 +64,22 @@ public:
         return sceneAabbMax;
     }
 
-public Q_SLOTS:
-    void setUrl(const QUrl & newUrl);
-    void unsetUrl();
+    [[nodiscard]] const QString & getBuildTreeSettingsStatus() const &
+    {
+        return buildTreeSettingsStatus;
+    }
 
 Q_SIGNALS:
     void urlChanged();
     void settingsChanged();
+    void buildSettingsChanged();
+    void sceneCharacteristicsChanged();
+    void buildTreeSettingsStatusChanged();
 
 private:
     QVector3D sceneAabbMin;
     QVector3D sceneAabbMax;
+    QString buildTreeSettingsStatus;
 };
 
 class RendererSettings : public QObject
@@ -189,9 +201,9 @@ class Viewer : public QQuickItem
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(EngineWrapper * engine MEMBER engine NOTIFY engineChanged REQUIRED)
-    Q_PROPERTY(SceneSettings * scene MEMBER scene CONSTANT)
-    Q_PROPERTY(RendererSettings * renderer MEMBER renderer CONSTANT)
+    Q_PROPERTY(EngineWrapper * engine MEMBER engineWrapper NOTIFY engineChanged REQUIRED)
+    Q_PROPERTY(SceneSettings * scene MEMBER sceneSettings NOTIFY sceneSettingsChanged REQUIRED)
+    Q_PROPERTY(RendererSettings * renderer MEMBER rendererSettings CONSTANT)
     Q_PROPERTY(CameraView * cameraView MEMBER cameraView CONSTANT)
     Q_PROPERTY(CameraController * cameraController MEMBER cameraController CONSTANT)
 
@@ -201,6 +213,7 @@ public:
 
 Q_SIGNALS:
     void engineChanged();
+    void sceneSettingsChanged();
 
 private Q_SLOTS:
     void handleKeyboardInput();
@@ -208,9 +221,9 @@ private Q_SLOTS:
 private:
     friend CameraView;
 
-    EngineWrapper * engine = nullptr;
-    SceneSettings * const scene = new SceneSettings{this};
-    RendererSettings * const renderer = new RendererSettings{this};
+    EngineWrapper * engineWrapper = nullptr;
+    SceneSettings * sceneSettings = nullptr;
+    RendererSettings * const rendererSettings = new RendererSettings{this};
     CameraView * const cameraView = new CameraView{this};
     CameraController * const cameraController = new CameraController{this};
 
@@ -223,6 +236,11 @@ private:
 
     QMetaObject::Connection refreshRateConnection;
     QMetaObject::Connection sceneGraphInvalidatedConnection;
+
+    QMetaObject::Connection sceneSettingsUrlChangedConnection;
+    QMetaObject::Connection sceneSettingsSettingsChangedConnection;
+    QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
+    QMetaObject::Connection sceneSettingsBuildTreeSettingsStatusChangedConnection;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

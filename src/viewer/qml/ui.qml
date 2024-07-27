@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import QtQuick.Dialogs as Dialogs
 import QtQuick3D
 
 import SahKdTree 1.0
@@ -314,9 +314,9 @@ ApplicationWindow {
                     required property string filePath
                     required property string fileBaseName
                     readonly property string fileUrlHash: Qt.md5(fileUrl)
-                    ColorDialog {
+                    Dialogs.ColorDialog {
                         id: clearColorDialog
-                        options: ColorDialog.ShowAlphaChannel | ColorDialog.DontUseNativeDialog | ColorDialog.NoButtons
+                        options: Dialogs.ColorDialog.ShowAlphaChannel | Dialogs.ColorDialog.DontUseNativeDialog | Dialogs.ColorDialog.NoButtons
                         onSelectedColorChanged: {
                             if (visible) // prevent feedback when WheelHandler used
                                 Qt.callLater(clearColorComboBox.setIndexOfClosestColor, selectedColor)
@@ -394,6 +394,12 @@ ApplicationWindow {
                         onTriggered: clearColorDialog.open()
                         icon.name: "color-select-symbolic"
                     }
+                    Action {
+                        id: actionChangeTreeBuildParams
+                        text: qsTr("Change SAH kd-tree build parameters")
+                        onTriggered: treeParametersDialog.open()
+                        icon.name: "edit-symbolic"
+                    }
                     Menu {
                         id: contextMenu
                         title: "Context menu"
@@ -421,6 +427,9 @@ ApplicationWindow {
                         MenuSeparator {}
                         MenuItem {
                             action: actionSelectClearColor
+                        }
+                        MenuItem {
+                            action: actionChangeTreeBuildParams
                         }
                         MenuSeparator {}
                         MenuItem {
@@ -537,9 +546,9 @@ ApplicationWindow {
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
-                                                    rotationSlider.increase()
-                                                } else {
                                                     rotationSlider.decrease()
+                                                } else {
+                                                    rotationSlider.increase()
                                                 }
                                             }
                                         }
@@ -576,9 +585,9 @@ ApplicationWindow {
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
-                                                    scaleSlider.increase()
-                                                } else {
                                                     scaleSlider.decrease()
+                                                } else {
+                                                    scaleSlider.increase()
                                                 }
                                             }
                                         }
@@ -615,9 +624,9 @@ ApplicationWindow {
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
-                                                    opacitySlider.increase()
-                                                } else {
                                                     opacitySlider.decrease()
+                                                } else {
+                                                    opacitySlider.increase()
                                                 }
                                             }
                                         }
@@ -655,11 +664,11 @@ ApplicationWindow {
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
-                                                    if (clearColorComboBox.currentIndex + 1 < clearColorComboBox.count)
-                                                        ++clearColorComboBox.currentIndex
-                                                } else {
                                                     if (clearColorComboBox.currentIndex > 0)
                                                         --clearColorComboBox.currentIndex
+                                                } else {
+                                                    if (clearColorComboBox.currentIndex + 1 < clearColorComboBox.count)
+                                                        ++clearColorComboBox.currentIndex
                                                 }
                                                 clearColorDialog.selectedColor = clearColorComboBox.currentValue
                                             }
@@ -867,6 +876,19 @@ ApplicationWindow {
                                 }
                             }
                         }
+                        Dialogs.MessageDialog {
+                            id: buildFailMessageBox
+                            text: qsTr("Failed to build SAH kd-tree")
+                            informativeText: sceneSettings.buildTreeSettingsStatus
+                            detailedText: qsTr("Try to change SAH kd-tree build parameters")
+                            buttons: Dialogs.MessageDialog.Ok
+                            Connections {
+                                target: sceneSettings
+                                function onBuildTreeSettingsStatusChanged() {
+                                    buildFailMessageBox.open()
+                                }
+                            }
+                        }
                         Rectangle {
                             id: boundingRect
                             anchors.fill: parent
@@ -913,13 +935,84 @@ ApplicationWindow {
                                     .arg(description.join(verbose ? " OR " : "|"))
                             }
                             engine: SahKdTreeEngine
-                            scene {
+                            scene: SceneSettings {
+                                id: sceneSettings
                                 url: page.fileUrl
                                 worldScale: 1.5
-                                emptinessFactor: 0.8
-                                traversalCost: 2.0
-                                intersectionCost: 1.0
-                                maxDepth: 1000
+                            }
+                            CenteredDialog {
+                                id: treeParametersDialog
+                                title: qsTr("Tree parameters")
+                                Frame {
+                                    anchors.fill: parent
+                                    GridLayout {
+                                        anchors.fill: parent
+                                        columns: 2
+                                        Text {
+                                            text: "emptinessFactor"
+                                        }
+                                        NumberSpinBox {
+                                            id: emptinessFactorSpinBox
+                                            editable: true
+                                            decimals: 2
+                                            from: decimalToInt(0)
+                                            to: decimalToInt(1)
+                                        }
+                                        Text {
+                                            text: "traversalCost"
+                                        }
+                                        NumberSpinBox {
+                                            id: traversalCostSpinBox
+                                            editable: true
+                                            decimals: 2
+                                            from: decimalToInt(0)
+                                            to: decimalToInt(10)
+                                        }
+                                        Text {
+                                            text: "intersectionCost"
+                                        }
+                                        NumberSpinBox {
+                                            id: intersectionCostSpinBox
+                                            editable: true
+                                            decimals: 2
+                                            from: decimalToInt(0)
+                                            to: decimalToInt(10)
+                                        }
+                                        Text {
+                                            text: "maxDepth"
+                                        }
+                                        SpinBox {
+                                            id: maxDepthSpinBox
+                                            editable: true
+                                            from: 1
+                                            to: 1000
+                                            WheelHandler {
+                                                onWheel: (wheel) => {
+                                                    if (wheel.angleDelta.y < 0) {
+                                                        maxDepthSpinBox.decrease()
+                                                    } else {
+                                                        maxDepthSpinBox.increase()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                onOpened: {
+                                    emptinessFactorSpinBox.updateValue(sceneSettings.emptinessFactor)
+                                    traversalCostSpinBox.updateValue(sceneSettings.traversalCost)
+                                    intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
+                                    maxDepthSpinBox.value = sceneSettings.maxDepth
+                                }
+                                standardButtons: Dialog.Apply | Dialog.Discard
+                                onApplied: {
+                                    sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
+                                    sceneSettings.traversalCost = traversalCostSpinBox.realValue
+                                    sceneSettings.intersectionCost = intersectionCostSpinBox.realValue
+                                    sceneSettings.maxDepth = maxDepthSpinBox.value
+                                    accept()
+                                }
+                                onDiscarded: reject()
                             }
                             renderer {
                                 renderMode: {
@@ -936,12 +1029,14 @@ ApplicationWindow {
                                     return value
                                 }
                                 texturingMode: {
+                                    let value
                                     if (actionBarycentricColor.checked) {
-                                        return RendererSettings.BarycentricColor
+                                        value = RendererSettings.BarycentricColor
                                     }
                                     if (actionWireFrame.checked) {
-                                        return RendererSettings.WireFrame
+                                        value = RendererSettings.WireFrame
                                     }
+                                    return value
                                 }
                                 clearColor: clearColorDialog.selectedColor
                             }
@@ -978,6 +1073,10 @@ ApplicationWindow {
                         Settings {
                             id: viewerSettings
                             category: fileUrlHash
+                            property alias emptinessFactor: sceneSettings.emptinessFactor
+                            property alias traversalCost: sceneSettings.traversalCost
+                            property alias intersectionCost: sceneSettings.intersectionCost
+                            property alias maxDepth: sceneSettings.maxDepth
                             property color clearColor
                             function getKeyPrefix(key) {
                                 return "cameraView/%1/".arg(key)

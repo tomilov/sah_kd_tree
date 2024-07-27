@@ -30,14 +30,12 @@ SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const Params<Tr
 
     polygon.triangle.resize(polygon.count);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
-    //polygon.node.assign(polygon.count, U(0));
-    polygon.node.resize(polygon.count, U(0));
+    polygon.node.resize(polygon.count, sizeToU<U>(0));
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
     node.leftChild.resize(1);
     node.rightChild.resize(1);
-    //node.polygonCount.assign(1, polygon.count);
     node.polygonCount.resize(1, polygon.count);
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
@@ -54,7 +52,7 @@ SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const Params<Tr
 
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
-        auto layerLeafNodeCount = U(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
+        auto layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
             break;

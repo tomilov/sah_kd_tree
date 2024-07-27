@@ -51,27 +51,23 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 
 }  // namespace
 
-void SceneSettings::setUrl(const QUrl & newUrl)
+SceneSettings::SceneSettings(QObject * parent)
+    : QObject{parent}
 {
-    if (url == newUrl) {
-        return;
-    }
-    isUrlChanged = true;
-    url = newUrl;
-    Q_EMIT urlChanged();
+    connect(this, &SceneSettings::urlChanged, this, [this] { isUrlChanged = true; });
+    const auto resetBuildTreeSettingsStatus = [this]
+    {
+        if (buildTreeSettingsStatus.isEmpty()) {
+            return;
+        }
+        buildTreeSettingsStatus.clear();
+        Q_EMIT buildTreeSettingsStatusChanged();
+    };
+    connect(this, &SceneSettings::urlChanged, this, resetBuildTreeSettingsStatus);
+    connect(this, &SceneSettings::buildSettingsChanged, this, resetBuildTreeSettingsStatus);
 }
 
-void SceneSettings::unsetUrl()
-{
-    if (url.isEmpty()) {
-        return;
-    }
-    isUrlChanged = true;
-    url.clear();
-    Q_EMIT urlChanged();
-}
-
-void SceneSettings::setNodeScene(EngineWrapper * engine, RenderNode & renderNode)
+void SceneSettings::setNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode)
 {
     if (url.isEmpty()) {
         return;
@@ -82,7 +78,7 @@ void SceneSettings::setNodeScene(EngineWrapper * engine, RenderNode & renderNode
     }
     const auto scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
     QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
-    auto scene = engine->getEngine().getScenes().getScene(scenePath);
+    auto scene = engineWrapper->getEngine().getScenes().getScene(scenePath);
     QGuiApplication::restoreOverrideCursor();
     if (!scene) {
         qCWarning(viewerCategory) << u"Loading scene '%1' failed"_s.arg(url.toString());
@@ -92,12 +88,12 @@ void SceneSettings::setNodeScene(EngineWrapper * engine, RenderNode & renderNode
         const auto & [aabbMin, aabbMax] = scene->sceneData.aabb;
         sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
         sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
-        Q_EMIT settingsChanged();
+        Q_EMIT sceneCharacteristicsChanged();
     }
     renderNode.setScene(std::move(scene));
 }
 
-void SceneSettings::updateNodeScene(EngineWrapper * engine, RenderNode & renderNode)
+void SceneSettings::updateNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode)
 {
     if (!isUrlChanged) {
         return;
@@ -106,10 +102,46 @@ void SceneSettings::updateNodeScene(EngineWrapper * engine, RenderNode & renderN
     {
         sceneAabbMin = {};
         sceneAabbMax = {};
-        Q_EMIT settingsChanged();
+        Q_EMIT sceneCharacteristicsChanged();
     }
     renderNode.unsetScene();
-    setNodeScene(engine, renderNode);
+    setNodeScene(engineWrapper, renderNode);
+}
+
+void SceneSettings::updateTree(EngineWrapper * engineWrapper, RenderNode & renderNode)
+{
+    auto scene = renderNode.getScene();
+    if (!scene) {
+        return;
+    }
+    if (!buildTreeSettingsStatus.isEmpty()) {
+        return;
+    }
+    const builder::Tree::Settings treeSettings = {
+        .emptinessFactor = emptinessFactor,
+        .traversalCost = traversalCost,
+        .intersectionCost = intersectionCost,
+        .maxDepth = utils::autoCast(maxDepth),
+    };
+    const auto & tree = renderNode.getTree();
+    if (!tree || (tree->getSettings() != treeSettings)) {
+        if (tree) {
+            renderNode.unsetTree();
+        }
+        const builder::Builder & builder = engineWrapper->getEngine().getBuilder();
+        const auto getNewTree = [this, &builder, &treeSettings, &scene]
+        {
+            ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(url.toString())};
+            return builder.build(treeSettings, scene->sceneData);
+        };
+        if (auto newTree = getNewTree()) {
+            renderNode.setTree(std::make_shared<builder::Tree>(std::move(newTree).value()));
+        } else {
+            buildTreeSettingsStatus = u"Cannot build SAH kd-tree for '%1'"_s.arg(url.toString());
+            qCWarning(viewerCategory) << buildTreeSettingsStatus;
+            Q_EMIT buildTreeSettingsStatusChanged();
+        }
+    }
 }
 
 auto RendererSettings::getRenderMode() const -> RenderModeFlags
@@ -137,9 +169,9 @@ void CameraView::shift(const QVector3D & direction)
 
     const Viewer * viewer = qobject_cast<const Viewer *>(parent());
     Q_CHECK_PTR(viewer);
-    const QVector3D & sceneAabbMin = viewer->scene->getSceneAabbMin();
-    const QVector3D & sceneAabbMax = viewer->scene->getSceneAabbMax();
-    float worldScale = viewer->scene->worldScale;
+    const QVector3D & sceneAabbMin = viewer->sceneSettings->getSceneAabbMin();
+    const QVector3D & sceneAabbMax = viewer->sceneSettings->getSceneAabbMax();
+    float worldScale = viewer->sceneSettings->worldScale;
     if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
         const QVector3D direction = position - 0.5f * (sceneAabbMin + sceneAabbMax);
         const float c = direction.length() - 0.5f * (sceneAabbMax - sceneAabbMin).length() * worldScale;
@@ -351,11 +383,21 @@ Viewer::Viewer(QQuickItem * parent)
     };
     connect(this, &QQuickItem::visibleChanged, this, onVisibleChanged);
 
-    connect(scene, &SceneSettings::urlChanged, this, &QQuickItem::update);
-    connect(scene, &SceneSettings::settingsChanged, this, &QQuickItem::update);
+    const auto onSceneSettingsChanged = [this]
+    {
+        disconnect(sceneSettingsUrlChangedConnection);
+        sceneSettingsUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
+        disconnect(sceneSettingsSettingsChangedConnection);
+        sceneSettingsSettingsChangedConnection = connect(sceneSettings, &SceneSettings::settingsChanged, this, &QQuickItem::update);
+        disconnect(sceneSettingsBuildSettingsChangedConnection);
+        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::buildSettingsChanged, this, &QQuickItem::update);
+        disconnect(sceneSettingsBuildTreeSettingsStatusChangedConnection);
+        sceneSettingsBuildTreeSettingsStatusChangedConnection = connect(sceneSettings, &SceneSettings::buildTreeSettingsStatusChanged, this, &QQuickItem::update);
+    };
+    connect(this, &Viewer::sceneSettingsChanged, this, onSceneSettingsChanged);
     connect(cameraView, &CameraView::viewChanged, this, &QQuickItem::update);
     connect(cameraController, &CameraController::controllerChanged, this, &QQuickItem::update);
-    connect(renderer, &RendererSettings::settingsChanged, this, &QQuickItem::update);
+    connect(rendererSettings, &RendererSettings::settingsChanged, this, &QQuickItem::update);
 
     const auto onWindowChanged = [this](QQuickWindow * window)
     {
@@ -679,58 +721,34 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
 
 QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData)
 {
-    if (!window() || !engine) {
+    if (!window() || !engineWrapper) {
         return QQuickItem::updatePaintNode(old, updatePaintNodeData);
     }
-    auto node = static_cast<RenderNode *>(old);
+    auto renderNode = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
-        scene->updateNodeScene(engine, *node);
+        sceneSettings->updateNodeScene(engineWrapper, *renderNode);
     } else {
-        node = new RenderNode{window(), engine};
-        scene->setNodeScene(engine, *node);
+        renderNode = new RenderNode{window(), engineWrapper};
+        sceneSettings->setNodeScene(engineWrapper, *renderNode);
     }
-    if (renderer->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-        if (auto currentScene = node->getScene()) {
-            const builder::Tree::Settings treeSettings = {
-                .emptinessFactor = scene->emptinessFactor,
-                .traversalCost = scene->traversalCost,
-                .intersectionCost = scene->intersectionCost,
-                .maxDepth = utils::autoCast(scene->maxDepth),
-            };
-            const auto & tree = node->getTree();
-            if (!tree || (tree->getSettings() != treeSettings)) {
-                if (tree) {
-                    node->unsetTree();
-                }
-                const builder::Builder & builder = engine->getEngine().getBuilder();
-                const auto getNewTree = [this, &builder, &treeSettings, &currentScene]
-                {
-                    ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scene->url.toString())};
-                    return builder.build(treeSettings, currentScene->sceneData);
-                };
-                if (auto newTree = getNewTree()) {
-                    node->setTree(std::make_shared<builder::Tree>(std::move(newTree).value()));
-                } else {
-                    qCWarning(viewerCategory) << u"Cannot build tree for '%1'"_s.arg(scene->url.toString());
-                }
-            }
-        }
+    if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+        sceneSettings->updateTree(engineWrapper, *renderNode);
     }
-    node->updateRect(boundingRect());
-    bool useOffscreenTexture = renderer->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
-    bool discardInvisible = renderer->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
-    bool wireFrame = renderer->texturingMode == RendererSettings::TexturingMode::WireFrame;
-    node->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
+    renderNode->updateRect(boundingRect());
+    bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
+    bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
+    bool wireFrame = rendererSettings->texturingMode == RendererSettings::TexturingMode::WireFrame;
+    renderNode->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
     {
-        float zFar = (scene->getSceneAabbMax() - scene->getSceneAabbMin()).length() * scene->worldScale;
+        float zFar = (sceneSettings->getSceneAabbMax() - sceneSettings->getSceneAabbMin()).length() * sceneSettings->worldScale;
         float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
-        node->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
+        renderNode->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }
-    node->setClearColor(renderer->clearColor);
-    node->setRenderdocCaptureFrameCounter(renderer->renderdocCaptureFrameCounter);
-    node->markDirty();
-    return node;
+    renderNode->setClearColor(rendererSettings->clearColor);
+    renderNode->setRenderdocCaptureFrameCounter(rendererSettings->renderdocCaptureFrameCounter);
+    renderNode->markDirty();
+    return renderNode;
 }
 
 void Viewer::releaseResources()

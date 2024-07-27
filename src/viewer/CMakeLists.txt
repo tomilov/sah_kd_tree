@@ -131,6 +131,7 @@ qt6_add_resources(
         "qml/qmldir"
         "qml/components/CenteredDialog.qml"
         "qml/components/SceneOpenDialog.qml"
+        "qml/components/NumberSpinBox.qml"
         "qml/ui.qml"
         "qml/utils.js")
 

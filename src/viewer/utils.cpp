@@ -44,7 +44,7 @@ ElapsedTimer::ElapsedTimer(QString message)
 
 ElapsedTimer::~ElapsedTimer()
 {
-    qCInfo(*loggingCategory) << u"%1: %2 ms"_s.arg(message).arg(1E-6 * elapsedTimer.nsecsElapsed(), 0, 'f', 3);
+    qCInfo(*loggingCategory).noquote() << u"%1: %2 ms"_s.arg(message).arg(1E-6 * elapsedTimer.nsecsElapsed(), 0, 'f', 3);
 }
 
 }  // namespace viewer

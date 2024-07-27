@@ -21,7 +21,7 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::generateInitialEvent()
     // using BboxType = thrust::iterator_value_t<decltype(triangleBboxBegin)>;
     const auto isPlanarEvent = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
 
-    auto planarEventCount = U(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangle.count), isPlanarEvent));
+    auto planarEventCount = sizeToU<U>(thrust::count_if(triangleBboxBegin, thrust::next(triangleBboxBegin, triangle.count), isPlanarEvent));
 
     event.count = triangle.count - planarEventCount + triangle.count;
 

@@ -9,10 +9,19 @@
 #include <limits>
 #include <type_traits>
 
+#include <cassert>
+
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
 namespace sah_kd_tree
 {
+
+template<typename U>
+U sizeToU(size_t size)
+{
+    assert(size <= std::numeric_limits<U>::max());
+    return U(size);
+}
 
 struct DefaultTraits
 {
@@ -404,7 +413,7 @@ struct Triangle
         using TriangleType = std::remove_const_t<thrust::iterator_value_t<TriangleIterator>>;
         thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
         t.assign(triangleBegin, triangleEnd);
-        count = U(t.size());
+        count = sizeToU<U>(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)
         {
             component.a.resize(count);
