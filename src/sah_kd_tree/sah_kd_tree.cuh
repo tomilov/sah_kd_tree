@@ -270,6 +270,8 @@ struct Builder
         U count = 0;
 
         thrust::device_vector<U, Allocator<U>> node;
+        thrust::device_vector<U, Allocator<U>> polygonCount;
+        thrust::device_vector<U, Allocator<U>> polygonOffset;
     } leaf;
 
     struct Layer
@@ -304,6 +306,8 @@ struct Builder
           }
         , leaf{
               .node{allocator},
+              .polygonCount{allocator},
+              .polygonOffset{allocator},
           }
         , layer{
               .nodeOffset{allocator},

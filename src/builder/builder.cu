@@ -8,11 +8,13 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_allocator.h>
 #include <thrust/system/cuda/pointer.h>
+#include <thrust/mr/device_memory_resource.h>
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 #include <utils/math.hpp>
 #include <utils/auto_cast.hpp>
 #include <scene_data/scene_data.hpp>
+#include <thrust/device_ptr.h>
 
 #include <algorithm>
 #include <iterator>
@@ -177,6 +179,15 @@ private:
     }
 };
 
+struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
+{
+    using DefaultTraits::I;
+    using DefaultTraits::U;
+    using DefaultTraits::F;
+    using MemoryResource = thrust::device_ptr_memory_resource<thrust::device_memory_resource>;
+    using Allocator = thrust::mr::allocator<void, MemoryResource>;
+};
+
 }
 
 struct Tree::Impl : utils::OneTime<Impl>
@@ -184,19 +195,11 @@ struct Tree::Impl : utils::OneTime<Impl>
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
-    struct Traits : sah_kd_tree::DefaultTraits
-    {
-        using DefaultTraits::I;
-        using DefaultTraits::U;
-        using DefaultTraits::F;
-        using Allocator = thrust::mr::allocator<void, thrust::mr::new_delete_resource>;
-    };
-
     const Settings settings;
     const scene_data::SceneData & sceneData;
 
     CudaDevice device;
-    thrust::mr::new_delete_resource memoryResource;
+    typename Traits::MemoryResource memoryResource;
     typename Traits::Allocator allocator{&memoryResource};
     sah_kd_tree::Tree<Traits> tree{allocator};
 

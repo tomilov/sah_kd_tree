@@ -14,17 +14,17 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRa
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 
     leaf.node.resize(leaf.count);
-    thrust::device_vector<U, Allocator<U>> leafPolygonCount(leaf.count);
-    auto leafPolygonCountEnd = thrust::reduce_by_key(polygon.node.begin(), polygon.node.end(), thrust::make_constant_iterator<U>(1), leaf.node.begin(), leafPolygonCount.begin());
+    leaf.polygonCount.resize(leaf.count);
+    auto leafPolygonCountEnd = thrust::reduce_by_key(polygon.node.begin(), polygon.node.end(), thrust::make_constant_iterator<U>(1), leaf.node.begin(), leaf.polygonCount.begin());
     // erase window for empty leaf nodes:
     leaf.node.erase(leafPolygonCountEnd.first, leaf.node.end());
-    leafPolygonCount.erase(leafPolygonCountEnd.second, leafPolygonCount.end());
+    leaf.polygonCount.erase(leafPolygonCountEnd.second, leaf.polygonCount.end());
 
-    thrust::device_vector<U, Allocator<U>> leafPolygonOffset(leafPolygonCount.size());
-    thrust::exclusive_scan(leafPolygonCount.cbegin(), leafPolygonCount.cend(), leafPolygonOffset.begin());
+    leaf.polygonOffset.resize(leaf.polygonCount.size());
+    thrust::exclusive_scan(leaf.polygonCount.cbegin(), leaf.polygonCount.cend(), leaf.polygonOffset.begin());
 
-    auto leafPolygonBegin = thrust::make_zip_iterator(leafPolygonOffset.cbegin(), leafPolygonCount.cbegin());
-    auto leafPolygonEnd = thrust::make_zip_iterator(leafPolygonOffset.cend(), leafPolygonCount.cend());
+    auto leafPolygonBegin = thrust::make_zip_iterator(leaf.polygonOffset.cbegin(), leaf.polygonCount.cbegin());
+    auto leafPolygonEnd = thrust::make_zip_iterator(leaf.polygonOffset.cend(), leaf.polygonCount.cend());
     auto leafPolygonOutputBegin = thrust::make_zip_iterator(node.leftChild.begin(), node.rightChild.begin());
     thrust::scatter(leafPolygonBegin, leafPolygonEnd, leaf.node.cbegin(), leafPolygonOutputBegin);
 }
