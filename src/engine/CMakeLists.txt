@@ -70,7 +70,6 @@ target_sources(
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
-        "libsah_kd_tree"
         "libcommon"
         "gli"
         "VulkanMemoryAllocator"

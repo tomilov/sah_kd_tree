@@ -3,6 +3,7 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <viewer/engine.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -557,7 +558,7 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
 Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
 {
     ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
-    const uint32_t set = shaderStages->findSetByBindingName(bindingNames.at(0));
+    const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(bindingNames.at(0)));
     const auto & shaderBindingNames = shaderStages->setBindings.at(set).bindingNames;
     if (!std::equal(std::cbegin(bindingNames), std::cend(bindingNames), std::cbegin(shaderBindingNames))) {
         INVARIANT(false, "{} ^ {}", bindingNames, shaderBindingNames);

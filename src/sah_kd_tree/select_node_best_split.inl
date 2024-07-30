@@ -57,7 +57,7 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const 
         thrust::tuple<F, U> y{nodeYSplitCosts[layerNode], nodeYLeftChildPolygonCount + nodeYRightChildPolygonCount - nodePolygonCount};
         thrust::tuple<F, U> z{nodeZSplitCosts[layerNode], nodeZLeftChildPolygonCount + nodeZRightChildPolygonCount - nodePolygonCount};
 
-        thrust::tuple<F, U> t{sah.intersectionCost * nodePolygonCount, 0};
+        thrust::tuple<F, U> t{sah.intersectionCost * static_cast<F>(nodePolygonCount), 0};
 
         thrust::tuple<F, U> bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
         if (!(bestNodeSplitCost < x)) {

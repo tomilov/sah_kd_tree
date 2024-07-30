@@ -107,9 +107,9 @@ SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::findPerfectSplit(const 
         if (F(0) < area) {
             F perimeter = y + z;  // half perimeter
             assert(F(0) < perimeter);
-            splitCost = (polygonCountLeft * (area + perimeter * l) + polygonCountRight * (area + perimeter * r)) / (area + perimeter * x);
+            splitCost = (static_cast<F>(polygonCountLeft) * (area + perimeter * l) + static_cast<F>(polygonCountRight) * (area + perimeter * r)) / (area + perimeter * x);
         } else {
-            splitCost = (polygonCountLeft * l + polygonCountRight * r) / x;
+            splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / x;
         }
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;

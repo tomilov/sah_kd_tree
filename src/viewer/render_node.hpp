@@ -10,6 +10,7 @@
 #include <QtQuick/QSGRenderNode>
 
 #include <memory>
+#include <filesystem>
 
 #include <cstddef>
 
@@ -21,15 +22,15 @@ class Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, const EngineWrapper * engineWrapper);
+    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper);
 
     void unsetScene();
-    void setScene(std::shared_ptr<const Scene> scene);
+    bool setScene(const std::filesystem::path & scenePath);
     [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
 
     void unsetTree();
-    void setTree(std::shared_ptr<const builder::Tree> tree);
     [[nodiscard]] const std::shared_ptr<const builder::Tree> & getTree() const &;
+    bool updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth);
 
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);

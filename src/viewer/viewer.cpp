@@ -1,13 +1,10 @@
 ﻿#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
-#include <viewer/engine.hpp>
-#include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
 #include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
-#include <builder/builder.hpp>
-#include <engine/physical_device.hpp>
+#include <viewer/task_queue.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
@@ -36,7 +33,6 @@
 #include <QtQuick/QSGRendererInterface>
 
 #include <limits>
-#include <utility>
 
 #include <cmath>
 
@@ -55,19 +51,19 @@ SceneSettings::SceneSettings(QObject * parent)
     : QObject{parent}
 {
     connect(this, &SceneSettings::urlChanged, this, [this] { isUrlChanged = true; });
-    const auto resetBuildTreeSettingsStatus = [this]
+    const auto resetTreeStatus = [this]
     {
-        if (buildTreeSettingsStatus.isEmpty()) {
+        if (treeStatus.isEmpty()) {
             return;
         }
-        buildTreeSettingsStatus.clear();
-        Q_EMIT buildTreeSettingsStatusChanged();
+        treeStatus.clear();
+        Q_EMIT treeStatusChanged();
     };
-    connect(this, &SceneSettings::urlChanged, this, resetBuildTreeSettingsStatus);
-    connect(this, &SceneSettings::buildSettingsChanged, this, resetBuildTreeSettingsStatus);
+    connect(this, &SceneSettings::urlChanged, this, resetTreeStatus);
+    connect(this, &SceneSettings::treeSettingsChanged, this, resetTreeStatus);
 }
 
-void SceneSettings::setNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode)
+void SceneSettings::setRenderNodeScene(RenderNode & renderNode)
 {
     if (url.isEmpty()) {
         return;
@@ -76,24 +72,23 @@ void SceneSettings::setNodeScene(EngineWrapper * engineWrapper, RenderNode & ren
         qCWarning(viewerCategory) << u"Scene URL is not local file:"_s << url;
         return;
     }
-    const auto scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
+    const std::filesystem::path scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
     QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
-    auto scene = engineWrapper->getEngine().getScenes().getScene(scenePath);
+    const bool isSceneSet = renderNode.setScene(scenePath);
     QGuiApplication::restoreOverrideCursor();
-    if (!scene) {
+    if (!isSceneSet) {
         qCWarning(viewerCategory) << u"Loading scene '%1' failed"_s.arg(url.toString());
         return;
     }
     {
-        const auto & [aabbMin, aabbMax] = scene->sceneData.aabb;
+        const auto & [aabbMin, aabbMax] = renderNode.getScene()->sceneData.aabb;
         sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
         sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
         Q_EMIT sceneCharacteristicsChanged();
     }
-    renderNode.setScene(std::move(scene));
 }
 
-void SceneSettings::updateNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode)
+void SceneSettings::updateRenderNodeScene(RenderNode & renderNode)
 {
     if (!isUrlChanged) {
         return;
@@ -105,42 +100,18 @@ void SceneSettings::updateNodeScene(EngineWrapper * engineWrapper, RenderNode & 
         Q_EMIT sceneCharacteristicsChanged();
     }
     renderNode.unsetScene();
-    setNodeScene(engineWrapper, renderNode);
+    setRenderNodeScene(renderNode);
 }
 
-void SceneSettings::updateTree(EngineWrapper * engineWrapper, RenderNode & renderNode)
+void SceneSettings::updateRenderNodeTree(RenderNode & renderNode)
 {
-    auto scene = renderNode.getScene();
-    if (!scene) {
+    if (!treeStatus.isEmpty()) {
         return;
     }
-    if (!buildTreeSettingsStatus.isEmpty()) {
-        return;
-    }
-    const builder::Tree::Settings treeSettings = {
-        .emptinessFactor = emptinessFactor,
-        .traversalCost = traversalCost,
-        .intersectionCost = intersectionCost,
-        .maxDepth = utils::autoCast(maxDepth),
-    };
-    const auto & tree = renderNode.getTree();
-    if (!tree || (tree->getSettings() != treeSettings)) {
-        if (tree) {
-            renderNode.unsetTree();
-        }
-        const builder::Builder & builder = engineWrapper->getEngine().getBuilder();
-        const auto getNewTree = [this, &builder, &treeSettings, &scene]
-        {
-            ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(url.toString())};
-            return builder.build(treeSettings, scene->sceneData);
-        };
-        if (auto newTree = getNewTree()) {
-            renderNode.setTree(std::make_shared<builder::Tree>(std::move(newTree).value()));
-        } else {
-            buildTreeSettingsStatus = u"Cannot build SAH kd-tree for '%1'"_s.arg(url.toString());
-            qCWarning(viewerCategory) << buildTreeSettingsStatus;
-            Q_EMIT buildTreeSettingsStatusChanged();
-        }
+    if (!renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth))) {
+        treeStatus = u"Cannot build SAH kd-tree for '%1'"_s.arg(url.toString());
+        qCWarning(viewerCategory) << treeStatus;
+        Q_EMIT treeStatusChanged();
     }
 }
 
@@ -166,20 +137,6 @@ void RendererSettings::renderdocCaptureFrame()
 void CameraView::shift(const QVector3D & direction)
 {
     auto newPosition = position + orientation.rotatedVector(direction);
-
-    const Viewer * viewer = qobject_cast<const Viewer *>(parent());
-    Q_CHECK_PTR(viewer);
-    const QVector3D & sceneAabbMin = viewer->sceneSettings->getSceneAabbMin();
-    const QVector3D & sceneAabbMax = viewer->sceneSettings->getSceneAabbMax();
-    float worldScale = viewer->sceneSettings->worldScale;
-    if (!qFuzzyCompare(sceneAabbMin, sceneAabbMax)) {
-        const QVector3D direction = position - 0.5f * (sceneAabbMin + sceneAabbMax);
-        const float c = direction.length() - 0.5f * (sceneAabbMax - sceneAabbMin).length() * worldScale;
-        if (c > 0.0f) {
-            newPosition -= c * direction.normalized();
-        }
-    }
-
     setPosition(newPosition);
 }
 
@@ -205,12 +162,12 @@ void CameraView::rotate(float pan, float tilt)
         }
         if (pitch > 90.0f) {
             pitch = 180.0f - pitch;
-            yaw += 180.0;
-            roll += 180.0;
+            yaw += 180.0f;
+            roll += 180.0f;
         } else if (pitch < -90.0f) {
             pitch = -180.0f - pitch;
-            yaw -= 180.0;
-            roll -= 180.0;
+            yaw -= 180.0f;
+            roll -= 180.0f;
         }
 
         while (roll > 180.0f) {
@@ -252,7 +209,7 @@ void CameraView::roll(float angle)
     }
 }
 
-void CameraView::addFov(float angle)
+void CameraView::widen(float angle)
 {
     auto newFov = qBound<float>(5.0f, fov + angle, 175.0f);
     setFov(newFov);
@@ -311,7 +268,7 @@ void CameraView::alignOrientation()
     orientation.getEulerAngles(&pitch, &yaw, &roll);
     constexpr auto roundAngle = [](float angle) -> float
     {
-        return qRound(angle / 90.0f) * 90.0f;
+        return utils::safeCast<float>(qRound(angle / 90.0f)) * 90.0f;
     };
     setOrientation(QQuaternion::fromEulerAngles(roundAngle(pitch), roundAngle(yaw), roundAngle(roll)));
 }
@@ -386,13 +343,15 @@ Viewer::Viewer(QQuickItem * parent)
     const auto onSceneSettingsChanged = [this]
     {
         disconnect(sceneSettingsUrlChangedConnection);
-        sceneSettingsUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
         disconnect(sceneSettingsSettingsChangedConnection);
-        sceneSettingsSettingsChangedConnection = connect(sceneSettings, &SceneSettings::settingsChanged, this, &QQuickItem::update);
         disconnect(sceneSettingsBuildSettingsChangedConnection);
-        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::buildSettingsChanged, this, &QQuickItem::update);
-        disconnect(sceneSettingsBuildTreeSettingsStatusChangedConnection);
-        sceneSettingsBuildTreeSettingsStatusChangedConnection = connect(sceneSettings, &SceneSettings::buildTreeSettingsStatusChanged, this, &QQuickItem::update);
+        disconnect(sceneSettingsTreeStatusChangedConnection);
+        if (!sceneSettings) {
+            return;
+        }
+        sceneSettingsUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
+        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
+        sceneSettingsTreeStatusChangedConnection = connect(sceneSettings, &SceneSettings::treeStatusChanged, this, &QQuickItem::update);
     };
     connect(this, &Viewer::sceneSettingsChanged, this, onSceneSettingsChanged);
     connect(cameraView, &CameraView::viewChanged, this, &QQuickItem::update);
@@ -430,8 +389,8 @@ void Viewer::handleKeyboardInput()
         return;
     }
     QVector3D direction;
-    float tilt = 0.0f;
-    float pan = 0.0f;
+    qreal tilt = 0.0;
+    qreal pan = 0.0;
     QHashIterator<Qt::Key, int> pressedKey{pressedKeys};
     while (pressedKey.hasNext()) {
         auto curr = pressedKey.next();
@@ -485,16 +444,16 @@ void Viewer::handleKeyboardInput()
             }
             switch (key) {
             case Qt::Key_Left:
-                pan -= 1.0f;
+                pan -= 1.0;
                 break;
             case Qt::Key_Right:
-                pan += 1.0f;
+                pan += 1.0;
                 break;
             case Qt::Key_Down:
-                tilt += 1.0f;
+                tilt += 1.0;
                 break;
             case Qt::Key_Up:
-                tilt -= 1.0f;
+                tilt -= 1.0;
                 break;
             default:
                 ASSERT_MSG(false, "{}", key);
@@ -519,7 +478,7 @@ void Viewer::handleKeyboardInput()
             cameraView->resetPosition();
         }
     } else {
-        QPointF planeDirection{direction.x(), direction.y()};
+        QPointF planeDirection{utils::safeCast<qreal>(direction.x()), utils::safeCast<qreal>(direction.y())};
         planeDirection = transform.map(planeDirection);
         direction.setX(utils::autoCast(planeDirection.x()));
         direction.setY(utils::autoCast(planeDirection.y()));
@@ -539,7 +498,9 @@ void Viewer::handleKeyboardInput()
         float angularSpeed = speedModifier;
         QPointF planeDirection{tilt, pan};
         planeDirection = transform.map(planeDirection);
-        cameraView->rotate(planeDirection.y() * angularSpeed, planeDirection.x() * angularSpeed);
+        float dx = utils::autoCast(planeDirection.x());
+        float dy = utils::autoCast(planeDirection.y());
+        cameraView->rotate(dy * angularSpeed, dx * angularSpeed);
     }
 }
 
@@ -595,7 +556,7 @@ void Viewer::wheelEvent(QWheelEvent * event)
     } else {
         constexpr float kUnitsPerStep = 15.0f;
         constexpr float kDegreesPerStep = 5.0f;
-        cameraView->addFov(angle / (kUnitsPerStep / kDegreesPerStep));
+        cameraView->widen(angle / (kUnitsPerStep / kDegreesPerStep));
     }
     event->accept();
 }
@@ -635,15 +596,15 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                auto screen = window()->screen();
-                float screenDensityX = utils::autoCast(screen->physicalDotsPerInchX());
-                float screenDensityY = utils::autoCast(screen->physicalDotsPerInchY());
-                float pixelRatio = window()->effectiveDevicePixelRatio();
-                float fovRatio = cameraView->getFovRatio();
-                float angularSpeed = cameraController->sensitivity * fovRatio * pixelRatio;
-                float pan = utils::autoCast(dragPosDelta.x());
-                float tilt = utils::autoCast(dragPosDelta.y());
-                cameraView->rotate(pan * screenDensityX * angularSpeed, tilt * screenDensityY * angularSpeed);
+                const auto screen = window()->screen();
+                const qreal screenDensityX = screen->physicalDotsPerInchX();
+                const qreal screenDensityY = screen->physicalDotsPerInchY();
+                const float pixelRatio = utils::autoCast(window()->effectiveDevicePixelRatio());
+                const float fovRatio = cameraView->getFovRatio();
+                const float angularSpeed = cameraController->sensitivity * fovRatio * pixelRatio;
+                const qreal pan = dragPosDelta.x();
+                const qreal tilt = dragPosDelta.y();
+                cameraView->rotate(utils::safeCast<float>(pan * screenDensityX) * angularSpeed, utils::safeCast<float>(tilt * screenDensityY) * angularSpeed);
             }
         }
         QCursor::setPos(mapToGlobal(startDragPos).toPoint());
@@ -727,22 +688,25 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     auto renderNode = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
-        sceneSettings->updateNodeScene(engineWrapper, *renderNode);
+        sceneSettings->updateRenderNodeScene(*renderNode);
     } else {
-        renderNode = new RenderNode{window(), engineWrapper};
-        sceneSettings->setNodeScene(engineWrapper, *renderNode);
+        renderNode = new RenderNode{window(), *engineWrapper};
+        sceneSettings->setRenderNodeScene(*renderNode);
     }
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-        sceneSettings->updateTree(engineWrapper, *renderNode);
+        sceneSettings->updateRenderNodeTree(*renderNode);
+    } else {
+        renderNode->unsetTree();
     }
     renderNode->updateRect(boundingRect());
-    bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
-    bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
-    bool wireFrame = rendererSettings->texturingMode == RendererSettings::TexturingMode::WireFrame;
+    const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
+    const bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
+    const bool wireFrame = rendererSettings->texturingMode == RendererSettings::TexturingMode::WireFrame;
     renderNode->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
     {
-        float zFar = (sceneSettings->getSceneAabbMax() - sceneSettings->getSceneAabbMin()).length() * sceneSettings->worldScale;
-        float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
+        const QVector3D sceneCenter = (sceneSettings->getSceneAabbMin() + sceneSettings->getSceneAabbMax()) / 2.0f;
+        const float zFar = (sceneSettings->getSceneAabbMax() - sceneSettings->getSceneAabbMin()).length() + (cameraView->position - sceneCenter).length();
+        const float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
         renderNode->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }
     renderNode->setClearColor(rendererSettings->clearColor);

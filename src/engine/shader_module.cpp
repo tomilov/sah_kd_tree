@@ -425,7 +425,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         auto formatProperties = context.getPhysicalDevice().getPhysicalDevice().getFormatProperties(vertexInputAttributeDescription.format, context.getDispatcher());
         INVARIANT(formatProperties.bufferFeatures & vk::FormatFeatureFlagBits::eVertexBuffer, "");
 
-        auto formatSize = codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor);
+        auto formatSize = utils::safeCast<uint32_t>(codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor));
         INVARIANT(formatSize > 0, "Expected known to VkLayer_utils format {}", vertexInputAttributeDescription.format);
         vertexInputBindingDescription.stride += formatSize;
     }

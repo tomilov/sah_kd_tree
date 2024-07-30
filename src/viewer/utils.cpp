@@ -1,4 +1,5 @@
 #include <viewer/utils.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <QtCore/QStringList>
 
@@ -44,7 +45,7 @@ ElapsedTimer::ElapsedTimer(QString message)
 
 ElapsedTimer::~ElapsedTimer()
 {
-    qCInfo(*loggingCategory).noquote() << u"%1: %2 ms"_s.arg(message).arg(1E-6 * elapsedTimer.nsecsElapsed(), 0, 'f', 3);
+    qCInfo(*loggingCategory).noquote() << u"%1: %2 ms"_s.arg(message).arg(1E-6 * utils::safeCast<double>(elapsedTimer.nsecsElapsed()), 0, 'f', 3);
 }
 
 }  // namespace viewer

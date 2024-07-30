@@ -39,6 +39,8 @@ target_sources(
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "task_queue.hpp"
+        "task_queue.cpp"
         "render_node.hpp"
         "render_node.cpp"
         "file_io.hpp"

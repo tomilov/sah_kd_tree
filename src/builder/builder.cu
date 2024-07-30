@@ -15,7 +15,6 @@
 #include <scene_data/scene_data.hpp>
 #include <fmt/std.h>
 
-#include <limits>
 #include <bit>
 #include <algorithm>
 #include <iterator>

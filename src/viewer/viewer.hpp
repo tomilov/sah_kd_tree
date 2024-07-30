@@ -27,22 +27,20 @@ class SceneSettings : public QObject
 
     Q_PROPERTY(QUrl url MEMBER url NOTIFY urlChanged)
 
-    Q_PROPERTY(float worldScale MEMBER worldScale NOTIFY settingsChanged)
-
-    Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY buildSettingsChanged)
-    Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY buildSettingsChanged)
-    Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY buildSettingsChanged)
-    Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY buildSettingsChanged)
-
     Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneCharacteristicsChanged)
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneCharacteristicsChanged)
 
-    Q_PROPERTY(QString buildTreeSettingsStatus READ getBuildTreeSettingsStatus NOTIFY buildTreeSettingsStatusChanged)
+    Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
+    Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
+    Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
+    Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY treeSettingsChanged)
+
+    Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
 
 public:
     QUrl url;
     bool isUrlChanged = false;
-    float worldScale = 1.0f;
+
     float emptinessFactor = 0.8f;
     float traversalCost = 2.0f;
     float intersectionCost = 1.0f;
@@ -50,9 +48,9 @@ public:
 
     explicit SceneSettings(QObject * parent = nullptr);
 
-    void setNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode);
-    void updateNodeScene(EngineWrapper * engineWrapper, RenderNode & renderNode);
-    void updateTree(EngineWrapper * engineWrapper, RenderNode & renderNode);
+    void setRenderNodeScene(RenderNode & renderNode);
+    void updateRenderNodeScene(RenderNode & renderNode);
+    void updateRenderNodeTree(RenderNode & renderNode);
 
     [[nodiscard]] const QVector3D & getSceneAabbMin() const &
     {
@@ -64,22 +62,21 @@ public:
         return sceneAabbMax;
     }
 
-    [[nodiscard]] const QString & getBuildTreeSettingsStatus() const &
+    [[nodiscard]] const QString & getTreeStatus() const &
     {
-        return buildTreeSettingsStatus;
+        return treeStatus;
     }
 
 Q_SIGNALS:
     void urlChanged();
-    void settingsChanged();
-    void buildSettingsChanged();
+    void treeSettingsChanged();
     void sceneCharacteristicsChanged();
-    void buildTreeSettingsStatusChanged();
+    void treeStatusChanged();
 
 private:
     QVector3D sceneAabbMin;
     QVector3D sceneAabbMax;
-    QString buildTreeSettingsStatus;
+    QString treeStatus;
 };
 
 class RendererSettings : public QObject
@@ -133,6 +130,7 @@ Q_SIGNALS:
 class CameraView : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
 
     Q_PROPERTY(QVector3D position MEMBER position WRITE setPosition NOTIFY viewChanged RESET resetPosition)
     Q_PROPERTY(QQuaternion orientation MEMBER orientation WRITE setOrientation NOTIFY viewChanged RESET resetOrientation)
@@ -148,7 +146,7 @@ public:
     Q_INVOKABLE void shift(const QVector3D & direction);
     Q_INVOKABLE void rotate(float pan, float tilt);
     Q_INVOKABLE void roll(float angle);
-    Q_INVOKABLE void addFov(float angle);
+    Q_INVOKABLE void widen(float angle);
 
     [[nodiscard]] Q_INVOKABLE float getFovRatio() const;
 
@@ -174,6 +172,7 @@ private:
 class CameraController : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
 
     Q_PROPERTY(float sensitivity MEMBER sensitivity NOTIFY controllerChanged RESET resetSensitivity)
     Q_PROPERTY(float speed MEMBER speed NOTIFY controllerChanged RESET resetSpeed)
@@ -240,7 +239,7 @@ private:
     QMetaObject::Connection sceneSettingsUrlChangedConnection;
     QMetaObject::Connection sceneSettingsSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
-    QMetaObject::Connection sceneSettingsBuildTreeSettingsStatusChangedConnection;
+    QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

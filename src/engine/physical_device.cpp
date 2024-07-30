@@ -259,7 +259,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
             SPDLOG_DEBUG("{}", deviceName);
             return false;
         }
-        auto queueIndex = usedQueueFamilySizes[queueCreateInfo.familyIndex]++;
+        uint32_t queueIndex = usedQueueFamilySizes[queueCreateInfo.familyIndex]++;
         auto queueCount = queueFamilyProperties2Chains[queueCreateInfo.familyIndex].get<vk::QueueFamilyProperties2>().queueFamilyProperties.queueCount;
         if (queueIndex == queueCount) {
             SPDLOG_DEBUG("{}", deviceName);

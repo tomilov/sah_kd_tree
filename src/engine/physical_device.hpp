@@ -26,7 +26,7 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 {
     const std::string name;
     uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
-    size_t index = std::numeric_limits<size_t>::max();
+    uint32_t index = std::numeric_limits<uint32_t>::max();
 
     explicit QueueCreateInfo(const std::string & name)
         : name{name}
@@ -157,7 +157,7 @@ private:
     std::vector<vk::PresentModeKHR> presentModes;
 
     std::vector<std::vector<float>> deviceQueuesPriorities;
-    std::unordered_map<uint32_t /*queueFamilyIndex*/, size_t /*count*/> usedQueueFamilySizes;
+    std::unordered_map<uint32_t /*queueFamilyIndex*/, uint32_t /*count*/> usedQueueFamilySizes;
     std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
 };
 

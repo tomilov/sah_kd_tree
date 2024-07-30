@@ -6,7 +6,6 @@
 #include <format/glm.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
-#include <utils/checked_ptr.hpp>
 #include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
@@ -29,7 +28,6 @@
 
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRectF>
-#include <QtCore/QRunnable>
 #include <QtCore/QSizeF>
 #include <QtCore/QVector>
 #include <QtCore/QtAssert>
@@ -105,28 +103,6 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 
     context.getDevice().setDebugUtilsObjectName(*queue, "Qt graphical queue");
 }
-
-// https://bugreports.qt.io/browse/QTBUG-121137
-class CleanupJob : public QRunnable
-{
-public:
-    static void scheduleRenderJob(QQuickWindow * window, std::unique_ptr<Renderer> && renderer)
-    {
-        window->scheduleRenderJob(new CleanupJob{std::move(renderer)}, QQuickWindow::RenderStage::NoStage);
-    }
-
-private:
-    std::unique_ptr<Renderer> renderer;
-
-    explicit CleanupJob(std::unique_ptr<Renderer> && renderer)
-        : renderer{std::move(renderer)}
-    {}
-
-    void run() override
-    {
-        renderer.reset();
-    }
-};
 }  // namespace
 
 struct RenderNode::Impl
@@ -150,23 +126,13 @@ struct RenderNode::Impl
 
     QVector<quint32> renderPassFormat;
 
-    Impl(QQuickWindow * window, utils::CheckedPtr<const EngineWrapper> engineWrapper)
+    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper)
         : window{window}
-        , context{engineWrapper->getContext()}
-        , engine{engineWrapper->getEngine()}
+        , context{engineWrapper.getContext()}
+        , engine{engineWrapper.getEngine()}
     {
         Q_ASSERT(window);
         checkContext(window, context);
-    }
-
-    template<typename T>
-    void updateState(T & lhs, const T & rhs, [[maybe_unused]] const char * name)
-    {
-        if (lhs == rhs) {
-            return;
-        }
-        lhs = rhs;
-        isDirty = true;
     }
 
     void unsetScene()
@@ -179,26 +145,63 @@ struct RenderNode::Impl
         isDirty = true;
     }
 
-    void setScene(std::shared_ptr<const Scene> newScene)
+    bool setScene(const std::filesystem::path & scenePath)
     {
-        ASSERT(newScene);
         ASSERT(!scene);
         ASSERT(!renderer || !renderer.value().getScene());
-        scene = std::move(newScene);
+        scene = engine.getScenes().getScene(scenePath);
+        if (!scene) {
+            return false;
+        }
         isDirty = true;
+        return true;
     }
 
     void unsetTree()
     {
+        if (!tree) {
+            return;
+        }
         tree.reset();
         isDirty = true;
     }
 
-    void setTree(std::shared_ptr<const builder::Tree> newTree)
+    bool updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
     {
-        ASSERT(newTree);
-        ASSERT(!tree);
-        tree = std::move(newTree);
+        if (!scene) {
+            unsetTree();
+            return true;
+        }
+        const builder::Tree::Settings treeSettings = {
+            .emptinessFactor = emptinessFactor,
+            .traversalCost = traversalCost,
+            .intersectionCost = intersectionCost,
+            .maxDepth = utils::autoCast(maxDepth),
+        };
+        if (!tree || (tree->getSettings() != treeSettings)) {
+            unsetTree();
+            const auto getNewTree = [this, &treeSettings]
+            {
+                ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build SAH kd-tree for '%1'"_s.arg(QString::fromStdString(scene->scenePath))};
+                return engine.getBuilder().build(treeSettings, scene->sceneData);
+            };
+            if (auto newTree = getNewTree()) {
+                tree = std::make_shared<builder::Tree>(std::move(newTree).value());
+                isDirty = true;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    template<typename T>
+    void updateState(T & lhs, const T & rhs, [[maybe_unused]] const char * name)
+    {
+        if (lhs == rhs) {
+            return;
+        }
+        lhs = rhs;
         isDirty = true;
     }
 
@@ -361,7 +364,7 @@ struct RenderNode::Impl
     }
 };
 
-RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper * engineWrapper)
+RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper)
     : impl_{window, engineWrapper}
 {}
 
@@ -370,9 +373,9 @@ void RenderNode::unsetScene()
     return impl_->unsetScene();
 }
 
-void RenderNode::setScene(std::shared_ptr<const Scene> scene)
+bool RenderNode::setScene(const std::filesystem::path & scenePath)
 {
-    return impl_->setScene(std::move(scene));
+    return impl_->setScene(scenePath);
 }
 
 const std::shared_ptr<const Scene> & RenderNode::getScene() const &
@@ -385,14 +388,14 @@ void RenderNode::unsetTree()
     return impl_->unsetTree();
 }
 
-void RenderNode::setTree(std::shared_ptr<const builder::Tree> tree)
-{
-    return impl_->setTree(std::move(tree));
-}
-
 const std::shared_ptr<const builder::Tree> &RenderNode::getTree() const &
 {
     return impl_->tree;
+}
+
+bool RenderNode::updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
+{
+    return impl_->updateTree(emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
 
 void RenderNode::updateRect(const QRectF & rect)

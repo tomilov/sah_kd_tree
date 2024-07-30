@@ -216,7 +216,7 @@ template<typename T>
             if (utils::safeCast<size_t>(size) > dataSize) {
                 size = utils::safeCast<int>(dataSize);
             }
-            int readSize = dataStream.readRawData(d, size);
+            int readSize = utils::autoCast(dataStream.readRawData(d, size));
             if (size != readSize) {
                 qCWarning(sceneLoaderLog).noquote() << u"unable to read %1 array from scene cache file %2: need %3 bytes, read %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(readSize);
                 return {};
@@ -293,7 +293,7 @@ template<typename T>
         qCWarning(sceneLoaderLog).noquote() << u"scene cache file %1 contain extra data at the end"_s.arg(cacheFile.fileName());
     }
 
-    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(loadTimer.nsecsElapsed() * 1E-6);
+    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly loaded from scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(utils::safeCast<double>(loadTimer.nsecsElapsed()) * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
@@ -327,7 +327,7 @@ template<typename T>
             if (utils::safeCast<size_t>(size) > dataSize) {
                 size = utils::safeCast<int>(dataSize);
             }
-            int writeSize = dataStream.writeRawData(d, size);
+            int writeSize = utils::autoCast(dataStream.writeRawData(d, size));
             if (size != writeSize) {
                 qCWarning(sceneLoaderLog).noquote() << u"unable to write array %1 to scene cache file %2: want %3 bytes, written %4 bytes"_s.arg(dataName, cacheFile.fileName()).arg(size).arg(writeSize);
                 return {};
@@ -403,7 +403,7 @@ template<typename T>
         return {};
     }
 
-    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(saveTimer.nsecsElapsed() * 1E-6);
+    qCDebug(sceneLoaderLog).noquote() << u"scene successfuly saved to scene cache file %1 (size %2) in %3 ms"_s.arg(cacheFile.fileName(), formattedDataSize(cacheFile.size())).arg(utils::safeCast<double>(saveTimer.nsecsElapsed()) * 1E-6);
     qCDebug(sceneLoaderLog).noquote() << u"scene: %1 meshes, %2 indices, %3 vertices"_s.arg(std::size(sceneData.meshes)).arg(sceneData.indices.getCount()).arg(sceneData.vertices.getCount());
     return true;
 }
@@ -456,7 +456,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
             qCCritical(sceneLoaderLog).noquote() << u"unable to load scene %1: %2"_s.arg(sceneFileInfo.filePath(), QString::fromUtf8(importer.GetErrorString()));
             return {};
         }
-        qCDebug(sceneLoaderLog).noquote() << u"scene loaded in %1 ms"_s.arg(sceneLoadTimer.nsecsElapsed() * 1E-6);
+        qCDebug(sceneLoaderLog).noquote() << u"scene loaded in %1 ms"_s.arg(utils::safeCast<double>(sceneLoadTimer.nsecsElapsed()) * 1E-6);
     }
 
     {

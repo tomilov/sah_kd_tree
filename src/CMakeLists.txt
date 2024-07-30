@@ -34,6 +34,24 @@ include_directories(
 add_compile_options(
     "-Wall"
     "-Wextra")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    add_compile_options(
+        -Wold-style-cast
+        -Wredundant-decls
+        -Wwrite-strings
+        -Wcast-qual
+        -Wmissing-include-dirs
+        -Wsized-deallocation
+        -Wduplicated-cond
+        -Wcast-align
+        -Wdisabled-optimization
+        -Winvalid-pch
+        -Woverloaded-virtual
+        -Wconversion
+        -Wdouble-promotion
+        -Wzero-as-null-pointer-constant
+        -Wuseless-cast)
+endif()
 
 link_libraries(fmt::fmt)
 add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS)

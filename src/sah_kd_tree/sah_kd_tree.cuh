@@ -20,7 +20,7 @@ template<typename U>
 U sizeToU(size_t size)
 {
     assert(size <= std::numeric_limits<U>::max());
-    return U(size);
+    return static_cast<U>(size);
 }
 
 struct DefaultTraits

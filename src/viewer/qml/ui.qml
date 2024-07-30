@@ -879,13 +879,14 @@ ApplicationWindow {
                         Dialogs.MessageDialog {
                             id: buildFailMessageBox
                             text: qsTr("Failed to build SAH kd-tree")
-                            informativeText: sceneSettings.buildTreeSettingsStatus
+                            informativeText: sceneSettings.treeStatus
                             detailedText: qsTr("Try to change SAH kd-tree build parameters")
                             buttons: Dialogs.MessageDialog.Ok
                             Connections {
                                 target: sceneSettings
-                                function onBuildTreeSettingsStatusChanged() {
-                                    buildFailMessageBox.open()
+                                function onTreeStatusChanged() {
+                                    if (sceneSettings.treeStatus)
+                                        buildFailMessageBox.open()
                                 }
                             }
                         }
@@ -938,7 +939,6 @@ ApplicationWindow {
                             scene: SceneSettings {
                                 id: sceneSettings
                                 url: page.fileUrl
-                                worldScale: 1.5
                             }
                             CenteredDialog {
                                 id: treeParametersDialog
@@ -1041,7 +1041,7 @@ ApplicationWindow {
                                 clearColor: clearColorDialog.selectedColor
                             }
                             cameraController {
-                                speed: scene.sceneAabbMax.minus(scene.sceneAabbMin).length() * scene.worldScale / 10.0  // 10 seconds to cross the whole world
+                                speed: scene.sceneAabbMax.minus(scene.sceneAabbMin).length() / 10.0  // 10 seconds to cross AABB
                             }
                             cameraView {
                                 Behavior on position {
