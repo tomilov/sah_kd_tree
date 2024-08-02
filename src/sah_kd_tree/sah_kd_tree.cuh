@@ -6,7 +6,9 @@
 #include <thrust/pair.h>
 #include <thrust/tuple.h>
 
+#include <functional>
 #include <limits>
+#include <optional>
 #include <type_traits>
 
 #include <cassert>
@@ -29,6 +31,7 @@ struct DefaultTraits
     using U = unsigned int;
     using F = float;
     using Allocator = thrust::device_allocator<void>;
+    using Cancel = std::function<bool()>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -237,6 +240,7 @@ struct Builder
     using F = typename Traits::F;
     template<typename T>
     using Allocator = typename Traits::Allocator::template rebind<T>::other;
+    using Cancel = typename Traits::Cancel;
 
     typename Traits::Allocator allocator;
 
@@ -350,7 +354,8 @@ struct Builder
     template<I dimension, bool forth>
     void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
-    Tree<Traits> operator()(const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
+    template<typename C = Cancel>
+    std::optional<Tree<Traits>> operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
 };
 
 template<typename Traits = DefaultTraits>
@@ -461,7 +466,7 @@ void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Pr
 #define SAH_KD_TREE_INLINE
 namespace sah_kd_tree
 {
-extern template auto Builder<>::operator()(const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> Tree<>;
+extern template auto Builder<>::operator()<>(const Cancel & cancel, const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> std::optional<Tree<>>;
 extern template void Projection<>::calculateRootNodeBbox();
 extern template void Builder<>::calculateRope<0, false>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
 extern template void Builder<>::calculateRope<0, true>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;

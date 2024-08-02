@@ -10,11 +10,13 @@
 #include <thrust/transform_scan.h>
 
 #include <utility>
+#include <optional>
 
 #include <cassert>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> Tree<Traits>
+template<typename C>
+SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
@@ -42,6 +44,9 @@ SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const Params<Tr
 
     Tree<Traits> tree{allocator};
     for (; tree.layerDepth.size() < sah.maxDepth; tree.layerDepth.push_back(node.count)) {
+        if (cancel()) {
+            return std::nullopt;
+        }
         filterLayerNodeOffset();
 
         x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);

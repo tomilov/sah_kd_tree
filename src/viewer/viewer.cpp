@@ -2,9 +2,9 @@
 #include <utils/auto_cast.hpp>
 #include <viewer/render_node.hpp>
 #include <viewer/scenes.hpp>
+#include <viewer/task_queue.hpp>
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
-#include <viewer/task_queue.hpp>
 
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
@@ -32,7 +32,9 @@
 #include <QtQuick/QSGNode>
 #include <QtQuick/QSGRendererInterface>
 
+#include <chrono>
 #include <limits>
+#include <thread>
 
 #include <cmath>
 
@@ -373,6 +375,47 @@ Viewer::Viewer(QQuickItem * parent)
         sceneGraphInvalidatedConnection = connect(window, &QQuickWindow::sceneGraphInvalidated, this, onSceneGraphInvalidated, Qt::ConnectionType::DirectConnection);
     };
     connect(this, &QQuickItem::windowChanged, this, onWindowChanged);
+
+    const auto addTasks = [this]
+    {
+        if (!taskQueue) {
+            return;
+        }
+        for (int64_t i = 0; i < 18; ++i) {
+            auto task = [](QPromise<void> & promise, TaskQueue * taskQueue, int id)
+            {
+                if (promise.isCanceled()) {
+                    return;
+                }
+                constexpr int kProgressRangeStart = 0;
+                constexpr int kProgressRangeStop = 100;
+                promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
+                using namespace std::chrono_literals;
+                const auto duration = std::chrono::seconds(10);
+                const auto start = std::chrono::steady_clock::now();
+                taskQueue->setTaskStatus(id, u"started %1"_s.arg(id), u"Task started %1"_s.arg(id));
+                taskQueue->setTaskProgress(id, 0.0f);
+                while (!promise.isCanceled()) {
+                    promise.suspendIfRequested();
+                    auto now = std::chrono::steady_clock::now();
+                    if (now >= start + duration) {
+                        break;
+                    }
+                    float elapsed = utils::safeCast<float>(std::chrono::floor<std::chrono::milliseconds>(now - start).count());
+                    float progress = elapsed / utils::safeCast<float>(std::chrono::ceil<std::chrono::milliseconds>(duration).count());
+                    taskQueue->setTaskProgress(id, qBound(0.0f, progress, 1.0f));
+                    promise.setProgressValue(qBound(kProgressRangeStart, qRound((kProgressRangeStop - kProgressRangeStart) * progress), kProgressRangeStop));
+                    std::this_thread::sleep_for(100ms);
+                }
+                taskQueue->setTaskStatus(id, u"finished %1"_s.arg(id), u"Task finished %1"_s.arg(id));
+            };
+            auto future = taskQueue->addTask(std::move(task), u"name %1"_s.arg(i), u"description %1"_s.arg(i));
+            // while (!future.isFinished()) {
+            //     QCoreApplication::processEvents();
+            // }
+        }
+    };
+    connect(this, &Viewer::taskQueueChanged, this, addTasks);
 }
 
 Viewer::~Viewer() = default;
@@ -549,7 +592,7 @@ void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
 
 void Viewer::wheelEvent(QWheelEvent * event)
 {
-    constexpr qreal kUnitsPerDegree = 8.0f;
+    constexpr qreal kUnitsPerDegree = 8.0;
     float angle = utils::safeCast<float>(event->angleDelta().y() / kUnitsPerDegree);
     if (keyboardModifiers == Qt::KeyboardModifier::ShiftModifier) {
         cameraView->roll(angle);
@@ -709,9 +752,9 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         const float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
         renderNode->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }
-    renderNode->setClearColor(rendererSettings->clearColor);
-    renderNode->setRenderdocCaptureFrameCounter(rendererSettings->renderdocCaptureFrameCounter);
-    renderNode->markDirty();
+    renderNode->updateClearColor(rendererSettings->clearColor);
+    renderNode->updateRenderdocCaptureFrameCounter(rendererSettings->renderdocCaptureFrameCounter);
+    renderNode->updateDirty();
     return renderNode;
 }
 

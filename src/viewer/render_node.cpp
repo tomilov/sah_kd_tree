@@ -1,3 +1,4 @@
+#include <builder/builder.hpp>
 #include <debug_utils/renderdoc.hpp>  //
 #include <engine/context.hpp>
 #include <engine/device.hpp>
@@ -11,7 +12,6 @@
 #include <viewer/render_node.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
-#include <builder/builder.hpp>
 #include <viewer/utils.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -183,7 +183,11 @@ struct RenderNode::Impl
             const auto getNewTree = [this, &treeSettings]
             {
                 ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build SAH kd-tree for '%1'"_s.arg(QString::fromStdString(scene->scenePath))};
-                return engine.getBuilder().build(treeSettings, scene->sceneData);
+                const auto cancel = []
+                {
+                    return false;
+                };
+                return engine.getBuilder().build(treeSettings, scene->sceneData, cancel);
             };
             if (auto newTree = getNewTree()) {
                 tree = std::make_shared<builder::Tree>(std::move(newTree).value());
@@ -227,18 +231,18 @@ struct RenderNode::Impl
         UPDATE_STATE(frameSettings.zFar, zFar);
     }
 
-    void setClearColor(const glm::vec4 & clearColor)
+    void updateClearColor(const glm::vec4 & clearColor)
     {
         UPDATE_STATE(frameSettings.clearColor, clearColor);
     }
 
-    void setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
+    void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
     {
         UPDATE_STATE(this->renderdocCaptureFrameCounter, renderdocCaptureFrameCounter);
     }
 #undef UPDATE_STATE
 
-    bool markDirty()
+    bool resetDirty()
     {
         if (!isDirty) {
             return false;
@@ -388,7 +392,7 @@ void RenderNode::unsetTree()
     return impl_->unsetTree();
 }
 
-const std::shared_ptr<const builder::Tree> &RenderNode::getTree() const &
+const std::shared_ptr<const builder::Tree> & RenderNode::getTree() const &
 {
     return impl_->tree;
 }
@@ -416,21 +420,21 @@ void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternio
     return impl_->updateCamera(position, orientation, fov, zNear, zFar);
 }
 
-void RenderNode::setClearColor(const QColor & clearColor)
+void RenderNode::updateClearColor(const QColor & clearColor)
 {
     float r, g, b, a;
     clearColor.getRgbF(&r, &g, &b, &a);
-    return impl_->setClearColor({r, g, b, a});
+    return impl_->updateClearColor({r, g, b, a});
 }
 
-void RenderNode::setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
+void RenderNode::updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
 {
-    return impl_->setRenderdocCaptureFrameCounter(renderdocCaptureFrameCounter);
+    return impl_->updateRenderdocCaptureFrameCounter(renderdocCaptureFrameCounter);
 }
 
-void RenderNode::markDirty()
+void RenderNode::updateDirty()
 {
-    if (!impl_->markDirty()) {
+    if (!impl_->resetDirty()) {
         return;
     }
     return QSGNode::markDirty(QSGNode::DirtyStateBit::DirtyForceUpdate);

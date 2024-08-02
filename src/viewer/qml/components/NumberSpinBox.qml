@@ -1,7 +1,7 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls as QQC
 
-SpinBox {
+QQC.SpinBox {
     id: spinBox
     required property int decimals
     readonly property int decimalFactor: Math.pow(10, decimals)

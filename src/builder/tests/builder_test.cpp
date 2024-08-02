@@ -13,6 +13,7 @@
 #include <QtCore/QString>
 #include <QtCore/QtLogging>
 
+#include <chrono>
 #include <optional>
 #include <ostream>
 #include <utility>
@@ -58,7 +59,15 @@ protected:
             .intersectionCost = intersectionCost,
             .maxDepth = utils::autoCast(maxDepth),
         };
-        auto tree = builder.build(treeSettings, sceneData);
+        const auto cancel = [start = std::chrono::steady_clock::now()]
+        {
+            using namespace std::chrono_literals;
+            if (start + 2s < std::chrono::steady_clock::now()) {
+                return true;
+            }
+            return false;
+        };
+        auto tree = builder.build(treeSettings, sceneData, cancel);
         return tree.has_value();
     }
 

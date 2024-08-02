@@ -1,7 +1,8 @@
 #pragma once
 
-#include <utils/fast_pimpl.hpp>
 #include <builder/fwd.hpp>
+#include <utils/fast_pimpl.hpp>
+
 #include <QtCore/QRectF>
 #include <QtGui/QColor>
 #include <QtGui/QQuaternion>
@@ -9,8 +10,8 @@
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 
-#include <memory>
 #include <filesystem>
+#include <memory>
 
 #include <cstddef>
 
@@ -35,9 +36,9 @@ public:
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
     void updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar);
-    void setClearColor(const QColor & clearColor);
-    void setRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter);
-    void markDirty();
+    void updateClearColor(const QColor & clearColor);
+    void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter);
+    void updateDirty();
 
 private:
     struct Impl;

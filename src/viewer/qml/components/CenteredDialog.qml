@@ -1,10 +1,9 @@
-import QtQuick.Controls
+import QtQuick.Controls as QQC
 import QtQuick
 
-Dialog {
-    parent: Overlay.overlay
-    clip: true
+QQC.Dialog {
+    parent: QQC.Overlay.overlay
+    anchors.centerIn: parent
     modal: true
-    x: (parent.width - width) / 2
-    y: (parent.height - height) / 2
+    clip: true
 }

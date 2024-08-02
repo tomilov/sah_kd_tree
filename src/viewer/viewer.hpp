@@ -18,6 +18,7 @@ namespace viewer
 {
 class EngineWrapper;
 class RenderNode;
+class TaskQueue;
 class Viewer;
 
 class SceneSettings : public QObject
@@ -201,6 +202,7 @@ class Viewer : public QQuickItem
     QML_ELEMENT
 
     Q_PROPERTY(EngineWrapper * engine MEMBER engineWrapper NOTIFY engineChanged REQUIRED)
+    Q_PROPERTY(TaskQueue * taskQueue MEMBER taskQueue NOTIFY taskQueueChanged REQUIRED)
     Q_PROPERTY(SceneSettings * scene MEMBER sceneSettings NOTIFY sceneSettingsChanged REQUIRED)
     Q_PROPERTY(RendererSettings * renderer MEMBER rendererSettings CONSTANT)
     Q_PROPERTY(CameraView * cameraView MEMBER cameraView CONSTANT)
@@ -212,6 +214,7 @@ public:
 
 Q_SIGNALS:
     void engineChanged();
+    void taskQueueChanged();
     void sceneSettingsChanged();
 
 private Q_SLOTS:
@@ -221,6 +224,7 @@ private:
     friend CameraView;
 
     EngineWrapper * engineWrapper = nullptr;
+    TaskQueue * taskQueue = nullptr;
     SceneSettings * sceneSettings = nullptr;
     RendererSettings * const rendererSettings = new RendererSettings{this};
     CameraView * const cameraView = new CameraView{this};

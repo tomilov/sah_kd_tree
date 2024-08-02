@@ -5,18 +5,18 @@
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <memory>
 #include <array>
+#include <functional>
+#include <memory>
 #include <optional>
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 #include <builder/builder_export.h>
 
 namespace builder
 {
-class Builder;
 class CudaDevice;
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
@@ -29,8 +29,7 @@ public:
         float intersectionCost;
         uint32_t maxDepth;
 
-        bool operator==(const Settings &) const = default;
-        bool operator!=(const Settings &) const = default;
+        auto operator<=>(const Settings &) const = default;
     };
 
     Tree(Tree &&) noexcept;
@@ -38,7 +37,7 @@ public:
 
     [[nodiscard]] const Settings & getSettings() const &;
 
-    bool build();
+    bool build(const std::function<bool()> & cancel);
 
 private:
     friend Builder;
@@ -70,7 +69,7 @@ public:
     Builder(Builder &&) noexcept;
     ~Builder();
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData) const;
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const;
 
 private:
     struct Impl;

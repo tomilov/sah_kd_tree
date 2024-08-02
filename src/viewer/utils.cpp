@@ -1,5 +1,5 @@
-#include <viewer/utils.hpp>
 #include <utils/auto_cast.hpp>
+#include <viewer/utils.hpp>
 
 #include <QtCore/QStringList>
 

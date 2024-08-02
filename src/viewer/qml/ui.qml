@@ -1,6 +1,6 @@
 ﻿import QtCore
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls as QQC
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Dialogs as Dialogs
@@ -10,9 +10,10 @@ import SahKdTree 1.0
 
 import "utils.js" as Utils
 
+
 pragma ComponentBehavior: Bound
 
-ApplicationWindow {
+QQC.ApplicationWindow {
     id: root
     objectName: Application.name
     x: Application.screens[0].width / 4
@@ -26,21 +27,10 @@ ApplicationWindow {
         .arg(app.primaryScreen.refreshRate.toFixed(3))
         .arg(stackLayout.children[stackLayout.currentIndex]?.fileUrl || "-")
     }
-    CenteredDialog {
-        id: confirmationDialog
-        title: qsTr("Close application")
-        Text {
-            anchors.fill: parent
-            text: qsTr("Are you sure?")
-        }
-        standardButtons: Dialog.Yes | Dialog.No
-        onAccepted: Qt.quit()
-    }
     SceneOpenDialog {
         id: sceneOpenDialog
-        width: Math.min(512, root.width)
-        height: Math.min(512, root.height)
         title: qsTr("Open scene file")
+        width: Math.min(Math.max(implicitWidth, 512), parent.width)
         property bool shouldReplaceScene
         function appendScene() {
             shouldReplaceScene = false
@@ -86,42 +76,42 @@ ApplicationWindow {
         }
         listModel.remove(currentIndex)
     }
-    Action {
+    QQC.Action {
         id: actionOpenScene
         text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Open
         onTriggered: sceneOpenDialog.replaceScene()
         icon.name: "tab-new-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionReplaceScene
         text: qsTr("Open in &new tab (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.AddTab
         onTriggered: sceneOpenDialog.appendScene()
         icon.name: "application-add-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionCloseAllTabs
         text: qsTr("Close &all tabs")
         enabled: listModel.count > 0
         onTriggered: listModel.clear()
         icon.name: "list-remove-all-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionCloseScene
         text: qsTr("&Close")
         enabled: listModel.count > 0
         onTriggered: removeCurrentTab()
         icon.name: "list-remove-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionExit
         text: qsTr("&Exit (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.Cancel
         onTriggered: root.close()
         icon.name: "window-close-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionNextTab
         text: qsTr("Next tab (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.NextChild
@@ -135,7 +125,7 @@ ApplicationWindow {
         }
         icon.name: "go-next-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionPreviosTab
         text: qsTr("Previous tab (%1)").arg(app.keySequenceToString(shortcut))
         shortcut: StandardKey.PreviousChild
@@ -149,39 +139,39 @@ ApplicationWindow {
         }
         icon.name: "go-previous-symbolic"
     }
-    Action {
+    QQC.Action {
         id: actionUiVisibility
         text: qsTr("Toggle UI visibility")
         checkable: true
         checked: true
         shortcut: StandardKey.Replace
     }
-    Action {
+    QQC.Action {
         id: actionUseOffscreenTexture
         text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
         checked: true
         shortcut: "F4"
     }
-    Action {
+    QQC.Action {
         id: actionDiscardInvisible
         text: qsTr("Discard")
         checkable: true
     }
-    Action {
+    QQC.Action {
         id: actionTraceSahKdTree
         text: qsTr("Trace/Rasterize (%1)").arg(app.keySequenceToString(shortcut))
         checkable: true
         shortcut: "F2"
     }
-    ActionGroup {
+    QQC.ActionGroup {
         id: texturingModeActionGroup
-        Action {
+        QQC.Action {
             id: actionBarycentricColor
             text: qsTr("Barycentric")
             checkable: true
         }
-        Action {
+        QQC.Action {
             id: actionWireFrame
             text: qsTr("Wireframe")
             checkable: true
@@ -198,7 +188,7 @@ ApplicationWindow {
             }
         }
     }
-    Action {
+    QQC.Action {
         id: actionShowAboutQt
         text: qsTr("About Qt")
         enabled: app.showAboutQt !== undefined
@@ -206,55 +196,61 @@ ApplicationWindow {
         icon.source: app.getQtLogoUrl()
         shortcut: StandardKey.HelpContents
     }
-    menuBar: MenuBar {
+    QQC.Action {
+        id: actionShowTaskQueueDialog
+        text: qsTr("Show task queue info")
+        onTriggered: taskQueueDialog.open()
+        icon.name: "view-list-symbolic"
+    }
+    menuBar: QQC.MenuBar {
         visible: actionUiVisibility.checked
-        Menu {
+        QQC.Menu {
             title: qsTr("&File")
-            MenuItem {
+            QQC.MenuItem {
                 action: actionOpenScene
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionReplaceScene
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionCloseAllTabs
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionCloseScene
             }
-            MenuSeparator {}
-            MenuItem {
+            QQC.MenuSeparator {}
+            QQC.MenuItem {
                 action: actionExit
             }
         }
-        Menu {
+        QQC.Menu {
             title: qsTr("&Navigation")
-            MenuItem {
+            QQC.MenuItem {
                 action: actionNextTab
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionPreviosTab
             }
         }
-        Menu {
+        QQC.Menu {
             title: qsTr("&Mode")
-            MenuItem {
+            QQC.MenuItem {
                 action: actionUseOffscreenTexture
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionDiscardInvisible
             }
-            MenuSeparator {}
-            MenuItem {
+            QQC.MenuSeparator {}
+            QQC.MenuItem {
                 action: actionBarycentricColor
             }
-            MenuItem {
+            QQC.MenuItem {
                 action: actionWireFrame
             }
         }
-        Menu {
+        QQC.Menu {
             title: qsTr("&Help")
-            MenuItem {
+            QQC.MenuItem {
                 action: actionShowAboutQt
             }
         }
@@ -276,25 +272,71 @@ ApplicationWindow {
             //console.log("JSON model:", settings.jsonModel)
         }
     }
-    header: TabBar {
+    TaskQueue {
+        id: taskQueue
+    }
+    CenteredDialog {
+        id: taskQueueDialog
+        title: "Task queue"
+        width: Math.min(Math.max(implicitWidth, 512), parent.width)
+        standardButtons: QQC.Dialog.Close
+        contentItem: QQC.Frame {
+            TableView {
+                anchors.fill: parent
+                onContentWidthChanged: {
+                    if (implicitWidth < contentWidth) {
+                        implicitWidth = contentWidth
+                    }
+                }
+                onContentHeightChanged: {
+                    if (implicitHeight < contentHeight) {
+                        implicitHeight = contentHeight
+                    }
+                }
+                clip: true
+                model: taskQueue
+                delegate: QQC.ItemDelegate {
+                    id: tableViewDelegate
+                    required property var modelData
+                    contentItem: Text {
+                        id: tableFiledText
+                        clip: true
+                        readonly property var display: tableViewDelegate.modelData.display
+                        readonly property var tooltip: tableViewDelegate.modelData.tooltip
+                        text: display !== undefined ? display : ""
+                        HoverHandler {
+                            id: tableFieldTextHoverHandler
+                        }
+                        QQC.ToolTip.visible: tableFieldTextHoverHandler.hovered
+                        QQC.ToolTip.text: tooltip !== undefined ? tooltip : ""
+                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                        QQC.ToolTip.timeout: root.toolTipTimeout
+                    }
+                }
+                QQC.ScrollIndicator.vertical: QQC.ScrollIndicator {}
+                QQC.ScrollIndicator.horizontal: QQC.ScrollIndicator {}
+            }
+        }
+    }
+    header: QQC.TabBar {
         id: tabBar
         visible: actionUiVisibility.checked
-        background: Pane {}
+        background: QQC.Pane {}
         Repeater {
             model: listModel
-            TabButton {
+            QQC.TabButton {
                 required property string fileBaseName
                 required property url fileUrl
                 text: fileBaseName
                 onDoubleClicked: removeCurrentTab()
-                ToolTip.visible: hovered
-                ToolTip.text: {
+                QQC.ToolTip.visible: hovered
+                QQC.ToolTip.text: {
                     "<font color=\"%2\">%1</font>"
                     .arg(fileUrl)
                     .arg(Qt.color(palette.link))
                 }
-                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                ToolTip.timeout: root.toolTipTimeout
+                QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                QQC.ToolTip.timeout: root.toolTipTimeout
             }
         }
         Component.onCompleted: Qt.callLater(setCurrentIndex, settings.currentTabIndex)
@@ -308,7 +350,7 @@ ApplicationWindow {
             anchors.fill: parent
             model: listModel
             delegate: Component {
-                Page {
+                QQC.Page {
                     id: page
                     required property url fileUrl
                     required property string filePath
@@ -322,7 +364,7 @@ ApplicationWindow {
                                 Qt.callLater(clearColorComboBox.setIndexOfClosestColor, selectedColor)
                         }
                     }
-                    Action {
+                    QQC.Action {
                         id: actionResetContentOrientation
                         text: qsTr("Reset view orientation")
                         icon.name: "zoom-original-symbolic"
@@ -334,215 +376,215 @@ ApplicationWindow {
                             opacitySlider.value = 1
                         }
                     }
-                    Action {
+                    QQC.Action {
                         id: actionContentVisibility
                         text: qsTr("Toggle content visibility")
                         checkable: true
                         checked: true
                     }
-                    Action {
+                    QQC.Action {
                         id: actionLayerEnabled
                         text: qsTr("Layer enable/disable")
                         checkable: true
                         icon.name: "image-crop-symbolic"
                     }
-                    Action {
+                    QQC.Action {
                         id: actionRotatePos
                         text: qsTr("Rotate content CCW")
                         icon.name: "object-rotate-left-symbolic"
                         onTriggered: rotationSlider.decrease()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionRotateNeg
                         text: qsTr("Rotate content CW")
                         icon.name: "object-rotate-right-symbolic"
                         onTriggered: rotationSlider.increase()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionScaleDec
                         text: qsTr("Decrease content scale")
                         icon.name: "zoom-out-symbolic"
                         onTriggered: scaleSlider.decrease()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionScaleInc
                         text: qsTr("Increase content scale")
                         icon.name: "zoom-in-symbolic"
                         onTriggered: scaleSlider.increase()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionOpacityDec
                         text: qsTr("Decrease content opacity")
                         icon.name: "path-combine-symbolic"
                         onTriggered: opacitySlider.decrease()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionOpacityInc
                         text: qsTr("Increase content opacity")
                         icon.name: "path-difference-symbolic"
                         onTriggered: opacitySlider.increase()
                     }
-                    Action {
+                    QQC.Action {
                         id: actionSaveSceneScreenshot
                         text: qsTr("Screenshot")
                         onTriggered: viewer.grabToImage(result => app.setClipboardImage(result.image))
                         icon.name: "edit-copy-symbolic"
                     }
-                    Action {
+                    QQC.Action {
                         id: actionSelectClearColor
                         text: qsTr("Select clearColor")
                         onTriggered: clearColorDialog.open()
                         icon.name: "color-select-symbolic"
                     }
-                    Action {
+                    QQC.Action {
                         id: actionChangeTreeBuildParams
                         text: qsTr("Change SAH kd-tree build parameters")
                         onTriggered: treeParametersDialog.open()
                         icon.name: "edit-symbolic"
                     }
-                    Menu {
+                    QQC.Menu {
                         id: contextMenu
                         title: "Context menu"
-                        parent: Overlay.overlay
-                        MenuItem {
+                        parent: QQC.Overlay.overlay
+                        QQC.MenuItem {
                             action: actionSaveSceneScreenshot
                         }
-                        MenuSeparator {}
-                        MenuItem {
+                        QQC.MenuSeparator {}
+                        QQC.MenuItem {
                             action: actionTraceSahKdTree
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             action: actionUseOffscreenTexture
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             action: actionDiscardInvisible
                         }
-                        MenuSeparator {}
-                        MenuItem {
+                        QQC.MenuSeparator {}
+                        QQC.MenuItem {
                             action: actionBarycentricColor
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             action: actionWireFrame
                         }
-                        MenuSeparator {}
-                        MenuItem {
+                        QQC.MenuSeparator {}
+                        QQC.MenuItem {
                             action: actionSelectClearColor
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             action: actionChangeTreeBuildParams
                         }
-                        MenuSeparator {}
-                        MenuItem {
+                        QQC.MenuItem {
+                            action: actionShowTaskQueueDialog
+                        }
+                        QQC.MenuSeparator {}
+                        QQC.MenuItem {
                             text: qsTr("Dump item tree")
                             onTriggered: root.contentItem.dumpItemTree()
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             text: qsTr("Make window invisible")
                             onTriggered: root.hide()
                         }
-                        MenuItem {
+                        QQC.MenuItem {
                             text: qsTr("Renderdoc capture frame")
                             onTriggered: viewer.renderer.renderdocCaptureFrame()
                         }
                     }
-                    header: ToolBar {
+                    header: QQC.ToolBar {
                         visible: actionUiVisibility.checked
                         Flow {
                             anchors.fill: parent
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("Reset cam")
                                         onClicked: {
                                             viewer.cameraView.orientation = undefined
                                             viewer.cameraView.position = undefined
                                             viewer.cameraView.filedOfView = undefined
                                         }
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("Reset camera view")
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: qsTr("Reset camera view")
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    ToolSeparator {
+                                    QQC.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("Align cam")
                                         onClicked: viewer.cameraView.alignOrientation()
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("Align camera view")
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: qsTr("Align camera view")
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    ToolSeparator {
+                                    QQC.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("Reflect cam")
                                         onClicked: viewer.cameraView.reflectOrientation()
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("Reflect camera view")
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: qsTr("Reflect camera view")
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("Reset item")
                                         action: actionResetContentOrientation
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    ToolSeparator {
+                                    QQC.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
-                                    Switch {
+                                    QQC.Switch {
                                         text: qsTr("Show/Hide")
                                         action: actionContentVisibility
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    ToolSeparator {
+                                    QQC.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
-                                    Switch {
+                                    QQC.Switch {
                                         text: qsTr("Layer")
                                         action: actionLayerEnabled
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionRotatePos
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    Slider {
+                                    QQC.Slider {
                                         id: rotationSlider
                                         from: -180
                                         value: 0
                                         to: 180
                                         stepSize: 5
-                                        snapMode: Slider.SnapAlways
-                                        ToolTip.visible: pressed || hovered
-                                        ToolTip.text: value
+                                        snapMode: QQC.Slider.SnapAlways
+                                        QQC.ToolTip.visible: pressed || hovered
+                                        QQC.ToolTip.text: value
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
@@ -553,35 +595,34 @@ ApplicationWindow {
                                             }
                                         }
                                     }
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionRotateNeg
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionScaleDec
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    Slider {
+                                    QQC.Slider {
                                         id: scaleSlider
                                         from: 0.125
                                         value: 1
                                         to: 1.25
                                         stepSize: 0.125
-                                        ToolTip.visible: pressed || hovered
-                                        ToolTip.text: value
+                                        QQC.ToolTip.visible: pressed || hovered
+                                        QQC.ToolTip.text: value
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
@@ -592,35 +633,34 @@ ApplicationWindow {
                                             }
                                         }
                                     }
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionScaleInc
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionOpacityDec
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
-                                    Slider {
+                                    QQC.Slider {
                                         id: opacitySlider
                                         from: 0.0
                                         value: 1.0
                                         to: 1.0
                                         stepSize: 0.0625
-                                        ToolTip.visible: pressed || hovered
-                                        ToolTip.text: value
+                                        QQC.ToolTip.visible: pressed || hovered
+                                        QQC.ToolTip.text: value
                                         WheelHandler {
                                             onWheel: (wheel) => {
                                                 if (wheel.angleDelta.y < 0) {
@@ -631,27 +671,26 @@ ApplicationWindow {
                                             }
                                         }
                                     }
-                                    ToolButton {
+                                    QQC.ToolButton {
                                         text: qsTr("")
                                         action: actionOpacityInc
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: action.text
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: hovered
+                                        QQC.ToolTip.text: action.text
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
                                         text: qsTr("<b>Clear color:</b>")
                                     }
-                                    ComboBox {
+                                    QQC.ComboBox {
                                         id: clearColorComboBox
                                         textRole: "colorName"
                                         valueRole: "colorValue"
-                                        implicitContentWidthPolicy: ComboBox.WidestTextWhenCompleted
+                                        implicitContentWidthPolicy: QQC.ComboBox.WidestTextWhenCompleted
                                         editable: true
                                         selectTextByMouse: true
                                         inputMethodHints: Qt.ImhLowercaseOnly
@@ -676,10 +715,10 @@ ApplicationWindow {
                                         HoverHandler {
                                             id: clearColorComboBoxHoverHandler
                                         }
-                                        ToolTip.visible: clearColorComboBoxHoverHandler.hovered
-                                        ToolTip.text: currentText
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: clearColorComboBoxHoverHandler.hovered
+                                        QQC.ToolTip.text: currentText
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                         model: ListModel {
                                             Component.onCompleted: {
                                                 let colorNames = app.colorNames
@@ -695,7 +734,7 @@ ApplicationWindow {
                                         }
                                         onAccepted: clearColorDialog.selectedColor = currentValue
                                         onActivated: clearColorDialog.selectedColor = currentValue
-                                        delegate: ItemDelegate {
+                                        delegate: QQC.ItemDelegate {
                                             id: delegate
                                             required property int index
                                             required property string colorName
@@ -719,10 +758,10 @@ ApplicationWindow {
                                                 HoverHandler {
                                                     id: colorRowHoverHandler
                                                 }
-                                                ToolTip.visible: colorRowHoverHandler.hovered
-                                                ToolTip.text: colorRect.color
-                                                ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                                ToolTip.timeout: root.toolTipTimeout
+                                                QQC.ToolTip.visible: colorRowHoverHandler.hovered
+                                                QQC.ToolTip.text: colorRect.color
+                                                QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                                QQC.ToolTip.timeout: root.toolTipTimeout
                                             }
                                         }
                                     }
@@ -741,63 +780,59 @@ ApplicationWindow {
                                         HoverHandler {
                                             id: colorSquareHoverHandler
                                         }
-                                        ToolTip.visible: colorSquareHoverHandler.hovered && clearColorComboBox.currentValue !== undefined
-                                        ToolTip.text: clearColorComboBox.currentValue
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: colorSquareHoverHandler.hovered && clearColorComboBox.currentValue !== undefined
+                                        QQC.ToolTip.text: clearColorComboBox.currentValue
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
                         }
                     }
-                    footer: ToolBar {
+                    footer: QQC.ToolBar {
                         visible: actionUiVisibility.checked
                         Flow {
                             anchors.fill: parent
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
                                         text: viewer.getRenderModeDescription(false)
                                         HoverHandler {
                                             id: modeTextHoverHandler
                                         }
-                                        ToolTip.visible: modeTextHoverHandler.hovered
-                                        ToolTip.text: viewer.getRenderModeDescription(true)
-                                        ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        ToolTip.timeout: root.toolTipTimeout
+                                        QQC.ToolTip.visible: modeTextHoverHandler.hovered
+                                        QQC.ToolTip.text: viewer.getRenderModeDescription(true)
+                                        QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QQC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
                                         text: {
-                                            "sens(%1) speed(%2)"
+                                            qsTr("sens(%1) speed(%2)")
                                             .arg(viewer.cameraController.sensitivity.toFixed(4))
                                             .arg(viewer.cameraController.speed.toExponential(3))
                                         }
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
                                         text: {
-                                            "rot(%1) scale(%2)"
+                                            qsTr("rot(%1) scale(%2)")
                                             .arg(content.rotation.toFixed(0))
                                             .arg(content.scale.toFixed(3))
                                         }
                                     }
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
-                                        text: "Clear color: %1".arg(viewer.renderer.clearColor)
+                                        text: qsTr("Clear color: %1").arg(viewer.renderer.clearColor)
                                     }
                                     Rectangle {
                                         Layout.fillHeight: true
@@ -811,25 +846,24 @@ ApplicationWindow {
                                     HoverHandler {
                                         id: clearColorHoveredHandler
                                     }
-                                    ToolTip.visible: clearColorHoveredHandler.hovered
-                                    ToolTip.text: {
-                                        return 'Is %1 "<font color="%2">%3</font>" color'
+                                    QQC.ToolTip.visible: clearColorHoveredHandler.hovered
+                                    QQC.ToolTip.text: {
+                                        return qsTr('Is %1 "<font color="%2">%3</font>" color')
                                             .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
                                             .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
                                             .arg(clearColorComboBox.currentText)
                                     }
-                                    ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    ToolTip.timeout: root.toolTipTimeout
+                                    QQC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    QQC.ToolTip.timeout: root.toolTipTimeout
                                 }
                             }
-                            Frame {
+                            QQC.Frame {
                                 RowLayout {
-                                    anchors.fill: parent
                                     Text {
                                         text: {
                                             let position = viewer.cameraView.position
                                             let orientation = viewer.cameraView.orientation.toEulerAngles()
-                                            return "xyz(%1, %2, %3) \u03C6\u03B8\u03C8(%4, %5, %6) fov(%7)"
+                                            return qsTr("xyz(%1, %2, %3) \u03C6\u03B8\u03C8(%4, %5, %6) fov(%7)")
                                                 .arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
                                                 .arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
                                                 .arg(viewer.cameraView.fov.toFixed(0))
@@ -936,6 +970,7 @@ ApplicationWindow {
                                     .arg(description.join(verbose ? " OR " : "|"))
                             }
                             engine: SahKdTreeEngine
+                            taskQueue: taskQueue
                             scene: SceneSettings {
                                 id: sceneSettings
                                 url: page.fileUrl
@@ -943,10 +978,8 @@ ApplicationWindow {
                             CenteredDialog {
                                 id: treeParametersDialog
                                 title: qsTr("Tree parameters")
-                                Frame {
-                                    anchors.fill: parent
+                                QQC.Frame {
                                     GridLayout {
-                                        anchors.fill: parent
                                         columns: 2
                                         Text {
                                             text: "emptinessFactor"
@@ -981,7 +1014,7 @@ ApplicationWindow {
                                         Text {
                                             text: "maxDepth"
                                         }
-                                        SpinBox {
+                                        QQC.SpinBox {
                                             id: maxDepthSpinBox
                                             editable: true
                                             from: 1
@@ -1004,7 +1037,7 @@ ApplicationWindow {
                                     intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
                                     maxDepthSpinBox.value = sceneSettings.maxDepth
                                 }
-                                standardButtons: Dialog.Apply | Dialog.Discard
+                                standardButtons: QQC.Dialog.Apply | QQC.Dialog.Discard
                                 onApplied: {
                                     sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
                                     sceneSettings.traversalCost = traversalCostSpinBox.realValue
@@ -1127,6 +1160,50 @@ ApplicationWindow {
             }
         }
     }
+    footer: QQC.ToolBar {
+        visible: actionUiVisibility.checked
+        Flow {
+            anchors.fill: parent
+            Item {
+                implicitWidth: taskQueueFrame.width
+                implicitHeight: taskQueueFrame.height
+                QQC.Frame {
+                    id: taskQueueFrame
+                    contentItem: RowLayout {
+                        id: taskQueueRowLayout
+                        Text {
+                            text: {
+                                qsTr("Task queue (%1/%2):")
+                                .arg(taskQueue.runningTaskCount)
+                                .arg(taskQueue.taskInFlightCount)
+                            }
+                        }
+                        QQC.ProgressBar {
+                            id: taskQueueProgressBar
+                            indeterminate: taskQueue.runningTaskCount === 0
+                            value: taskQueue.totalProgress
+                            Text {
+                                anchors.fill: parent
+                                verticalAlignment: Text.AlignVCenter
+                                horizontalAlignment: Text.AlignHCenter
+                                z: 1
+                                text: {
+                                    qsTr("%1\%")
+                                    .arg(Number(taskQueueProgressBar.value * 100).toLocaleString(locale, 'f', 0))
+                                }
+                            }
+                        }
+                    }
+                }
+                MouseArea {
+                    id: taskQueueMouseArea
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: actionShowTaskQueueDialog.trigger(taskQueueMouseArea)
+                }
+            }
+        }
+    }
     Settings {
         id: settings
         property int rootVisibility: Window.AutomaticVisibility
@@ -1144,11 +1221,7 @@ ApplicationWindow {
         property string jsonModel
     }
     Component.onCompleted: visibility = settings.rootVisibility
-    onClosing: close => {
-        settings.rootVisibility = visibility
-        //confirmationDialog.open()
-        //close.accepted = false
-    }
+    onClosing: close => settings.rootVisibility = visibility
     Timer {
         id: visibilityTimer
         interval: 2000

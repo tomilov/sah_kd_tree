@@ -1,5 +1,5 @@
 find_package(
-    Qt6
+    Qt6 6.7.2
     REQUIRED
     COMPONENTS
         Core
@@ -10,7 +10,8 @@ find_package(
         QuickControls2
         Svg
         Xml
-        Quick3D)
+        Quick3D
+        Concurrent)
 
 qt6_standard_project_setup()
 set(CMAKE_AUTORCC ON)

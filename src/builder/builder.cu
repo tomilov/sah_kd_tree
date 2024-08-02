@@ -1,30 +1,32 @@
 #include <builder/builder.hpp>
-#include <utils/assert.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <thrust/mr/allocator.h>
-#include <thrust/mr/memory_resource.h>
-#include <thrust/device_vector.h>
-#include <thrust/device_ptr.h>
-#include <thrust/device_allocator.h>
-#include <thrust/system/cuda/pointer.h>
-#include <thrust/mr/device_memory_resource.h>
-#include <spdlog/spdlog.h>
-#include <fmt/format.h>
-#include <utils/math.hpp>
-#include <utils/auto_cast.hpp>
 #include <scene_data/scene_data.hpp>
-#include <fmt/std.h>
+#include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
+#include <utils/math.hpp>
 
-#include <bit>
+#include <thrust/device_allocator.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/mr/allocator.h>
+#include <thrust/mr/device_memory_resource.h>
+#include <thrust/mr/memory_resource.h>
+#include <thrust/system/cuda/pointer.h>
+
+#include <fmt/format.h>
+#include <fmt/std.h>
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <utility>
 
 #include <cstddef>
 #include <cstring>
 
-#include <cuda_runtime.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <unistd.h>
 
 #define CUDA_CHECK_ERROR(call) do { cudaError error = cudaSuccess; INVARIANT((error = (call)) == cudaSuccess, "{}", error); } while (false)
@@ -202,9 +204,9 @@ struct Tree::Impl : utils::OneTime<Impl>
 #if SAH_KD_TREE_HEADER_ONLY
     typename Traits::MemoryResource memoryResource;
     typename Traits::Allocator allocator{&memoryResource};
-    sah_kd_tree::Tree<Traits> tree{allocator};
+    std::optional<sah_kd_tree::Tree<Traits>> tree{allocator};
 #else
-    sah_kd_tree::Tree<Traits> tree;
+    std::optional<sah_kd_tree::Tree<Traits>> tree;
 #endif
 
     Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData)
@@ -215,8 +217,10 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     Impl(Impl &&) noexcept = default;
 
-    bool build()
+    bool build(const std::function<bool()> & cancel)
     {
+        tree.reset();
+
         auto triangles = sceneData.makeTriangles();
 
 #if SAH_KD_TREE_HEADER_ONLY
@@ -240,8 +244,8 @@ struct Tree::Impl : utils::OneTime<Impl>
             .intersectionCost = settings.intersectionCost,
             .maxDepth = settings.maxDepth,
         };
-        tree = builder(params, x, y, z);
-        return true;
+        tree = builder(cancel, params, x, y, z);
+        return tree.has_value();
     }
 
     static constexpr void completeClassContext()
@@ -262,9 +266,9 @@ auto Tree::getSettings() const & -> const Settings &
     return impl_->settings;
 }
 
-bool Tree::build()
+bool Tree::build(const std::function<bool()> & cancel)
 {
-    return impl_->build();
+    return impl_->build(cancel);
 }
 
 struct Builder::Impl : utils::OneTime<Impl>
@@ -282,20 +286,20 @@ struct Builder::Impl : utils::OneTime<Impl>
         printThrustVersion();
     }
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData) const
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
     {
         //test(1, 0);
 
-        Tree tree{treeSettings, cudaDevice, sceneData};
         try {
-            if (!tree.build()) {
+            Tree tree{treeSettings, cudaDevice, sceneData};
+            if (!tree.build(cancel)) {
                 return {};
             }
+            return tree;
         } catch (const std::bad_alloc & e) {
             SPDLOG_ERROR("{}", e);
             return {};
         }
-        return tree;
     }
 
     void test(size_t allocationSize, size_t allocationAlignment) const
@@ -370,9 +374,9 @@ Builder::Builder(const Settings & settings)
 Builder::Builder(Builder &&) noexcept = default;
 Builder::~Builder() = default;
 
-std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneData & sceneData) const
+std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
 {
-    return impl_->build(settings, sceneData);
+    return impl_->build(settings, sceneData, cancel);
 }
 
 }  // namespace builder
