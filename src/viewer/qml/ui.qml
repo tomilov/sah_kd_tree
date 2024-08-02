@@ -1173,15 +1173,14 @@ QQC.ApplicationWindow {
                         id: taskQueueRowLayout
                         Text {
                             text: {
-                                qsTr("Task queue (%1/%2):")
-                                .arg(taskQueue.runningTaskCount)
-                                .arg(taskQueue.taskInFlightCount)
+                                qsTr("Task queue (%1):")
+                                .arg(taskQueue.taskCount)
                             }
                         }
                         QQC.ProgressBar {
                             id: taskQueueProgressBar
-                            indeterminate: taskQueue.runningTaskCount === 0
-                            value: taskQueue.totalProgress
+                            indeterminate: taskQueue.taskCount === 0
+                            value: taskQueue.progress
                             Text {
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter

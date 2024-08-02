@@ -12,7 +12,11 @@
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>
 #include <QtQuick/QQuickItem>
+#include <QtCore/QFutureWatcher>
 #include <QtQuick/QQuickWindow>
+
+#include <memory>
+#include <list>
 
 namespace viewer
 {
@@ -244,6 +248,8 @@ private:
     QMetaObject::Connection sceneSettingsSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
+
+    std::list<std::unique_ptr<QFutureWatcher<void>>> tasks;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

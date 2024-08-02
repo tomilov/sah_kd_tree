@@ -3,8 +3,11 @@
 
 #include <QtCore/QThreadPool>
 #include <QtCore/QtAssert>
+#include <QtCore/QPointer>
+#include <QtCore/QTimer>
 
 #include <utility>
+#include <limits>
 
 using namespace Qt::StringLiterals;
 
@@ -59,10 +62,18 @@ QVariant TaskQueue::data(const QModelIndex & index, int role) const
             return taskInfo.name;
         }
         case 1: {
-            return taskInfo.progress;
+            if ((taskInfo.progressValue < 0) || (taskInfo.progressMinimum >= taskInfo.progressMaximum)) {
+                return u""_s;
+            }
+            const float numerator = utils::autoCast(taskInfo.progressValue);
+            const float denominator = utils::autoCast(taskInfo.progressMaximum - taskInfo.progressMinimum);
+            return numerator / denominator;
         }
         case 2: {
-            return taskInfo.status;
+            if (taskInfo.statusLog.isEmpty()) {
+                return u"unknown"_s;
+            }
+            return taskInfo.statusLog.last();
         }
         default: {
             break;
@@ -76,10 +87,10 @@ QVariant TaskQueue::data(const QModelIndex & index, int role) const
             return taskInfo.description;
         }
         case 1: {
-            return u"Progress: %1%%"_s.arg(utils::autoCast(taskInfo.progress * 100.0f), 0, 'f', 2);
+            return taskInfo.progressText;
         }
         case 2: {
-            return taskInfo.verboseStatus;
+            return taskInfo.statusLog.join(u"\n"_s);
         }
         default: {
             break;
@@ -132,132 +143,130 @@ QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int rol
     return {};
 }
 
-void TaskQueue::startTask(int id, QString taskName, QString taskDescription)
+void TaskQueue::addTask(int id, QString && name, QString && description, const QFutureWatcherBase * futureWatcher)
 {
     TaskInfo taskInfo;
-    taskInfo.name = std::move(taskName);
-    taskInfo.description = std::move(taskDescription);
+    taskInfo.name = qMove(name);
+    taskInfo.description = qMove(description);
     const int row = rowCount();
     {
         beginInsertRows({}, row, row);
-        taskInfos.insert(id, std::move(taskInfo));
+        taskInfos.insert(id, qMove(taskInfo));
         endInsertRows();
-        Q_EMIT runningTaskCountChanged();
+        Q_EMIT taskCountChanged();
     }
     for (int col = 0; col < columnCount(); ++col) {
         QPersistentModelIndex i = index(row, col);
         Q_ASSERT(i.isValid());
-        const auto key = std::make_pair(id, col);
+        const auto key = qMakePair(id, col);
         idToIndex.insert(key, i);
         indexToId.insert(i, key);
     }
+    {
+        const auto onProgressRangeChanged = [this, id](int minimum, int maximum)
+        {
+            TaskInfo & taskInfo = getTaskInfo(id);
+            //Q_ASSERT(taskInfo.progressValue < 0);
+            progressMinimum += minimum - qExchange(taskInfo.progressMinimum, minimum);
+            progressMaximum += maximum - qExchange(taskInfo.progressMaximum, maximum);
+            Q_EMIT progressChanged();
+            emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
+        };
+        connect(futureWatcher, &QFutureWatcherBase::progressRangeChanged, this, onProgressRangeChanged);
+        const auto onProgressValueChanged = [this, id](int value)
+        {
+            TaskInfo & taskInfo = getTaskInfo(id);
+            //Q_ASSERT(taskInfo.progressMinimum < taskInfo.progressMaximum);
+            progressValue += value - qExchange(taskInfo.progressValue, value);
+            Q_EMIT progressChanged();
+            emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
+        };
+        connect(futureWatcher, &QFutureWatcherBase::progressValueChanged, this, onProgressValueChanged);
+        const auto onProgressTextChanged = [this, id](const QString & progressText)
+        {
+            TaskInfo & taskInfo = getTaskInfo(id);
+            taskInfo.progressText = progressText;
+            emitDataChanged(id, 1, {Qt::ItemDataRole::ToolTipRole});
+        };
+        connect(futureWatcher, &QFutureWatcherBase::progressTextChanged, this, onProgressTextChanged);
+        using StatusSignal = void (QFutureWatcherBase::*)();
+        static constexpr std::initializer_list<QPair<StatusSignal, const char8_t *>> statusSignals = {
+            {&QFutureWatcherBase::started, u8"started"},
+            {&QFutureWatcherBase::finished, u8"finished"},
+            {&QFutureWatcherBase::canceled, u8"canceled"},
+            {&QFutureWatcherBase::suspending, u8"suspending"},
+            {&QFutureWatcherBase::suspended, u8"suspended"},
+            {&QFutureWatcherBase::resumed, u8"resumed"},
+        };
+        for (const auto & [signal, signalName] : statusSignals) {
+            const auto onStatusChanged = [this, id, signal = signal, signalName = signalName]
+            {
+                TaskInfo & taskInfo = getTaskInfo(id);
+                taskInfo.statusLog << QString::fromUtf8(signalName);
+                emitDataChanged(id, 2);
+                if ((signal == &QFutureWatcherBase::finished) || (signal == &QFutureWatcherBase::canceled)) {
+                    const auto removeRow = [this, id]
+                    {
+                        const auto it = taskInfos.constFind(id);
+                        Q_ASSERT(it != taskInfos.constEnd());
+                        {
+                            const TaskInfo & taskInfo = *it;
+                            progressMinimum -= taskInfo.progressMinimum;
+                            progressMaximum -= taskInfo.progressMaximum;
+                            progressValue -= taskInfo.progressValue;
+                            Q_EMIT progressChanged();
+                        }
+                        {
+                            int row = -1;
+                            for (int col = 0; col < columnCount(); ++col) {
+                                const auto i = idToIndex.take(qMakePair(id, col));
+                                Q_ASSERT(i.isValid());
+                                if (row < 0) {
+                                    row = i.row();
+                                } else {
+                                    Q_ASSERT(row == i.row());
+                                }
+                                indexToId.remove(i);
+                            }
+                            {
+                                beginRemoveRows({}, row, row);
+                                taskInfos.erase(it);
+                                endRemoveRows();
+                                Q_EMIT taskCountChanged();
+                            }
+                        }
+                    };
+                    QTimer::singleShot(1000, this, removeRow);
+                }
+            };
+            connect(futureWatcher, signal, this, onStatusChanged);
+        }
+    }
 }
 
-void TaskQueue::setTaskName(int id, QString name, QString description)
+auto TaskQueue::getTaskInfo(int id) -> TaskInfo &
 {
-    if (thread() != QThread::currentThread()) {
-        if (!QMetaObject::invokeMethod(this, &TaskQueue::setTaskName, Qt::ConnectionType::QueuedConnection, id, std::move(name), std::move(description))) {
-            qFatal("unreachable");
-        }
-        return;
-    }
     const auto it = taskInfos.find(id);
     Q_ASSERT(it != taskInfos.end());
-    auto & taskInfo = *it;
-    taskInfo.name = std::move(name);
-    taskInfo.description = std::move(description);
-    {
-        constexpr int col = 0;
-        const auto key = std::make_pair(id, col);
-        const QModelIndex i = idToIndex.value(key);
-        Q_ASSERT(i.isValid());
-        Q_EMIT dataChanged(i, i, {Qt::ItemDataRole::EditRole, Qt::ItemDataRole::ToolTipRole});
-    }
+    return *it;
 }
 
-void TaskQueue::setTaskProgress(int id, float progress)
+void TaskQueue::emitDataChanged(int id, int col, std::initializer_list<int> roles)
 {
-    if (thread() != QThread::currentThread()) {
-        if (!QMetaObject::invokeMethod(this, &TaskQueue::setTaskProgress, Qt::ConnectionType::QueuedConnection, id, progress)) {
-            qFatal("unreachable");
-        }
-        return;
-    }
-    const auto it = taskInfos.find(id);
-    Q_ASSERT(it != taskInfos.end());
-    auto & taskInfo = *it;
-    totalProgress += progress - std::exchange(taskInfo.progress, progress);
-    Q_EMIT totalProgressChanged();
-    {
-        constexpr int col = 1;
-        const auto key = std::make_pair(id, col);
-        const QModelIndex i = idToIndex.value(key);
-        Q_ASSERT(i.isValid());
-        Q_EMIT dataChanged(i, i, {Qt::ItemDataRole::EditRole, Qt::ItemDataRole::ToolTipRole});
-    }
+    const auto key = qMakePair(id, col);
+    const QModelIndex i = idToIndex.value(key);
+    Q_ASSERT(i.isValid());
+    Q_EMIT dataChanged(i, i, roles);
 }
 
-void TaskQueue::setTaskStatus(int id, QString status, QString verboseStatus)
+float TaskQueue::getProgress() const
 {
-    if (thread() != QThread::currentThread()) {
-        if (!QMetaObject::invokeMethod(this, &TaskQueue::setTaskStatus, Qt::ConnectionType::QueuedConnection, id, std::move(status), std::move(verboseStatus))) {
-            qFatal("unreachable");
-        }
-        return;
+    if ((progressValue < 0) || (progressMinimum >= progressMaximum)) {
+        return std::numeric_limits<float>::quiet_NaN();
     }
-    const auto it = taskInfos.find(id);
-    Q_ASSERT(it != taskInfos.end());
-    auto & taskInfo = *it;
-    taskInfo.status = std::move(status);
-    taskInfo.verboseStatus = std::move(verboseStatus);
-    {
-        constexpr int col = 2;
-        const auto key = std::make_pair(id, col);
-        const QModelIndex i = idToIndex.value(key);
-        Q_ASSERT(i.isValid());
-        Q_EMIT dataChanged(i, i, {Qt::ItemDataRole::EditRole, Qt::ItemDataRole::ToolTipRole});
-    }
-}
-
-void TaskQueue::finishTask(int id)
-{
-    const auto it = taskInfos.constFind(id);
-    Q_ASSERT(it != taskInfos.constEnd());
-    const auto & taskInfo = *it;
-    const float progress = taskInfo.progress;
-    {
-        int row = -1;
-        for (int col = 0; col < columnCount(); ++col) {
-            const auto i = idToIndex.take(std::make_pair(id, col));
-            Q_ASSERT(i.isValid());
-            if (row < 0) {
-                row = i.row();
-            } else {
-                Q_ASSERT(row == i.row());
-            }
-            indexToId.remove(i);
-        }
-        beginRemoveRows({}, row, row);
-        taskInfos.erase(it);
-        endRemoveRows();
-        Q_EMIT runningTaskCountChanged();
-    }
-    totalProgress -= progress;
-    --taskInFlightCount;
-    Q_EMIT totalProgressChanged();
-}
-
-int TaskQueue::getTaskInFlightCount() const
-{
-    return taskInFlightCount;
-}
-
-float TaskQueue::getTotalProgress() const
-{
-    if (taskInFlightCount == 0) {
-        return 0.0f;
-    }
-    return totalProgress / utils::safeCast<float>(taskInFlightCount);
+    const float numerator = utils::autoCast(progressValue);
+    const float denominator = utils::autoCast(progressMaximum - progressMinimum);
+    return numerator / denominator;
 }
 
 }  // namespace viewer

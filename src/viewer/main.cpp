@@ -287,7 +287,7 @@ int main(int argc, char * argv[])
             // QRhiVulkanInitParams::preferredInstanceExtensions()
             auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
             auto supportedExtensions = vulkanInstance.supportedExtensions();
-            for (const auto & instanceExtension : std::as_const(instanceExtensions)) {
+            for (const auto & instanceExtension : qAsConst(instanceExtensions)) {
                 if (!supportedExtensions.contains(instanceExtension)) {
                     qCCritical(viewerMainCategory).noquote() << u"Instance extension %1 is not supported"_s.arg(QString::fromUtf8(instanceExtension));
                     return EXIT_FAILURE;

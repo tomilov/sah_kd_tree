@@ -382,7 +382,7 @@ Viewer::Viewer(QQuickItem * parent)
             return;
         }
         for (int64_t i = 0; i < 18; ++i) {
-            auto task = [](QPromise<void> & promise, TaskQueue * taskQueue, int id)
+            auto task = [](QPromise<void> & promise) mutable
             {
                 if (promise.isCanceled()) {
                     return;
@@ -393,8 +393,6 @@ Viewer::Viewer(QQuickItem * parent)
                 using namespace std::chrono_literals;
                 const auto duration = std::chrono::seconds(10);
                 const auto start = std::chrono::steady_clock::now();
-                taskQueue->setTaskStatus(id, u"started %1"_s.arg(id), u"Task started %1"_s.arg(id));
-                taskQueue->setTaskProgress(id, 0.0f);
                 while (!promise.isCanceled()) {
                     promise.suspendIfRequested();
                     auto now = std::chrono::steady_clock::now();
@@ -403,16 +401,13 @@ Viewer::Viewer(QQuickItem * parent)
                     }
                     float elapsed = utils::safeCast<float>(std::chrono::floor<std::chrono::milliseconds>(now - start).count());
                     float progress = elapsed / utils::safeCast<float>(std::chrono::ceil<std::chrono::milliseconds>(duration).count());
-                    taskQueue->setTaskProgress(id, qBound(0.0f, progress, 1.0f));
                     promise.setProgressValue(qBound(kProgressRangeStart, qRound((kProgressRangeStop - kProgressRangeStart) * progress), kProgressRangeStop));
                     std::this_thread::sleep_for(100ms);
                 }
-                taskQueue->setTaskStatus(id, u"finished %1"_s.arg(id), u"Task finished %1"_s.arg(id));
+                promise.setProgressValue(kProgressRangeStop);
             };
-            auto future = taskQueue->addTask(std::move(task), u"name %1"_s.arg(i), u"description %1"_s.arg(i));
-            // while (!future.isFinished()) {
-            //     QCoreApplication::processEvents();
-            // }
+            auto futureWatcher = taskQueue->addTask(u"name %1"_s.arg(i), u"description %1"_s.arg(i), std::move(task));
+            tasks.push_back(std::move(futureWatcher));
         }
     };
     connect(this, &Viewer::taskQueueChanged, this, addTasks);

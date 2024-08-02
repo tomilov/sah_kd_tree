@@ -83,7 +83,7 @@ private:
 TEST_F(Builder, DISABLED_AllScenes)
 {
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
-    for (const auto & sceneFileName : std::as_const(scenes)) {
+    for (const auto & sceneFileName : qAsConst(scenes)) {
         EXPECT_TRUE(buildSceneFromFile(sceneFileName));
     }
 }
