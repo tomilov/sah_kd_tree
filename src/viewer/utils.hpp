@@ -3,10 +3,10 @@
 #include <fmt/core.h>
 
 #include <QtCore/QDebug>
-#include <QtCore/QString>
 #include <QtCore/QElapsedTimer>
-#include <QtGui/QColor>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QString>
+#include <QtGui/QColor>
 
 namespace viewer
 {

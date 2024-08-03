@@ -1,10 +1,12 @@
 #pragma once
 
+#include <QtCore/QFutureWatcher>
 #include <QtCore/QHash>
 #include <QtCore/QMetaObject>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 #include <QtCore/QPointF>
+#include <QtCore/QSharedPointer>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
@@ -12,11 +14,7 @@
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>
 #include <QtQuick/QQuickItem>
-#include <QtCore/QFutureWatcher>
 #include <QtQuick/QQuickWindow>
-
-#include <memory>
-#include <list>
 
 namespace viewer
 {
@@ -214,7 +212,6 @@ class Viewer : public QQuickItem
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
-    ~Viewer() override;
 
 Q_SIGNALS:
     void engineChanged();
@@ -249,7 +246,7 @@ private:
     QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
 
-    std::list<std::unique_ptr<QFutureWatcher<void>>> tasks;
+    QList<QSharedPointer<QFutureWatcher<int>>> tasks;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

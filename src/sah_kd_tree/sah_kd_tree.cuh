@@ -280,7 +280,7 @@ struct Builder
         thrust::device_vector<U, Allocator<U>> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
         thrust::device_vector<U, Allocator<U>> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         thrust::device_vector<U, Allocator<U>> parent;                                             // temporarily needed to build ropes
-    } node;                                                                          // TODO: optimize out node.rightChild
+    } node;                                                                                        // TODO: optimize out node.rightChild
 
     struct Leaf
     {
@@ -435,7 +435,7 @@ struct Triangle
 template<typename Traits = DefaultTraits>
 void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder) SAH_KD_TREE_EXPORT;
 
-}  // namespace sah_kd_tree SAH_KD_TREE_NO_EXPORT
+}  // namespace sah_kd_tree
 
 #if SAH_KD_TREE_HEADER_ONLY
 #define SAH_KD_TREE_INLINE inline
@@ -481,7 +481,8 @@ extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
 extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
 extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
 extern template void Builder<>::filterLayerNodeOffset();
-extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const thrust::device_vector<U, Allocator<U>> & layerNodeOffset, const thrust::device_vector<U, Allocator<U>> & nodePolygonCount, const Projection & y, const Projection & z);
+extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const thrust::device_vector<U, Allocator<U>> & layerNodeOffset, const thrust::device_vector<U, Allocator<U>> & nodePolygonCount, const Projection & y,
+                                                    const Projection & z);
 extern template void Projection<>::generateInitialEvent();
 extern template void linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder);
 extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U, Allocator<U>> & polygonNode, const thrust::device_vector<U, Allocator<U>> & splittedPolygon);
@@ -500,5 +501,5 @@ extern template void Builder<>::splitPolygon<2>(Projection<> & z, const Projecti
 extern template void Builder<>::updatePolygonNode();
 extern template void Builder<>::updateSplittedPolygonCount();
 extern template void Builder<>::updateSplittedPolygonNode();
-}
+}  // namespace sah_kd_tree
 #endif

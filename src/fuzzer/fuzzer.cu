@@ -7,19 +7,25 @@ namespace fuzzer
 {
 void testOneInput(const Params & p, const std::vector<Triangle> & t)
 {
-    sah_kd_tree::Triangle triangle;
+    using Traits = sah_kd_tree::DefaultTraits;
+
+    sah_kd_tree::Triangle<Traits> triangle;
     triangle.setTriangle(std::cbegin(t), std::cend(t));
 
-    sah_kd_tree::Projection x, y, z;
-    sah_kd_tree::Builder builder;
+    sah_kd_tree::Builder<Traits> builder;
+    sah_kd_tree::Projection<Traits> x, y, z;
     sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
 
-    sah_kd_tree::Params params;
+    sah_kd_tree::Params<Traits> params;
     params.emptinessFactor = p.emptinessFactor;
     params.traversalCost = p.traversalCost;
     params.intersectionCost = p.intersectionCost;
     params.maxDepth = p.maxDepth;
 
-    sah_kd_tree::Tree tree = builder(params, x, y, z);
+    const typename Traits::Cancel cancel = []
+    {
+        return false;
+    };
+    sah_kd_tree::Tree<Traits> tree = builder(cancel, params, x, y, z).value();
 }
 }  // namespace fuzzer

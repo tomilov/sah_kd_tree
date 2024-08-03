@@ -18,7 +18,7 @@
 namespace viewer
 {
 class EngineWrapper;
-class Scene;
+struct Scene;
 
 class RenderNode final : public QSGRenderNode
 {

@@ -32,8 +32,11 @@
 #include <QtQuick/QSGNode>
 #include <QtQuick/QSGRendererInterface>
 
+#include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <limits>
+#include <random>
 #include <thread>
 
 #include <cmath>
@@ -52,7 +55,7 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 SceneSettings::SceneSettings(QObject * parent)
     : QObject{parent}
 {
-    connect(this, &SceneSettings::urlChanged, this, [this] { isUrlChanged = true; });
+    connect(this, &SceneSettings::urlChanged, [this] { isUrlChanged = true; });
     const auto resetTreeStatus = [this]
     {
         if (treeStatus.isEmpty()) {
@@ -61,8 +64,8 @@ SceneSettings::SceneSettings(QObject * parent)
         treeStatus.clear();
         Q_EMIT treeStatusChanged();
     };
-    connect(this, &SceneSettings::urlChanged, this, resetTreeStatus);
-    connect(this, &SceneSettings::treeSettingsChanged, this, resetTreeStatus);
+    connect(this, &SceneSettings::urlChanged, resetTreeStatus);
+    connect(this, &SceneSettings::treeSettingsChanged, resetTreeStatus);
 }
 
 void SceneSettings::setRenderNodeScene(RenderNode & renderNode)
@@ -333,14 +336,14 @@ Viewer::Viewer(QQuickItem * parent)
             pressedKeys.clear();
         }
     };
-    connect(this, &QQuickItem::activeFocusChanged, this, onActiveFocusChanged);
+    connect(this, &QQuickItem::activeFocusChanged, onActiveFocusChanged);
     const auto onVisibleChanged = [this]
     {
         if (!isVisible()) {
             pressedKeys.clear();
         }
     };
-    connect(this, &QQuickItem::visibleChanged, this, onVisibleChanged);
+    connect(this, &QQuickItem::visibleChanged, onVisibleChanged);
 
     const auto onSceneSettingsChanged = [this]
     {
@@ -355,7 +358,7 @@ Viewer::Viewer(QQuickItem * parent)
         sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
         sceneSettingsTreeStatusChangedConnection = connect(sceneSettings, &SceneSettings::treeStatusChanged, this, &QQuickItem::update);
     };
-    connect(this, &Viewer::sceneSettingsChanged, this, onSceneSettingsChanged);
+    connect(this, &Viewer::sceneSettingsChanged, onSceneSettingsChanged);
     connect(cameraView, &CameraView::viewChanged, this, &QQuickItem::update);
     connect(cameraController, &CameraController::controllerChanged, this, &QQuickItem::update);
     connect(rendererSettings, &RendererSettings::settingsChanged, this, &QQuickItem::update);
@@ -374,15 +377,15 @@ Viewer::Viewer(QQuickItem * parent)
         };
         sceneGraphInvalidatedConnection = connect(window, &QQuickWindow::sceneGraphInvalidated, this, onSceneGraphInvalidated, Qt::ConnectionType::DirectConnection);
     };
-    connect(this, &QQuickItem::windowChanged, this, onWindowChanged);
+    connect(this, &QQuickItem::windowChanged, onWindowChanged);
 
     const auto addTasks = [this]
     {
         if (!taskQueue) {
             return;
         }
-        for (int64_t i = 0; i < 18; ++i) {
-            auto task = [](QPromise<void> & promise) mutable
+        for (int64_t i = 0; i < 24; ++i) {
+            auto task = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
             {
                 if (promise.isCanceled()) {
                     return;
@@ -390,30 +393,37 @@ Viewer::Viewer(QQuickItem * parent)
                 constexpr int kProgressRangeStart = 0;
                 constexpr int kProgressRangeStop = 100;
                 promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
-                using namespace std::chrono_literals;
-                const auto duration = std::chrono::seconds(10);
-                const auto start = std::chrono::steady_clock::now();
-                while (!promise.isCanceled()) {
+                promise.setProgressValueAndText(kProgressRangeStart, u"0%"_s);
+                std::mt19937 rng{utils::safeCast<std::mt19937::result_type>(*i)};
+                QList<int> indices(kProgressRangeStop - kProgressRangeStart);
+                std::iota(std::begin(indices), std::end(indices), 0);
+                std::shuffle(std::begin(indices), std::end(indices), rng);
+                auto index = std::begin(indices);
+                int progress = kProgressRangeStart;
+                while (++progress <= kProgressRangeStop) {
                     promise.suspendIfRequested();
-                    auto now = std::chrono::steady_clock::now();
-                    if (now >= start + duration) {
-                        break;
+                    if (promise.isCanceled()) {
+                        return;
                     }
-                    float elapsed = utils::safeCast<float>(std::chrono::floor<std::chrono::milliseconds>(now - start).count());
-                    float progress = elapsed / utils::safeCast<float>(std::chrono::ceil<std::chrono::milliseconds>(duration).count());
-                    promise.setProgressValue(qBound(kProgressRangeStart, qRound((kProgressRangeStop - kProgressRangeStart) * progress), kProgressRangeStop));
-                    std::this_thread::sleep_for(100ms);
+                    {  // work hard
+                        using namespace std::chrono_literals;
+                        std::this_thread::sleep_for(100ms);
+                    }
+                    const float numerator = utils::autoCast(progress - kProgressRangeStart);
+                    const float denominator = utils::autoCast(kProgressRangeStop - kProgressRangeStart);
+                    promise.setProgressValueAndText(progress, u"%1%"_s.arg(qRound(100.0f * numerator / denominator)));
+                    Q_ASSERT(index != std::end(indices));
+                    if (!promise.emplaceResultAt(*index++, progress)) {
+                        qCWarning(viewerCategory).noquote() << u"Cannot add result %1 at index %2"_s.arg(progress).arg(*std::prev(index));
+                    }
                 }
-                promise.setProgressValue(kProgressRangeStop);
             };
-            auto futureWatcher = taskQueue->addTask(u"name %1"_s.arg(i), u"description %1"_s.arg(i), std::move(task));
-            tasks.push_back(std::move(futureWatcher));
+            auto futureWatcher = taskQueue->runTask(u"name %1"_s.arg(i), u"description %1"_s.arg(i), std::move(task));
+            tasks.append(qMove(futureWatcher));
         }
     };
-    connect(this, &Viewer::taskQueueChanged, this, addTasks);
+    connect(this, &Viewer::taskQueueChanged, addTasks);
 }
-
-Viewer::~Viewer() = default;
 
 void Viewer::handleKeyboardInput()
 {
@@ -755,7 +765,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
 
 void Viewer::releaseResources()
 {
-    // all resources owned by RenderNode
+    // all graphical resources owned by RenderNode
 }
 
 }  // namespace viewer

@@ -29,8 +29,16 @@
 #include <cuda_runtime.h>
 #include <unistd.h>
 
-#define CUDA_CHECK_ERROR(call) do { cudaError error = cudaSuccess; INVARIANT((error = (call)) == cudaSuccess, "{}", error); } while (false)
-#define CU_CHECK_ERROR(call) do { CUresult result = CUDA_SUCCESS; INVARIANT((result = (call)) == CUDA_SUCCESS, "{}", result); } while (false)
+#define CUDA_CHECK_ERROR(call)                                   \
+    do {                                                         \
+        cudaError error = cudaSuccess;                           \
+        INVARIANT((error = (call)) == cudaSuccess, "{}", error); \
+    } while (false)
+#define CU_CHECK_ERROR(call)                                        \
+    do {                                                            \
+        CUresult result = CUDA_SUCCESS;                             \
+        INVARIANT((result = (call)) == CUDA_SUCCESS, "{}", result); \
+    } while (false)
 
 template<>
 struct fmt::formatter<cudaError> : fmt::formatter<fmt::string_view>
@@ -92,9 +100,9 @@ public:
 #if SAH_KD_TREE_HEADER_ONLY
 struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
 {
+    using DefaultTraits::F;
     using DefaultTraits::I;
     using DefaultTraits::U;
-    using DefaultTraits::F;
     using MemoryResource = thrust::device_memory_resource;
     using Allocator = thrust::mr::allocator<void, MemoryResource>;
 };
@@ -102,7 +110,7 @@ struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree:
 using Traits = sah_kd_tree::DefaultTraits;
 #endif
 
-}
+}  // namespace
 
 class CudaDevice : utils::OneTime<CudaDevice>
 {
@@ -288,7 +296,7 @@ struct Builder::Impl : utils::OneTime<Impl>
 
     std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
     {
-        //test(1, 0);
+        // test(1, 0);
 
         try {
             Tree tree{treeSettings, cudaDevice, sceneData};
@@ -347,7 +355,7 @@ struct Builder::Impl : utils::OneTime<Impl>
             //
             ::close(fd);
         }
-        CU_CHECK_ERROR(cuMemRelease(allocationHandle)); // after both cuMemExportToShareableHandle and cuMemMap
+        CU_CHECK_ERROR(cuMemRelease(allocationHandle));  // after both cuMemExportToShareableHandle and cuMemMap
     }
 
     static void printThrustVersion()

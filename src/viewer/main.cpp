@@ -238,14 +238,6 @@ int main(int argc, char * argv[])
 
     QGuiApplication::setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
 
-    const auto beforeQuit = []
-    {
-        qCDebug(viewerMainCategory) << "Application is about to quit";
-    };
-    if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, beforeQuit)) {
-        qFatal("unreachable");
-    }
-
     // QQuickStyle::setStyle("Material");
     // QIcon::setThemeName("elementary");
 
@@ -287,7 +279,7 @@ int main(int argc, char * argv[])
             // QRhiVulkanInitParams::preferredInstanceExtensions()
             auto instanceExtensions = QQuickGraphicsConfiguration::preferredInstanceExtensions();
             auto supportedExtensions = vulkanInstance.supportedExtensions();
-            for (const auto & instanceExtension : qAsConst(instanceExtensions)) {
+            for (const auto & instanceExtension : std::as_const(instanceExtensions)) {
                 if (!supportedExtensions.contains(instanceExtension)) {
                     qCCritical(viewerMainCategory).noquote() << u"Instance extension %1 is not supported"_s.arg(QString::fromUtf8(instanceExtension));
                     return EXIT_FAILURE;

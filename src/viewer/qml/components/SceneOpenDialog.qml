@@ -1,6 +1,6 @@
 import QtCore
 import QtQuick
-import QtQuick.Controls as QQC
+import QtQuick.Controls as QC
 import QtQuick.Layouts
 
 import Qt.labs.folderlistmodel
@@ -11,7 +11,7 @@ pragma ComponentBehavior: Bound
 
 CenteredDialog {
     id: sceneOpenDialog
-    standardButtons: QQC.Dialog.Close
+    standardButtons: QC.Dialog.Close
     property url folderUrl
     function setFolderUrl(path) {
         if (path.toString() !== "") {
@@ -30,7 +30,7 @@ CenteredDialog {
     readonly property alias fileName: page.fileName
     readonly property alias fileSuffix: page.fileSuffix
     readonly property alias fileIsDir: page.fileIsDir
-    contentItem: QQC.Page {
+    contentItem: QC.Page {
         id: page
         property list<url> previousFolders
         property date fileAccessed
@@ -43,16 +43,16 @@ CenteredDialog {
         property string fileSuffix
         property bool fileIsDir
         header: RowLayout {
-            QQC.ToolButton {
+            QC.ToolButton {
                 icon.name: "go-up-symbolic"
                 onClicked: sceneOpenDialog.setFolderUrl(folderListModel.parentFolder)
             }
-            QQC.ToolButton {
+            QC.ToolButton {
                 icon.name: "go-previous-symbolic"
                 enabled: page.previousFolders.length !== 0
                 onClicked: sceneOpenDialog.folderUrl = page.previousFolders.pop()
             }
-            QQC.Label {
+            QC.Label {
                 id: currentPathLabel
                 textFormat: Text.StyledText
                 text: {
@@ -66,7 +66,7 @@ CenteredDialog {
                 Layout.fillWidth: true
             }
         }
-        contentItem: QQC.Frame {
+        contentItem: QC.Frame {
             ListView {
                 id: listView
                 anchors.fill: parent
@@ -81,7 +81,6 @@ CenteredDialog {
                     }
                 }
                 clip: true
-                flickableDirection: Flickable.AutoFlickIfNeeded
                 highlightFollowsCurrentItem: true
                 model: FolderListModel {
                     id: folderListModel
@@ -91,7 +90,7 @@ CenteredDialog {
                     showDirsFirst: true
                     showOnlyReadable: true
                 }
-                delegate: QQC.ItemDelegate {
+                delegate: QC.ItemDelegate {
                     id: listElement
                     highlighted: ListView.isCurrentItem
                     implicitWidth: row.implicitWidth
@@ -147,8 +146,8 @@ CenteredDialog {
                         }
                     }
                 }
-                QQC.ScrollBar.vertical: QQC.ScrollBar {
-                    policy: QQC.ScrollBar.AlwaysOn
+                QC.ScrollBar.vertical: QC.ScrollBar {
+                    policy: QC.ScrollBar.AlwaysOn
                 }
             }
         }

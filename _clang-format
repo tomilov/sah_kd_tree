@@ -1,8 +1,9 @@
+---
 BasedOnStyle: Google
 IndentWidth: 4
+Language: Cpp
 ContinuationIndentWidth: 4
 ColumnLimit: 250
-Language: Cpp
 Standard: Latest
 AccessModifierOffset: -4
 ConstructorInitializerIndentWidth: 4
@@ -41,8 +42,10 @@ UseTab: Never
 Cpp11BracedListStyle: true
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
 BreakInheritanceList: BeforeComma
 BreakStringLiterals: true
+BreakArrays: true
 DeriveLineEnding: false
 UseCRLF: false
 FixNamespaceComments: true
@@ -57,7 +60,7 @@ SpaceBeforeCpp11BracedList: false
 IncludeBlocks: Regroup
 IncludeIsMainRegex: (_test)?$
 IncludeCategories:
-  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene_data|scene|format|fuzzer|engine|utils|viewer|codegen|debug_utils|sah_kd_tree_vk)/.*\.(hpp|cuh)>
+  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene_data|scene|format|fuzzer|engine|utils|viewer|codegen|debug_utils)/.*\.(hpp|cuh)>
     Priority: 2
   - Regex: ^<thrust/
     Priority: 4
@@ -87,7 +90,7 @@ IncludeCategories:
     Priority: 3
   - Regex: ^<vulkan/.*\.h>$
     Priority: 8
-  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene_data|scene|format|fuzzer|engine|utils|viewer|codegen|debug_utils|sah_kd_tree_vk)/.*_export\.h>
+  - Regex: ^<(sah_kd_tree|builder|common|scene_loader|scene_data|scene|format|fuzzer|engine|utils|viewer|codegen|debug_utils)/.*_export\.h>
     Priority: 11
   - Regex: \.h>$
     Priority: 10
@@ -97,3 +100,6 @@ IncludeCategories:
     Priority: 7
   - Regex: .*
     Priority: 1
+---
+Language: JavaScript
+ColumnLimit: 250

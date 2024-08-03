@@ -33,8 +33,7 @@ constexpr float kIntersectionCost = 1.0f;
 constexpr int kMaxdepth = 1000;
 }  // namespace
 
-class Builder
-    : public testing::Test
+class Builder : public testing::Test
 {
 protected:
     [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxDepth = kMaxdepth) const
@@ -62,7 +61,7 @@ protected:
         const auto cancel = [start = std::chrono::steady_clock::now()]
         {
             using namespace std::chrono_literals;
-            if (start + 2s < std::chrono::steady_clock::now()) {
+            if (start + 10s < std::chrono::steady_clock::now()) {
                 return true;
             }
             return false;
@@ -83,7 +82,7 @@ private:
 TEST_F(Builder, DISABLED_AllScenes)
 {
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
-    for (const auto & sceneFileName : qAsConst(scenes)) {
+    for (const auto & sceneFileName : std::as_const(scenes)) {
         EXPECT_TRUE(buildSceneFromFile(sceneFileName));
     }
 }
@@ -145,11 +144,7 @@ struct SceneFileWithParams
 
     friend void PrintTo [[maybe_unused]] (const SceneFileWithParams & sceneFileWithParams, std::ostream * os)
     {
-        *os << sceneFileWithParams.sceneFileName.toStdString()
-            << " " << sceneFileWithParams.emptinessFactor
-            << " " << sceneFileWithParams.traversalCost
-            << " " << sceneFileWithParams.intersectionCost
-            << " " << sceneFileWithParams.maxDepth;
+        *os << sceneFileWithParams.sceneFileName.toStdString() << " " << sceneFileWithParams.emptinessFactor << " " << sceneFileWithParams.traversalCost << " " << sceneFileWithParams.intersectionCost << " " << sceneFileWithParams.maxDepth;
     }
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <builder/builder.hpp>
 #include <engine/buffer.hpp>
 #include <engine/context.hpp>
 #include <engine/image.hpp>
@@ -9,7 +10,6 @@
 #include <viewer/descriptors.hpp>
 #include <viewer/pipelines.hpp>
 #include <viewer/scenes.hpp>
-#include <builder/builder.hpp>
 
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan.hpp>
