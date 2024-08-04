@@ -27,6 +27,8 @@ class TaskQueue : public QAbstractTableModel
     Q_OBJECT
     QML_ELEMENT
 
+    Q_PROPERTY(QThreadPool * threadPool MEMBER threadPool CONSTANT)
+
     Q_PROPERTY(int removeRowDelay MEMBER removeRowDelay NOTIFY removeRowDelayChanged)
 
     Q_PROPERTY(int taskCount READ rowCount NOTIFY taskCountChanged STORED false)

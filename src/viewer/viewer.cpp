@@ -384,8 +384,9 @@ Viewer::Viewer(QQuickItem * parent)
         if (!taskQueue) {
             return;
         }
-        for (int64_t i = 0; i < 24; ++i) {
-            auto task = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
+        using namespace std::chrono_literals;
+        for (int64_t i = 0; i < 12; ++i) {
+            auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
             {
                 if (promise.isCanceled()) {
                     return;
@@ -406,7 +407,6 @@ Viewer::Viewer(QQuickItem * parent)
                         return;
                     }
                     {  // work hard
-                        using namespace std::chrono_literals;
                         std::this_thread::sleep_for(100ms);
                     }
                     const float numerator = utils::autoCast(progress - kProgressRangeStart);
@@ -418,8 +418,14 @@ Viewer::Viewer(QQuickItem * parent)
                     }
                 }
             };
-            auto futureWatcher = taskQueue->runTask(u"name %1"_s.arg(i), u"description %1"_s.arg(i), std::move(task));
-            tasks.append(qMove(futureWatcher));
+            tasks.append(taskQueue->runTask(u"(w/ promise) name %1"_s.arg(i), u"(w/ promise) description %1"_s.arg(i), std::move(taskWithPromise)));
+
+            const auto task = []
+            {
+                std::this_thread::sleep_for(10000ms);
+                return 0;
+            };
+            tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
         }
     };
     connect(this, &Viewer::taskQueueChanged, addTasks);

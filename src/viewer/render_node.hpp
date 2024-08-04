@@ -49,7 +49,7 @@ private:
 
     void prepare() override;
     void render(const RenderState * renderState) override;
-    void releaseResources() override;
+    void releaseResources() override;  // https://bugreports.qt.io/browse/QTBUG-121137
     [[nodiscard]] RenderingFlags flags() const override;
     [[nodiscard]] QRectF rect() const override;
     [[nodiscard]] StateFlags changedStates() const override;

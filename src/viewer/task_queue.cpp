@@ -89,27 +89,29 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
             }
             case 1: {
                 if ((taskInfo.progressValue < 0) || (taskInfo.progressMinimum >= taskInfo.progressMaximum)) {
-                    break;
+                    roleData.clearData();
+                } else {
+                    const float numerator = utils::autoCast(taskInfo.progressValue);
+                    const float denominator = utils::autoCast(taskInfo.progressMaximum - taskInfo.progressMinimum);
+                    roleData.setData(numerator / denominator);
                 }
-                const float numerator = utils::autoCast(taskInfo.progressValue);
-                const float denominator = utils::autoCast(taskInfo.progressMaximum - taskInfo.progressMinimum);
-                roleData.setData(numerator / denominator);
                 continue;
             }
             case 2: {
                 if (taskInfo.statusLog.isEmpty()) {
                     roleData.setData(u"unknown"_s);
-                    continue;
+                } else {
+                    roleData.setData(taskInfo.statusLog.last());
                 }
-                roleData.setData(taskInfo.statusLog.last());
                 continue;
             }
             case 3: {
                 if (taskInfo.resultReadyLog.isEmpty()) {
-                    break;
+                    roleData.clearData();
+                } else {
+                    QStringList resultReadyLog = taskInfo.resultReadyLog.values();
+                    roleData.setData(u"(%1)"_s.arg(resultReadyLog.join("), (")));
                 }
-                QStringList resultReadyLog = taskInfo.resultReadyLog.values();
-                roleData.setData(u"(%1)"_s.arg(resultReadyLog.join("), (")));
                 continue;
             }
             case 4: {
@@ -121,7 +123,7 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             default: {
-                qFatal("unreachable");
+                break;
             }
             }
             break;
@@ -142,10 +144,11 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
             }
             case 3: {
                 if (taskInfo.resultReadyLog.isEmpty()) {
-                    break;
+                    roleData.clearData();
+                } else {
+                    QStringList resultReadyLog = taskInfo.resultReadyLog.values();
+                    roleData.setData(resultReadyLog.join("\n"));
                 }
-                QStringList resultReadyLog = taskInfo.resultReadyLog.values();
-                roleData.setData(resultReadyLog.join("\n"));
                 continue;
             }
             case 4: {
@@ -157,7 +160,7 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             default: {
-                qFatal("unreachable");
+                break;
             }
             }
             break;
@@ -177,7 +180,7 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             default: {
-                qFatal("unreachable");
+                break;
             }
             }
             break;
@@ -207,16 +210,16 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             default: {
-                qFatal("unreachable");
+                break;
             }
             }
             break;
         }
         default: {
-            qFatal("unreachable");
+            break;
         }
         }
-        roleData.clearData();
+        qFatal("unreachable");
     }
 }
 
@@ -290,7 +293,7 @@ bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int r
         return true;
     }
     default: {
-        qFatal("unreachable");
+        break;
     }
     }
     qFatal("unreachable");
@@ -304,13 +307,11 @@ QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int rol
         case Qt::ItemDataRole::DisplayRole: {
             if (section < headers.size()) {
                 return headers.at(section);
-            } else {
-                qFatal("unreachable");
             }
             break;
         }
         default: {
-            qFatal("unreachable");
+            break;
         }
         }
         break;
@@ -321,9 +322,10 @@ QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int rol
             return section;
         }
         default: {
-            qFatal("unreachable");
+            break;
         }
         }
+        break;
     }
     }
     qFatal("unreachable");
@@ -353,16 +355,22 @@ void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
 {
     auto [lo, hi] = resultReadyLog.equal_range(ResultRange{beginIndex, endIndex});
     for (auto it = lo; it != hi; ++it) {
-        auto [l, r] = it.key();
-        if (beginIndex > l) {
-            beginIndex = l;
+        ResultRange resultRange = it.key();
+        if (beginIndex > resultRange.beginIndex) {
+            beginIndex = resultRange.beginIndex;
         }
-        if (endIndex < r) {
-            endIndex = r;
+        if (endIndex < resultRange.endIndex) {
+            endIndex = resultRange.endIndex;
         }
     }
     resultReadyLog.erase(lo, hi);
-    resultReadyLog.insert(ResultRange{beginIndex, endIndex}, u"%1, %2"_s.arg(beginIndex).arg(endIndex));
+    QString description;
+    if (beginIndex == endIndex) {
+        description = QString::number(beginIndex);
+    } else {
+        description = u"%1-%2"_s.arg(beginIndex).arg(endIndex);
+    }
+    resultReadyLog.insert(ResultRange{beginIndex, endIndex}, description);
 }
 
 auto TaskQueue::getTaskInfo(int id) -> TaskInfo &
@@ -492,21 +500,21 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         }
 
         if ((false)) {  // https://bugreports.qt.io/browse/QTBUG-127714
-            const auto atResultsReadyAt = [this, id](int beginIndex, int endIndex)
+            const auto onResultsReadyAt = [this, id](int beginIndex, int endIndex)
             {
                 TaskInfo & taskInfo = getTaskInfo(id);
                 taskInfo.insertRange(beginIndex, endIndex);
                 emitDataChanged(id, 3);
             };
-            connect(futureWatcher.get(), &QFutureWatcherBase::resultsReadyAt, this, atResultsReadyAt);
+            connect(futureWatcher.get(), &QFutureWatcherBase::resultsReadyAt, this, onResultsReadyAt);
         } else {
-            const auto atResultReadyAt = [this, id](int resultIndex)
+            const auto onResultReadyAt = [this, id](int resultIndex)
             {
                 TaskInfo & taskInfo = getTaskInfo(id);
                 taskInfo.insertRange(resultIndex, resultIndex);
                 emitDataChanged(id, 3);
             };
-            connect(futureWatcher.get(), &QFutureWatcherBase::resultReadyAt, this, atResultReadyAt);
+            connect(futureWatcher.get(), &QFutureWatcherBase::resultReadyAt, this, onResultReadyAt);
         }
 
         connect(this, &TaskQueue::allCancelled, futureWatcher.get(), &QFutureWatcherBase::cancel);

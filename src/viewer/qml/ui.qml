@@ -341,7 +341,6 @@ QC.ApplicationWindow {
             }
             GridLayout {
                 anchors.fill: parent
-                clip: true
                 columns: 2
                 QC.HorizontalHeaderView {
                     Layout.fillWidth: true
@@ -349,12 +348,12 @@ QC.ApplicationWindow {
                     syncView: tableView
                     clip: true
                     delegate: QC.ItemDelegate {
-                        id: headerViewDelegate
+                        id: horizontalHeaderDelegate
                         required property var modelData
                         contentItem: Text {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            text: headerViewDelegate.modelData.display
+                            text: horizontalHeaderDelegate.modelData.display
                         }
                     }
                 }
