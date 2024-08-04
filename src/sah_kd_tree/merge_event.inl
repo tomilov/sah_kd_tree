@@ -26,7 +26,7 @@
 #include <cassert>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolygonCount, const thrust::device_vector<U, Allocator<U>> & polygonNode, const thrust::device_vector<U, Allocator<U>> & splittedPolygon)
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolygonCount, const Vector<U> & polygonNode, const Vector<U> & splittedPolygon)
 {
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     const auto isPlanarPolygon = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });

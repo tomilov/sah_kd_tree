@@ -104,7 +104,10 @@ struct Traits : sah_kd_tree::DefaultTraits  // cannot be member typedef of Tree:
     using DefaultTraits::I;
     using DefaultTraits::U;
     using MemoryResource = thrust::device_memory_resource;
-    using Allocator = thrust::mr::allocator<void, MemoryResource>;
+    template<typename T>
+    using Allocator = thrust::mr::allocator<T, MemoryResource>;
+    template<typename T>
+    using Vector = thrust::device_vector<T, Allocator<T>>;
 };
 #else
 using Traits = sah_kd_tree::DefaultTraits;
@@ -211,7 +214,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 
 #if SAH_KD_TREE_HEADER_ONLY
     typename Traits::MemoryResource memoryResource;
-    typename Traits::Allocator allocator{&memoryResource};
+    typename Traits::Allocator<void> allocator{&memoryResource};
     std::optional<sah_kd_tree::Tree<Traits>> tree{allocator};
 #else
     std::optional<sah_kd_tree::Tree<Traits>> tree;
@@ -365,6 +368,23 @@ struct Builder::Impl : utils::OneTime<Impl>
         int subminor = THRUST_SUBMINOR_VERSION;
         int patch = THRUST_PATCH_NUMBER;
         SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
+        const char * deviceSystem = nullptr;
+        switch (THRUST_DEVICE_SYSTEM) {
+        case THRUST_DEVICE_SYSTEM_CUDA:
+            deviceSystem = "CUDA";
+            break;
+        case THRUST_DEVICE_SYSTEM_OMP:
+            deviceSystem = "OMP";
+            break;
+        case THRUST_DEVICE_SYSTEM_TBB:
+            deviceSystem = "TBB";
+            break;
+        case THRUST_DEVICE_SYSTEM_CPP:
+            deviceSystem = "CPP";
+            break;
+        }
+        INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
+        SPDLOG_DEBUG("Thrust device system: {}", deviceSystem);
     }
 
     static constexpr void completeClassContext()

@@ -15,7 +15,7 @@
 #include <cassert>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sah, U layerSize, const thrust::device_vector<U, Allocator<U>> & layerNodeOffset, const thrust::device_vector<U, Allocator<U>> & nodePolygonCount, const Projection & y, const Projection & z)
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sah, U layerSize, const Vector<U> & layerNodeOffset, const Vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
 {
     {
         event.polygonCountLeft.resize(event.count);

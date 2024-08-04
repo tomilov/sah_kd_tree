@@ -7,7 +7,7 @@
 #include <cassert>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const thrust::device_vector<I, Allocator<I>> & nodeSplitDimension, const thrust::device_vector<I, Allocator<I>> & polygonSide)
+SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const Vector<I> & nodeSplitDimension, const Vector<I> & polygonSide)
 {
     auto eventBegin = thrust::make_counting_iterator<U>(0);
     auto eventEnd = thrust::make_counting_iterator<U>(event.count);
