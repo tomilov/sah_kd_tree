@@ -27,6 +27,8 @@
 #include <QtCore/QUrl>
 #include <QtCore/QVersionNumber>
 #include <QtCore/QtMessageHandler>
+#include <QtGui/QFont>
+#include <QtGui/QFontDatabase>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QVulkanInstance>
 #include <QtQml/QQmlApplicationEngine>
@@ -236,13 +238,19 @@ int main(int argc, char * argv[])
     }
     qCDebug(viewerMainCategory).noquote() << u"Application filepath: %1"_s.arg(QCoreApplication::applicationFilePath());
 
+    {
+        auto applicationFont = application->font();
+        applicationFont.setFixedPitch(true);
+        application->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    }
+
     QGuiApplication::setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
 
     // QQuickStyle::setStyle("Material");
     // QIcon::setThemeName("elementary");
 
     QQuickWindow::setSceneGraphBackend("rhi");
-    QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::GraphicsApi::Vulkan);
 
     viewer::EngineWrapper engine;
     viewer::EngineSingletonForeign::setEngine(&engine);

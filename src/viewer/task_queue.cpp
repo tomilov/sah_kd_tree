@@ -2,9 +2,11 @@
 #include <viewer/task_queue.hpp>
 
 #include <QtCore/QByteArray>
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QThreadPool>
 #include <QtCore/QTimer>
 #include <QtCore/QtAssert>
+#include <QtCore/QtLogging>
 
 #include <limits>
 
@@ -12,7 +14,14 @@ using namespace Qt::StringLiterals;
 
 namespace viewer
 {
+namespace
+{
+Q_DECLARE_LOGGING_CATEGORY(viewerTaskQueueCategory)
+Q_LOGGING_CATEGORY(viewerTaskQueueCategory, "viewer.task_queue")
+
 constexpr auto kTypeUserRole = Qt::ItemDataRole::UserRole + 0;
+
+}  // namespace
 
 const QStringList TaskQueue::headers = {
     u"Name"_s,      //
@@ -32,15 +41,39 @@ TaskQueue::~TaskQueue()
     }
 }
 
+QString TaskQueue::threadPriorityToString(QThread::Priority priority)
+{
+    switch (priority) {
+    case QThread::Priority::IdlePriority:
+        return u"Idle"_s;
+    case QThread::Priority::LowestPriority:
+        return u"Lowest"_s;
+    case QThread::Priority::LowPriority:
+        return u"Low"_s;
+    case QThread::Priority::NormalPriority:
+        return u"Normal"_s;
+    case QThread::Priority::HighPriority:
+        return u"High"_s;
+    case QThread::Priority::HighestPriority:
+        return u"Highest"_s;
+    case QThread::Priority::TimeCriticalPriority:
+        return u"TimeCritical"_s;
+    case QThread::Priority::InheritPriority:
+        return u"Inherit"_s;
+    }
+    qCWarning(viewerTaskQueueCategory).noquote() << u"Unknown priority: %1"_s.arg(priority);
+    return QString::number(priority);
+}
+
 Qt::ItemFlags TaskQueue::flags(const QModelIndex & index) const
 {
-    auto flags = QAbstractTableModel::flags(index);  // enabled selectable
+    auto flags = QAbstractTableModel::flags(index) & ~Qt::ItemFlags{Qt::ItemFlag::ItemIsSelectable};
     int col = index.column();
     switch (col) {
     case 4:
     case 5:
     case 6: {
-        flags |= Qt::ItemIsUserCheckable;
+        flags |= Qt::ItemFlag::ItemIsUserCheckable;
         break;
     }
     default: {
@@ -106,11 +139,11 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             case 3: {
-                if (taskInfo.resultReadyLog.isEmpty()) {
+                if (taskInfo.resultReadyState.isEmpty()) {
                     roleData.clearData();
                 } else {
-                    QStringList resultReadyLog = taskInfo.resultReadyLog.values();
-                    roleData.setData(u"(%1)"_s.arg(resultReadyLog.join("), (")));
+                    QStringList resultReadyState = taskInfo.resultReadyState.values();
+                    roleData.setData(u"(%1)"_s.arg(resultReadyState.join("), (")));
                 }
                 continue;
             }
@@ -143,11 +176,11 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
                 continue;
             }
             case 3: {
-                if (taskInfo.resultReadyLog.isEmpty()) {
-                    roleData.clearData();
+                if (taskInfo.resultReadyState.isEmpty()) {
+                    roleData.setData(u""_s);
                 } else {
-                    QStringList resultReadyLog = taskInfo.resultReadyLog.values();
-                    roleData.setData(resultReadyLog.join("\n"));
+                    QStringList resultReadyState = taskInfo.resultReadyState.values();
+                    roleData.setData(resultReadyState.join("\n"));
                 }
                 continue;
             }
@@ -333,6 +366,7 @@ QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int rol
 
 void TaskQueue::cancelAll()
 {
+    qCDebug(viewerTaskQueueCategory).noquote() << u"%1 running tasks will be canceled immediately"_s.arg(rowCount());
     Q_EMIT allCancelled();
 }
 
@@ -353,7 +387,7 @@ void TaskQueue::resumeAll()
 
 void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
 {
-    auto [lo, hi] = resultReadyLog.equal_range(ResultRange{beginIndex, endIndex});
+    auto [lo, hi] = resultReadyState.equal_range(ResultRange{beginIndex, endIndex});
     for (auto it = lo; it != hi; ++it) {
         ResultRange resultRange = it.key();
         if (beginIndex > resultRange.beginIndex) {
@@ -363,14 +397,14 @@ void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
             endIndex = resultRange.endIndex;
         }
     }
-    resultReadyLog.erase(lo, hi);
+    resultReadyState.erase(lo, hi);
     QString description;
     if (beginIndex == endIndex) {
         description = QString::number(beginIndex);
     } else {
         description = u"%1-%2"_s.arg(beginIndex).arg(endIndex);
     }
-    resultReadyLog.insert(ResultRange{beginIndex, endIndex}, description);
+    resultReadyState.insert(ResultRange{beginIndex, endIndex}, description);
 }
 
 auto TaskQueue::getTaskInfo(int id) -> TaskInfo &

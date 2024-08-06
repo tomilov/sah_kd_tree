@@ -131,10 +131,11 @@ qt6_add_resources(
     PREFIX
         "/${CMAKE_PROJECT_NAME}"
     FILES
-        "qml/qmldir"
         "qml/components/CenteredDialog.qml"
-        "qml/components/SceneOpenDialog.qml"
+        "qml/components/CenteredText.qml"
         "qml/components/NumberSpinBox.qml"
+        "qml/components/SceneOpenDialog.qml"
+        "qml/qmldir"
         "qml/ui.qml"
         "qml/utils.js")
 

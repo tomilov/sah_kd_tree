@@ -44,6 +44,8 @@ public:
         return addTask(qMove(name), qMove(description), QtConcurrent::run(threadPool, std::forward<Task>(task), std::forward<Args>(args)...));
     }
 
+    [[nodiscard]] Q_INVOKABLE static QString threadPriorityToString(QThread::Priority priority);
+
     [[nodiscard]] Qt::ItemFlags flags(const QModelIndex & index) const override;
 
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
@@ -94,7 +96,7 @@ private:
         int progressValue = 0;
         QString progressText;
         QStringList statusLog;
-        QMap<ResultRange, QString> resultReadyLog;
+        QMap<ResultRange, QString> resultReadyState;
         Qt::CheckState checkState = Qt::CheckState::Unchecked;
 
         void insertRange(int beginIndex, int endIndex);

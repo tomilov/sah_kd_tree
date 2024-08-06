@@ -1,3 +1,4 @@
 CenteredDialog components/CenteredDialog.qml
-SceneOpenDialog components/SceneOpenDialog.qml
+CenteredText components/CenteredText.qml
 NumberSpinBox components/NumberSpinBox.qml
+SceneOpenDialog components/SceneOpenDialog.qml

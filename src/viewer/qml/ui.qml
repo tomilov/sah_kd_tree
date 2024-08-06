@@ -13,7 +13,6 @@ import SahKdTree 1.0
 
 import "utils.js" as Utils
 
-
 pragma ComponentBehavior: Bound
 
 QC.ApplicationWindow {
@@ -33,7 +32,6 @@ QC.ApplicationWindow {
     SceneOpenDialog {
         id: sceneOpenDialog
         title: qsTr("Open scene file")
-        width: Math.min(Math.max(implicitWidth, 512), parent.width)
         property bool shouldReplaceScene
         function appendScene() {
             shouldReplaceScene = false
@@ -301,26 +299,42 @@ QC.ApplicationWindow {
     }
     TaskQueue {
         id: taskQueue
+        function updateThreadPoolInfo() {
+            activeThreadCountText.text = qsTr("Active thread count: %1").arg(threadPool.activeThreadCount)
+            expiryTimeoutText.text = qsTr("Expiry timeout: %1ms").arg(threadPool.expiryTimeout)
+            maxThreadCountText.text = qsTr("Max thread count: %1").arg(threadPool.maxThreadCount)
+            stackSizeText.text = qsTr("Stack size: %1").arg(threadPool.stackSize)
+            threadPriorityText.text = qsTr("Thread priority: %1").arg(threadPriorityToString(threadPool.threadPriority))
+        }
+    }
+    Timer {
+        interval: 1000
+        running: true
+        triggeredOnStart: true
+        repeat: true
+        onTriggered: taskQueue.updateThreadPoolInfo()
     }
     CenteredDialog {
         id: taskQueueDialog
         title: qsTr("Task queue")
         standardButtons: QC.Dialog.Close
-        QC.Page {
+        contentItem: QC.Page {
             header: QC.ToolBar {
-                RowLayout {
-                    anchors.fill: parent
+                contentItem: RowLayout {
                     QC.ToolButton {
+                        Layout.fillHeight: true
                         icon.name: "media-playback-pause-symbolic"
                         text: qsTr("Suspend all")
                         onClicked: taskQueue.suspendAll()
                     }
                     QC.ToolButton {
+                        Layout.fillHeight: true
                         icon.name: "media-playback-start-symbolic"
                         text: qsTr("Resume all")
                         onClicked: taskQueue.resumeAll()
                     }
                     QC.DelayButton {
+                        Layout.fillHeight: true
                         icon.name: "media-playback-stop-symbolic"
                         text: qsTr("Cancel all")
                         delay: 1000
@@ -328,6 +342,7 @@ QC.ApplicationWindow {
                         onReleased: checked = false
                     }
                     QC.DelayButton {
+                        Layout.fillHeight: true
                         icon.name: "media-playback-stop-symbolic"
                         text: qsTr("Cancel checked")
                         delay: 1000
@@ -339,20 +354,51 @@ QC.ApplicationWindow {
                     }
                 }
             }
-            GridLayout {
-                anchors.fill: parent
+            footer: QC.ToolBar {
+                contentItem: Flow {
+                    QC.Frame {
+                        CenteredText {
+                            text: qsTr("Task count: %1").arg(taskQueue.taskCount)
+                        }
+                    }
+                    QC.Frame {
+                        CenteredText {
+                            id: activeThreadCountText
+                        }
+                    }
+                    QC.Frame {
+                        CenteredText {
+                            id: expiryTimeoutText
+                        }
+                    }
+                    QC.Frame {
+                        CenteredText {
+                            id: maxThreadCountText
+                        }
+                    }
+                    QC.Frame {
+                        CenteredText {
+                            id: stackSizeText
+                        }
+                    }
+                    QC.Frame {
+                        CenteredText {
+                            id: threadPriorityText
+                        }
+                    }
+                }
+            }
+            contentItem: GridLayout {
                 columns: 2
                 QC.HorizontalHeaderView {
-                    Layout.fillWidth: true
                     Layout.column: 1
+                    Layout.fillWidth: true
                     syncView: tableView
                     clip: true
                     delegate: QC.ItemDelegate {
                         id: horizontalHeaderDelegate
                         required property var modelData
-                        contentItem: Text {
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+                        contentItem: CenteredText {
                             text: horizontalHeaderDelegate.modelData.display
                         }
                     }
@@ -364,134 +410,155 @@ QC.ApplicationWindow {
                     delegate: QC.ItemDelegate {
                         id: verticalHeaderDelegate
                         required property var modelData
-                        contentItem: Text {
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+                        contentItem: CenteredText {
                             text: verticalHeaderDelegate.modelData.display
                         }
                     }
                 }
-                TableView {
-                    id: tableView
+                QC.ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    clip: true
-                    model: taskQueue
-                    onContentWidthChanged: {
-                        if (implicitWidth < contentWidth) {
-                            implicitWidth = contentWidth
-                        }
-                    }
-                    onContentHeightChanged: {
-                        if (implicitHeight < contentHeight) {
-                            implicitHeight = contentHeight
-                        }
-                    }
-                    delegate: DelegateChooser {
-                        role: "type"
-                        DelegateChoice {
-                            roleValue: "item"
-                            delegate: QC.ItemDelegate {
-                                required property string type
-                                required property bool current
-                                required property var modelData
-                                required property string toolTip
-                                highlighted: current
-                                text: modelData.display
-                                QC.ToolTip.visible: hovered
-                                QC.ToolTip.text: toolTip
-                                QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                QC.ToolTip.timeout: root.toolTipTimeout
-                            }
-                        }
-                        DelegateChoice {
-                            roleValue: "progress"
-                            delegate: QC.ProgressBar {
-                                id: progressBarDelegate
-                                required property string type
-                                required property var modelData
-                                required property string toolTip
-                                Binding on value {
-                                    when: modelData.display !== undefined
-                                    value: modelData.display
-                                }
-                                QC.ToolTip.visible: hovered
-                                QC.ToolTip.text: toolTip
-                                QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                QC.ToolTip.timeout: root.toolTipTimeout
-                                Text {
-                                    anchors.fill: parent
-                                    verticalAlignment: Text.AlignVCenter
-                                    horizontalAlignment: Text.AlignHCenter
-                                    z: 1
-                                    text: progressBarDelegate.toolTip
+                    TableView {
+                        id: tableView
+                        clip: true
+                        model: taskQueue
+                        delegate: DelegateChooser {
+                            role: "type"
+                            DelegateChoice {
+                                roleValue: "item"
+                                delegate: QC.ItemDelegate {
+                                    id: itemDelegate
+                                    required property string type
+                                    required property var modelData
+                                    required property string toolTip
+                                    contentItem: CenteredText {
+                                        Binding on text {
+                                            when: itemDelegate.modelData.display !== undefined
+                                            value: itemDelegate.modelData.display
+                                        }
+                                    }
+                                    QC.ToolTip.visible: hovered
+                                    QC.ToolTip.text: toolTip
+                                    QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    QC.ToolTip.timeout: root.toolTipTimeout
                                 }
                             }
-                        }
-                        DelegateChoice {
-                            roleValue: "switch"
-                            delegate: QC.SwitchDelegate {
-                                required property string type
-                                required property int row
-                                required property int column
-                                required property bool current
-                                required property var modelData
-                                required property string toolTip
-                                required property int checkState
-                                function setChecked(value) {
-                                    let index = TableView.view.index(row, column)
-                                    TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                            DelegateChoice {
+                                roleValue: "progress"
+                                delegate: QC.ItemDelegate {
+                                    id: progressBarDelegate
+                                    required property string type
+                                    required property var modelData
+                                    required property string toolTip
+                                    background: QC.ProgressBar {
+                                        indeterminate: progressBarDelegate.modelData.display === undefined
+                                        Binding on value {
+                                            when: progressBarDelegate.modelData.display !== undefined
+                                            value: progressBarDelegate.modelData.display
+                                        }
+                                    }
+                                    contentItem: CenteredText {
+                                        text: progressBarDelegate.toolTip
+                                    }
                                 }
-                                checked: checkState === Qt.Checked
-                                highlighted: current
-                                QC.ToolTip.visible: hovered
-                                QC.ToolTip.text: toolTip
-                                QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                QC.ToolTip.timeout: root.toolTipTimeout
-                                onToggled: setChecked(checked ? Qt.Checked : Qt.Unchecked)
                             }
-                        }
-                        DelegateChoice {
-                            roleValue: "delay"
-                            delegate: QC.DelayButton {
-                                required property string type
-                                required property int row
-                                required property int column
-                                required property var modelData
-                                required property string toolTip
-                                required property int checkState
-                                function setChecked(value) {
-                                    let index = TableView.view.index(row, column)
-                                    TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                            DelegateChoice {
+                                roleValue: "switch"
+                                delegate: QC.SwitchDelegate {
+                                    required property string type
+                                    required property int row
+                                    required property int column
+                                    required property string toolTip
+                                    required property int checkState
+                                    function setChecked(value) {
+                                        let index = TableView.view.index(row, column)
+                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                                    }
+                                    checked: checkState === Qt.Checked
+                                    QC.ToolTip.visible: hovered
+                                    QC.ToolTip.text: toolTip
+                                    QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    QC.ToolTip.timeout: root.toolTipTimeout
+                                    onToggled: setChecked(checked ? Qt.Checked : Qt.Unchecked)
                                 }
-                                checked: checkState === Qt.Checked
-                                delay: 1000
-                                text: qsTr("Cancel")
-                                QC.ToolTip.visible: hovered
-                                QC.ToolTip.text: toolTip
-                                QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                QC.ToolTip.timeout: root.toolTipTimeout
-                                onActivated: setChecked(Qt.Checked)
                             }
-                        }
-                        DelegateChoice {
-                            roleValue: "check"
-                            delegate: QC.CheckDelegate {
-                                required property string type
-                                required property int row
-                                required property int column
-                                required property var modelData
-                                function setChecked(value) {
-                                    let index = TableView.view.index(row, column)
-                                    TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                            DelegateChoice {
+                                roleValue: "delay"
+                                delegate: QC.DelayButton {
+                                    required property string type
+                                    required property int row
+                                    required property int column
+                                    required property string toolTip
+                                    required property int checkState
+                                    function setChecked(value) {
+                                        let index = TableView.view.index(row, column)
+                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                                    }
+                                    checked: checkState === Qt.Checked
+                                    delay: 1000
+                                    text: qsTr("Cancel")
+                                    QC.ToolTip.visible: hovered
+                                    QC.ToolTip.text: toolTip
+                                    QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    QC.ToolTip.timeout: root.toolTipTimeout
+                                    onActivated: setChecked(Qt.Checked)
                                 }
-                                checkState: modelData.checkState
-                                onCheckStateChanged: setChecked(checkState)
+                            }
+                            DelegateChoice {
+                                roleValue: "check"
+                                delegate: QC.CheckBox {
+                                    required property string type
+                                    required property int row
+                                    required property int column
+                                    required property var modelData
+                                    function setChecked(value) {
+                                        let index = TableView.view.index(row, column)
+                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
+                                    }
+                                    checkState: modelData.checkState
+                                    onCheckStateChanged: setChecked(checkState)
+                                }
                             }
                         }
                     }
-                    QC.ScrollIndicator.vertical: QC.ScrollIndicator {}
-                    QC.ScrollIndicator.horizontal: QC.ScrollIndicator {}
+                }
+            }
+        }
+    }
+    footer: QC.ToolBar {
+        visible: actionUiVisibility.checked
+        contentItem: Flow {
+            Item {
+                implicitWidth: taskQueueFrame.width
+                implicitHeight: taskQueueFrame.height
+                QC.Frame {
+                    id: taskQueueFrame
+                    RowLayout {
+                        id: taskQueueRowLayout
+                        CenteredText {
+                            text: qsTr("Task queue (%1):").arg(taskQueue.taskCount)
+                        }
+                        QC.ProgressBar {
+                            id: taskQueueProgressBar
+                            indeterminate: taskQueue.taskCount === 0
+                            value: taskQueue.progress
+                            CenteredText {
+                                anchors.centerIn: parent
+                                visible: taskQueue.taskCount > 0
+                                z: 1
+                                text: {
+                                    qsTr("%1\%")
+                                    .arg(Number(taskQueueProgressBar.value * 100).toLocaleString(locale, 'f', 0))
+                                }
+                            }
+                        }
+                    }
+                }
+                MouseArea {
+                    id: taskQueueMouseArea
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: actionShowTaskQueueDialog.trigger(taskQueueMouseArea)
                 }
             }
         }
@@ -501,7 +568,6 @@ QC.ApplicationWindow {
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
         Repeater {
-            anchors.fill: parent
             model: listModel
             delegate: QC.Page {
                 id: page
@@ -513,8 +579,9 @@ QC.ApplicationWindow {
                     id: clearColorDialog
                     options: Dialogs.ColorDialog.ShowAlphaChannel | Dialogs.ColorDialog.DontUseNativeDialog | Dialogs.ColorDialog.NoButtons
                     onSelectedColorChanged: {
-                        if (visible) // prevent feedback when WheelHandler used
+                        if (visible) { // prevent feedback when WheelHandler used
                             Qt.callLater(clearColorComboBox.setIndexOfClosestColor, selectedColor)
+                        }
                     }
                 }
                 QC.Action {
@@ -645,8 +712,7 @@ QC.ApplicationWindow {
                 }
                 header: QC.ToolBar {
                     visible: actionUiVisibility.checked
-                    Flow {
-                        anchors.fill: parent
+                    contentItem: Flow {
                         QC.Frame {
                             RowLayout {
                                 QC.ToolButton {
@@ -836,14 +902,14 @@ QC.ApplicationWindow {
                         }
                         QC.Frame {
                             RowLayout {
-                                Text {
+                                CenteredText {
                                     text: qsTr("<b>Clear color:</b>")
                                 }
                                 QC.ComboBox {
                                     id: clearColorComboBox
                                     textRole: "colorName"
                                     valueRole: "colorValue"
-                                    implicitContentWidthPolicy: QC.ComboBox.WidestTextWhenCompleted
+                                    implicitContentWidthPolicy: QC.ComboBox.WidestText
                                     editable: true
                                     selectTextByMouse: true
                                     inputMethodHints: Qt.ImhLowercaseOnly
@@ -867,10 +933,7 @@ QC.ApplicationWindow {
                                             clearColorDialog.selectedColor = clearColorComboBox.currentValue
                                         }
                                     }
-                                    HoverHandler {
-                                        id: clearColorComboBoxHoverHandler
-                                    }
-                                    QC.ToolTip.visible: clearColorComboBoxHoverHandler.hovered
+                                    QC.ToolTip.visible: hovered
                                     QC.ToolTip.text: currentText
                                     QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                     QC.ToolTip.timeout: root.toolTipTimeout
@@ -895,29 +958,28 @@ QC.ApplicationWindow {
                                         required property string colorName
                                         required property color colorValue
                                         highlighted: clearColorComboBox.highlightedIndex === index
-                                        contentItem: Row {
+                                        contentItem: RowLayout {
+                                            spacing: height / 8
                                             Rectangle {
                                                 id: colorRect
+                                                Layout.fillHeight: true
                                                 color: clearColorDelegate.colorValue
-                                                height: colorText.height
-                                                width: height
+                                                width: colorText.height
                                                 radius: height / 4
                                                 border.width: 1
                                                 border.color: "black"
                                             }
                                             Text {
                                                 id: colorText
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
                                                 text: clearColorDelegate.colorName
                                             }
-                                            spacing: colorText.height / 4
-                                            HoverHandler {
-                                                id: colorRowHoverHandler
-                                            }
-                                            QC.ToolTip.visible: colorRowHoverHandler.hovered
-                                            QC.ToolTip.text: colorRect.color
-                                            QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                            QC.ToolTip.timeout: root.toolTipTimeout
                                         }
+                                        QC.ToolTip.visible: hovered
+                                        QC.ToolTip.text: colorRect.color
+                                        QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        QC.ToolTip.timeout: root.toolTipTimeout
                                     }
                                 }
                                 Rectangle {
@@ -946,11 +1008,10 @@ QC.ApplicationWindow {
                 }
                 footer: QC.ToolBar {
                     visible: actionUiVisibility.checked
-                    Flow {
-                        anchors.fill: parent
+                    contentItem: Flow {
                         QC.Frame {
                             RowLayout {
-                                Text {
+                                CenteredText {
                                     text: viewer.getRenderModeDescription(false)
                                     HoverHandler {
                                         id: modeTextHoverHandler
@@ -964,49 +1025,62 @@ QC.ApplicationWindow {
                         }
                         QC.Frame {
                             RowLayout {
-                                Text {
-                                    text: {
-                                        qsTr("sens(%1) speed(%2)")
-                                        .arg(viewer.cameraController.sensitivity.toFixed(4))
-                                        .arg(viewer.cameraController.speed.toExponential(3))
-                                    }
+                                CenteredText {
+                                    text: qsTr("sens: %1").arg(viewer.cameraController.sensitivity.toFixed(4))
                                 }
-                            }
-                        }
-                        QC.Frame {
-                            RowLayout {
-                                Text {
-                                    text: {
-                                        qsTr("rot(%1) scale(%2)")
-                                        .arg(content.rotation.toFixed(0))
-                                        .arg(content.scale.toFixed(3))
-                                    }
-                                }
-                            }
-                        }
-                        QC.Frame {
-                            RowLayout {
-                                Text {
-                                    text: qsTr("Clear color: %1").arg(viewer.renderer.clearColor)
-                                }
-                                Rectangle {
+                                QC.ToolSeparator {
                                     Layout.fillHeight: true
-                                    Layout.preferredWidth: height
-                                    Layout.margins: height / 8
-                                    color: Qt.alpha(viewer.renderer.clearColor, 1.0)
-                                    radius: height / 4
-                                    border.width: 1
-                                    border.color: "black"
+                                }
+                                CenteredText {
+                                    text: qsTr("speed: %1").arg(viewer.cameraController.speed.toExponential(3))
+                                }
+                            }
+                        }
+                        QC.Frame {
+                            RowLayout {
+                                CenteredText {
+                                    text: qsTr("rot: %1").arg(content.rotation.toFixed(0))
+                                }
+                                QC.ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
+                                CenteredText {
+                                    text: qsTr("scale: %1").arg(content.scale.toFixed(3))
+                                }
+                            }
+                        }
+                        QC.Frame {
+                            Item {
+                                implicitWidth: clearColorInfoRow.implicitWidth
+                                implicitHeight: clearColorInfoRow.implicitHeight
+                                RowLayout {
+                                    id: clearColorInfoRow
+                                    CenteredText {
+                                        text: qsTr("Clear color: %1").arg(viewer.renderer.clearColor)
+                                    }
+                                    Rectangle {
+                                        Layout.fillHeight: true
+                                        Layout.preferredWidth: height
+                                        Layout.margins: height / 8
+                                        color: Qt.alpha(viewer.renderer.clearColor, 1.0)
+                                        radius: height / 4
+                                        border.width: 1
+                                        border.color: "black"
+                                    }
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: clearColorDialog.open()
                                 }
                                 HoverHandler {
                                     id: clearColorHoveredHandler
                                 }
                                 QC.ToolTip.visible: clearColorHoveredHandler.hovered
                                 QC.ToolTip.text: {
-                                    return qsTr('Is %1 "<font color="%2">%3</font>" color')
-                                        .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
-                                        .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
-                                        .arg(clearColorComboBox.currentText)
+                                    qsTr('Is %1 "<font color="%2">%3</font>" color')
+                                    .arg(clearColorDialog.selectedColor === Qt.color(clearColorComboBox.currentText) ? "exactly" : "roughly")
+                                    .arg(Qt.alpha(clearColorComboBox.currentValue, 1.0))
+                                    .arg(clearColorComboBox.currentText)
                                 }
                                 QC.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                 QC.ToolTip.timeout: root.toolTipTimeout
@@ -1014,15 +1088,22 @@ QC.ApplicationWindow {
                         }
                         QC.Frame {
                             RowLayout {
-                                Text {
-                                    text: {
-                                        let position = viewer.cameraView.position
-                                        let orientation = viewer.cameraView.orientation.toEulerAngles()
-                                        return qsTr("xyz(%1, %2, %3) \u03C6\u03B8\u03C8(%4, %5, %6) fov(%7)")
-                                            .arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
-                                            .arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
-                                            .arg(viewer.cameraView.fov.toFixed(0))
-                                    }
+                                CenteredText {
+                                    readonly property vector3d position: viewer.cameraView.position
+                                    text: qsTr("xyz: %1 %2 %3").arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
+                                }
+                                QC.ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
+                                CenteredText {
+                                    readonly property vector3d orientation: viewer.cameraView.orientation.toEulerAngles()
+                                    text: qsTr("\u03C6\u03B8\u03C8: %1 %2 %3").arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
+                                }
+                                QC.ToolSeparator {
+                                    Layout.fillHeight: true
+                                }
+                                CenteredText {
+                                    text: qsTr("fov: %1").arg(viewer.cameraView.fov.toFixed(0))
                                 }
                             }
                         }
@@ -1032,19 +1113,12 @@ QC.ApplicationWindow {
                     fillMode: Image.Tile
                     source: app.getQtLogoUrl()
                 }
-                Item {
+                contentItem: Item {
                     id: content
-                    anchors.fill: parent
                     visible: actionContentVisibility.checked
                     scale: scaleSlider.value
                     rotation: rotationSlider.value
                     opacity: opacitySlider.value
-                    Behavior on scale {
-                        ScaleAnimator {
-                            duration: viewer.animationDuration
-                            easing.type: Easing.InOutQuad
-                        }
-                    }
                     layer.enabled: actionLayerEnabled.checked
                     layer.live: true
                     focus: true
@@ -1139,10 +1213,10 @@ QC.ApplicationWindow {
                         CenteredDialog {
                             id: treeParametersDialog
                             title: qsTr("Tree parameters")
-                            QC.Frame {
+                            contentItem: QC.Frame {
                                 GridLayout {
                                     columns: 2
-                                    Text {
+                                    CenteredText {
                                         text: "emptinessFactor"
                                     }
                                     NumberSpinBox {
@@ -1152,7 +1226,7 @@ QC.ApplicationWindow {
                                         from: decimalToInt(0)
                                         to: decimalToInt(1)
                                     }
-                                    Text {
+                                    CenteredText {
                                         text: "traversalCost"
                                     }
                                     NumberSpinBox {
@@ -1162,7 +1236,7 @@ QC.ApplicationWindow {
                                         from: decimalToInt(0)
                                         to: decimalToInt(10)
                                     }
-                                    Text {
+                                    CenteredText {
                                         text: "intersectionCost"
                                     }
                                     NumberSpinBox {
@@ -1172,7 +1246,7 @@ QC.ApplicationWindow {
                                         from: decimalToInt(0)
                                         to: decimalToInt(10)
                                     }
-                                    Text {
+                                    CenteredText {
                                         text: "maxDepth"
                                     }
                                     QC.SpinBox {
@@ -1316,49 +1390,6 @@ QC.ApplicationWindow {
                     property alias scale: scaleSlider.value
                     property alias opacity: opacitySlider.value
                     property alias layerEnabled: actionLayerEnabled.checked
-                }
-            }
-        }
-    }
-    footer: QC.ToolBar {
-        visible: actionUiVisibility.checked
-        Flow {
-            anchors.fill: parent
-            Item {
-                implicitWidth: taskQueueFrame.width
-                implicitHeight: taskQueueFrame.height
-                QC.Frame {
-                    id: taskQueueFrame
-                    contentItem: RowLayout {
-                        id: taskQueueRowLayout
-                        Text {
-                            text: {
-                                qsTr("Task queue (%1):")
-                                .arg(taskQueue.taskCount)
-                            }
-                        }
-                        QC.ProgressBar {
-                            id: taskQueueProgressBar
-                            indeterminate: taskQueue.taskCount === 0
-                            value: taskQueue.progress
-                            Text {
-                                anchors.fill: parent
-                                verticalAlignment: Text.AlignVCenter
-                                horizontalAlignment: Text.AlignHCenter
-                                z: 1
-                                text: {
-                                    qsTr("%1\%")
-                                    .arg(Number(taskQueueProgressBar.value * 100).toLocaleString(locale, 'f', 0))
-                                }
-                            }
-                        }
-                    }
-                }
-                MouseArea {
-                    id: taskQueueMouseArea
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    onClicked: actionShowTaskQueueDialog.trigger(taskQueueMouseArea)
                 }
             }
         }

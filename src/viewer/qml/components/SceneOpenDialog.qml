@@ -42,44 +42,42 @@ CenteredDialog {
         property string fileName
         property string fileSuffix
         property bool fileIsDir
-        header: RowLayout {
-            QC.ToolButton {
-                icon.name: "go-up-symbolic"
-                onClicked: sceneOpenDialog.setFolderUrl(folderListModel.parentFolder)
-            }
-            QC.ToolButton {
-                icon.name: "go-previous-symbolic"
-                enabled: page.previousFolders.length !== 0
-                onClicked: sceneOpenDialog.folderUrl = page.previousFolders.pop()
-            }
-            QC.Label {
-                id: currentPathLabel
-                textFormat: Text.StyledText
-                text: {
-                    '<tt><a href="%1">%2</a></tt>'
-                    .arg(sceneOpenDialog.folderUrl)
-                    .arg(app.toLocalFile(sceneOpenDialog.folderUrl))
+        header: QC.ToolBar {
+            contentItem: RowLayout {
+                QC.ToolButton {
+                    Layout.fillHeight: true
+                    icon.name: "go-up-symbolic"
+                    onClicked: sceneOpenDialog.setFolderUrl(folderListModel.parentFolder)
                 }
-                onLinkActivated: link => Qt.openUrlExternally(link)
-            }
-            Item {
-                Layout.fillWidth: true
+                QC.ToolButton {
+                    Layout.fillHeight: true
+                    icon.name: "go-previous-symbolic"
+                    enabled: page.previousFolders.length !== 0
+                    onClicked: sceneOpenDialog.folderUrl = page.previousFolders.pop()
+                }
+                QC.Label {
+                    Layout.fillHeight: true
+                    id: currentPathLabel
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    textFormat: Text.StyledText
+                    text: {
+                        '<tt><a href="%1">%2</a></tt>'
+                        .arg(sceneOpenDialog.folderUrl)
+                        .arg(app.toLocalFile(sceneOpenDialog.folderUrl))
+                    }
+                    onLinkActivated: link => Qt.openUrlExternally(link)
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
             }
         }
         contentItem: QC.Frame {
             ListView {
                 id: listView
-                anchors.fill: parent
-                onContentWidthChanged: {
-                    if (implicitWidth < contentWidth) {
-                        implicitWidth = contentWidth
-                    }
-                }
-                onContentHeightChanged: {
-                    if (implicitHeight < contentHeight) {
-                        implicitHeight = contentHeight
-                    }
-                }
+                implicitWidth: Math.max(contentItem.childrenRect.width, 128)
+                implicitHeight: Math.min(contentHeight, 256)
                 clip: true
                 highlightFollowsCurrentItem: true
                 model: FolderListModel {
@@ -92,10 +90,6 @@ CenteredDialog {
                 }
                 delegate: QC.ItemDelegate {
                     id: listElement
-                    highlighted: ListView.isCurrentItem
-                    implicitWidth: row.implicitWidth
-                    implicitHeight: row.implicitHeight
-                    width: ListView.view.width
                     required property int index
                     required property date fileAccessed
                     required property int fileSize
@@ -106,49 +100,38 @@ CenteredDialog {
                     required property string fileName
                     required property string fileSuffix
                     required property bool fileIsDir
+                    highlighted: ListView.isCurrentItem
                     contentItem: RowLayout {
                         id: row
-                        anchors.fill: parent
                         Text {
-                            text: listElement.fileName + (listElement.fileIsDir ? "/" : "")
                             Layout.fillHeight: true
-                        }
-                        Item {
-                            Layout.fillWidth: true
+                            text: listElement.fileName + (listElement.fileIsDir ? "/" : "")
                         }
                         Text {
+                            Layout.fillHeight: true
                             visible: !listElement.fileIsDir
                             text: locale.formattedDataSize(listElement.fileSize)
-                            Layout.fillHeight: true
                         }
                     }
-                    MouseArea {
-                        id: mouseArea
-                        anchors.fill: row
-                        hoverEnabled: true
-                        onEntered: listView.currentIndex = listElement.index
-                        acceptedButtons: Qt.LeftButton
-                        onClicked: {
-                            if (listElement.fileIsDir) {
-                                sceneOpenDialog.setFolderUrl(listElement.fileUrl)
-                            } else {
-                                page.fileAccessed = listElement.fileAccessed
-                                page.fileSize = listElement.fileSize
-                                page.fileUrl = listElement.fileUrl
-                                page.fileModified = listElement.fileModified
-                                page.fileBaseName = listElement.fileBaseName
-                                page.filePath = listElement.filePath
-                                page.fileName = listElement.fileName
-                                page.fileSuffix = listElement.fileSuffix
-                                page.fileIsDir = listElement.fileIsDir
-                                sceneOpenDialog.accept()
-                            }
+                    onHoveredChanged: if (hovered) listView.currentIndex = index
+                    onClicked: {
+                        if (fileIsDir) {
+                            sceneOpenDialog.setFolderUrl(fileUrl)
+                        } else {
+                            page.fileAccessed = fileAccessed
+                            page.fileSize = fileSize
+                            page.fileUrl = fileUrl
+                            page.fileModified = fileModified
+                            page.fileBaseName = fileBaseName
+                            page.filePath = filePath
+                            page.fileName = fileName
+                            page.fileSuffix = fileSuffix
+                            page.fileIsDir = fileIsDir
+                            sceneOpenDialog.accept()
                         }
                     }
                 }
-                QC.ScrollBar.vertical: QC.ScrollBar {
-                    policy: QC.ScrollBar.AlwaysOn
-                }
+                QC.ScrollBar.vertical: QC.ScrollBar {}
             }
         }
     }
