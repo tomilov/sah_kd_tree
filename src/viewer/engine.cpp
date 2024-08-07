@@ -10,6 +10,7 @@
 #include <fmt/std.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/matrix_operation.hpp>
+#include <glm/mat4x4.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan_format_traits.hpp>
 

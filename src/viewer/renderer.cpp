@@ -27,6 +27,10 @@
 #include <fmt/std.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_format_traits.hpp>

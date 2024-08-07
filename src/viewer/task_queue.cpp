@@ -305,10 +305,14 @@ bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int r
             switch (checkState) {
             case Qt::CheckState::Unchecked: {
                 disconnect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel);
+                disconnect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend);
+                disconnect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume);
                 break;
             }
             case Qt::CheckState::Checked: {
                 connect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel);
+                connect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend);
+                connect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume);
                 break;
             }
             default: {
@@ -366,13 +370,7 @@ QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int rol
 
 void TaskQueue::cancelAll()
 {
-    qCDebug(viewerTaskQueueCategory).noquote() << u"%1 running tasks will be canceled immediately"_s.arg(rowCount());
     Q_EMIT allCancelled();
-}
-
-void TaskQueue::cancelChecked()
-{
-    Q_EMIT checkedCancelled();
 }
 
 void TaskQueue::suspendAll()
@@ -383,6 +381,21 @@ void TaskQueue::suspendAll()
 void TaskQueue::resumeAll()
 {
     Q_EMIT allResumed();
+}
+
+void TaskQueue::cancelChecked()
+{
+    Q_EMIT checkedCancelled();
+}
+
+void TaskQueue::suspendChecked()
+{
+    Q_EMIT checkedSuspended();
+}
+
+void TaskQueue::resumeChecked()
+{
+    Q_EMIT checkedResumed();
 }
 
 void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
@@ -404,7 +417,7 @@ void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
     } else {
         description = u"%1-%2"_s.arg(beginIndex).arg(endIndex);
     }
-    resultReadyState.insert(ResultRange{beginIndex, endIndex}, description);
+    resultReadyState.insert(ResultRange{beginIndex, endIndex}, qMove(description));
 }
 
 auto TaskQueue::getTaskInfo(int id) -> TaskInfo &

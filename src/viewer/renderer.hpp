@@ -15,6 +15,7 @@
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <cstdint>
@@ -102,7 +103,8 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
               ".windowMvp = {}, "
               ".clearColor = {}"
               "}}";
-        return fmt::format_to(ctx.out(), fmtString,               //
+        return fmt::format_to(ctx.out(),                          //
+                              fmtString,                          //
                               frameSettings.useOffscreenTexture,  //
                               frameSettings.discardInvisible,     //
                               frameSettings.wireFrame,            //

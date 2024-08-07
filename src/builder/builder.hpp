@@ -43,7 +43,7 @@ private:
     friend Builder;
     struct Impl;
 
-    std::shared_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl_;
 
     Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData);
 
@@ -74,7 +74,7 @@ public:
 private:
     struct Impl;
 
-    std::shared_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl_;
 
     static constexpr void completeClassContext()
     {

@@ -7,8 +7,6 @@ import QtQuick.Dialogs as Dialogs
 import QtQuick3D
 import QtQml.Models
 
-import Qt.labs.qmlmodels as LM
-
 import SahKdTree 1.0 as SKT
 
 import "utils.js" as Utils
@@ -29,9 +27,10 @@ C.ApplicationWindow {
         .arg(app.primaryScreen.refreshRate.toFixed(3))
         .arg(stackLayout.children[stackLayout.currentIndex]?.fileUrl || "-")
     }
-    SceneOpenDialog {
+    FastFileOpenDialog {
         id: sceneOpenDialog
         title: qsTr("Open scene file")
+        nameFilters: SKT.SahKdTreeEngine.getSupportedSceneFileExtensions().map(ext => "*." + ext)
         property bool shouldReplaceScene
         function appendScene() {
             shouldReplaceScene = false
@@ -49,7 +48,6 @@ C.ApplicationWindow {
                 }
             }
             let listItem = {
-                filePath: filePath,
                 fileBaseName: fileBaseName,
                 fileUrl: fileUrl.toString(),
             }
@@ -200,7 +198,7 @@ C.ApplicationWindow {
     C.Action {
         id: actionShowTaskQueueDialog
         text: qsTr("Show task queue info")
-        onTriggered: taskQueueDialog.open()
+        onTriggered: taskManager.open()
         icon.name: "view-list-symbolic"
     }
     menuBar: C.MenuBar {
@@ -279,7 +277,7 @@ C.ApplicationWindow {
         background: C.Pane {}
         Repeater {
             model: tabListModel
-            C.TabButton {
+            delegate: C.TabButton {
                 required property string fileBaseName
                 required property url fileUrl
                 text: fileBaseName
@@ -291,7 +289,7 @@ C.ApplicationWindow {
                     .arg(Qt.color(palette.link))
                 }
                 C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                C.ToolTip.timeout: root.toolTipTimeout
+                C.ToolTip.timeout: toolTipTimeout
             }
         }
         Component.onCompleted: Qt.callLater(setCurrentIndex, settings.currentTabIndex)
@@ -299,231 +297,11 @@ C.ApplicationWindow {
     }
     SKT.TaskQueue {
         id: taskQueue
-        function updateThreadPoolInfo() {
-            activeThreadCountText.text = qsTr("Active thread count: %1").arg(threadPool.activeThreadCount)
-            expiryTimeoutText.text = qsTr("Expiry timeout: %1ms").arg(threadPool.expiryTimeout)
-            maxThreadCountText.text = qsTr("Max thread count: %1").arg(threadPool.maxThreadCount)
-            stackSizeText.text = qsTr("Stack size: %1").arg(threadPool.stackSize)
-            threadPriorityText.text = qsTr("Thread priority: %1").arg(threadPriorityToString(threadPool.threadPriority))
-        }
     }
-    Timer {
-        interval: 1000
-        running: true
-        triggeredOnStart: true
-        repeat: true
-        onTriggered: taskQueue.updateThreadPoolInfo()
-    }
-    CenteredDialog {
-        id: taskQueueDialog
-        title: qsTr("Task queue")
-        standardButtons: C.Dialog.Close
-        contentItem: C.Page {
-            header: C.ToolBar {
-                contentItem: RowLayout {
-                    C.ToolButton {
-                        Layout.fillHeight: true
-                        icon.name: "media-playback-pause-symbolic"
-                        text: qsTr("Suspend all")
-                        onClicked: taskQueue.suspendAll()
-                    }
-                    C.ToolButton {
-                        Layout.fillHeight: true
-                        icon.name: "media-playback-start-symbolic"
-                        text: qsTr("Resume all")
-                        onClicked: taskQueue.resumeAll()
-                    }
-                    C.DelayButton {
-                        Layout.fillHeight: true
-                        icon.name: "media-playback-stop-symbolic"
-                        text: qsTr("Cancel all")
-                        delay: 1000
-                        onActivated: taskQueue.cancelAll()
-                        onReleased: checked = false
-                    }
-                    C.DelayButton {
-                        Layout.fillHeight: true
-                        icon.name: "media-playback-stop-symbolic"
-                        text: qsTr("Cancel checked")
-                        delay: 1000
-                        onActivated: taskQueue.cancelChecked()
-                        onReleased: checked = false
-                    }
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-            footer: C.ToolBar {
-                contentItem: Flow {
-                    C.Frame {
-                        CenteredText {
-                            text: qsTr("Task count: %1").arg(taskQueue.taskCount)
-                        }
-                    }
-                    C.Frame {
-                        CenteredText {
-                            id: activeThreadCountText
-                        }
-                    }
-                    C.Frame {
-                        CenteredText {
-                            id: expiryTimeoutText
-                        }
-                    }
-                    C.Frame {
-                        CenteredText {
-                            id: maxThreadCountText
-                        }
-                    }
-                    C.Frame {
-                        CenteredText {
-                            id: stackSizeText
-                        }
-                    }
-                    C.Frame {
-                        CenteredText {
-                            id: threadPriorityText
-                        }
-                    }
-                }
-            }
-            contentItem: GridLayout {
-                columns: 2
-                C.HorizontalHeaderView {
-                    Layout.column: 1
-                    Layout.fillWidth: true
-                    syncView: tableView
-                    clip: true
-                    delegate: C.ItemDelegate {
-                        id: horizontalHeaderDelegate
-                        required property var modelData
-                        contentItem: CenteredText {
-                            text: horizontalHeaderDelegate.modelData.display
-                        }
-                    }
-                }
-                C.VerticalHeaderView {
-                    Layout.fillHeight: true
-                    syncView: tableView
-                    clip: true
-                    delegate: C.ItemDelegate {
-                        id: verticalHeaderDelegate
-                        required property var modelData
-                        contentItem: CenteredText {
-                            text: verticalHeaderDelegate.modelData.display
-                        }
-                    }
-                }
-                C.ScrollView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    TableView {
-                        id: tableView
-                        clip: true
-                        model: taskQueue
-                        delegate: LM.DelegateChooser {
-                            role: "type"
-                            LM.DelegateChoice {
-                                roleValue: "item"
-                                delegate: C.ItemDelegate {
-                                    id: itemDelegate
-                                    required property string type
-                                    required property var modelData
-                                    required property string toolTip
-                                    contentItem: CenteredText {
-                                        Binding on text {
-                                            when: itemDelegate.modelData.display !== undefined
-                                            value: itemDelegate.modelData.display
-                                        }
-                                    }
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: toolTip
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
-                                }
-                            }
-                            LM.DelegateChoice {
-                                roleValue: "progress"
-                                delegate: C.ItemDelegate {
-                                    id: progressBarDelegate
-                                    required property string type
-                                    required property var modelData
-                                    required property string toolTip
-                                    background: C.ProgressBar {
-                                        indeterminate: progressBarDelegate.modelData.display === undefined
-                                        Binding on value {
-                                            when: progressBarDelegate.modelData.display !== undefined
-                                            value: progressBarDelegate.modelData.display
-                                        }
-                                    }
-                                    contentItem: CenteredText {
-                                        text: progressBarDelegate.toolTip
-                                    }
-                                }
-                            }
-                            LM.DelegateChoice {
-                                roleValue: "switch"
-                                delegate: C.SwitchDelegate {
-                                    required property string type
-                                    required property int row
-                                    required property int column
-                                    required property string toolTip
-                                    required property int checkState
-                                    function setChecked(value) {
-                                        let index = TableView.view.index(row, column)
-                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
-                                    }
-                                    checked: checkState === Qt.Checked
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: toolTip
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
-                                    onToggled: setChecked(checked ? Qt.Checked : Qt.Unchecked)
-                                }
-                            }
-                            LM.DelegateChoice {
-                                roleValue: "delay"
-                                delegate: C.DelayButton {
-                                    required property string type
-                                    required property int row
-                                    required property int column
-                                    required property string toolTip
-                                    required property int checkState
-                                    function setChecked(value) {
-                                        let index = TableView.view.index(row, column)
-                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
-                                    }
-                                    checked: checkState === Qt.Checked
-                                    delay: 1000
-                                    text: qsTr("Cancel")
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: toolTip
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
-                                    onActivated: setChecked(Qt.Checked)
-                                }
-                            }
-                            LM.DelegateChoice {
-                                roleValue: "check"
-                                delegate: C.CheckBox {
-                                    required property string type
-                                    required property int row
-                                    required property int column
-                                    required property var modelData
-                                    function setChecked(value) {
-                                        let index = TableView.view.index(row, column)
-                                        TableView.view.model.setData(index, value, Qt.CheckStateRole)
-                                    }
-                                    checkState: modelData.checkState
-                                    onCheckStateChanged: setChecked(checkState)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    TaskManager {
+        id: taskManager
+        taskQueue: taskQueue
+        toolTipTimeout: toolTipTimeout
     }
     footer: C.ToolBar {
         visible: actionUiVisibility.checked
@@ -572,8 +350,6 @@ C.ApplicationWindow {
             delegate: C.Page {
                 id: page
                 required property url fileUrl
-                required property string filePath
-                required property string fileBaseName
                 readonly property string fileUrlHash: Qt.md5(fileUrl)
                 Dialogs.ColorDialog {
                     id: clearColorDialog
@@ -725,7 +501,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Reset camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -736,7 +512,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Align camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -747,7 +523,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Reflect camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -759,7 +535,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -770,7 +546,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -781,7 +557,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -793,7 +569,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.Slider {
                                     id: rotationSlider
@@ -820,7 +596,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -832,7 +608,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.Slider {
                                     id: scaleSlider
@@ -858,7 +634,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -870,7 +646,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 C.Slider {
                                     id: opacitySlider
@@ -896,7 +672,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: action.text
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -936,7 +712,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: currentText
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                     model: ListModel {
                                         Component.onCompleted: {
                                             let colorNames = app.colorNames
@@ -963,7 +739,7 @@ C.ApplicationWindow {
                                             Rectangle {
                                                 id: colorRect
                                                 Layout.fillHeight: true
-                                                color: clearColorDelegate.colorValue
+                                                color: colorValue
                                                 width: colorText.height
                                                 radius: height / 4
                                                 border.width: 1
@@ -973,13 +749,13 @@ C.ApplicationWindow {
                                                 id: colorText
                                                 Layout.fillWidth: true
                                                 Layout.fillHeight: true
-                                                text: clearColorDelegate.colorName
+                                                text: colorName
                                             }
                                         }
                                         C.ToolTip.visible: hovered
                                         C.ToolTip.text: colorRect.color
                                         C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: root.toolTipTimeout
+                                        C.ToolTip.timeout: toolTipTimeout
                                     }
                                 }
                                 Rectangle {
@@ -1000,7 +776,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: colorSquareHoverHandler.hovered && clearColorComboBox.currentValue !== undefined
                                     C.ToolTip.text: clearColorComboBox.currentValue
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -1019,7 +795,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: modeTextHoverHandler.hovered
                                     C.ToolTip.text: viewer.getRenderModeDescription(true)
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: root.toolTipTimeout
+                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                             }
                         }
@@ -1083,7 +859,7 @@ C.ApplicationWindow {
                                     .arg(clearColorComboBox.currentText)
                                 }
                                 C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                C.ToolTip.timeout: root.toolTipTimeout
+                                C.ToolTip.timeout: toolTipTimeout
                             }
                         }
                         C.Frame {
@@ -1154,8 +930,9 @@ C.ApplicationWindow {
                         Connections {
                             target: sceneSettings
                             function onTreeStatusChanged() {
-                                if (sceneSettings.treeStatus)
+                                if (sceneSettings.treeStatus) {
                                     buildFailMessageBox.open()
+                                }
                             }
                         }
                     }
@@ -1208,7 +985,7 @@ C.ApplicationWindow {
                         taskQueue: taskQueue
                         scene: SKT.SceneSettings {
                             id: sceneSettings
-                            url: page.fileUrl
+                            url: fileUrl
                         }
                         CenteredDialog {
                             id: treeParametersDialog

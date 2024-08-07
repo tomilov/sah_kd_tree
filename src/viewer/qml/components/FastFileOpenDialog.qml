@@ -5,20 +5,18 @@ import QtQuick.Layouts
 
 import Qt.labs.folderlistmodel as LF
 
-import SahKdTree 1.0 as SKT
-
 pragma ComponentBehavior: Bound
 
 CenteredDialog {
-    id: sceneOpenDialog
     standardButtons: C.Dialog.Close
     property url folderUrl
+    required property list<string> nameFilters
     function setFolderUrl(path) {
         if (path.toString() !== "") {
-            if (sceneOpenDialog.folderUrl.toString() !== "") {
-                page.previousFolders.push(sceneOpenDialog.folderUrl)
+            if (folderUrl.toString() !== "") {
+                page.previousFolders.push(folderUrl)
             }
-            sceneOpenDialog.folderUrl = path
+            folderUrl = path
         }
     }
     readonly property alias fileAccessed: page.fileAccessed
@@ -47,13 +45,13 @@ CenteredDialog {
                 C.ToolButton {
                     Layout.fillHeight: true
                     icon.name: "go-up-symbolic"
-                    onClicked: sceneOpenDialog.setFolderUrl(folderListModel.parentFolder)
+                    onClicked: setFolderUrl(folderListModel.parentFolder)
                 }
                 C.ToolButton {
                     Layout.fillHeight: true
                     icon.name: "go-previous-symbolic"
                     enabled: page.previousFolders.length !== 0
-                    onClicked: sceneOpenDialog.folderUrl = page.previousFolders.pop()
+                    onClicked: folderUrl = page.previousFolders.pop()
                 }
                 C.Label {
                     Layout.fillHeight: true
@@ -62,8 +60,8 @@ CenteredDialog {
                     textFormat: Text.StyledText
                     text: {
                         '<tt><a href="%1">%2</a></tt>'
-                        .arg(sceneOpenDialog.folderUrl)
-                        .arg(app.toLocalFile(sceneOpenDialog.folderUrl))
+                        .arg(folderUrl)
+                        .arg(app.toLocalFile(folderUrl))
                     }
                     onLinkActivated: link => Qt.openUrlExternally(link)
                 }
@@ -81,14 +79,15 @@ CenteredDialog {
                 highlightFollowsCurrentItem: true
                 model: LF.FolderListModel {
                     id: folderListModel
-                    folder: sceneOpenDialog.folderUrl
-                    nameFilters: SKT.SahKdTreeEngine.supportedSceneFileExtensions.map(ext => "*." + ext)
+                    folder: folderUrl
+                    Binding on nameFilters {  // to squelch "Expression depends on non-NOTIFYable properties"
+                        value: nameFilters
+                    }
                     sortField: LF.FolderListModel.Size
                     showDirsFirst: true
                     showOnlyReadable: true
                 }
                 delegate: C.ItemDelegate {
-                    id: listElement
                     required property int index
                     required property date fileAccessed
                     required property int fileSize
@@ -102,20 +101,24 @@ CenteredDialog {
                     highlighted: ListView.isCurrentItem
                     contentItem: RowLayout {
                         id: row
-                        Text {
+                        CenteredText {
                             Layout.fillHeight: true
-                            text: listElement.fileName + (listElement.fileIsDir ? "/" : "")
+                            text: fileName + (fileIsDir ? "/" : "")
                         }
-                        Text {
+                        CenteredText {
                             Layout.fillHeight: true
-                            visible: !listElement.fileIsDir
-                            text: locale.formattedDataSize(listElement.fileSize)
+                            visible: !fileIsDir
+                            text: locale.formattedDataSize(fileSize)
                         }
                     }
-                    onHoveredChanged: if (hovered) listView.currentIndex = index
+                    onHoveredChanged: {
+                        if (hovered) {
+                            listView.currentIndex = index
+                        }
+                    }
                     onClicked: {
                         if (fileIsDir) {
-                            sceneOpenDialog.setFolderUrl(fileUrl)
+                            setFolderUrl(fileUrl)
                         } else {
                             page.fileAccessed = fileAccessed
                             page.fileSize = fileSize
@@ -126,7 +129,7 @@ CenteredDialog {
                             page.fileName = fileName
                             page.fileSuffix = fileSuffix
                             page.fileIsDir = fileIsDir
-                            sceneOpenDialog.accept()
+                            accept()
                         }
                     }
                 }

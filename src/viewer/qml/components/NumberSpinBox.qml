@@ -13,24 +13,24 @@ C.SpinBox {
         value = decimalToInt(x)
     }
     validator: DoubleValidator {
-        top:  Math.max(spinBox.from, spinBox.to)
-        bottom: Math.min(spinBox.from, spinBox.to)
+        top:  Math.max(from, to)
+        bottom: Math.min(from, to)
         decimals: spinBox.decimals
         notation: DoubleValidator.StandardNotation
         locale: spinBox.locale.toString()
     }
     textFromValue: function(x, locale) {
-        return Number(x / decimalFactor).toLocaleString(locale, 'f', spinBox.decimals)
+        return Number(x / decimalFactor).toLocaleString(locale, 'f', decimals)
     }
     valueFromText: function(text, locale) {
         return Math.round(Number.fromLocaleString(locale, text) * decimalFactor)
     }
     WheelHandler {
-        onWheel: (wheel) => {
+        onWheel: wheel => {
             if (wheel.angleDelta.y < 0) {
-                spinBox.decrease()
+                decrease()
             } else {
-                spinBox.increase()
+                increase()
             }
         }
     }

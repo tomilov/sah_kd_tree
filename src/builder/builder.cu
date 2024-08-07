@@ -19,8 +19,10 @@
 
 #include <algorithm>
 #include <bit>
+#include <functional>
 #include <iterator>
-#include <utility>
+#include <new>
+#include <optional>
 
 #include <cstddef>
 #include <cstring>
@@ -36,7 +38,7 @@
     } while (false)
 #define CU_CHECK_ERROR(call)                                        \
     do {                                                            \
-        CUresult result = CUDA_SUCCESS;                             \
+        ::CUresult result = CUDA_SUCCESS;                           \
         INVARIANT((result = (call)) == CUDA_SUCCESS, "{}", result); \
     } while (false)
 
@@ -126,15 +128,12 @@ public:
         selectCudaDevice();
     }
 
-    CudaDevice(CudaDevice && rhs) noexcept
-        : skipDeviceCheck{rhs.skipDeviceCheck}
-        , deviceUuid{rhs.deviceUuid}
+    int getCudaDev() const
     {
-        std::swap(cudaDev, rhs.cudaDev);
-        std::swap(cuDev, rhs.cuDev);
+        return cudaDev;
     }
 
-    const ::CUdevice & getCuDevice() const &
+    ::CUdevice getCuDev() const
     {
         return cuDev;
     }
@@ -181,7 +180,7 @@ private:
                 ::CUuuid uuid = {};
                 CU_CHECK_ERROR(cuDeviceGetUuid(&uuid, cuDev));
                 static_assert(sizeof cudaDeviceUuid == sizeof uuid);
-                if (std::memcmp(&cudaDeviceUuid, &uuid, sizeof(uuid)) == 0) {
+                if (std::memcmp(&cudaDeviceUuid, &uuid, sizeof uuid) == 0) {
                     break;
                 }
             }
@@ -230,6 +229,8 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     bool build(const std::function<bool()> & cancel)
     {
+        CUDA_CHECK_ERROR(cudaSetDeviceFlags(cudaDevice.getCudaDev()));
+
         tree.reset();
 
         auto triangles = sceneData.makeTriangles();
@@ -266,7 +267,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 };
 
 Tree::Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData)
-    : impl_{std::make_shared<Impl>(settings, cudaDevice, sceneData)}
+    : impl_{std::make_unique<Impl>(settings, cudaDevice, sceneData)}
 {}
 
 Tree::Tree(Tree &&) noexcept = default;
@@ -320,7 +321,7 @@ struct Builder::Impl : utils::OneTime<Impl>
             .requestedHandleTypes = kHandleType,
             .location = {
                 .type = CU_MEM_LOCATION_TYPE_DEVICE,
-                .id = cudaDevice.getCuDevice(),
+                .id = cudaDevice.getCuDev(),
             },
             .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
             .allocFlags = {},
@@ -394,7 +395,7 @@ struct Builder::Impl : utils::OneTime<Impl>
 };
 
 Builder::Builder(const Settings & settings)
-    : impl_{std::make_shared<Impl>(settings)}
+    : impl_{std::make_unique<Impl>(settings)}
 {
     ASSERT((settings.minAlignment == 0) || std::has_single_bit(settings.minAlignment));
 }

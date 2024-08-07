@@ -18,7 +18,6 @@
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/matrix_transform_2d.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>

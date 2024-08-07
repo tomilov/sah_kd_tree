@@ -64,15 +64,21 @@ Q_SIGNALS:
     void progressChanged();
 
     void allCancelled();
-    void checkedCancelled();
     void allSuspended();
     void allResumed();
 
+    void checkedCancelled();
+    void checkedSuspended();
+    void checkedResumed();
+
 public Q_SLOTS:
     void cancelAll();
-    void cancelChecked();
     void suspendAll();
     void resumeAll();
+
+    void cancelChecked();
+    void suspendChecked();
+    void resumeChecked();
 
 private:
     struct ResultRange

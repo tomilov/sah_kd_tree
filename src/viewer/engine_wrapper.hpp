@@ -27,8 +27,6 @@ class VIEWER_EXPORT EngineWrapper : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QStringList supportedSceneFileExtensions READ getSupportedSceneFileExtensions CONSTANT)
-
 public:
     explicit EngineWrapper(QObject * parent = nullptr);
     ~EngineWrapper() override;
@@ -40,12 +38,12 @@ public:
     void init();
     [[nodiscard]] const Engine & getEngine() const;
 
-    [[nodiscard]] static QStringList getSupportedSceneFileExtensions();
+    [[nodiscard]] Q_INVOKABLE static QStringList getSupportedSceneFileExtensions();
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 384;
+    static constexpr size_t kSize = 376;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
