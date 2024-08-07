@@ -3,3 +3,4 @@ CenteredText components/CenteredText.qml
 NumberSpinBox components/NumberSpinBox.qml
 FastFileOpenDialog components/FastFileOpenDialog.qml
 TaskManager components/TaskManager.qml
+WheelSpinBox components/WheelSpinBox.qml

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls as C
 
-C.SpinBox {
+WheelSpinBox {
     id: spinBox
     required property int decimals
     readonly property int decimalFactor: Math.pow(10, decimals)
@@ -24,14 +24,5 @@ C.SpinBox {
     }
     valueFromText: function(text, locale) {
         return Math.round(Number.fromLocaleString(locale, text) * decimalFactor)
-    }
-    WheelHandler {
-        onWheel: wheel => {
-            if (wheel.angleDelta.y < 0) {
-                decrease()
-            } else {
-                increase()
-            }
-        }
     }
 }

@@ -348,7 +348,6 @@ C.ApplicationWindow {
         Repeater {
             model: tabListModel
             delegate: C.Page {
-                id: page
                 required property url fileUrl
                 readonly property string fileUrlHash: Qt.md5(fileUrl)
                 Dialogs.ColorDialog {
@@ -436,7 +435,19 @@ C.ApplicationWindow {
                     id: actionChangeTreeBuildParams
                     text: qsTr("Change SAH kd-tree build parameters")
                     onTriggered: treeParametersDialog.open()
-                    icon.name: "edit-symbolic"
+                    icon.name: "open-menu-symbolic"
+                }
+                C.Action {
+                    id: actionChangeCameraViewParams
+                    text: qsTr("Change camera view parameters")
+                    onTriggered: {
+                        if (cameraViewParametersDrawer.visible) {
+                            cameraViewParametersDrawer.close()
+                        } else {
+                            cameraViewParametersDrawer.open()
+                        }
+                    }
+                    icon.name: "open-menu-symbolic"
                 }
                 C.Menu {
                     id: contextMenu
@@ -470,6 +481,9 @@ C.ApplicationWindow {
                         action: actionChangeTreeBuildParams
                     }
                     C.MenuItem {
+                        action: actionChangeCameraViewParams
+                    }
+                    C.MenuItem {
                         action: actionShowTaskQueueDialog
                     }
                     C.MenuSeparator {}
@@ -486,6 +500,12 @@ C.ApplicationWindow {
                         onTriggered: viewer.renderer.renderdocCaptureFrame()
                     }
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: viewer.cursor
+                    acceptedButtons: Qt.RightButton
+                    onClicked: contextMenu.popup()
+                }
                 header: C.ToolBar {
                     visible: actionUiVisibility.checked
                     contentItem: Flow {
@@ -493,10 +513,14 @@ C.ApplicationWindow {
                             RowLayout {
                                 C.ToolButton {
                                     text: qsTr("Reset cam")
-                                    onClicked: {
-                                        viewer.cameraView.orientation = undefined
-                                        viewer.cameraView.position = undefined
-                                        viewer.cameraView.filedOfView = undefined
+                                    action: C.Action {
+                                        id: actionResetCameraViewParameters
+                                        text: qsTr("Reset camera view parameters")
+                                        onTriggered: {
+                                            viewer.cameraView.orientation = undefined
+                                            viewer.cameraView.position = undefined
+                                            viewer.cameraView.fov = undefined
+                                        }
                                     }
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Reset camera view")
@@ -863,23 +887,33 @@ C.ApplicationWindow {
                             }
                         }
                         C.Frame {
-                            RowLayout {
-                                CenteredText {
-                                    readonly property vector3d position: viewer.cameraView.position
-                                    text: qsTr("xyz: %1 %2 %3").arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
+                            Item {
+                                implicitWidth: cameraViewParametersRow.implicitWidth
+                                implicitHeight: cameraViewParametersRow.implicitHeight
+                                RowLayout {
+                                    id: cameraViewParametersRow
+                                    CenteredText {
+                                        readonly property vector3d position: viewer.cameraView.position
+                                        text: qsTr("xyz: %1 %2 %3").arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        readonly property vector3d orientation: viewer.cameraView.orientation.toEulerAngles()
+                                        text: qsTr("\u03C6\u03B8\u03C8: %1 %2 %3").arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("fov: %1").arg(viewer.cameraView.fov.toFixed(0))
+                                    }
                                 }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                                CenteredText {
-                                    readonly property vector3d orientation: viewer.cameraView.orientation.toEulerAngles()
-                                    text: qsTr("\u03C6\u03B8\u03C8: %1 %2 %3").arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
-                                }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                                CenteredText {
-                                    text: qsTr("fov: %1").arg(viewer.cameraView.fov.toFixed(0))
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    onClicked: actionChangeCameraViewParams.trigger()
                                 }
                             }
                         }
@@ -990,6 +1024,7 @@ C.ApplicationWindow {
                         CenteredDialog {
                             id: treeParametersDialog
                             title: qsTr("Tree parameters")
+                            standardButtons: C.Dialog.Apply | C.Dialog.Discard
                             contentItem: C.Frame {
                                 GridLayout {
                                     columns: 2
@@ -1026,20 +1061,11 @@ C.ApplicationWindow {
                                     CenteredText {
                                         text: "maxDepth"
                                     }
-                                    C.SpinBox {
+                                    WheelSpinBox {
                                         id: maxDepthSpinBox
                                         editable: true
                                         from: 1
                                         to: 1000
-                                        WheelHandler {
-                                            onWheel: wheel => {
-                                                if (wheel.angleDelta.y < 0) {
-                                                    maxDepthSpinBox.decrease()
-                                                } else {
-                                                    maxDepthSpinBox.increase()
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -1049,15 +1075,15 @@ C.ApplicationWindow {
                                 intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
                                 maxDepthSpinBox.value = sceneSettings.maxDepth
                             }
-                            standardButtons: C.Dialog.Apply | C.Dialog.Discard
                             onApplied: {
                                 sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
                                 sceneSettings.traversalCost = traversalCostSpinBox.realValue
                                 sceneSettings.intersectionCost = intersectionCostSpinBox.realValue
                                 sceneSettings.maxDepth = maxDepthSpinBox.value
-                                accept()
                             }
-                            onDiscarded: reject()
+                            onDiscarded: {
+                                close()
+                            }
                         }
                         renderer {
                             renderMode: {
@@ -1086,7 +1112,7 @@ C.ApplicationWindow {
                             clearColor: clearColorDialog.selectedColor
                         }
                         cameraController {
-                            speed: scene.sceneAabbMax.minus(scene.sceneAabbMin).length() / 10.0  // 10 seconds to cross AABB
+                            speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / 10.0  // 10 seconds to cross AABB
                         }
                         cameraView {
                             Behavior on position {
@@ -1109,11 +1135,206 @@ C.ApplicationWindow {
                             }
                         }
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: viewer.cursor
-                        acceptedButtons: Qt.RightButton
-                        onClicked: contextMenu.popup()
+                    C.Drawer {
+                        id: cameraViewParametersDrawer
+                        dragMargin: 0
+                        modal: false
+                        parent: content
+                        function updatePosition() {
+                            viewer.cameraView.position = Qt.vector3d(positionXSpinBox.realValue, positionYSpinBox.realValue, positionZSpinBox.realValue)
+                        }
+                        function updateOrientation() {
+                            viewer.cameraView.orientation = Quaternion.fromEulerAngles(orientationPitchSpinBox.realValue, orientationYawSpinBox.realValue, orientationRollSpinBox.realValue)
+                        }
+                        function updateFov() {
+                            viewer.cameraView.fov = fovSpinBox.value
+                        }
+                        function loadCameraViewParameters() {
+                            let position = viewer.cameraView.position
+                            positionXSpinBox.updateValue(position.x)
+                            positionYSpinBox.updateValue(position.y)
+                            positionZSpinBox.updateValue(position.z)
+                            let orientation = viewer.cameraView.orientation.toEulerAngles()
+                            orientationPitchSpinBox.updateValue(orientation.x)
+                            orientationYawSpinBox.updateValue(orientation.y)
+                            orientationRollSpinBox.updateValue(orientation.z)
+                            fovSpinBox.value = viewer.cameraView.fov
+                        }
+                        onOpened: {
+                            loadCameraViewParameters()
+                        }
+                        contentItem: C.Page {
+                            id: cameraViewParametersPage
+                            function getPositionDecimals(dim) {
+                                let size = sceneSettings.sceneAabbMax[dim] - sceneSettings.sceneAabbMin[dim]
+                                let precision = 5
+                                let scale = Math.ceil(Math.log(size) / Math.log(10))
+                                return Math.max(0, precision - scale)
+                            }
+                            header: CenteredText {
+                                text: qsTr("Camera view parameters")
+                            }
+                            contentItem: GridLayout {
+                                columns: 3
+                                C.CheckBox {
+                                    id: positionApplyCheckBox
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: qsTr("Apply position changes immediately")
+                                    C.ToolTip.timeout: toolTipTimeout
+                                }
+                                CenteredText {
+                                    text: "position"
+                                }
+                                RowLayout {
+                                    NumberSpinBox {
+                                        id: positionXSpinBox
+                                        editable: true
+                                        decimals: cameraViewParametersPage.getPositionDecimals("x")
+                                        from: decimalToInt(sceneSettings.sceneAabbMin.x)
+                                        to: decimalToInt(sceneSettings.sceneAabbMax.x)
+                                        onRealValueChanged: {
+                                            if (positionApplyCheckBox.checked) {
+                                                viewer.cameraView.position.x = positionXSpinBox.realValue
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.x).arg(sceneSettings.sceneAabbMax.x)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                    NumberSpinBox {
+                                        id: positionYSpinBox
+                                        editable: true
+                                        decimals: cameraViewParametersPage.getPositionDecimals("y")
+                                        from: decimalToInt(sceneSettings.sceneAabbMin.y)
+                                        to: decimalToInt(sceneSettings.sceneAabbMax.y)
+                                        onRealValueChanged: {
+                                            if (positionApplyCheckBox.checked) {
+                                                viewer.cameraView.position.y = positionYSpinBox.realValue
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.y).arg(sceneSettings.sceneAabbMax.y)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                    NumberSpinBox {
+                                        id: positionZSpinBox
+                                        editable: true
+                                        decimals: cameraViewParametersPage.getPositionDecimals("z")
+                                        from: decimalToInt(sceneSettings.sceneAabbMin.z)
+                                        to: decimalToInt(sceneSettings.sceneAabbMax.z)
+                                        onRealValueChanged: {
+                                            if (positionApplyCheckBox.checked) {
+                                                viewer.cameraView.position.z = positionZSpinBox.realValue
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.z).arg(sceneSettings.sceneAabbMax.z)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                }
+                                C.CheckBox {
+                                    id: orientaitonApplyCheckBox
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: qsTr("Apply orientation changes immediately")
+                                    C.ToolTip.timeout: toolTipTimeout
+                                }
+                                CenteredText {
+                                    text: "orientation"
+                                }
+                                RowLayout {
+                                    NumberSpinBox {
+                                        id: orientationPitchSpinBox
+                                        editable: true
+                                        decimals: 0
+                                        from: decimalToInt(-180)
+                                        to: decimalToInt(180)
+                                        onRealValueChanged: {
+                                            if (orientaitonApplyCheckBox.checked) {
+                                                cameraViewParametersDrawer.updateOrientation()
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                    NumberSpinBox {
+                                        id: orientationYawSpinBox
+                                        editable: true
+                                        decimals: 0
+                                        from: decimalToInt(-180)
+                                        to: decimalToInt(180)
+                                        onRealValueChanged: {
+                                            if (orientaitonApplyCheckBox.checked) {
+                                                cameraViewParametersDrawer.updateOrientation()
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                    NumberSpinBox {
+                                        id: orientationRollSpinBox
+                                        editable: true
+                                        decimals: 0
+                                        from: decimalToInt(-180)
+                                        to: decimalToInt(180)
+                                        onRealValueChanged: {
+                                            if (orientaitonApplyCheckBox.checked) {
+                                                cameraViewParametersDrawer.updateOrientation()
+                                            }
+                                        }
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: toolTipTimeout
+                                    }
+                                }
+                                C.CheckBox {
+                                    id: fovApplyCheckBox
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: qsTr("Apply fov changes immediately")
+                                    C.ToolTip.timeout: toolTipTimeout
+                                }
+                                CenteredText {
+                                    text: "fov"
+                                }
+                                WheelSpinBox {
+                                    id: fovSpinBox
+                                    editable: true
+                                    from: 5
+                                    to: 175
+                                    onValueChanged: {
+                                        if (fovApplyCheckBox.checked) {
+                                            viewer.cameraView.fov = fovSpinBox.value
+                                        }
+                                    }
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: qsTr("[%1, %2]").arg(from).arg(to)
+                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    C.ToolTip.timeout: toolTipTimeout
+                                }
+                            }
+                            footer: C.DialogButtonBox {
+                                standardButtons: C.DialogButtonBox.Apply | C.DialogButtonBox.Reset | C.DialogButtonBox.Close
+                                onReset: {
+                                    actionResetCameraViewParameters.trigger(cameraViewParametersDrawer)
+                                    cameraViewParametersDrawer.loadCameraViewParameters()
+                                }
+                                onApplied: {
+                                    cameraViewParametersDrawer.updatePosition()
+                                    cameraViewParametersDrawer.updateOrientation()
+                                    cameraViewParametersDrawer.updateFov()
+                                }
+                                onRejected: {
+                                    cameraViewParametersDrawer.close()
+                                }
+                            }
+                        }
                     }
                     Settings {
                         id: viewerSettings
@@ -1188,12 +1409,14 @@ C.ApplicationWindow {
         property string tabModel
     }
     Component.onCompleted: visibility = settings.rootVisibility
-    onClosing: close => settings.rootVisibility = visibility
+    onClosing: settings.rootVisibility = visibility
     Timer {
         id: visibilityTimer
         interval: 2000
         repeat: false
-        onTriggered: root.show()
+        onTriggered: {
+            root.show()
+        }
     }
     onVisibleChanged: {
         if (!visible) {

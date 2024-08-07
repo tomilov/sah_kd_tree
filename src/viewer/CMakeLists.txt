@@ -136,6 +136,7 @@ qt6_add_resources(
         "qml/components/NumberSpinBox.qml"
         "qml/components/FastFileOpenDialog.qml"
         "qml/components/TaskManager.qml"
+        "qml/components/WheelSpinBox.qml"
         "qml/qmldir"
         "qml/ui.qml"
         "qml/utils.js")
