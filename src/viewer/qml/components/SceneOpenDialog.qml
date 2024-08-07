@@ -1,17 +1,17 @@
 import QtCore
 import QtQuick
-import QtQuick.Controls as QC
+import QtQuick.Controls as C
 import QtQuick.Layouts
 
-import Qt.labs.folderlistmodel
+import Qt.labs.folderlistmodel as LF
 
-import SahKdTree 1.0
+import SahKdTree 1.0 as SKT
 
 pragma ComponentBehavior: Bound
 
 CenteredDialog {
     id: sceneOpenDialog
-    standardButtons: QC.Dialog.Close
+    standardButtons: C.Dialog.Close
     property url folderUrl
     function setFolderUrl(path) {
         if (path.toString() !== "") {
@@ -30,7 +30,7 @@ CenteredDialog {
     readonly property alias fileName: page.fileName
     readonly property alias fileSuffix: page.fileSuffix
     readonly property alias fileIsDir: page.fileIsDir
-    contentItem: QC.Page {
+    contentItem: C.Page {
         id: page
         property list<url> previousFolders
         property date fileAccessed
@@ -42,22 +42,21 @@ CenteredDialog {
         property string fileName
         property string fileSuffix
         property bool fileIsDir
-        header: QC.ToolBar {
+        header: C.ToolBar {
             contentItem: RowLayout {
-                QC.ToolButton {
+                C.ToolButton {
                     Layout.fillHeight: true
                     icon.name: "go-up-symbolic"
                     onClicked: sceneOpenDialog.setFolderUrl(folderListModel.parentFolder)
                 }
-                QC.ToolButton {
+                C.ToolButton {
                     Layout.fillHeight: true
                     icon.name: "go-previous-symbolic"
                     enabled: page.previousFolders.length !== 0
                     onClicked: sceneOpenDialog.folderUrl = page.previousFolders.pop()
                 }
-                QC.Label {
+                C.Label {
                     Layout.fillHeight: true
-                    id: currentPathLabel
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     textFormat: Text.StyledText
@@ -73,22 +72,22 @@ CenteredDialog {
                 }
             }
         }
-        contentItem: QC.Frame {
+        contentItem: C.Frame {
             ListView {
                 id: listView
-                implicitWidth: Math.max(contentItem.childrenRect.width, 128)
-                implicitHeight: Math.min(contentHeight, 256)
+                implicitWidth: Math.max(contentItem.childrenRect.width, 640)
+                implicitHeight: 480
                 clip: true
                 highlightFollowsCurrentItem: true
-                model: FolderListModel {
+                model: LF.FolderListModel {
                     id: folderListModel
                     folder: sceneOpenDialog.folderUrl
-                    nameFilters: SahKdTreeEngine.supportedSceneFileExtensions.map((ext) => "*." + ext)
-                    sortField: FolderListModel.Size
+                    nameFilters: SKT.SahKdTreeEngine.supportedSceneFileExtensions.map(ext => "*." + ext)
+                    sortField: LF.FolderListModel.Size
                     showDirsFirst: true
                     showOnlyReadable: true
                 }
-                delegate: QC.ItemDelegate {
+                delegate: C.ItemDelegate {
                     id: listElement
                     required property int index
                     required property date fileAccessed
@@ -131,7 +130,7 @@ CenteredDialog {
                         }
                     }
                 }
-                QC.ScrollBar.vertical: QC.ScrollBar {}
+                C.ScrollBar.vertical: C.ScrollBar {}
             }
         }
     }

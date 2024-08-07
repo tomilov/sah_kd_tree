@@ -9,7 +9,7 @@
 #include <thrust/sort.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRange()
+void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRange()
 {
     thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
 

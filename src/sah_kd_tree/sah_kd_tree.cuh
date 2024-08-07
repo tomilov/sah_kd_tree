@@ -449,7 +449,6 @@ void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Pr
 }  // namespace sah_kd_tree
 
 #if SAH_KD_TREE_HEADER_ONLY
-#define SAH_KD_TREE_INLINE inline
 #include <sah_kd_tree/builder.inl>
 #include <sah_kd_tree/calculate_root_node_bbox.inl>
 #include <sah_kd_tree/calculate_rope.inl>
@@ -474,7 +473,6 @@ void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Pr
 #include <sah_kd_tree/update_splitted_polygon_count.inl>
 #include <sah_kd_tree/update_splitted_polygon_node.inl>
 #else
-#define SAH_KD_TREE_INLINE
 namespace sah_kd_tree
 {
 extern template auto Builder<>::operator()<>(const Cancel & cancel, const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> std::optional<Tree<>>;

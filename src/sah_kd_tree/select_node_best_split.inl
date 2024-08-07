@@ -12,7 +12,7 @@
 #include <cassert>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z)
+void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z)
 {
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);

@@ -16,7 +16,7 @@
 
 template<typename Traits>
 template<typename C>
-SAH_KD_TREE_INLINE auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
+auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();

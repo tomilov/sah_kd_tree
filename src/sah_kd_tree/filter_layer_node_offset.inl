@@ -5,7 +5,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::filterLayerNodeOffset()
+void sah_kd_tree::Builder<Traits>::filterLayerNodeOffset()
 {
     layer.nodeOffset.resize(layer.size);
 

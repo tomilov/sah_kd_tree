@@ -35,7 +35,7 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 }
 
 template<typename Traits>
-SAH_KD_TREE_INLINE bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
     auto nodeXMins = thrust::raw_pointer_cast(x.node.min.data());
     auto nodeXMaxs = thrust::raw_pointer_cast(x.node.max.data());

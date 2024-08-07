@@ -5,7 +5,7 @@
 #include <thrust/memory.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updatePolygonNode()
+void sah_kd_tree::Builder<Traits>::updatePolygonNode()
 {
     auto polygonBegin = thrust::make_counting_iterator<U>(0);
     auto polygonEnd = thrust::make_counting_iterator<U>(polygon.count);

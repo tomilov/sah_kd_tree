@@ -7,7 +7,7 @@
 #include <thrust/memory.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
+void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
 {
     auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto nodePolygonCountLefts = thrust::raw_pointer_cast(node.polygonCountLeft.data());

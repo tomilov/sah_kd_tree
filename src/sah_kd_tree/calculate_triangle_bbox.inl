@@ -8,7 +8,7 @@
 #include <thrust/zip_function.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
+void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
 {
     polygon.min.resize(triangle.count);
     polygon.max.resize(triangle.count);

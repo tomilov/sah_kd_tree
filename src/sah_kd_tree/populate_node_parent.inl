@@ -4,7 +4,7 @@
 #include <thrust/scatter.h>
 
 template<typename Traits>
-SAH_KD_TREE_INLINE void sah_kd_tree::Builder<Traits>::populateNodeParent()
+void sah_kd_tree::Builder<Traits>::populateNodeParent()
 {
     node.parent.resize(node.count);
 
