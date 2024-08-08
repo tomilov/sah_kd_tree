@@ -1,6 +1,6 @@
 CenteredDialog components/CenteredDialog.qml
 CenteredText components/CenteredText.qml
-NumberSpinBox components/NumberSpinBox.qml
 FastFileOpenDialog components/FastFileOpenDialog.qml
+NumberSpinBox components/NumberSpinBox.qml
 TaskManager components/TaskManager.qml
 WheelSpinBox components/WheelSpinBox.qml

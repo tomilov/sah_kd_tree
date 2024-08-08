@@ -20,12 +20,190 @@ C.ApplicationWindow {
     y: Application.screens[0].height / 4
     width: Application.screens[0].width / 2
     height: Application.screens[0].height / 2
-    readonly property int toolTipTimeout: 5000
     title: {
         qsTr("%1 (screen refresh rate %2) - [%3]")
         .arg(Application.displayName)
         .arg(app.primaryScreen.refreshRate.toFixed(3))
         .arg(stackLayout.children[stackLayout.currentIndex]?.fileUrl || "-")
+    }
+    function removeCurrentTab() {
+        let currentIndex = tabBar.currentIndex
+        if (currentIndex < 0) {
+            return
+        }
+        tabListModel.remove(currentIndex)
+    }
+    Settings {
+        id: settings
+        property int toolTipTimeout: 5000
+        property int rootVisibility: Window.AutomaticVisibility
+        property alias x: root.x
+        property alias y: root.y
+        property alias width: root.width
+        property alias height: root.height
+        property alias sceneOpenFolderUrl: sceneOpenDialog.folderUrl
+        property alias uiVisibility: actionUiVisibility.checked
+        property alias traceSahKdTree: actionTraceSahKdTree.checked
+        property alias useOffscreenTexture: actionUseOffscreenTexture.checked
+        property alias discardInvisible: actionDiscardInvisible.checked
+        property int texturingModeIndex: 0
+        property int currentTabIndex: -1
+        property string tabModel
+    }
+    Component.onCompleted: visibility = settings.rootVisibility
+    onClosing: settings.rootVisibility = visibility
+    Timer {
+        id: visibilityTimer
+        interval: 2000
+        repeat: false
+        onTriggered: {
+            root.show()
+        }
+    }
+    onVisibleChanged: {
+        if (!visible) {
+            visibilityTimer.start()
+        }
+    }
+    C.Action {
+        id: actionUiVisibility
+        text: qsTr("Toggle UI visibility")
+        checkable: true
+        checked: true
+        shortcut: StandardKey.Replace
+    }
+    menuBar: C.MenuBar {
+        visible: actionUiVisibility.checked
+        C.Menu {
+            title: qsTr("&File")
+            C.Action {
+                text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
+                shortcut: StandardKey.Open
+                onTriggered: sceneOpenDialog.replaceScene()
+                icon.name: "tab-new-symbolic"
+            }
+            C.Action {
+                text: qsTr("Open in &new tab (%1)").arg(app.keySequenceToString(shortcut))
+                shortcut: StandardKey.AddTab
+                onTriggered: sceneOpenDialog.appendScene()
+                icon.name: "application-add-symbolic"
+            }
+            C.Action {
+                text: qsTr("Close &all tabs")
+                enabled: tabListModel.count > 0
+                onTriggered: tabListModel.clear()
+                icon.name: "list-remove-all-symbolic"
+            }
+            C.Action {
+                text: qsTr("&Close")
+                enabled: tabListModel.count > 0
+                onTriggered: removeCurrentTab()
+                icon.name: "list-remove-symbolic"
+            }
+            C.MenuSeparator {}
+            C.Action {
+                text: qsTr("&Exit (%1)").arg(app.keySequenceToString(shortcut))
+                shortcut: StandardKey.Cancel
+                onTriggered: root.close()
+                icon.name: "window-close-symbolic"
+            }
+        }
+        C.Menu {
+            title: qsTr("&View")
+            C.Action {
+                text: qsTr("Next tab (%1)").arg(app.keySequenceToString(shortcut))
+                shortcut: StandardKey.NextChild
+                enabled: tabBar.count !== 0
+                onTriggered: {
+                    if (tabBar.currentIndex + 1 === tabBar.count) {
+                        tabBar.setCurrentIndex(0)
+                    } else {
+                        tabBar.incrementCurrentIndex()
+                    }
+                }
+                icon.name: "go-next-symbolic"
+            }
+            C.Action {
+                text: qsTr("Previous tab (%1)").arg(app.keySequenceToString(shortcut))
+                shortcut: StandardKey.PreviousChild
+                enabled: tabBar.count !== 0
+                onTriggered: {
+                    if (tabBar.currentIndex === 0) {
+                        tabBar.setCurrentIndex(tabBar.count - 1)
+                    } else {
+                        tabBar.decrementCurrentIndex()
+                    }
+                }
+                icon.name: "go-previous-symbolic"
+            }
+        }
+        C.Menu {
+            title: qsTr("&Mode")
+            C.Action {
+                id: actionTraceSahKdTree
+                text: qsTr("Trace/Rasterize (%1)").arg(app.keySequenceToString(shortcut))
+                checkable: true
+                shortcut: "F2"
+            }
+            C.Action {
+                id: actionUseOffscreenTexture
+                text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
+                checkable: true
+                checked: true
+                shortcut: "F4"
+            }
+            C.Action {
+                id: actionDiscardInvisible
+                text: qsTr("Discard")
+                checkable: true
+            }
+            C.MenuSeparator {}
+            C.ActionGroup {
+                id: texturingModeActionGroup
+                Component.onCompleted: {
+                    actions[settings.texturingModeIndex].checked = true
+                }
+                Component.onDestruction: {
+                    for (let i in actions) {
+                        if (actions[i].checked) {
+                            settings.texturingModeIndex = i
+                            break
+                        }
+                    }
+                }
+            }
+            C.Action {
+                id: actionBarycentricColor
+                text: qsTr("Barycentric")
+                checkable: true
+                C.ActionGroup.group: texturingModeActionGroup
+            }
+            C.Action {
+                id: actionWireFrame
+                text: qsTr("Wireframe")
+                checkable: true
+                C.ActionGroup.group: texturingModeActionGroup
+            }
+        }
+        C.Menu {
+            title: qsTr("&Tools")
+            C.Action {
+                id: actionShowTaskQueueDialog
+                text: qsTr("Show task queue info")
+                onTriggered: taskManager.open()
+                icon.name: "view-list-symbolic"
+            }
+        }
+        C.Menu {
+            title: qsTr("&Help")
+            C.Action {
+                text: qsTr("About Qt")
+                enabled: app.showAboutQt !== undefined
+                onTriggered: Qt.callLater(app.showAboutQt)
+                icon.source: app.getQtLogoUrl()
+                shortcut: StandardKey.HelpContents
+            }
+        }
     }
     FastFileOpenDialog {
         id: sceneOpenDialog
@@ -68,192 +246,6 @@ C.ApplicationWindow {
             }
         }
     }
-    function removeCurrentTab() {
-        let currentIndex = tabBar.currentIndex
-        if (currentIndex < 0) {
-            return
-        }
-        tabListModel.remove(currentIndex)
-    }
-    C.Action {
-        id: actionOpenScene
-        text: qsTr("&Open (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.Open
-        onTriggered: sceneOpenDialog.replaceScene()
-        icon.name: "tab-new-symbolic"
-    }
-    C.Action {
-        id: actionReplaceScene
-        text: qsTr("Open in &new tab (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.AddTab
-        onTriggered: sceneOpenDialog.appendScene()
-        icon.name: "application-add-symbolic"
-    }
-    C.Action {
-        id: actionCloseAllTabs
-        text: qsTr("Close &all tabs")
-        enabled: tabListModel.count > 0
-        onTriggered: tabListModel.clear()
-        icon.name: "list-remove-all-symbolic"
-    }
-    C.Action {
-        id: actionCloseScene
-        text: qsTr("&Close")
-        enabled: tabListModel.count > 0
-        onTriggered: removeCurrentTab()
-        icon.name: "list-remove-symbolic"
-    }
-    C.Action {
-        id: actionExit
-        text: qsTr("&Exit (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.Cancel
-        onTriggered: root.close()
-        icon.name: "window-close-symbolic"
-    }
-    C.Action {
-        id: actionNextTab
-        text: qsTr("Next tab (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.NextChild
-        enabled: tabBar.count !== 0
-        onTriggered: {
-            if (tabBar.currentIndex + 1 === tabBar.count) {
-                tabBar.setCurrentIndex(0)
-            } else {
-                tabBar.incrementCurrentIndex()
-            }
-        }
-        icon.name: "go-next-symbolic"
-    }
-    C.Action {
-        id: actionPreviosTab
-        text: qsTr("Previous tab (%1)").arg(app.keySequenceToString(shortcut))
-        shortcut: StandardKey.PreviousChild
-        enabled: tabBar.count !== 0
-        onTriggered: {
-            if (tabBar.currentIndex === 0) {
-                tabBar.setCurrentIndex(tabBar.count - 1)
-            } else {
-                tabBar.decrementCurrentIndex()
-            }
-        }
-        icon.name: "go-previous-symbolic"
-    }
-    C.Action {
-        id: actionUiVisibility
-        text: qsTr("Toggle UI visibility")
-        checkable: true
-        checked: true
-        shortcut: StandardKey.Replace
-    }
-    C.Action {
-        id: actionUseOffscreenTexture
-        text: qsTr("Offscreen (%1)").arg(app.keySequenceToString(shortcut))
-        checkable: true
-        checked: true
-        shortcut: "F4"
-    }
-    C.Action {
-        id: actionDiscardInvisible
-        text: qsTr("Discard")
-        checkable: true
-    }
-    C.Action {
-        id: actionTraceSahKdTree
-        text: qsTr("Trace/Rasterize (%1)").arg(app.keySequenceToString(shortcut))
-        checkable: true
-        shortcut: "F2"
-    }
-    C.ActionGroup {
-        id: texturingModeActionGroup
-        C.Action {
-            id: actionBarycentricColor
-            text: qsTr("Barycentric")
-            checkable: true
-        }
-        C.Action {
-            id: actionWireFrame
-            text: qsTr("Wireframe")
-            checkable: true
-        }
-        Component.onCompleted: {
-            texturingModeActionGroup.actions[settings.texturingModeIndex].checked = true
-        }
-        Component.onDestruction: {
-            for (let i in texturingModeActionGroup.actions) {
-                if (texturingModeActionGroup.actions[i].checked) {
-                    settings.texturingModeIndex = i
-                    break
-                }
-            }
-        }
-    }
-    C.Action {
-        id: actionShowAboutQt
-        text: qsTr("About Qt")
-        enabled: app.showAboutQt !== undefined
-        onTriggered: Qt.callLater(app.showAboutQt)
-        icon.source: app.getQtLogoUrl()
-        shortcut: StandardKey.HelpContents
-    }
-    C.Action {
-        id: actionShowTaskQueueDialog
-        text: qsTr("Show task queue info")
-        onTriggered: taskManager.open()
-        icon.name: "view-list-symbolic"
-    }
-    menuBar: C.MenuBar {
-        visible: actionUiVisibility.checked
-        C.Menu {
-            title: qsTr("&File")
-            C.MenuItem {
-                action: actionOpenScene
-            }
-            C.MenuItem {
-                action: actionReplaceScene
-            }
-            C.MenuItem {
-                action: actionCloseAllTabs
-            }
-            C.MenuItem {
-                action: actionCloseScene
-            }
-            C.MenuSeparator {}
-            C.MenuItem {
-                action: actionExit
-            }
-        }
-        C.Menu {
-            title: qsTr("&Navigation")
-            C.MenuItem {
-                action: actionNextTab
-            }
-            C.MenuItem {
-                action: actionPreviosTab
-            }
-        }
-        C.Menu {
-            title: qsTr("&Mode")
-            C.MenuItem {
-                action: actionUseOffscreenTexture
-            }
-            C.MenuItem {
-                action: actionDiscardInvisible
-            }
-            C.MenuSeparator {}
-            C.MenuItem {
-                action: actionBarycentricColor
-            }
-            C.MenuItem {
-                action: actionWireFrame
-            }
-        }
-        C.Menu {
-            title: qsTr("&Help")
-            C.MenuItem {
-                action: actionShowAboutQt
-            }
-        }
-    }
     ListModel {
         id: tabListModel
         Component.onCompleted: {
@@ -268,7 +260,6 @@ C.ApplicationWindow {
             for (let i = 0; i < count; ++i)
                 items.push(get(i))
             settings.tabModel = JSON.stringify(items)
-            //console.log("JSON model:", settings.tabModel)
         }
     }
     header: C.TabBar {
@@ -289,7 +280,7 @@ C.ApplicationWindow {
                     .arg(Qt.color(palette.link))
                 }
                 C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                C.ToolTip.timeout: toolTipTimeout
+                C.ToolTip.timeout: settings.toolTipTimeout
             }
         }
         Component.onCompleted: Qt.callLater(setCurrentIndex, settings.currentTabIndex)
@@ -301,14 +292,14 @@ C.ApplicationWindow {
     TaskManager {
         id: taskManager
         taskQueue: taskQueue
-        toolTipTimeout: toolTipTimeout
+        toolTipTimeout: settings.toolTipTimeout
     }
     footer: C.ToolBar {
         visible: actionUiVisibility.checked
         contentItem: Flow {
             Item {
-                implicitWidth: taskQueueFrame.width
-                implicitHeight: taskQueueFrame.height
+                implicitWidth: taskQueueFrame.implicitWidth
+                implicitHeight: taskQueueFrame.implicitHeight
                 C.Frame {
                     id: taskQueueFrame
                     RowLayout {
@@ -359,102 +350,14 @@ C.ApplicationWindow {
                         }
                     }
                 }
-                C.Action {
-                    id: actionResetContentOrientation
-                    text: qsTr("Reset view orientation")
-                    icon.name: "zoom-original-symbolic"
-                    onTriggered: {
-                        actionContentVisibility.checked = true
-                        actionLayerEnabled.checked = false
-                        rotationSlider.value = 0
-                        scaleSlider.value = 1
-                        opacitySlider.value = 1
-                    }
-                }
-                C.Action {
-                    id: actionContentVisibility
-                    text: qsTr("Toggle content visibility")
-                    checkable: true
-                    checked: true
-                }
-                C.Action {
-                    id: actionLayerEnabled
-                    text: qsTr("Layer enable/disable")
-                    checkable: true
-                    icon.name: "image-crop-symbolic"
-                }
-                C.Action {
-                    id: actionRotatePos
-                    text: qsTr("Rotate content CCW")
-                    icon.name: "object-rotate-left-symbolic"
-                    onTriggered: rotationSlider.decrease()
-                }
-                C.Action {
-                    id: actionRotateNeg
-                    text: qsTr("Rotate content CW")
-                    icon.name: "object-rotate-right-symbolic"
-                    onTriggered: rotationSlider.increase()
-                }
-                C.Action {
-                    id: actionScaleDec
-                    text: qsTr("Decrease content scale")
-                    icon.name: "zoom-out-symbolic"
-                    onTriggered: scaleSlider.decrease()
-                }
-                C.Action {
-                    id: actionScaleInc
-                    text: qsTr("Increase content scale")
-                    icon.name: "zoom-in-symbolic"
-                    onTriggered: scaleSlider.increase()
-                }
-                C.Action {
-                    id: actionOpacityDec
-                    text: qsTr("Decrease content opacity")
-                    icon.name: "path-combine-symbolic"
-                    onTriggered: opacitySlider.decrease()
-                }
-                C.Action {
-                    id: actionOpacityInc
-                    text: qsTr("Increase content opacity")
-                    icon.name: "path-difference-symbolic"
-                    onTriggered: opacitySlider.increase()
-                }
-                C.Action {
-                    id: actionSaveSceneScreenshot
-                    text: qsTr("Screenshot")
-                    onTriggered: viewer.grabToImage(result => app.setClipboardImage(result.image))
-                    icon.name: "edit-copy-symbolic"
-                }
-                C.Action {
-                    id: actionSelectClearColor
-                    text: qsTr("Select clearColor")
-                    onTriggered: clearColorDialog.open()
-                    icon.name: "color-select-symbolic"
-                }
-                C.Action {
-                    id: actionChangeTreeBuildParams
-                    text: qsTr("Change SAH kd-tree build parameters")
-                    onTriggered: treeParametersDialog.open()
-                    icon.name: "open-menu-symbolic"
-                }
-                C.Action {
-                    id: actionChangeCameraViewParams
-                    text: qsTr("Change camera view parameters")
-                    onTriggered: {
-                        if (cameraViewParametersDrawer.visible) {
-                            cameraViewParametersDrawer.close()
-                        } else {
-                            cameraViewParametersDrawer.open()
-                        }
-                    }
-                    icon.name: "open-menu-symbolic"
-                }
                 C.Menu {
                     id: contextMenu
                     title: "Context menu"
                     parent: C.Overlay.overlay
-                    C.MenuItem {
-                        action: actionSaveSceneScreenshot
+                    C.Action {
+                        text: qsTr("Screenshot")
+                        onTriggered: viewer.grabToImage(result => app.setClipboardImage(result.image))
+                        icon.name: "edit-copy-symbolic"
                     }
                     C.MenuSeparator {}
                     C.MenuItem {
@@ -474,17 +377,35 @@ C.ApplicationWindow {
                         action: actionWireFrame
                     }
                     C.MenuSeparator {}
-                    C.MenuItem {
-                        action: actionSelectClearColor
+                    C.Action {
+                        id: actionContentSettings
+                        text: qsTr("Content settings")
+                        onTriggered: contentSettingsDrawer.open()
+                        icon.name: "open-menu-symbolic"
                     }
-                    C.MenuItem {
-                        action: actionChangeTreeBuildParams
+                    C.Action {
+                        id: actionChangeSahKdTreeSettings
+                        text: qsTr("SAH kd-tree build settings")
+                        onTriggered: treeSettingsDrawer.open()
+                        icon.name: "open-menu-symbolic"
                     }
-                    C.MenuItem {
-                        action: actionChangeCameraViewParams
+                    C.Action {
+                        id: actionChangeCameraControllerSettings
+                        text: qsTr("Camera controller settings")
+                        onTriggered: cameraControllerSettingsDrawer.open()
+                        icon.name: "open-menu-symbolic"
                     }
-                    C.MenuItem {
-                        action: actionShowTaskQueueDialog
+                    C.Action {
+                        id: actionChangeCameraViewSettings
+                        text: qsTr("Camera view settings")
+                        onTriggered: cameraViewSettingsDrawer.open()
+                        icon.name: "open-menu-symbolic"
+                    }
+                    C.Action {
+                        id: actionSelectClearColor
+                        text: qsTr("Select clearColor")
+                        onTriggered: clearColorDialog.open()
+                        icon.name: "color-select-symbolic"
                     }
                     C.MenuSeparator {}
                     C.MenuItem {
@@ -514,8 +435,8 @@ C.ApplicationWindow {
                                 C.ToolButton {
                                     text: qsTr("Reset cam")
                                     action: C.Action {
-                                        id: actionResetCameraViewParameters
-                                        text: qsTr("Reset camera view parameters")
+                                        id: actionResetCameraViewSettings
+                                        text: qsTr("Reset camera view settings")
                                         onTriggered: {
                                             viewer.cameraView.orientation = undefined
                                             viewer.cameraView.position = undefined
@@ -525,7 +446,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Reset camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -536,7 +457,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Align camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                 }
                                 C.ToolSeparator {
                                     Layout.fillHeight: true
@@ -547,156 +468,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: qsTr("Reflect camera view")
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                            }
-                        }
-                        C.Frame {
-                            RowLayout {
-                                C.ToolButton {
-                                    text: qsTr("Reset item")
-                                    action: actionResetContentOrientation
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                                C.Switch {
-                                    text: qsTr("Show/Hide")
-                                    action: actionContentVisibility
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                                C.Switch {
-                                    text: qsTr("Layer")
-                                    action: actionLayerEnabled
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                            }
-                        }
-                        C.Frame {
-                            RowLayout {
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionRotatePos
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                                C.Slider {
-                                    id: rotationSlider
-                                    from: -180
-                                    value: 0
-                                    to: 180
-                                    stepSize: 5
-                                    snapMode: C.Slider.SnapAlways
-                                    C.ToolTip.visible: pressed || hovered
-                                    C.ToolTip.text: value
-                                    WheelHandler {
-                                        onWheel: wheel => {
-                                            if (wheel.angleDelta.y < 0) {
-                                                rotationSlider.decrease()
-                                            } else {
-                                                rotationSlider.increase()
-                                            }
-                                        }
-                                    }
-                                }
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionRotateNeg
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                            }
-                        }
-                        C.Frame {
-                            RowLayout {
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionScaleDec
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                                C.Slider {
-                                    id: scaleSlider
-                                    from: 0.125
-                                    value: 1
-                                    to: 1.25
-                                    stepSize: 0.125
-                                    C.ToolTip.visible: pressed || hovered
-                                    C.ToolTip.text: value
-                                    WheelHandler {
-                                        onWheel: wheel => {
-                                            if (wheel.angleDelta.y < 0) {
-                                                scaleSlider.decrease()
-                                            } else {
-                                                scaleSlider.increase()
-                                            }
-                                        }
-                                    }
-                                }
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionScaleInc
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                            }
-                        }
-                        C.Frame {
-                            RowLayout {
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionOpacityDec
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                                C.Slider {
-                                    id: opacitySlider
-                                    from: 0.0
-                                    value: 1.0
-                                    to: 1.0
-                                    stepSize: 0.0625
-                                    C.ToolTip.visible: pressed || hovered
-                                    C.ToolTip.text: value
-                                    WheelHandler {
-                                        onWheel: wheel => {
-                                            if (wheel.angleDelta.y < 0) {
-                                                opacitySlider.decrease()
-                                            } else {
-                                                opacitySlider.increase()
-                                            }
-                                        }
-                                    }
-                                }
-                                C.ToolButton {
-                                    text: qsTr("")
-                                    action: actionOpacityInc
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: action.text
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                 }
                             }
                         }
@@ -736,7 +508,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: hovered
                                     C.ToolTip.text: currentText
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                     model: ListModel {
                                         Component.onCompleted: {
                                             let colorNames = app.colorNames
@@ -779,7 +551,7 @@ C.ApplicationWindow {
                                         C.ToolTip.visible: hovered
                                         C.ToolTip.text: colorRect.color
                                         C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
+                                        C.ToolTip.timeout: settings.toolTipTimeout
                                     }
                                 }
                                 Rectangle {
@@ -800,7 +572,7 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: colorSquareHoverHandler.hovered && clearColorComboBox.currentValue !== undefined
                                     C.ToolTip.text: clearColorComboBox.currentValue
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                 }
                             }
                         }
@@ -819,33 +591,82 @@ C.ApplicationWindow {
                                     C.ToolTip.visible: modeTextHoverHandler.hovered
                                     C.ToolTip.text: viewer.getRenderModeDescription(true)
                                     C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
+                                    C.ToolTip.timeout: settings.toolTipTimeout
                                 }
                             }
                         }
                         C.Frame {
-                            RowLayout {
-                                CenteredText {
-                                    text: qsTr("sens: %1").arg(viewer.cameraController.sensitivity.toFixed(4))
+                            Item {
+                                implicitWidth: sahKdTreeRow.implicitWidth
+                                implicitHeight: sahKdTreeRow.implicitHeight
+                                RowLayout {
+                                    id: sahKdTreeRow
+                                    CenteredText {
+                                        text: qsTr("SAH kd-tree")
+                                    }
                                 }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
-                                }
-                                CenteredText {
-                                    text: qsTr("speed: %1").arg(viewer.cameraController.speed.toExponential(3))
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    onClicked: actionChangeSahKdTreeSettings.trigger()
                                 }
                             }
                         }
                         C.Frame {
-                            RowLayout {
-                                CenteredText {
-                                    text: qsTr("rot: %1").arg(content.rotation.toFixed(0))
+                            Item {
+                                implicitWidth: cameraControllerSettingsRow.implicitWidth
+                                implicitHeight: cameraControllerSettingsRow.implicitHeight
+                                RowLayout {
+                                    id: cameraControllerSettingsRow
+                                    CenteredText {
+                                        text: qsTr("sens: %1").arg(viewer.cameraController.sensitivity.toFixed(4))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("speed: %1").arg(viewer.cameraController.speed.toExponential(3))
+                                    }
                                 }
-                                C.ToolSeparator {
-                                    Layout.fillHeight: true
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    onClicked: actionChangeCameraControllerSettings.trigger()
                                 }
-                                CenteredText {
-                                    text: qsTr("scale: %1").arg(content.scale.toFixed(3))
+                            }
+                        }
+                        C.Frame {
+                            Item {
+                                implicitWidth: contentInfoRow.implicitWidth
+                                implicitHeight: contentInfoRow.implicitHeight
+                                RowLayout {
+                                    id: contentInfoRow
+                                    CenteredText {
+                                        text: qsTr("rot: %1").arg(content.rotation.toFixed(0))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("scale: %1").arg(content.scale.toFixed(3))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("opacity: %1").arg(content.opacity.toFixed(3))
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("layer: %1").arg(layer.enabled ? "enabled" : "disabled")
+                                    }
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton
+                                    onClicked: actionContentSettings.trigger()
                                 }
                             }
                         }
@@ -870,7 +691,7 @@ C.ApplicationWindow {
                                 }
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: clearColorDialog.open()
+                                    onClicked: actionSelectClearColor.trigger()
                                 }
                                 HoverHandler {
                                     id: clearColorHoveredHandler
@@ -883,15 +704,15 @@ C.ApplicationWindow {
                                     .arg(clearColorComboBox.currentText)
                                 }
                                 C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                C.ToolTip.timeout: toolTipTimeout
+                                C.ToolTip.timeout: settings.toolTipTimeout
                             }
                         }
                         C.Frame {
                             Item {
-                                implicitWidth: cameraViewParametersRow.implicitWidth
-                                implicitHeight: cameraViewParametersRow.implicitHeight
+                                implicitWidth: cameraViewSettingsRow.implicitWidth
+                                implicitHeight: cameraViewSettingsRow.implicitHeight
                                 RowLayout {
-                                    id: cameraViewParametersRow
+                                    id: cameraViewSettingsRow
                                     CenteredText {
                                         readonly property vector3d position: viewer.cameraView.position
                                         text: qsTr("xyz: %1 %2 %3").arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
@@ -913,7 +734,7 @@ C.ApplicationWindow {
                                 MouseArea {
                                     anchors.fill: parent
                                     acceptedButtons: Qt.LeftButton
-                                    onClicked: actionChangeCameraViewParams.trigger()
+                                    onClicked: actionChangeCameraViewSettings.trigger()
                                 }
                             }
                         }
@@ -932,34 +753,11 @@ C.ApplicationWindow {
                     layer.enabled: actionLayerEnabled.checked
                     layer.live: true
                     focus: true
-                    Keys.onPressed: event => {
-                        switch (event.key) {
-                            case Qt.Key_0:
-                            case Qt.Key_1:
-                            case Qt.Key_2:
-                            case Qt.Key_3:
-                            case Qt.Key_4:
-                            case Qt.Key_5:
-                            case Qt.Key_6:
-                            case Qt.Key_7:
-                            case Qt.Key_8:
-                            case Qt.Key_9: {
-                                if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
-                                    viewerSettings.saveCameraView(event.key)
-                                    event.accepted = true
-                                } else if (event.modifiers === 0) {
-                                    viewerSettings.loadCameraView(event.key, true)
-                                    event.accepted = true
-                                }
-                                break
-                            }
-                        }
-                    }
                     Dialogs.MessageDialog {
                         id: buildFailMessageBox
                         text: qsTr("Failed to build SAH kd-tree")
                         informativeText: sceneSettings.treeStatus
-                        detailedText: qsTr("Try to change SAH kd-tree build parameters")
+                        detailedText: qsTr("Try to change SAH kd-tree build settings")
                         buttons: Dialogs.MessageDialog.Ok
                         Connections {
                             target: sceneSettings
@@ -1021,70 +819,6 @@ C.ApplicationWindow {
                             id: sceneSettings
                             url: fileUrl
                         }
-                        CenteredDialog {
-                            id: treeParametersDialog
-                            title: qsTr("Tree parameters")
-                            standardButtons: C.Dialog.Apply | C.Dialog.Discard
-                            contentItem: C.Frame {
-                                GridLayout {
-                                    columns: 2
-                                    CenteredText {
-                                        text: "emptinessFactor"
-                                    }
-                                    NumberSpinBox {
-                                        id: emptinessFactorSpinBox
-                                        editable: true
-                                        decimals: 2
-                                        from: decimalToInt(0)
-                                        to: decimalToInt(1)
-                                    }
-                                    CenteredText {
-                                        text: "traversalCost"
-                                    }
-                                    NumberSpinBox {
-                                        id: traversalCostSpinBox
-                                        editable: true
-                                        decimals: 2
-                                        from: decimalToInt(0)
-                                        to: decimalToInt(10)
-                                    }
-                                    CenteredText {
-                                        text: "intersectionCost"
-                                    }
-                                    NumberSpinBox {
-                                        id: intersectionCostSpinBox
-                                        editable: true
-                                        decimals: 2
-                                        from: decimalToInt(0)
-                                        to: decimalToInt(10)
-                                    }
-                                    CenteredText {
-                                        text: "maxDepth"
-                                    }
-                                    WheelSpinBox {
-                                        id: maxDepthSpinBox
-                                        editable: true
-                                        from: 1
-                                        to: 1000
-                                    }
-                                }
-                            }
-                            onOpened: {
-                                emptinessFactorSpinBox.updateValue(sceneSettings.emptinessFactor)
-                                traversalCostSpinBox.updateValue(sceneSettings.traversalCost)
-                                intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
-                                maxDepthSpinBox.value = sceneSettings.maxDepth
-                            }
-                            onApplied: {
-                                sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
-                                sceneSettings.traversalCost = traversalCostSpinBox.realValue
-                                sceneSettings.intersectionCost = intersectionCostSpinBox.realValue
-                                sceneSettings.maxDepth = maxDepthSpinBox.value
-                            }
-                            onDiscarded: {
-                                close()
-                            }
-                        }
                         renderer {
                             renderMode: {
                                 let value = 0
@@ -1112,7 +846,8 @@ C.ApplicationWindow {
                             clearColor: clearColorDialog.selectedColor
                         }
                         cameraController {
-                            speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / 10.0  // 10 seconds to cross AABB
+                            sensitivity: sensetivitySpinBox.realValue
+                            speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / crossSceneAabbTimeSpinBox.value
                         }
                         cameraView {
                             Behavior on position {
@@ -1135,36 +870,391 @@ C.ApplicationWindow {
                             }
                         }
                     }
+                    Keys.onPressed: event => {
+                        switch (event.key) {
+                            case Qt.Key_0:
+                            case Qt.Key_1:
+                            case Qt.Key_2:
+                            case Qt.Key_3:
+                            case Qt.Key_4:
+                            case Qt.Key_5:
+                            case Qt.Key_6:
+                            case Qt.Key_7:
+                            case Qt.Key_8:
+                            case Qt.Key_9: {
+                                if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
+                                    viewerSettings.saveCameraView(event.key)
+                                    event.accepted = true
+                                } else if (event.modifiers === 0) {
+                                    viewerSettings.loadCameraView(event.key, true)
+                                    event.accepted = true
+                                }
+                                break
+                            }
+                        }
+                    }
                     C.Drawer {
-                        id: cameraViewParametersDrawer
+                        id: cameraControllerSettingsDrawer
                         dragMargin: 0
                         modal: false
+                        y: content.height - height
+                        parent: content
+                        contentItem: C.Page {
+                            header: CenteredText {
+                                text: qsTr("Camera controller settings")
+                            }
+                            footer: C.DialogButtonBox {
+                                standardButtons: C.Dialog.Close
+                                onRejected: {
+                                    cameraControllerSettingsDrawer.close()
+                                }
+                            }
+                            contentItem: GridLayout {
+                                columns: 2
+                                CenteredText {
+                                    text: "sensitivity"
+                                }
+                                NumberSpinBox {
+                                    id: sensetivitySpinBox
+                                    editable: true
+                                    decimals: 4
+                                    value: decimalToInt(0.0012)
+                                    from: decimalToInt(0.0004)
+                                    to: decimalToInt(0.0024)
+                                }
+                                CenteredText {
+                                    text: "crossSceneAabbTime"
+                                }
+                                WheelSpinBox {
+                                    id: crossSceneAabbTimeSpinBox
+                                    editable: true
+                                    value: 10
+                                    from: 1
+                                    to: 60
+                                }
+                            }
+                        }
+                    }
+                    C.Drawer {
+                        id: treeSettingsDrawer
+                        dragMargin: 0
+                        modal: false
+                        y: content.height - height
+                        parent: content
+                        onOpened: {
+                            emptinessFactorSpinBox.updateValue(sceneSettings.emptinessFactor)
+                            traversalCostSpinBox.updateValue(sceneSettings.traversalCost)
+                            intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
+                            maxDepthSpinBox.value = sceneSettings.maxDepth
+                        }
+                        contentItem: C.Page {
+                            header: CenteredText {
+                                text: qsTr("Tree settings")
+                            }
+                            footer: C.DialogButtonBox {
+                                standardButtons: C.Dialog.Apply | C.Dialog.Discard
+                                onApplied: {
+                                    sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
+                                    sceneSettings.traversalCost = traversalCostSpinBox.realValue
+                                    sceneSettings.intersectionCost = intersectionCostSpinBox.realValue
+                                    sceneSettings.maxDepth = maxDepthSpinBox.value
+                                }
+                                onDiscarded: {
+                                    treeSettingsDrawer.close()
+                                }
+                            }
+                            contentItem: GridLayout {
+                                columns: 2
+                                CenteredText {
+                                    text: "emptinessFactor"
+                                }
+                                NumberSpinBox {
+                                    id: emptinessFactorSpinBox
+                                    editable: true
+                                    decimals: 2
+                                    from: decimalToInt(0)
+                                    to: decimalToInt(1)
+                                }
+                                CenteredText {
+                                    text: "traversalCost"
+                                }
+                                NumberSpinBox {
+                                    id: traversalCostSpinBox
+                                    editable: true
+                                    decimals: 2
+                                    from: decimalToInt(0)
+                                    to: decimalToInt(10)
+                                }
+                                CenteredText {
+                                    text: "intersectionCost"
+                                }
+                                NumberSpinBox {
+                                    id: intersectionCostSpinBox
+                                    editable: true
+                                    decimals: 2
+                                    from: decimalToInt(0)
+                                    to: decimalToInt(10)
+                                }
+                                CenteredText {
+                                    text: "maxDepth"
+                                }
+                                WheelSpinBox {
+                                    id: maxDepthSpinBox
+                                    editable: true
+                                    from: 1
+                                    to: 1000
+                                }
+                            }
+                        }
+                    }
+                    C.Drawer {
+                        id: contentSettingsDrawer
+                        dragMargin: 0
+                        modal: false
+                        y: content.height - height
+                        parent: content
+                        contentItem: C.Page {
+                            header: CenteredText {
+                                text: qsTr("SAH kd-tree settings")
+                            }
+                            footer: C.DialogButtonBox {
+                                standardButtons: C.DialogButtonBox.Close
+                                onRejected: {
+                                    contentSettingsDrawer.close()
+                                }
+                            }
+                            contentItem: ColumnLayout {
+                                C.Frame {
+                                    RowLayout {
+                                        C.ToolButton {
+                                            action: C.Action {
+                                                text: qsTr("Reset content")
+                                                icon.name: "zoom-original-symbolic"
+                                                onTriggered: {
+                                                    actionContentVisibility.checked = true
+                                                    actionLayerEnabled.checked = false
+                                                    rotationSlider.value = 0
+                                                    scaleSlider.value = 1
+                                                    opacitySlider.value = 1
+                                                }
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.ToolSeparator {
+                                            Layout.fillHeight: true
+                                        }
+                                        C.Switch {
+                                            text: qsTr("Show/Hide")
+                                            action: C.Action {
+                                                id: actionContentVisibility
+                                                text: qsTr("Toggle content visibility")
+                                                checkable: true
+                                                checked: true
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.ToolSeparator {
+                                            Layout.fillHeight: true
+                                        }
+                                        C.Switch {
+                                            text: qsTr("Layer")
+                                            action: C.Action {
+                                                id: actionLayerEnabled
+                                                text: qsTr("Layer enable/disable")
+                                                checkable: true
+                                                icon.name: "image-crop-symbolic"
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                    }
+                                }
+                                C.Frame {
+                                    RowLayout {
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Rotate content CCW")
+                                                icon.name: "object-rotate-left-symbolic"
+                                                onTriggered: rotationSlider.decrease()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.Slider {
+                                            id: rotationSlider
+                                            from: -180
+                                            value: 0
+                                            to: 180
+                                            stepSize: 5
+                                            snapMode: C.Slider.SnapAlways
+                                            C.ToolTip.visible: pressed || hovered
+                                            C.ToolTip.text: value
+                                            WheelHandler {
+                                                onWheel: wheel => {
+                                                    if (wheel.angleDelta.y < 0) {
+                                                        rotationSlider.decrease()
+                                                    } else {
+                                                        rotationSlider.increase()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Rotate content CW")
+                                                icon.name: "object-rotate-right-symbolic"
+                                                onTriggered: rotationSlider.increase()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                    }
+                                }
+                                C.Frame {
+                                    RowLayout {
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Decrease content scale")
+                                                icon.name: "zoom-out-symbolic"
+                                                onTriggered: scaleSlider.decrease()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.Slider {
+                                            id: scaleSlider
+                                            from: 0.125
+                                            value: 1
+                                            to: 1.25
+                                            stepSize: 0.125
+                                            C.ToolTip.visible: pressed || hovered
+                                            C.ToolTip.text: value
+                                            WheelHandler {
+                                                onWheel: wheel => {
+                                                    if (wheel.angleDelta.y < 0) {
+                                                        scaleSlider.decrease()
+                                                    } else {
+                                                        scaleSlider.increase()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Increase content scale")
+                                                icon.name: "zoom-in-symbolic"
+                                                onTriggered: scaleSlider.increase()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                    }
+                                }
+                                C.Frame {
+                                    RowLayout {
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Decrease content opacity")
+                                                icon.name: "path-combine-symbolic"
+                                                onTriggered: opacitySlider.decrease()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.Slider {
+                                            id: opacitySlider
+                                            from: 0.0
+                                            value: 1.0
+                                            to: 1.0
+                                            stepSize: 0.0625
+                                            C.ToolTip.visible: pressed || hovered
+                                            C.ToolTip.text: value
+                                            WheelHandler {
+                                                onWheel: wheel => {
+                                                    if (wheel.angleDelta.y < 0) {
+                                                        opacitySlider.decrease()
+                                                    } else {
+                                                        opacitySlider.increase()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        C.ToolButton {
+                                            text: qsTr("")
+                                            action: C.Action {
+                                                text: qsTr("Increase content opacity")
+                                                icon.name: "path-difference-symbolic"
+                                                onTriggered: opacitySlider.increase()
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    C.Drawer {
+                        id: cameraViewSettingsDrawer
+                        dragMargin: 0
+                        modal: false
+                        y: content.height - height
                         parent: content
                         function updatePosition() {
-                            viewer.cameraView.position = Qt.vector3d(positionXSpinBox.realValue, positionYSpinBox.realValue, positionZSpinBox.realValue)
+                            let x = Number.fromLocaleString(root.locale, xTextField.text)
+                            let y = Number.fromLocaleString(root.locale, yTextField.text)
+                            let z = Number.fromLocaleString(root.locale, zTextField.text)
+                            viewer.cameraView.position = Qt.vector3d(x, y, z)
                         }
                         function updateOrientation() {
-                            viewer.cameraView.orientation = Quaternion.fromEulerAngles(orientationPitchSpinBox.realValue, orientationYawSpinBox.realValue, orientationRollSpinBox.realValue)
+                            let pitch = Number.fromLocaleString(root.locale, pitchTextField.text)
+                            let yaw = Number.fromLocaleString(root.locale, yawTextField.text)
+                            let roll = Number.fromLocaleString(root.locale, rollTextField.text)
+                            viewer.cameraView.orientation = Quaternion.fromEulerAngles(pitch, yaw, roll)
                         }
                         function updateFov() {
-                            viewer.cameraView.fov = fovSpinBox.value
+                            viewer.cameraView.setFov(fovSpinBox.value)
                         }
-                        function loadCameraViewParameters() {
+                        function loadCameraViewSettings() {
                             let position = viewer.cameraView.position
-                            positionXSpinBox.updateValue(position.x)
-                            positionYSpinBox.updateValue(position.y)
-                            positionZSpinBox.updateValue(position.z)
+                            xTextField.text = Number(position.x).toLocaleString(root.locale)
+                            yTextField.text = Number(position.y).toLocaleString(root.locale)
+                            zTextField.text = Number(position.z).toLocaleString(root.locale)
                             let orientation = viewer.cameraView.orientation.toEulerAngles()
-                            orientationPitchSpinBox.updateValue(orientation.x)
-                            orientationYawSpinBox.updateValue(orientation.y)
-                            orientationRollSpinBox.updateValue(orientation.z)
+                            pitchTextField.text = Number(orientation.x).toLocaleString(root.locale)
+                            yawTextField.text = Number(orientation.y).toLocaleString(root.locale)
+                            rollTextField.text = Number(orientation.z).toLocaleString(root.locale)
                             fovSpinBox.value = viewer.cameraView.fov
                         }
                         onOpened: {
-                            loadCameraViewParameters()
+                            loadCameraViewSettings()
                         }
                         contentItem: C.Page {
-                            id: cameraViewParametersPage
                             function getPositionDecimals(dim) {
                                 let size = sceneSettings.sceneAabbMax[dim] - sceneSettings.sceneAabbMin[dim]
                                 let precision = 5
@@ -1172,166 +1262,132 @@ C.ApplicationWindow {
                                 return Math.max(0, precision - scale)
                             }
                             header: CenteredText {
-                                text: qsTr("Camera view parameters")
+                                text: qsTr("Camera view settings")
+                            }
+                            footer: C.DialogButtonBox {
+                                standardButtons: C.DialogButtonBox.Apply | C.DialogButtonBox.Reset | C.DialogButtonBox.Close
+                                onApplied: {
+                                    cameraViewSettingsDrawer.updatePosition()
+                                    cameraViewSettingsDrawer.updateOrientation()
+                                    cameraViewSettingsDrawer.updateFov()
+                                }
+                                onReset: {
+                                    actionResetCameraViewSettings.trigger(cameraViewSettingsDrawer)
+                                    cameraViewSettingsDrawer.loadCameraViewSettings()
+                                }
+                                onRejected: {
+                                    cameraViewSettingsDrawer.close()
+                                }
                             }
                             contentItem: GridLayout {
-                                columns: 3
-                                C.CheckBox {
-                                    id: positionApplyCheckBox
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: qsTr("Apply position changes immediately")
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
+                                columns: 2
                                 CenteredText {
                                     text: "position"
                                 }
-                                RowLayout {
-                                    NumberSpinBox {
-                                        id: positionXSpinBox
-                                        editable: true
-                                        decimals: cameraViewParametersPage.getPositionDecimals("x")
-                                        from: decimalToInt(sceneSettings.sceneAabbMin.x)
-                                        to: decimalToInt(sceneSettings.sceneAabbMax.x)
-                                        onRealValueChanged: {
-                                            if (positionApplyCheckBox.checked) {
-                                                viewer.cameraView.position.x = positionXSpinBox.realValue
+                                C.Frame {
+                                    Layout.fillWidth: true
+                                    GridLayout {
+                                        anchors.fill: parent
+                                        columns: 3
+                                        CenteredText {
+                                            Layout.fillWidth: true
+                                            text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.x).arg(sceneSettings.sceneAabbMax.x)
+                                        }
+                                        CenteredText {
+                                            Layout.fillWidth: true
+                                            text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.y).arg(sceneSettings.sceneAabbMax.y)
+                                        }
+                                        CenteredText {
+                                            Layout.fillWidth: true
+                                            text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.z).arg(sceneSettings.sceneAabbMax.z)
+                                        }
+                                        C.TextField {
+                                            id: xTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: viewer.cameraView.position.x = Number.fromLocaleString(root.locale, text)
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.x).arg(sceneSettings.sceneAabbMax.x)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
-                                    }
-                                    NumberSpinBox {
-                                        id: positionYSpinBox
-                                        editable: true
-                                        decimals: cameraViewParametersPage.getPositionDecimals("y")
-                                        from: decimalToInt(sceneSettings.sceneAabbMin.y)
-                                        to: decimalToInt(sceneSettings.sceneAabbMax.y)
-                                        onRealValueChanged: {
-                                            if (positionApplyCheckBox.checked) {
-                                                viewer.cameraView.position.y = positionYSpinBox.realValue
+                                        C.TextField {
+                                            id: yTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: viewer.cameraView.position.y = Number.fromLocaleString(root.locale, text)
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.y).arg(sceneSettings.sceneAabbMax.y)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
-                                    }
-                                    NumberSpinBox {
-                                        id: positionZSpinBox
-                                        editable: true
-                                        decimals: cameraViewParametersPage.getPositionDecimals("z")
-                                        from: decimalToInt(sceneSettings.sceneAabbMin.z)
-                                        to: decimalToInt(sceneSettings.sceneAabbMax.z)
-                                        onRealValueChanged: {
-                                            if (positionApplyCheckBox.checked) {
-                                                viewer.cameraView.position.z = positionZSpinBox.realValue
+                                        C.TextField {
+                                            id: zTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: viewer.cameraView.position.z = Number.fromLocaleString(root.locale, text)
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(sceneSettings.sceneAabbMin.z).arg(sceneSettings.sceneAabbMax.z)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
                                     }
-                                }
-                                C.CheckBox {
-                                    id: orientaitonApplyCheckBox
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: qsTr("Apply orientation changes immediately")
-                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 CenteredText {
                                     text: "orientation"
                                 }
-                                RowLayout {
-                                    NumberSpinBox {
-                                        id: orientationPitchSpinBox
-                                        editable: true
-                                        decimals: 0
-                                        from: decimalToInt(-180)
-                                        to: decimalToInt(180)
-                                        onRealValueChanged: {
-                                            if (orientaitonApplyCheckBox.checked) {
-                                                cameraViewParametersDrawer.updateOrientation()
+                                C.Frame {
+                                    Layout.fillWidth: true
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        C.TextField {
+                                            id: pitchTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: cameraViewSettingsDrawer.updateOrientation()
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
+                                                bottom: -180
+                                                top: 180
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
-                                    }
-                                    NumberSpinBox {
-                                        id: orientationYawSpinBox
-                                        editable: true
-                                        decimals: 0
-                                        from: decimalToInt(-180)
-                                        to: decimalToInt(180)
-                                        onRealValueChanged: {
-                                            if (orientaitonApplyCheckBox.checked) {
-                                                cameraViewParametersDrawer.updateOrientation()
+                                        C.TextField {
+                                            id: yawTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: cameraViewSettingsDrawer.updateOrientation()
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
+                                                bottom: -180
+                                                top: 180
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
-                                    }
-                                    NumberSpinBox {
-                                        id: orientationRollSpinBox
-                                        editable: true
-                                        decimals: 0
-                                        from: decimalToInt(-180)
-                                        to: decimalToInt(180)
-                                        onRealValueChanged: {
-                                            if (orientaitonApplyCheckBox.checked) {
-                                                cameraViewParametersDrawer.updateOrientation()
+                                        C.TextField {
+                                            id: rollTextField
+                                            Layout.fillWidth: true
+                                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                            onAccepted: cameraViewSettingsDrawer.updateOrientation()
+                                            validator: DoubleValidator {
+                                                locale: root.locale.toString()
+                                                bottom: -180
+                                                top: 180
                                             }
                                         }
-                                        C.ToolTip.visible: hovered
-                                        C.ToolTip.text: qsTr("[%1, %2]").arg(decimalFactor * from).arg(decimalFactor * to)
-                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                        C.ToolTip.timeout: toolTipTimeout
                                     }
-                                }
-                                C.CheckBox {
-                                    id: fovApplyCheckBox
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: qsTr("Apply fov changes immediately")
-                                    C.ToolTip.timeout: toolTipTimeout
                                 }
                                 CenteredText {
                                     text: "fov"
                                 }
-                                WheelSpinBox {
-                                    id: fovSpinBox
-                                    editable: true
-                                    from: 5
-                                    to: 175
-                                    onValueChanged: {
-                                        if (fovApplyCheckBox.checked) {
-                                            viewer.cameraView.fov = fovSpinBox.value
-                                        }
+                                C.Frame {
+                                    WheelSpinBox {
+                                        id: fovSpinBox
+                                        anchors.fill: parent
+                                        editable: true
+                                        from: 5
+                                        to: 175
+                                        onValueChanged: cameraViewSettingsDrawer.updateFov()
+                                        C.ToolTip.visible: hovered
+                                        C.ToolTip.text: qsTr("[%1, %2]").arg(from).arg(to)
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: settings.toolTipTimeout
                                     }
-                                    C.ToolTip.visible: hovered
-                                    C.ToolTip.text: qsTr("[%1, %2]").arg(from).arg(to)
-                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                    C.ToolTip.timeout: toolTipTimeout
-                                }
-                            }
-                            footer: C.DialogButtonBox {
-                                standardButtons: C.DialogButtonBox.Apply | C.DialogButtonBox.Reset | C.DialogButtonBox.Close
-                                onReset: {
-                                    actionResetCameraViewParameters.trigger(cameraViewParametersDrawer)
-                                    cameraViewParametersDrawer.loadCameraViewParameters()
-                                }
-                                onApplied: {
-                                    cameraViewParametersDrawer.updatePosition()
-                                    cameraViewParametersDrawer.updateOrientation()
-                                    cameraViewParametersDrawer.updateFov()
-                                }
-                                onRejected: {
-                                    cameraViewParametersDrawer.close()
                                 }
                             }
                         }
@@ -1343,6 +1399,8 @@ C.ApplicationWindow {
                         property alias traversalCost: sceneSettings.traversalCost
                         property alias intersectionCost: sceneSettings.intersectionCost
                         property alias maxDepth: sceneSettings.maxDepth
+                        property alias sensitivity: sensetivitySpinBox.value
+                        property alias crossSceneAabbTime: crossSceneAabbTimeSpinBox.value
                         property color clearColor
                         function getKeyPrefix(key) {
                             return "cameraView/%1/".arg(key)
@@ -1371,12 +1429,12 @@ C.ApplicationWindow {
                             }
                         }
                         Component.onCompleted: {
-                            clearColorDialog.selectedColor = viewerSettings.clearColor
-                            clearColorComboBox.setIndexOfClosestColor(viewerSettings.clearColor)
+                            clearColorDialog.selectedColor = clearColor
+                            clearColorComboBox.setIndexOfClosestColor(clearColor)
                             loadCameraView(Qt.Key_0, false)
                         }
                         Component.onDestruction: {
-                            viewerSettings.clearColor = clearColorDialog.selectedColor
+                            clearColor = clearColorDialog.selectedColor
                             saveCameraView(Qt.Key_0)
                         }
                     }
@@ -1390,37 +1448,6 @@ C.ApplicationWindow {
                     property alias layerEnabled: actionLayerEnabled.checked
                 }
             }
-        }
-    }
-    Settings {
-        id: settings
-        property int rootVisibility: Window.AutomaticVisibility
-        property alias x: root.x
-        property alias y: root.y
-        property alias width: root.width
-        property alias height: root.height
-        property alias sceneOpenFolderUrl: sceneOpenDialog.folderUrl
-        property alias uiVisibility: actionUiVisibility.checked
-        property alias traceSahKdTree: actionTraceSahKdTree.checked
-        property alias useOffscreenTexture: actionUseOffscreenTexture.checked
-        property alias discardInvisible: actionDiscardInvisible.checked
-        property int texturingModeIndex: 0
-        property int currentTabIndex: -1
-        property string tabModel
-    }
-    Component.onCompleted: visibility = settings.rootVisibility
-    onClosing: settings.rootVisibility = visibility
-    Timer {
-        id: visibilityTimer
-        interval: 2000
-        repeat: false
-        onTriggered: {
-            root.show()
-        }
-    }
-    onVisibleChanged: {
-        if (!visible) {
-            visibilityTimer.start()
         }
     }
 }
