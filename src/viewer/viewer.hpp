@@ -247,6 +247,7 @@ private:
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
 
     QList<QSharedPointer<QFutureWatcher<int>>> tasks;
+    QSharedPointer<QFutureWatcherBase> treeFutureWatcher;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

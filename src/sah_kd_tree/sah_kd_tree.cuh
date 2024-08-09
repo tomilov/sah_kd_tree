@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include <cassert>
+#include <cstddef>
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
@@ -472,42 +473,4 @@ void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Pr
 #include <sah_kd_tree/update_polygon_node.inl>
 #include <sah_kd_tree/update_splitted_polygon_count.inl>
 #include <sah_kd_tree/update_splitted_polygon_node.inl>
-#else
-namespace sah_kd_tree
-{
-extern template auto Builder<>::operator()<>(const Cancel & cancel, const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z) -> std::optional<Tree<>>;
-extern template void Projection<>::calculateRootNodeBbox();
-extern template void Builder<>::calculateRope<0, false>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Builder<>::calculateRope<0, true>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Builder<>::calculateRope<1, false>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
-extern template void Builder<>::calculateRope<1, true>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
-extern template void Builder<>::calculateRope<2, false>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
-extern template void Builder<>::calculateRope<2, true>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
-extern template void Projection<>::calculateTriangleBbox();
-extern template bool Builder<>::checkTree(const Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Projection<>::decoupleEventBoth(const Vector<I> & nodeSplitDimension, const Vector<I> & polygonSide);
-extern template void Builder<>::determinePolygonSide<0>(const Projection<> & x);
-extern template void Builder<>::determinePolygonSide<1>(const Projection<> & y);
-extern template void Builder<>::determinePolygonSide<2>(const Projection<> & z);
-extern template void Builder<>::filterLayerNodeOffset();
-extern template void Projection<>::findPerfectSplit(const Params<> & sah, U layerSize, const Vector<U> & layerNodeOffset, const Vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
-extern template void Projection<>::generateInitialEvent();
-extern template void linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder);
-extern template void Projection<>::mergeEvent(U polygonCount, U splittedPolygonCount, const Vector<U> & polygonNode, const Vector<U> & splittedPolygon);
-extern template void Builder<>::populateLeafNodeTriangleRange();
-extern template void Builder<>::populateNodeParent();
-extern template void Builder<>::resizeNode();
-extern template void Builder<>::selectNodeBestSplit(const Params<> & sah, const Projection<> & x, const Projection<> & y, const Projection<> & z);
-extern template void Builder<>::separateSplittedPolygon();
-extern template void Builder<>::setNodeCount(Projection<> & x, Projection<> & y, Projection<> & z) const;
-extern template void Builder<>::splitNode<0>(U layerBasePrev, Projection<> & x) const;
-extern template void Builder<>::splitNode<1>(U layerBasePrev, Projection<> & y) const;
-extern template void Builder<>::splitNode<2>(U layerBasePrev, Projection<> & z) const;
-extern template void Builder<>::splitPolygon<0>(Projection<> & x, const Projection<> & y, const Projection<> & z) const;
-extern template void Builder<>::splitPolygon<1>(Projection<> & y, const Projection<> & z, const Projection<> & x) const;
-extern template void Builder<>::splitPolygon<2>(Projection<> & z, const Projection<> & x, const Projection<> & y) const;
-extern template void Builder<>::updatePolygonNode();
-extern template void Builder<>::updateSplittedPolygonCount();
-extern template void Builder<>::updateSplittedPolygonNode();
-}  // namespace sah_kd_tree
 #endif

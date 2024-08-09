@@ -2,8 +2,11 @@
 
 #include <builder/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <viewer/task_queue.hpp>
 
+#include <QtCore/QFutureWatcher>
 #include <QtCore/QRectF>
+#include <QtCore/QSharedPointer>
 #include <QtGui/QColor>
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>
@@ -23,15 +26,14 @@ struct Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper);
+    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & futureWatcher);
 
     void unsetScene();
     bool setScene(const std::filesystem::path & scenePath);
     [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
 
     void unsetTree();
-    [[nodiscard]] const std::shared_ptr<const builder::Tree> & getTree() const &;
-    bool updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth);
+    QString updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth);
 
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
@@ -43,7 +45,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 896;
+    static constexpr size_t kSize = 912;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

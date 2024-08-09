@@ -21,7 +21,6 @@
 #include <bit>
 #include <functional>
 #include <iterator>
-#include <new>
 #include <optional>
 
 #include <cstddef>
@@ -302,16 +301,11 @@ struct Builder::Impl : utils::OneTime<Impl>
     {
         // test(1, 0);
 
-        try {
-            Tree tree{treeSettings, cudaDevice, sceneData};
-            if (!tree.build(cancel)) {
-                return {};
-            }
-            return tree;
-        } catch (const std::bad_alloc & e) {
-            SPDLOG_ERROR("{}", e);
+        Tree tree{treeSettings, cudaDevice, sceneData};
+        if (!tree.build(cancel)) {
             return {};
         }
+        return tree;
     }
 
     void test(size_t allocationSize, size_t allocationAlignment) const

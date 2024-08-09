@@ -475,7 +475,7 @@ C.ApplicationWindow {
                         C.Frame {
                             RowLayout {
                                 CenteredText {
-                                    text: qsTr("<b>Clear color:</b>")
+                                    text: qsTr("Clear color:")
                                 }
                                 C.ComboBox {
                                     id: clearColorComboBox
@@ -642,13 +642,13 @@ C.ApplicationWindow {
                                 RowLayout {
                                     id: contentInfoRow
                                     CenteredText {
-                                        text: qsTr("rot: %1").arg(content.rotation.toFixed(0))
+                                        text: qsTr("scale: %1").arg(content.scale.toFixed(3))
                                     }
                                     C.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
                                     CenteredText {
-                                        text: qsTr("scale: %1").arg(content.scale.toFixed(3))
+                                        text: qsTr("rot: %1").arg(content.rotation.toFixed(0))
                                     }
                                     C.ToolSeparator {
                                         Layout.fillHeight: true
@@ -660,7 +660,13 @@ C.ApplicationWindow {
                                         Layout.fillHeight: true
                                     }
                                     CenteredText {
-                                        text: qsTr("layer: %1").arg(layer.enabled ? "enabled" : "disabled")
+                                        text: qsTr("layer: %1").arg(content.layer.enabled ? "enabled" : "disabled")
+                                    }
+                                    C.ToolSeparator {
+                                        Layout.fillHeight: true
+                                    }
+                                    CenteredText {
+                                        text: qsTr("clip: %1").arg(viewer.clip ? "enabled" : "disabled")
                                     }
                                 }
                                 MouseArea {
@@ -745,151 +751,201 @@ C.ApplicationWindow {
                     source: app.getQtLogoUrl()
                 }
                 contentItem: Item {
-                    id: content
-                    visible: actionContentVisibility.checked
-                    scale: scaleSlider.value
-                    rotation: rotationSlider.value
-                    opacity: opacitySlider.value
-                    layer.enabled: actionLayerEnabled.checked
-                    layer.live: true
-                    focus: true
-                    Dialogs.MessageDialog {
-                        id: buildFailMessageBox
-                        text: qsTr("Failed to build SAH kd-tree")
-                        informativeText: sceneSettings.treeStatus
-                        detailedText: qsTr("Try to change SAH kd-tree build settings")
-                        buttons: Dialogs.MessageDialog.Ok
-                        Connections {
-                            target: sceneSettings
-                            function onTreeStatusChanged() {
-                                if (sceneSettings.treeStatus) {
-                                    buildFailMessageBox.open()
-                                }
-                            }
-                        }
-                    }
-                    Rectangle {
-                        id: boundingRect
+                    Item {
+                        id: content
                         anchors.fill: parent
-                        border {
-                            color: clearColorDialog.selectedColor
-                            width: 4
-                        }
-                        color: "transparent"
-                    }
-                    SKT.Viewer {
-                        id: viewer
-                        objectName: fileUrlHash
-                        anchors.fill: boundingRect
-                        anchors.margins: boundingRect.border.width
-                        readonly property int animationDuration: 1000
-                        function getRenderModeDescription(verbose) {
-                            let description = []
-                            let renderMode = viewer.renderer.renderMode
-                            if (renderMode & SKT.RendererSettings.TraceSahKdTree) {
-                                description.push(Utils.coloredText(verbose ? "Trace SAH kd-tree" : "T", "red"))
-                            } else {
-                                description.push(Utils.coloredText(verbose ? "Rasterize" : "R", "springgreen"))
-                            }
-                            if (renderMode & SKT.RendererSettings.UseOffscreenTexture) {
-                                description.push(Utils.coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
-                            }
-                            if (renderMode & SKT.RendererSettings.DiscardInvisibleFragments) {
-                                description.push(Utils.coloredText(verbose ? "Discard invisible pixels" : "D", "blue"))
-                            }
-                            let texturingMode
-                            switch (viewer.renderer.texturingMode) {
-                            case SKT.RendererSettings.BarycentricColor: {
-                                texturingMode = verbose ? "Barycentric Color" : "B";
-                                break
-                            }
-                            case SKT.RendererSettings.WireFrame: {
-                                texturingMode = verbose ? "Wireframe" : "W";
-                                break
-                            }
-                            }
-                            description.push(Utils.coloredText(texturingMode, "green"))
-                            return "%1<b>%2</b>"
-                                .arg(verbose ? "" : "Mode: ")
-                                .arg(description.join(verbose ? " OR " : "|"))
-                        }
-                        engine: SKT.SahKdTreeEngine
-                        taskQueue: taskQueue
-                        scene: SKT.SceneSettings {
-                            id: sceneSettings
-                            url: fileUrl
-                        }
-                        renderer {
-                            renderMode: {
-                                let value = 0
-                                if (actionTraceSahKdTree.checked) {
-                                    value |= SKT.RendererSettings.TraceSahKdTree
-                                }
-                                if (actionUseOffscreenTexture.checked) {
-                                    value |= SKT.RendererSettings.UseOffscreenTexture
-                                }
-                                if (actionDiscardInvisible.checked) {
-                                    value |= SKT.RendererSettings.DiscardInvisibleFragments
-                                }
-                                return value
-                            }
-                            texturingMode: {
-                                let value
-                                if (actionBarycentricColor.checked) {
-                                    value = SKT.RendererSettings.BarycentricColor
-                                }
-                                if (actionWireFrame.checked) {
-                                    value = SKT.RendererSettings.WireFrame
-                                }
-                                return value
-                            }
-                            clearColor: clearColorDialog.selectedColor
-                        }
-                        cameraController {
-                            sensitivity: sensetivitySpinBox.realValue
-                            speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / crossSceneAabbTimeSpinBox.value
-                        }
-                        cameraView {
-                            Behavior on position {
-                                Vector3dAnimation {
-                                    duration: viewer.animationDuration
-                                    easing.type: Easing.InOutQuad
-                                }
-                            }
-                            Behavior on orientation {
-                                QuaternionAnimation {
-                                    duration: viewer.animationDuration
-                                    easing.type: Easing.InOutQuad
-                                }
-                            }
-                            Behavior on fov {
-                                NumberAnimation {
-                                    duration: viewer.animationDuration
-                                    easing.type: Easing.InOutQuad
+                        visible: actionContentVisibility.checked
+                        scale: scaleSlider.value
+                        rotation: rotationSlider.value
+                        opacity: opacitySlider.value
+                        layer.enabled: actionLayerEnabled.checked
+                        layer.live: true
+                        focus: true
+                        Dialogs.MessageDialog {
+                            id: buildFailMessageBox
+                            text: qsTr("Failed to build SAH kd-tree")
+                            informativeText: sceneSettings.treeStatus
+                            detailedText: qsTr("Try to change SAH kd-tree build settings")
+                            buttons: Dialogs.MessageDialog.Ok
+                            Connections {
+                                target: sceneSettings
+                                function onTreeStatusChanged() {
+                                    if (sceneSettings.treeStatus) {
+                                        buildFailMessageBox.open()
+                                    }
                                 }
                             }
                         }
-                    }
-                    Keys.onPressed: event => {
-                        switch (event.key) {
-                            case Qt.Key_0:
-                            case Qt.Key_1:
-                            case Qt.Key_2:
-                            case Qt.Key_3:
-                            case Qt.Key_4:
-                            case Qt.Key_5:
-                            case Qt.Key_6:
-                            case Qt.Key_7:
-                            case Qt.Key_8:
-                            case Qt.Key_9: {
-                                if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
-                                    viewerSettings.saveCameraView(event.key)
-                                    event.accepted = true
-                                } else if (event.modifiers === 0) {
-                                    viewerSettings.loadCameraView(event.key, true)
-                                    event.accepted = true
+                        Rectangle {
+                            id: boundingRect
+                            anchors.fill: parent
+                            border {
+                                color: clearColorDialog.selectedColor
+                                width: 4
+                            }
+                            color: "transparent"
+                        }
+                        SKT.Viewer {
+                            id: viewer
+                            objectName: fileUrlHash
+                            anchors.fill: boundingRect
+                            anchors.margins: boundingRect.border.width
+                            clip: actionViewerClipToggle.checked
+                            readonly property int animationDuration: 1000
+                            function getRenderModeDescription(verbose) {
+                                let description = []
+                                let renderMode = viewer.renderer.renderMode
+                                if (renderMode & SKT.RendererSettings.TraceSahKdTree) {
+                                    description.push(Utils.coloredText(verbose ? "Trace SAH kd-tree" : "T", "red"))
+                                } else {
+                                    description.push(Utils.coloredText(verbose ? "Rasterize" : "R", "springgreen"))
                                 }
-                                break
+                                if (renderMode & SKT.RendererSettings.UseOffscreenTexture) {
+                                    description.push(Utils.coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
+                                }
+                                if (renderMode & SKT.RendererSettings.DiscardInvisibleFragments) {
+                                    description.push(Utils.coloredText(verbose ? "Discard invisible pixels" : "D", "blue"))
+                                }
+                                let texturingMode
+                                switch (viewer.renderer.texturingMode) {
+                                case SKT.RendererSettings.BarycentricColor: {
+                                    texturingMode = verbose ? "Barycentric Color" : "B";
+                                    break
+                                }
+                                case SKT.RendererSettings.WireFrame: {
+                                    texturingMode = verbose ? "Wireframe" : "W";
+                                    break
+                                }
+                                }
+                                description.push(Utils.coloredText(texturingMode, "green"))
+                                return "%1<b>%2</b>"
+                                    .arg(verbose ? "" : "Mode: ")
+                                    .arg(description.join(verbose ? " OR " : "|"))
+                            }
+                            engine: SKT.SahKdTreeEngine
+                            taskQueue: taskQueue
+                            scene: SKT.SceneSettings {
+                                id: sceneSettings
+                                url: fileUrl
+                            }
+                            renderer {
+                                renderMode: {
+                                    let value = 0
+                                    if (actionTraceSahKdTree.checked) {
+                                        value |= SKT.RendererSettings.TraceSahKdTree
+                                    }
+                                    if (actionUseOffscreenTexture.checked) {
+                                        value |= SKT.RendererSettings.UseOffscreenTexture
+                                    }
+                                    if (actionDiscardInvisible.checked) {
+                                        value |= SKT.RendererSettings.DiscardInvisibleFragments
+                                    }
+                                    return value
+                                }
+                                texturingMode: {
+                                    let value
+                                    if (actionBarycentricColor.checked) {
+                                        value = SKT.RendererSettings.BarycentricColor
+                                    }
+                                    if (actionWireFrame.checked) {
+                                        value = SKT.RendererSettings.WireFrame
+                                    }
+                                    return value
+                                }
+                                clearColor: clearColorDialog.selectedColor
+                            }
+                            cameraController {
+                                sensitivity: sensetivitySpinBox.realValue
+                                speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / crossSceneAabbTimeSpinBox.value
+                            }
+                            cameraView {
+                                Behavior on position {
+                                    Vector3dAnimation {
+                                        duration: viewer.animationDuration
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                                Behavior on orientation {
+                                    QuaternionAnimation {
+                                        duration: viewer.animationDuration
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                                Behavior on fov {
+                                    NumberAnimation {
+                                        duration: viewer.animationDuration
+                                        easing.type: Easing.InOutQuad
+                                    }
+                                }
+                            }
+                        }
+                        Keys.onPressed: event => {
+                            switch (event.key) {
+                                case Qt.Key_0:
+                                case Qt.Key_1:
+                                case Qt.Key_2:
+                                case Qt.Key_3:
+                                case Qt.Key_4:
+                                case Qt.Key_5:
+                                case Qt.Key_6:
+                                case Qt.Key_7:
+                                case Qt.Key_8:
+                                case Qt.Key_9: {
+                                    if ((event.modifiers & Qt.ControlModifier) == Qt.ControlModifier) {
+                                        viewerSettings.saveCameraView(event.key)
+                                        event.accepted = true
+                                    } else if (event.modifiers === 0) {
+                                        viewerSettings.loadCameraView(event.key, true)
+                                        event.accepted = true
+                                    }
+                                    break
+                                }
+                            }
+                        }
+                        Settings {
+                            id: viewerSettings
+                            category: fileUrlHash
+                            property alias emptinessFactor: sceneSettings.emptinessFactor
+                            property alias traversalCost: sceneSettings.traversalCost
+                            property alias intersectionCost: sceneSettings.intersectionCost
+                            property alias maxDepth: sceneSettings.maxDepth
+                            property alias sensitivity: sensetivitySpinBox.value
+                            property alias crossSceneAabbTime: crossSceneAabbTimeSpinBox.value
+                            property color clearColor
+                            function getKeyPrefix(key) {
+                                return "cameraView/%1/".arg(key)
+                            }
+                            function saveCameraView(key) {
+                                let keyPrefix = getKeyPrefix(key)
+                                let cameraView = viewer.cameraView
+                                setValue(keyPrefix + "position", cameraView.position)
+                                setValue(keyPrefix + "orientation", cameraView.orientation)
+                                setValue(keyPrefix + "fov", cameraView.fov)
+                            }
+                            function loadCameraView(key, animate) {
+                                let keyPrefix = getKeyPrefix(key)
+                                let cameraView = viewer.cameraView
+                                let position = value(keyPrefix + "position", cameraView.position)
+                                let orientation = value(keyPrefix + "orientation", cameraView.orientation)
+                                let fov = value(keyPrefix + "fov", cameraView.fov)
+                                if (animate) {
+                                    cameraView.position = position
+                                    cameraView.orientation = orientation
+                                    cameraView.fov = fov
+                                } else {
+                                    cameraView.setPosition(position)
+                                    cameraView.setOrientation(orientation)
+                                    cameraView.setFov(fov)
+                                }
+                            }
+                            Component.onCompleted: {
+                                clearColorDialog.selectedColor = clearColor
+                                clearColorComboBox.setIndexOfClosestColor(clearColor)
+                                loadCameraView(Qt.Key_0, false)
+                            }
+                            Component.onDestruction: {
+                                clearColor = clearColorDialog.selectedColor
+                                saveCameraView(Qt.Key_0)
                             }
                         }
                     }
@@ -897,14 +953,17 @@ C.ApplicationWindow {
                         id: cameraControllerSettingsDrawer
                         dragMargin: 0
                         modal: false
-                        y: content.height - height
-                        parent: content
+                        y: content.parent.height - height
+                        parent: content.parent
                         contentItem: C.Page {
                             header: CenteredText {
                                 text: qsTr("Camera controller settings")
                             }
                             footer: C.DialogButtonBox {
-                                standardButtons: C.Dialog.Close
+                                standardButtons: C.Dialog.Close | C.Dialog.Reset
+                                onReset: {
+                                    //
+                                }
                                 onRejected: {
                                     cameraControllerSettingsDrawer.close()
                                 }
@@ -939,8 +998,8 @@ C.ApplicationWindow {
                         id: treeSettingsDrawer
                         dragMargin: 0
                         modal: false
-                        y: content.height - height
-                        parent: content
+                        y: content.parent.height - height
+                        parent: content.parent
                         onOpened: {
                             emptinessFactorSpinBox.updateValue(sceneSettings.emptinessFactor)
                             traversalCostSpinBox.updateValue(sceneSettings.traversalCost)
@@ -1011,41 +1070,30 @@ C.ApplicationWindow {
                         id: contentSettingsDrawer
                         dragMargin: 0
                         modal: false
-                        y: content.height - height
-                        parent: content
+                        y: content.parent.height - height
+                        parent: content.parent
                         contentItem: C.Page {
                             header: CenteredText {
-                                text: qsTr("SAH kd-tree settings")
+                                text: qsTr("Content settings")
                             }
                             footer: C.DialogButtonBox {
-                                standardButtons: C.DialogButtonBox.Close
+                                standardButtons: C.DialogButtonBox.Close | C.DialogButtonBox.Reset
+                                onReset: {
+                                    actionContentVisibility.checked = true
+                                    actionLayerEnabled.checked = false
+                                    rotationSlider.value = 0
+                                    scaleSlider.value = 1
+                                    opacitySlider.value = 1
+                                    actionViewerClipToggle.checked = false
+                                }
                                 onRejected: {
                                     contentSettingsDrawer.close()
                                 }
                             }
                             contentItem: ColumnLayout {
                                 C.Frame {
-                                    RowLayout {
-                                        C.ToolButton {
-                                            action: C.Action {
-                                                text: qsTr("Reset content")
-                                                icon.name: "zoom-original-symbolic"
-                                                onTriggered: {
-                                                    actionContentVisibility.checked = true
-                                                    actionLayerEnabled.checked = false
-                                                    rotationSlider.value = 0
-                                                    scaleSlider.value = 1
-                                                    opacitySlider.value = 1
-                                                }
-                                            }
-                                            C.ToolTip.visible: hovered
-                                            C.ToolTip.text: action.text
-                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
-                                            C.ToolTip.timeout: settings.toolTipTimeout
-                                        }
-                                        C.ToolSeparator {
-                                            Layout.fillHeight: true
-                                        }
+                                    GridLayout {
+                                        columns: 2
                                         C.Switch {
                                             text: qsTr("Show/Hide")
                                             action: C.Action {
@@ -1059,9 +1107,6 @@ C.ApplicationWindow {
                                             C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
                                             C.ToolTip.timeout: settings.toolTipTimeout
                                         }
-                                        C.ToolSeparator {
-                                            Layout.fillHeight: true
-                                        }
                                         C.Switch {
                                             text: qsTr("Layer")
                                             action: C.Action {
@@ -1069,6 +1114,18 @@ C.ApplicationWindow {
                                                 text: qsTr("Layer enable/disable")
                                                 checkable: true
                                                 icon.name: "image-crop-symbolic"
+                                            }
+                                            C.ToolTip.visible: hovered
+                                            C.ToolTip.text: action.text
+                                            C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                            C.ToolTip.timeout: settings.toolTipTimeout
+                                        }
+                                        C.Switch {
+                                            text: qsTr("Clip/No clip")
+                                            action: C.Action {
+                                                id: actionViewerClipToggle
+                                                text: qsTr("Toggle viewer clip")
+                                                checkable: true
                                             }
                                             C.ToolTip.visible: hovered
                                             C.ToolTip.text: action.text
@@ -1223,8 +1280,8 @@ C.ApplicationWindow {
                         id: cameraViewSettingsDrawer
                         dragMargin: 0
                         modal: false
-                        y: content.height - height
-                        parent: content
+                        y: content.parent.height - height
+                        parent: content.parent
                         function updatePosition() {
                             let x = Number.fromLocaleString(root.locale, xTextField.text)
                             let y = Number.fromLocaleString(root.locale, yTextField.text)
@@ -1392,52 +1449,6 @@ C.ApplicationWindow {
                             }
                         }
                     }
-                    Settings {
-                        id: viewerSettings
-                        category: fileUrlHash
-                        property alias emptinessFactor: sceneSettings.emptinessFactor
-                        property alias traversalCost: sceneSettings.traversalCost
-                        property alias intersectionCost: sceneSettings.intersectionCost
-                        property alias maxDepth: sceneSettings.maxDepth
-                        property alias sensitivity: sensetivitySpinBox.value
-                        property alias crossSceneAabbTime: crossSceneAabbTimeSpinBox.value
-                        property color clearColor
-                        function getKeyPrefix(key) {
-                            return "cameraView/%1/".arg(key)
-                        }
-                        function saveCameraView(key) {
-                            let keyPrefix = getKeyPrefix(key)
-                            let cameraView = viewer.cameraView
-                            setValue(keyPrefix + "position", cameraView.position)
-                            setValue(keyPrefix + "orientation", cameraView.orientation)
-                            setValue(keyPrefix + "fov", cameraView.fov)
-                        }
-                        function loadCameraView(key, animate) {
-                            let keyPrefix = getKeyPrefix(key)
-                            let cameraView = viewer.cameraView
-                            let position = value(keyPrefix + "position", cameraView.position)
-                            let orientation = value(keyPrefix + "orientation", cameraView.orientation)
-                            let fov = value(keyPrefix + "fov", cameraView.fov)
-                            if (animate) {
-                                cameraView.position = position
-                                cameraView.orientation = orientation
-                                cameraView.fov = fov
-                            } else {
-                                cameraView.setPosition(position)
-                                cameraView.setOrientation(orientation)
-                                cameraView.setFov(fov)
-                            }
-                        }
-                        Component.onCompleted: {
-                            clearColorDialog.selectedColor = clearColor
-                            clearColorComboBox.setIndexOfClosestColor(clearColor)
-                            loadCameraView(Qt.Key_0, false)
-                        }
-                        Component.onDestruction: {
-                            clearColor = clearColorDialog.selectedColor
-                            saveCameraView(Qt.Key_0)
-                        }
-                    }
                 }
                 Settings {
                     category: fileUrlHash
@@ -1446,6 +1457,7 @@ C.ApplicationWindow {
                     property alias scale: scaleSlider.value
                     property alias opacity: opacitySlider.value
                     property alias layerEnabled: actionLayerEnabled.checked
+                    property alias clipViewer: actionViewerClipToggle.checked
                 }
             }
         }

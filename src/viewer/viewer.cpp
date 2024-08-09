@@ -113,8 +113,8 @@ void SceneSettings::updateRenderNodeTree(RenderNode & renderNode)
     if (!treeStatus.isEmpty()) {
         return;
     }
-    if (!renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth))) {
-        treeStatus = u"Cannot build SAH kd-tree for '%1'"_s.arg(url.toString());
+    treeStatus = renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth));
+    if (!treeStatus.isEmpty()) {
         qCWarning(viewerCategory) << treeStatus;
         Q_EMIT treeStatusChanged();
     }
@@ -428,7 +428,7 @@ Viewer::Viewer(QQuickItem * parent)
             tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
         }
     };
-    connect(this, &Viewer::taskQueueChanged, addTasks);
+    // QTimer::singleShot(1000, this, addTasks);
 }
 
 void Viewer::handleKeyboardInput()
@@ -744,12 +744,24 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
         sceneSettings->updateRenderNodeScene(*renderNode);
     } else {
-        renderNode = new RenderNode{window(), *engineWrapper};
+        renderNode = new RenderNode{window(), *engineWrapper, taskQueue, treeFutureWatcher};
         sceneSettings->setRenderNodeScene(*renderNode);
     }
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+        auto oldTreeFutureWatcher = treeFutureWatcher;
         sceneSettings->updateRenderNodeTree(*renderNode);
+        if (oldTreeFutureWatcher != treeFutureWatcher) {
+            if (oldTreeFutureWatcher) {
+                connect(oldTreeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
+            }
+            if (treeFutureWatcher) {
+                connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
+            }
+        }
     } else {
+        if (treeFutureWatcher) {
+            connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
+        }
         renderNode->unsetTree();
     }
     renderNode->updateRect(boundingRect());

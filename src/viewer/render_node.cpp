@@ -25,7 +25,9 @@
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
+#include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QPromise>
 #include <QtCore/QRectF>
 #include <QtCore/QSizeF>
 #include <QtCore/QVector>
@@ -41,6 +43,7 @@
 #include <QtQuick/QSGRendererInterface>
 
 #include <memory>
+#include <new>
 #include <optional>
 #include <utility>
 
@@ -106,13 +109,18 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 
 struct RenderNode::Impl
 {
+    using TreePtr = std::shared_ptr<const builder::Tree>;
+    using FutureWatcher = QFutureWatcher<TreePtr>;
+
     QQuickWindow * const window;
     const engine::Context & context;
     const Engine & engine;
+    TaskQueue * const taskQueue;
+    QSharedPointer<QFutureWatcherBase> & futureWatcher;
 
-    std::optional<Renderer> renderer;
     std::shared_ptr<const Scene> scene;
-    std::shared_ptr<const builder::Tree> tree;
+    std::optional<Renderer> renderer;
+    TreePtr tree;
 
     bool isDirty = false;
 
@@ -125,12 +133,15 @@ struct RenderNode::Impl
 
     QVector<quint32> renderPassFormat;
 
-    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper)
+    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & futureWatcher)
         : window{window}
         , context{engineWrapper.getContext()}
         , engine{engineWrapper.getEngine()}
+        , taskQueue{taskQueue}
+        , futureWatcher{futureWatcher}
     {
         Q_ASSERT(window);
+        Q_ASSERT(taskQueue);
         checkContext(window, context);
     }
 
@@ -158,18 +169,50 @@ struct RenderNode::Impl
 
     void unsetTree()
     {
-        if (!tree) {
-            return;
+        if (tree) {
+            tree.reset();
+            isDirty = true;
         }
-        tree.reset();
-        isDirty = true;
+        if (futureWatcher) {
+            futureWatcher->cancel();
+            futureWatcher.clear();
+        }
     }
 
-    bool updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
+    QString updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
     {
         if (!scene) {
             unsetTree();
-            return true;
+            return {};
+        }
+        if (futureWatcher) {
+            auto treeFutureWatcher = futureWatcher.dynamicCast<FutureWatcher>();
+            Q_ASSERT(treeFutureWatcher);
+            auto future = treeFutureWatcher->future();
+            if (future.isCanceled()) {
+                futureWatcher.clear();
+                if (future.isValid()) {
+                    try {
+                        future.result();
+                    } catch (const std::exception & e) {
+                        return u"Exception: %1"_s.arg(QString::fromUtf8(e.what()));
+                    }
+                }
+                return u"Cancelled"_s;
+            }
+            if (!future.isResultReadyAt(0) || !future.isValid()) {
+                return {};
+            }
+            try {
+                auto newTree = future.result();
+                if (newTree != tree) {
+                    tree = std::move(newTree);
+                    isDirty = true;
+                    return {};
+                }
+            } catch (const std::bad_alloc & e) {
+                return QString::fromUtf8(e.what());
+            }
         }
         const builder::Tree::Settings treeSettings = {
             .emptinessFactor = emptinessFactor,
@@ -179,23 +222,29 @@ struct RenderNode::Impl
         };
         if (!tree || (tree->getSettings() != treeSettings)) {
             unsetTree();
-            const auto getNewTree = [this, &treeSettings]
+            auto scenePath = QString::fromStdString(scene->scenePath.native());
+            const auto buildTree = [&engine = engine, scene = scene, scenePath, treeSettings](QPromise<TreePtr> & promise) mutable
             {
-                ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build SAH kd-tree for '%1'"_s.arg(QString::fromStdString(scene->scenePath))};
-                const auto cancel = []
+                ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
+                const auto cancel = [&promise]
                 {
-                    return false;
+                    promise.suspendIfRequested();
+                    return promise.isCanceled();
                 };
-                return engine.getBuilder().build(treeSettings, scene->sceneData, cancel);
+                if (auto tree = engine.getBuilder().build(treeSettings, scene->sceneData, cancel)) {
+                    promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
+                }
             };
-            if (auto newTree = getNewTree()) {
-                tree = std::make_shared<builder::Tree>(std::move(newTree).value());
-                isDirty = true;
-            } else {
-                return false;
-            }
+            auto name = QFileInfo{scenePath}.baseName();
+            auto description = u"%1: emptinessFactor %2, traversalCost: %3, intersectionCost: %4, maxDepth: %5"_s  //
+                                   .arg(scenePath)                                                                 //
+                                   .arg(utils::safeCast<double>(treeSettings.emptinessFactor))                     //
+                                   .arg(utils::safeCast<double>(treeSettings.traversalCost))                       //
+                                   .arg(utils::safeCast<double>(treeSettings.intersectionCost))                    //
+                                   .arg(treeSettings.maxDepth);                                                    //
+            futureWatcher = taskQueue->runTask(qMove(name), qMove(description), std::move(buildTree));
         }
-        return true;
+        return {};
     }
 
     template<typename T>
@@ -262,7 +311,7 @@ struct RenderNode::Impl
         x *= renderTargetSize.width();
         y *= renderTargetSize.height();
 
-        auto [w, h] = scissorRect.size();
+        auto [w, h] = scissorRect.bottomRight();
         w *= renderTargetSize.width();
         h *= renderTargetSize.height();
 
@@ -367,8 +416,8 @@ struct RenderNode::Impl
     }
 };
 
-RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper)
-    : impl_{window, engineWrapper}
+RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & futureWatcher)
+    : impl_{window, engineWrapper, taskQueue, futureWatcher}
 {}
 
 void RenderNode::unsetScene()
@@ -391,12 +440,7 @@ void RenderNode::unsetTree()
     return impl_->unsetTree();
 }
 
-const std::shared_ptr<const builder::Tree> & RenderNode::getTree() const &
-{
-    return impl_->tree;
-}
-
-bool RenderNode::updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
+QString RenderNode::updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth)
 {
     return impl_->updateTree(emptinessFactor, traversalCost, intersectionCost, maxDepth);
 }
@@ -447,11 +491,9 @@ void RenderNode::prepare()
     bool isAxisAligned = false;
     if ((false)) {  // sadly,  does not reset automatically w/o extra update()
         // optimization for axis aligned transform case
-        const QMatrix4x4 & modelView = *matrix();
-        if (modelView.flags() < QMatrix4x4::Flag::Rotation) {
-            if ((qFuzzyIsNull(modelView(0, 1)) && qFuzzyIsNull(modelView(1, 0))) || (qFuzzyIsNull(modelView(0, 0)) && qFuzzyIsNull(modelView(1, 1)))) {
-                isAxisAligned = true;
-            }
+        const QMatrix4x4::Flags modelViewMatrixFlags = matrix()->flags();
+        if ((modelViewMatrixFlags < QMatrix4x4::Flag::Rotation) && (modelViewMatrixFlags & QMatrix4x4::Flag::Rotation2D)) {
+            isAxisAligned = true;
         }
     }
     return impl_->prepare(alpha, renderTargetSize, mvp, isAxisAligned);
