@@ -219,10 +219,12 @@ C.ApplicationWindow {
             open()
         }
         onAccepted: {
-            for (let i = 0; i < tabListModel.count; ++i) {
-                if (tabListModel.get(i).fileUrl === fileUrl.toString()) {
-                    Qt.callLater(tabBar.setCurrentIndex, i)
-                    return
+            if (false) {
+                for (let i = 0; i < tabListModel.count; ++i) {
+                    if (tabListModel.get(i).fileUrl === fileUrl.toString()) {
+                        Qt.callLater(tabBar.setCurrentIndex, i)
+                        return
+                    }
                 }
             }
             let listItem = {
@@ -235,13 +237,14 @@ C.ApplicationWindow {
                 Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             } else {
                 let currentIndex = stackLayout.currentIndex
-                tabListModel.remove(currentIndex)
-                tabListModel.insert(currentIndex, listItem)
-                /*
-                for (let prop in listItem) {
-                    listModel.setProperty(currentIndex, prop, listItem[prop])
+                if (false) {
+                    tabListModel.remove(currentIndex)
+                    tabListModel.insert(currentIndex, listItem)
+                } else {
+                    for (let prop in listItem) {
+                        tabListModel.setProperty(currentIndex, prop, listItem[prop])
+                    }
                 }
-                */
                 Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             }
         }
@@ -260,6 +263,15 @@ C.ApplicationWindow {
             for (let i = 0; i < count; ++i)
                 items.push(get(i))
             settings.tabModel = JSON.stringify(items)
+        }
+    }
+    C.Action {
+        id: actionCloseScene
+        text: qsTr("Close scene")
+        shortcut: "Ctrl+B"
+        enabled: stackLayout.currentIndex >= 0
+        onTriggered: {
+            tabListModel.setProperty(stackLayout.currentIndex, "fileUrl", "")
         }
     }
     header: C.TabBar {
@@ -297,11 +309,10 @@ C.ApplicationWindow {
     footer: C.ToolBar {
         visible: actionUiVisibility.checked
         contentItem: Flow {
-            Item {
-                implicitWidth: taskQueueFrame.implicitWidth
-                implicitHeight: taskQueueFrame.implicitHeight
-                C.Frame {
-                    id: taskQueueFrame
+            C.Frame {
+                Item {
+                    implicitWidth: taskQueueRowLayout.implicitWidth
+                    implicitHeight: taskQueueRowLayout.implicitHeight
                     RowLayout {
                         id: taskQueueRowLayout
                         CenteredText {
@@ -325,12 +336,12 @@ C.ApplicationWindow {
                             }
                         }
                     }
-                }
-                MouseArea {
-                    id: taskQueueMouseArea
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-                    onClicked: actionShowTaskQueueDialog.trigger(taskQueueMouseArea)
+                    MouseArea {
+                        id: taskQueueMouseArea
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onClicked: actionShowTaskQueueDialog.trigger(taskQueueMouseArea)
+                    }
                 }
             }
         }
@@ -342,8 +353,9 @@ C.ApplicationWindow {
         Repeater {
             model: tabListModel
             delegate: C.Page {
+                required property int index
                 required property url fileUrl
-                readonly property string fileUrlHash: Qt.md5(fileUrl)
+                readonly property string tabHash: Qt.md5("%1-%2".arg(index).arg(fileUrl))
                 Dialogs.ColorDialog {
                     id: clearColorDialog
                     options: Dialogs.ColorDialog.ShowAlphaChannel | Dialogs.ColorDialog.DontUseNativeDialog | Dialogs.ColorDialog.NoButtons
@@ -790,7 +802,7 @@ C.ApplicationWindow {
                         }
                         SKT.Viewer {
                             id: viewer
-                            objectName: fileUrlHash
+                            objectName: tabHash
                             anchors.fill: boundingRect
                             anchors.margins: boundingRect.border.width
                             clip: actionViewerClipToggle.checked
@@ -907,7 +919,7 @@ C.ApplicationWindow {
                         }
                         Settings {
                             id: viewerSettings
-                            category: fileUrlHash
+                            category: tabHash
                             property alias emptinessFactor: sceneSettings.emptinessFactor
                             property alias traversalCost: sceneSettings.traversalCost
                             property alias intersectionCost: sceneSettings.intersectionCost
@@ -1451,7 +1463,7 @@ C.ApplicationWindow {
                     }
                 }
                 Settings {
-                    category: fileUrlHash
+                    category: tabHash
                     property alias visible: actionContentVisibility.checked
                     property alias rotation: rotationSlider.value
                     property alias scale: scaleSlider.value

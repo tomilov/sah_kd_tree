@@ -55,57 +55,66 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 SceneSettings::SceneSettings(QObject * parent)
     : QObject{parent}
 {
-    connect(this, &SceneSettings::urlChanged, [this] { isUrlChanged = true; });
-    const auto resetTreeStatus = [this]
+    const auto onUrlChanged = [this]
     {
-        if (treeStatus.isEmpty()) {
-            return;
+        if (!sceneStatus.isEmpty()) {
+            sceneStatus.clear();
+            Q_EMIT sceneStatusChanged();
         }
-        treeStatus.clear();
-        Q_EMIT treeStatusChanged();
     };
-    connect(this, &SceneSettings::urlChanged, resetTreeStatus);
-    connect(this, &SceneSettings::treeSettingsChanged, resetTreeStatus);
-}
-
-void SceneSettings::setRenderNodeScene(RenderNode & renderNode)
-{
-    if (url.isEmpty()) {
-        return;
-    }
-    if (!url.isLocalFile()) {
-        qCWarning(viewerCategory) << u"Scene URL is not local file:"_s << url;
-        return;
-    }
-    const std::filesystem::path scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
-    QGuiApplication::setOverrideCursor(Qt::CursorShape::WaitCursor);
-    const bool isSceneSet = renderNode.setScene(scenePath);
-    QGuiApplication::restoreOverrideCursor();
-    if (!isSceneSet) {
-        qCWarning(viewerCategory) << u"Loading scene '%1' failed"_s.arg(url.toString());
-        return;
-    }
+    connect(this, &SceneSettings::urlChanged, onUrlChanged);
+    const auto onTreeSettingsChanged = [this]
     {
-        const auto & [aabbMin, aabbMax] = renderNode.getScene()->sceneData.aabb;
-        sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
-        sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
-        Q_EMIT sceneCharacteristicsChanged();
-    }
+        if (!treeStatus.isEmpty()) {
+            treeStatus.clear();
+            Q_EMIT treeStatusChanged();
+        }
+    };
+    connect(this, &SceneSettings::treeSettingsChanged, onTreeSettingsChanged);
 }
 
 void SceneSettings::updateRenderNodeScene(RenderNode & renderNode)
 {
-    if (!isUrlChanged) {
+    if (!sceneStatus.isEmpty()) {
         return;
     }
-    isUrlChanged = false;
+    const auto updateSceneCharacteristics = [this, &renderNode]
     {
-        sceneAabbMin = {};
-        sceneAabbMax = {};
+        if (const auto & scene = renderNode.getScene()) {
+            const auto & [aabbMin, aabbMax] = scene->sceneData.aabb;
+            sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
+            sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
+        } else {
+            sceneAabbMin = {};
+            sceneAabbMax = {};
+        }
         Q_EMIT sceneCharacteristicsChanged();
+    };
+    bool isUpdated = false;
+    if (url.isEmpty()) {
+        renderNode.unsetScene(&isUpdated);
+        if (isUpdated) {
+            updateSceneCharacteristics();
+        }
+        return;
     }
-    renderNode.unsetScene();
-    setRenderNodeScene(renderNode);
+    if (!url.isLocalFile()) {
+        renderNode.unsetScene(&isUpdated);
+        sceneStatus = u"Scene URL is not local file: %1"_s.arg(url.toString());
+        if (isUpdated) {
+            updateSceneCharacteristics();
+        }
+    } else {
+        std::filesystem::path scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
+        sceneStatus = renderNode.updateScene(scenePath, &isUpdated);
+        if (isUpdated) {
+            updateSceneCharacteristics();
+        }
+    }
+    if (!sceneStatus.isEmpty()) {
+        qCWarning(viewerCategory) << sceneStatus;
+        Q_EMIT sceneStatusChanged();
+    }
 }
 
 void SceneSettings::updateRenderNodeTree(RenderNode & renderNode)
@@ -113,7 +122,11 @@ void SceneSettings::updateRenderNodeTree(RenderNode & renderNode)
     if (!treeStatus.isEmpty()) {
         return;
     }
-    treeStatus = renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth));
+    bool isUpdated = false;
+    treeStatus = renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth), &isUpdated);
+    if (isUpdated) {
+        qCInfo(viewerCategory).noquote() << u"Tree is updated"_s;
+    }
     if (!treeStatus.isEmpty()) {
         qCWarning(viewerCategory) << treeStatus;
         Q_EMIT treeStatusChanged();
@@ -348,6 +361,7 @@ Viewer::Viewer(QQuickItem * parent)
     const auto onSceneSettingsChanged = [this]
     {
         disconnect(sceneSettingsUrlChangedConnection);
+        disconnect(sceneStatusChangedConnection);
         disconnect(sceneSettingsSettingsChangedConnection);
         disconnect(sceneSettingsBuildSettingsChangedConnection);
         disconnect(sceneSettingsTreeStatusChangedConnection);
@@ -355,6 +369,7 @@ Viewer::Viewer(QQuickItem * parent)
             return;
         }
         sceneSettingsUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
+        sceneStatusChangedConnection = connect(sceneSettings, &SceneSettings::sceneStatusChanged, this, &QQuickItem::update);
         sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
         sceneSettingsTreeStatusChangedConnection = connect(sceneSettings, &SceneSettings::treeStatusChanged, this, &QQuickItem::update);
     };
@@ -742,27 +757,44 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     auto renderNode = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
-        sceneSettings->updateRenderNodeScene(*renderNode);
     } else {
-        renderNode = new RenderNode{window(), *engineWrapper, taskQueue, treeFutureWatcher};
-        sceneSettings->setRenderNodeScene(*renderNode);
+        renderNode = new RenderNode{window(), *engineWrapper, taskQueue, sceneFutureWatcher, treeFutureWatcher};
     }
-    if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+    {
+        auto oldSceneFutureWatcher = sceneFutureWatcher;
+        sceneSettings->updateRenderNodeScene(*renderNode);
+        if (oldSceneFutureWatcher != sceneFutureWatcher) {
+            if (oldSceneFutureWatcher) {
+                if (!disconnect(oldSceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update)) {
+                    qFatal("unreachable");
+                }
+            }
+            if (sceneFutureWatcher) {
+                if (!connect(sceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update, Qt::ConnectionType::QueuedConnection)) {
+                    qFatal("unreachable");
+                }
+            }
+        }
+    }
+    {
         auto oldTreeFutureWatcher = treeFutureWatcher;
-        sceneSettings->updateRenderNodeTree(*renderNode);
+        if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+            sceneSettings->updateRenderNodeTree(*renderNode);
+        } else {
+            renderNode->unsetTree(nullptr);
+        }
         if (oldTreeFutureWatcher != treeFutureWatcher) {
             if (oldTreeFutureWatcher) {
-                connect(oldTreeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
+                if (disconnect(oldTreeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update)) {
+                    qFatal("unreachable");
+                }
             }
             if (treeFutureWatcher) {
-                connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
+                if (!connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update, Qt::ConnectionType::QueuedConnection)) {
+                    qFatal("unreachable");
+                }
             }
         }
-    } else {
-        if (treeFutureWatcher) {
-            connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update);
-        }
-        renderNode->unsetTree();
     }
     renderNode->updateRect(boundingRect());
     const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
@@ -772,7 +804,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     {
         const QVector3D sceneCenter = (sceneSettings->getSceneAabbMin() + sceneSettings->getSceneAabbMax()) / 2.0f;
         const float zFar = (sceneSettings->getSceneAabbMax() - sceneSettings->getSceneAabbMin()).length() + (cameraView->position - sceneCenter).length();
-        const float zNear = 2.0f * std::sqrt(std::numeric_limits<float>::epsilon()) * zFar;
+        const float zNear = zFar * std::numeric_limits<float>::epsilon() * 1000.0f;
         renderNode->updateCamera(cameraView->position, cameraView->orientation, cameraView->fov, zNear, zFar);
     }
     renderNode->updateClearColor(rendererSettings->clearColor);

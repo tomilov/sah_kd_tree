@@ -30,7 +30,7 @@ std::shared_ptr<Scene> Scenes::getScene(const std::filesystem::path & scenePath)
     } else {
         Scene scene;
         scene.scenePath = scenePath;
-        if ((true)) {
+        if ((false)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
             if (!scene_loader::cachingLoad(scene.sceneData, QFileInfo{scenePath}, cacheLocation)) {
                 return nullptr;

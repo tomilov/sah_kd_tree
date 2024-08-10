@@ -304,15 +304,27 @@ bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int r
         case 6: {
             switch (checkState) {
             case Qt::CheckState::Unchecked: {
-                disconnect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel);
-                disconnect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend);
-                disconnect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume);
+                if (!disconnect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel)) {
+                    qFatal("unreachable");
+                }
+                if (!disconnect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend)) {
+                    qFatal("unreachable");
+                }
+                if (!disconnect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume)) {
+                    qFatal("unreachable");
+                }
                 break;
             }
             case Qt::CheckState::Checked: {
-                connect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel);
-                connect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend);
-                connect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume);
+                if (!connect(this, &TaskQueue::checkedCancelled, taskInfo.futureWatcher.get(), &QFutureWatcherBase::cancel)) {
+                    qFatal("unreachable");
+                }
+                if (!connect(this, &TaskQueue::checkedSuspended, taskInfo.futureWatcher.get(), &QFutureWatcherBase::suspend)) {
+                    qFatal("unreachable");
+                }
+                if (!connect(this, &TaskQueue::checkedResumed, taskInfo.futureWatcher.get(), &QFutureWatcherBase::resume)) {
+                    qFatal("unreachable");
+                }
                 break;
             }
             default: {
@@ -464,7 +476,9 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
             Q_EMIT progressChanged();
             emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
         };
-        connect(futureWatcher.get(), &QFutureWatcherBase::progressRangeChanged, this, onProgressRangeChanged);
+        if (!connect(futureWatcher.get(), &QFutureWatcherBase::progressRangeChanged, this, onProgressRangeChanged)) {
+            qFatal("unreachable");
+        }
         const auto onProgressValueChanged = [this, id](int value)
         {
             TaskInfo & taskInfo = getTaskInfo(id);
@@ -472,14 +486,18 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
             Q_EMIT progressChanged();
             emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
         };
-        connect(futureWatcher.get(), &QFutureWatcherBase::progressValueChanged, this, onProgressValueChanged);
+        if (!connect(futureWatcher.get(), &QFutureWatcherBase::progressValueChanged, this, onProgressValueChanged)) {
+            qFatal("unreachable");
+        }
         const auto onProgressTextChanged = [this, id](const QString & progressText)
         {
             TaskInfo & taskInfo = getTaskInfo(id);
             taskInfo.progressText = progressText;
             emitDataChanged(id, 1, {Qt::ItemDataRole::ToolTipRole});
         };
-        connect(futureWatcher.get(), &QFutureWatcherBase::progressTextChanged, this, onProgressTextChanged);
+        if (!connect(futureWatcher.get(), &QFutureWatcherBase::progressTextChanged, this, onProgressTextChanged)) {
+            qFatal("unreachable");
+        }
         const auto removeRow = [this, id]
         {
             const auto it = taskInfos.constFind(id);
@@ -493,8 +511,12 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
                 progressValue -= taskInfo.progressValue;
                 Q_EMIT progressChanged();
 
-                taskInfo.futureWatcher->disconnect(this);
-                disconnect(taskInfo.futureWatcher.get());
+                if (!taskInfo.futureWatcher->disconnect(this)) {
+                    qFatal("unreachable");
+                }
+                if (!disconnect(taskInfo.futureWatcher.get())) {
+                    qFatal("unreachable");
+                }
             }
             {
                 int row = -1;
@@ -543,7 +565,9 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
                     emitDataChanged(id, 5, {Qt::ItemDataRole::DisplayRole, Qt::ItemDataRole::ToolTipRole, Qt::ItemDataRole::CheckStateRole});
                 }
             };
-            connect(futureWatcher.get(), signal, this, onStatusChanged);
+            if (!connect(futureWatcher.get(), signal, this, onStatusChanged)) {
+                qFatal("unreachable");
+            }
         }
 
         if ((false)) {  // https://bugreports.qt.io/browse/QTBUG-127714
@@ -553,7 +577,9 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
                 taskInfo.insertRange(beginIndex, endIndex);
                 emitDataChanged(id, 3);
             };
-            connect(futureWatcher.get(), &QFutureWatcherBase::resultsReadyAt, this, onResultsReadyAt);
+            if (!connect(futureWatcher.get(), &QFutureWatcherBase::resultsReadyAt, this, onResultsReadyAt)) {
+                qFatal("unreachable");
+            }
         } else {
             const auto onResultReadyAt = [this, id](int resultIndex)
             {
@@ -561,12 +587,20 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
                 taskInfo.insertRange(resultIndex, resultIndex);
                 emitDataChanged(id, 3);
             };
-            connect(futureWatcher.get(), &QFutureWatcherBase::resultReadyAt, this, onResultReadyAt);
+            if (!connect(futureWatcher.get(), &QFutureWatcherBase::resultReadyAt, this, onResultReadyAt)) {
+                qFatal("unreachable");
+            }
         }
 
-        connect(this, &TaskQueue::allCancelled, futureWatcher.get(), &QFutureWatcherBase::cancel);
-        connect(this, &TaskQueue::allSuspended, futureWatcher.get(), &QFutureWatcherBase::suspend);
-        connect(this, &TaskQueue::allResumed, futureWatcher.get(), &QFutureWatcherBase::resume);
+        if (!connect(this, &TaskQueue::allCancelled, futureWatcher.get(), &QFutureWatcherBase::cancel)) {
+            qFatal("unreachable");
+        }
+        if (!connect(this, &TaskQueue::allSuspended, futureWatcher.get(), &QFutureWatcherBase::suspend)) {
+            qFatal("unreachable");
+        }
+        if (!connect(this, &TaskQueue::allResumed, futureWatcher.get(), &QFutureWatcherBase::resume)) {
+            qFatal("unreachable");
+        }
     }
 }
 

@@ -33,6 +33,8 @@ class SceneSettings : public QObject
     Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneCharacteristicsChanged)
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneCharacteristicsChanged)
 
+    Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
+
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
@@ -42,7 +44,6 @@ class SceneSettings : public QObject
 
 public:
     QUrl url;
-    bool isUrlChanged = false;
 
     float emptinessFactor = 0.8f;
     float traversalCost = 2.0f;
@@ -51,7 +52,6 @@ public:
 
     explicit SceneSettings(QObject * parent = nullptr);
 
-    void setRenderNodeScene(RenderNode & renderNode);
     void updateRenderNodeScene(RenderNode & renderNode);
     void updateRenderNodeTree(RenderNode & renderNode);
 
@@ -65,6 +65,11 @@ public:
         return sceneAabbMax;
     }
 
+    [[nodiscard]] const QString & getSceneStatus() const &
+    {
+        return sceneStatus;
+    }
+
     [[nodiscard]] const QString & getTreeStatus() const &
     {
         return treeStatus;
@@ -72,13 +77,15 @@ public:
 
 Q_SIGNALS:
     void urlChanged();
-    void treeSettingsChanged();
     void sceneCharacteristicsChanged();
+    void sceneStatusChanged();
+    void treeSettingsChanged();
     void treeStatusChanged();
 
 private:
     QVector3D sceneAabbMin;
     QVector3D sceneAabbMax;
+    QString sceneStatus;
     QString treeStatus;
 };
 
@@ -242,11 +249,13 @@ private:
     QMetaObject::Connection sceneGraphInvalidatedConnection;
 
     QMetaObject::Connection sceneSettingsUrlChangedConnection;
+    QMetaObject::Connection sceneStatusChangedConnection;
     QMetaObject::Connection sceneSettingsSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
 
     QList<QSharedPointer<QFutureWatcher<int>>> tasks;
+    QSharedPointer<QFutureWatcherBase> sceneFutureWatcher;
     QSharedPointer<QFutureWatcherBase> treeFutureWatcher;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);

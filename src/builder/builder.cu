@@ -14,6 +14,7 @@
 #include <thrust/system/cuda/pointer.h>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <fmt/std.h>
 #include <spdlog/spdlog.h>
 
@@ -256,10 +257,14 @@ struct Tree::Impl : utils::OneTime<Impl>
             .maxDepth = settings.maxDepth,
         };
         tree = builder(cancel, params, x, y, z);
-        if (tree) {
-            SPDLOG_INFO("Tree depth: {}", std::size(tree->layerDepth));
+        if (!tree) {
+            return false;
         }
-        return tree.has_value();
+        SPDLOG_INFO("Tree depth: {}", std::size(tree->layerDepth));
+        SPDLOG_INFO("Layer sizes: {}", tree->layerDepth);
+        SPDLOG_INFO("Polygon count: {}", std::size(tree->polygon.triangle));
+        SPDLOG_INFO("Node count: {}", std::size(tree->node.parent));
+        return true;
     }
 
     static constexpr void completeClassContext()
