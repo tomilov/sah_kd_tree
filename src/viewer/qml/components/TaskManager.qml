@@ -15,7 +15,7 @@ CenteredDialog {
     standardButtons: C.Dialog.Close
     Timer {
         interval: 1000
-        running: true
+        running: visible
         triggeredOnStart: true
         repeat: true
         onTriggered: {

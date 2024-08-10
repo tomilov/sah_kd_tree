@@ -252,6 +252,8 @@ struct Builder
     using Vector = typename Traits::template Vector<T>;
     using Cancel = typename Traits::Cancel;
 
+    static inline constexpr I kNoSplitDimension = -1;
+
     Allocator<void> allocator;
 
     struct IsNotLeaf

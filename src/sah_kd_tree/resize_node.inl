@@ -3,7 +3,7 @@
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::resizeNode()
 {
-    node.splitDimension.resize(node.count, I(-1));
+    node.splitDimension.resize(node.count, kNoSplitDimension);
     node.splitPos.resize(node.count);
     node.leftChild.resize(node.count);
     node.rightChild.resize(node.count);

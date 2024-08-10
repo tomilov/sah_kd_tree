@@ -256,6 +256,9 @@ struct Tree::Impl : utils::OneTime<Impl>
             .maxDepth = settings.maxDepth,
         };
         tree = builder(cancel, params, x, y, z);
+        if (tree) {
+            SPDLOG_INFO("Tree depth: {}", std::size(tree->layerDepth));
+        }
         return tree.has_value();
     }
 

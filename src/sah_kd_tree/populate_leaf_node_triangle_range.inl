@@ -8,6 +8,8 @@
 #include <thrust/scatter.h>
 #include <thrust/sort.h>
 
+#include <spdlog/spdlog.h>
+
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRange()
 {

@@ -54,7 +54,7 @@ def _get_thrust_type_name(name):
 
 def _traverse(value, i=0):
     result = ""
-    for member in value.members(includeBases=True):
+    for member in value.members(include_bases=True):
         result += f"{'  ' * i}"
         result += "BASE" if member.isBaseClass else member.name
         result += "\n"
@@ -68,7 +68,7 @@ def _traverse(value, i=0):
 def _dump_pointer(d, value, offset=0, count=1, is_array=False):
     try:
         if _get_thrust_type_name(value.type.name) == "device_ptr":
-            (value,) = value.members(includeBases=True)
+            (value,) = value.members(include_bases=True)
             d.check(value.isBaseClass)
         d.check(_get_thrust_type_name(value.type.name) == "pointer")
         iterator = value["m_iterator"]
@@ -113,7 +113,7 @@ def qdump__thrust__tuple(d, value):
     d.putExpandable()
     if d.isExpanded():
         with Children(d):
-            for i, member in enumerate(value["__base_"].members(includeBases=True)):
+            for i, member in enumerate(value["__base_"].members(include_bases=True)):
                 child = member["__value_"]
                 d.putSubItem(f"<{i}>", child)
 
@@ -171,7 +171,7 @@ def qdump__thrust__iterator_adaptor(d, value):
 
 
 def qdump__thrust__detail__normal_iterator(d, value):
-    (value,) = value.members(includeBases=True)
+    (value,) = value.members(include_bases=True)
     d.check(value.isBaseClass)
     d.putItem(value)
 
@@ -218,3 +218,30 @@ def qdump__thrust__(d, value, regex=THRUST_TYPE_REGEX):
         return qdump__thrust__counting_iterator(d, value)
     else:
         DumperBase.warn(f"ERROR: unknown thurst type name {thrust_type_name}")
+
+
+SAH_KD_TREE_TYPE_REGEX = re.compile(
+    rf"""
+    ^
+    sah_kd_tree(?:__|::)
+    (?:
+        Tree|Projection|Builder|Triangle
+    )?
+    (?:<.*>)?
+    (?:__|::)
+    (?P<name>
+        Vector
+    )
+    $
+""",
+    re.VERBOSE,
+)
+
+
+def qdump__sah_kd_tree__(d, value, regex=SAH_KD_TREE_TYPE_REGEX):
+    match = SAH_KD_TREE_TYPE_REGEX.fullmatch(value.type.name)
+    if match is not None:
+        type_name = match.group("name")
+        if type_name == "Vector":
+            return qdump__thrust__device_vector(d, value)
+    DumperBase.warn(f"ERROR: unknown thurst type name {value.type.name}")

@@ -305,7 +305,10 @@ C.ApplicationWindow {
                     RowLayout {
                         id: taskQueueRowLayout
                         CenteredText {
-                            text: qsTr("Task queue (%1):").arg(taskQueue.taskCount)
+                            text: {
+                                qsTr("Task queue (%1):")
+                                .arg(taskQueue.taskCount)
+                            }
                         }
                         C.ProgressBar {
                             id: taskQueueProgressBar
@@ -960,10 +963,7 @@ C.ApplicationWindow {
                                 text: qsTr("Camera controller settings")
                             }
                             footer: C.DialogButtonBox {
-                                standardButtons: C.Dialog.Close | C.Dialog.Reset
-                                onReset: {
-                                    //
-                                }
+                                standardButtons: C.Dialog.Close
                                 onRejected: {
                                     cameraControllerSettingsDrawer.close()
                                 }

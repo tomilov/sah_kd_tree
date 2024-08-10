@@ -43,25 +43,31 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
     node.polygonCountRight.resize(1);
 
     Tree<Traits> tree{allocator};
-    for (; tree.layerDepth.size() < sah.maxDepth; tree.layerDepth.push_back(node.count)) {
+    for (;;) {
         if (cancel()) {
             return std::nullopt;
         }
+
         filterLayerNodeOffset();
 
-        x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
-        y.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, z, x);
-        z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
+        if (tree.layerDepth.size() < sah.maxDepth) {
+            x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
+            y.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, z, x);
+            z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
 
-        selectNodeBestSplit(sah, x, y, z);
+            selectNodeBestSplit(sah, x, y, z);
+        }
 
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
-        auto layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, I(-1)));
+        assert(layerSplitDimensionEnd == node.splitDimension.cend());
+        auto layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
+            assert(tree.layerDepth.size() <= sah.maxDepth);
             break;
         }
+        assert(tree.layerDepth.size() < sah.maxDepth);
 
         polygon.side.resize(polygon.count);
         polygon.eventRight.resize(polygon.count);
@@ -72,7 +78,7 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
 
         updateSplittedPolygonCount();
 
-        {  // generate index for child node
+        {  // generate index for child node pair
             auto nodeLeftChildBegin = thrust::next(node.leftChild.begin(), layer.base);
             const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U { return (layerSplitDimension < 0) ? 0 : 2; };
             auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, thrust::plus<U>{});
@@ -131,12 +137,16 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
         polygon.count += polygon.splittedCount;
 
         resizeNode();
+        tree.layerDepth.push_back(node.count);
     }
 
     populateNodeParent();
 
     assert(checkTree(x, y, z));
 
+    if (tree.layerDepth.size() == sah.maxDepth) {
+
+    }
     populateLeafNodeTriangleRange();
 
     calculateRope<0, false>(x, y, z);
