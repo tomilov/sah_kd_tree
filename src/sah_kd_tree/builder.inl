@@ -50,24 +50,25 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
 
         filterLayerNodeOffset();
 
-        if (tree.layerDepth.size() < sah.maxDepth) {
-            x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
-            y.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, z, x);
-            z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
-
-            selectNodeBestSplit(sah, x, y, z);
+        if (tree.layerDepth.size() == sah.maxDepth) {
+            leaf.count += layer.size;
+            break;
         }
+
+        x.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, y, z);
+        y.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, z, x);
+        z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
+        selectNodeBestSplit(sah, x, y, z);
 
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
         assert(layerSplitDimensionEnd == node.splitDimension.cend());
-        auto layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
+        U layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
-            assert(tree.layerDepth.size() <= sah.maxDepth);
+            assert(tree.layerDepth.size() < sah.maxDepth);
             break;
         }
-        assert(tree.layerDepth.size() < sah.maxDepth);
 
         polygon.side.resize(polygon.count);
         polygon.eventRight.resize(polygon.count);
@@ -144,9 +145,6 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
 
     assert(checkTree(x, y, z));
 
-    if (tree.layerDepth.size() == sah.maxDepth) {
-
-    }
     populateLeafNodeTriangleRange();
 
     calculateRope<0, false>(x, y, z);

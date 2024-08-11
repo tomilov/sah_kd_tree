@@ -1,5 +1,7 @@
 #pragma once
 
+#include <builder/fwd.hpp>
+
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QHash>
 #include <QtCore/QMetaObject>
@@ -19,30 +21,35 @@
 namespace viewer
 {
 class EngineWrapper;
+struct Scene;
+class Viewer;
 class RenderNode;
 class TaskQueue;
-class Viewer;
 
 class SceneSettings : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
 
+    Q_PROPERTY(EngineWrapper * engine MEMBER engineWrapper NOTIFY engineChanged REQUIRED)
+    Q_PROPERTY(TaskQueue * taskQueue MEMBER taskQueue NOTIFY taskQueueChanged REQUIRED)
+
     Q_PROPERTY(QUrl url MEMBER url NOTIFY urlChanged)
 
-    Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneCharacteristicsChanged)
-    Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneCharacteristicsChanged)
-
+    Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneChanged STORED false)
+    Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneChanged STORED false)
     Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
 
+    Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY treeSettingsChanged)
 
-    Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
-
 public:
+    EngineWrapper * engineWrapper = nullptr;
+    TaskQueue * taskQueue = nullptr;
+
     QUrl url;
 
     float emptinessFactor = 0.8f;
@@ -50,20 +57,12 @@ public:
     float intersectionCost = 1.0f;
     int maxDepth = 1000;
 
+    QList<QSharedPointer<QFutureWatcher<int>>> tasks;
+
     explicit SceneSettings(QObject * parent = nullptr);
 
-    void updateRenderNodeScene(RenderNode & renderNode);
-    void updateRenderNodeTree(RenderNode & renderNode);
-
-    [[nodiscard]] const QVector3D & getSceneAabbMin() const &
-    {
-        return sceneAabbMin;
-    }
-
-    [[nodiscard]] const QVector3D & getSceneAabbMax() const &
-    {
-        return sceneAabbMax;
-    }
+    [[nodiscard]] QVector3D getSceneAabbMin() const;
+    [[nodiscard]] QVector3D getSceneAabbMax() const;
 
     [[nodiscard]] const QString & getSceneStatus() const &
     {
@@ -76,17 +75,40 @@ public:
     }
 
 Q_SIGNALS:
+    void engineChanged();
+    void taskQueueChanged();
+
     void urlChanged();
-    void sceneCharacteristicsChanged();
+
+    void sceneChanged();
     void sceneStatusChanged();
-    void treeSettingsChanged();
+
+    void treeChanged();
     void treeStatusChanged();
+    void treeSettingsChanged();
+
+private Q_SLOTS:
+    void updateScene();
+    void onUrlChanged();
+
+    void updateTree();
+    void onTreeSettingsChanged();
 
 private:
-    QVector3D sceneAabbMin;
-    QVector3D sceneAabbMax;
+    friend Viewer;
+
+    using ScenePtr = std::shared_ptr<const Scene>;
+    using SceneFutureWatcher = QFutureWatcher<ScenePtr>;
+    using TreePtr = std::shared_ptr<const builder::Tree>;
+    using TreeFutureWatcher = QFutureWatcher<TreePtr>;
+
     QString sceneStatus;
+    QSharedPointer<SceneFutureWatcher> sceneFutureWatcher;
+    ScenePtr scene;
+
     QString treeStatus;
+    QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
+    TreePtr tree;
 };
 
 class RendererSettings : public QObject
@@ -211,7 +233,6 @@ class Viewer : public QQuickItem
     QML_ELEMENT
 
     Q_PROPERTY(EngineWrapper * engine MEMBER engineWrapper NOTIFY engineChanged REQUIRED)
-    Q_PROPERTY(TaskQueue * taskQueue MEMBER taskQueue NOTIFY taskQueueChanged REQUIRED)
     Q_PROPERTY(SceneSettings * scene MEMBER sceneSettings NOTIFY sceneSettingsChanged REQUIRED)
     Q_PROPERTY(RendererSettings * renderer MEMBER rendererSettings CONSTANT)
     Q_PROPERTY(CameraView * cameraView MEMBER cameraView CONSTANT)
@@ -222,7 +243,6 @@ public:
 
 Q_SIGNALS:
     void engineChanged();
-    void taskQueueChanged();
     void sceneSettingsChanged();
 
 private Q_SLOTS:
@@ -232,7 +252,6 @@ private:
     friend CameraView;
 
     EngineWrapper * engineWrapper = nullptr;
-    TaskQueue * taskQueue = nullptr;
     SceneSettings * sceneSettings = nullptr;
     RendererSettings * const rendererSettings = new RendererSettings{this};
     CameraView * const cameraView = new CameraView{this};
@@ -248,15 +267,12 @@ private:
     QMetaObject::Connection refreshRateConnection;
     QMetaObject::Connection sceneGraphInvalidatedConnection;
 
-    QMetaObject::Connection sceneSettingsUrlChangedConnection;
+    QMetaObject::Connection sceneUrlChangedConnection;
+    QMetaObject::Connection sceneChangedConnection;
     QMetaObject::Connection sceneStatusChangedConnection;
-    QMetaObject::Connection sceneSettingsSettingsChangedConnection;
-    QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
+    QMetaObject::Connection sceneSettingsTreeChangedConnection;
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
-
-    QList<QSharedPointer<QFutureWatcher<int>>> tasks;
-    QSharedPointer<QFutureWatcherBase> sceneFutureWatcher;
-    QSharedPointer<QFutureWatcherBase> treeFutureWatcher;
+    QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
 
     void onKeyEvent(QKeyEvent * event, bool isPressed);
 

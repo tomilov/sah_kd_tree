@@ -109,17 +109,9 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 
 struct RenderNode::Impl
 {
-    using ScenePtr = std::shared_ptr<const Scene>;
-    using SceneFutureWatcher = QFutureWatcher<ScenePtr>;
-    using TreePtr = std::shared_ptr<const builder::Tree>;
-    using FutureWatcher = QFutureWatcher<TreePtr>;
-
     QQuickWindow * const window;
     const engine::Context & context;
     const Engine & engine;
-    TaskQueue * const taskQueue;
-    QSharedPointer<QFutureWatcherBase> & sceneFutureWatcher;
-    QSharedPointer<QFutureWatcherBase> & treeFutureWatcher;
 
     ScenePtr scene;
     std::optional<Renderer> renderer;
@@ -136,174 +128,13 @@ struct RenderNode::Impl
 
     QVector<quint32> renderPassFormat;
 
-    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & sceneFutureWatcher, QSharedPointer<QFutureWatcherBase> & treeFutureWatcher)
+    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper)
         : window{window}
         , context{engineWrapper.getContext()}
         , engine{engineWrapper.getEngine()}
-        , taskQueue{taskQueue}
-        , sceneFutureWatcher{sceneFutureWatcher}
-        , treeFutureWatcher{treeFutureWatcher}
     {
         Q_ASSERT(window);
-        Q_ASSERT(taskQueue);
         checkContext(window, context);
-    }
-
-    void unsetScene(bool * isUpdated)
-    {
-        if (scene) {
-            if (renderer) {
-                ASSERT(renderer.value().getScene() == scene);
-                renderer.value().unsetScene();
-            }
-            scene.reset();
-            if (isUpdated) {
-                *isUpdated = true;
-            }
-            isDirty = true;
-        }
-        if (sceneFutureWatcher) {
-            sceneFutureWatcher->cancel();
-            sceneFutureWatcher.clear();
-        }
-    }
-
-    QString updateScene(const std::filesystem::path & scenePath, bool * isUpdated)
-    {
-        ASSERT(!std::empty(scenePath));
-
-        if (sceneFutureWatcher) {
-            auto s = sceneFutureWatcher.dynamicCast<SceneFutureWatcher>();
-            Q_ASSERT(s);
-            auto future = s->future();
-            if (future.isCanceled()) {
-                sceneFutureWatcher.clear();
-                if (future.isValid()) {
-                    try {
-                        (void)future.result();
-                    } catch (const std::exception & e) {
-                        return u"Exception: %1"_s.arg(QString::fromUtf8(e.what()));
-                    }
-                }
-                return u"Cancelled"_s;
-            }
-            if (future.isFinished()) {
-                auto newScene = future.result();
-                if (newScene != scene) {
-                    scene = std::move(newScene);
-                    if (isUpdated) {
-                        *isUpdated = true;
-                    }
-                    isDirty = true;
-                    return {};
-                }
-            }
-        }
-        if (!scene || (scene->scenePath != scenePath)) {
-            unsetScene(isUpdated);
-            const auto buidScene = [&engine = engine, scenePath](QPromise<ScenePtr> & promise)
-            {
-                ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build scene '%1'"_s.arg(QString::fromStdString(scenePath.native()))};
-                if (promise.isCanceled()) {
-                    return;
-                }
-                if (auto scene = engine.getScenes().getScene(scenePath)) {
-                    promise.addResult(std::move(scene));
-                }
-            };
-            QFileInfo sceneFileInfo{scenePath};
-            sceneFutureWatcher = taskQueue->runTask(sceneFileInfo.fileName(), sceneFileInfo.filePath(), std::move(buidScene));
-        }
-        return {};
-    }
-
-    void unsetTree(bool * isUpdated)
-    {
-        if (tree) {
-            tree.reset();
-            if (isUpdated) {
-                *isUpdated = true;
-            }
-            isDirty = true;
-        }
-        if (treeFutureWatcher) {
-            treeFutureWatcher->cancel();
-            treeFutureWatcher.clear();
-        }
-    }
-
-    QString updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth, bool * isUpdated)
-    {
-        if (!scene) {
-            unsetTree(isUpdated);
-            return {};
-        }
-        if (treeFutureWatcher) {
-            auto t = treeFutureWatcher.dynamicCast<FutureWatcher>();
-            Q_ASSERT(t);
-            auto future = t->future();
-            if (future.isCanceled()) {
-                treeFutureWatcher.clear();
-                if (future.isValid()) {
-                    try {
-                        (void)future.result();
-                    } catch (const std::exception & e) {
-                        return u"Exception: %1"_s.arg(QString::fromUtf8(e.what()));
-                    }
-                }
-                return u"Cancelled"_s;
-            }
-            if (!future.isResultReadyAt(0) || !future.isValid()) {
-                return {};
-            }
-            try {
-                auto newTree = future.result();
-                if (newTree != tree) {
-                    tree = std::move(newTree);
-                    if (isUpdated) {
-                        *isUpdated = true;
-                    }
-                    isDirty = true;
-                    return {};
-                }
-            } catch (const std::bad_alloc & e) {
-                return QString::fromUtf8(e.what());
-            }
-        }
-        const builder::Tree::Settings treeSettings = {
-            .emptinessFactor = emptinessFactor,
-            .traversalCost = traversalCost,
-            .intersectionCost = intersectionCost,
-            .maxDepth = utils::autoCast(maxDepth),
-        };
-        if (!tree || (tree->getSettings() != treeSettings)) {
-            unsetTree(isUpdated);
-            auto scenePath = QString::fromStdString(scene->scenePath.native());
-            const auto buildTree = [&engine = engine, scenePath, scene = scene, treeSettings](QPromise<TreePtr> & promise) mutable
-            {
-                ElapsedTimer elapsedTimer{viewerRenderNodeCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
-                if (promise.isCanceled()) {
-                    return;
-                }
-                const auto cancel = [&promise]
-                {
-                    promise.suspendIfRequested();
-                    return promise.isCanceled();
-                };
-                if (auto tree = engine.getBuilder().build(treeSettings, scene->sceneData, cancel)) {
-                    promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
-                }
-            };
-            QFileInfo sceneFileInfo{scenePath};
-            auto description = u"%1: emptinessFactor %2, traversalCost: %3, intersectionCost: %4, maxDepth: %5"_s  //
-                                   .arg(sceneFileInfo.filePath())                                                  //
-                                   .arg(utils::safeCast<double>(treeSettings.emptinessFactor))                     //
-                                   .arg(utils::safeCast<double>(treeSettings.traversalCost))                       //
-                                   .arg(utils::safeCast<double>(treeSettings.intersectionCost))                    //
-                                   .arg(treeSettings.maxDepth);                                                    //
-            treeFutureWatcher = taskQueue->runTask(sceneFileInfo.fileName(), qMove(description), std::move(buildTree));
-        }
-        return {};
     }
 
     template<typename T>
@@ -317,6 +148,32 @@ struct RenderNode::Impl
     }
 
 #define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
+    void unsetScene()
+    {
+        if (scene) {
+            scene.reset();
+            isDirty = true;
+        }
+    }
+
+    void updateScene(const ScenePtr & scene)
+    {
+        UPDATE_STATE(this->scene, scene);
+    }
+
+    void unsetTree()
+    {
+        if (tree) {
+            tree.reset();
+            isDirty = true;
+        }
+    }
+
+    void updateTree(const TreePtr & tree)
+    {
+        UPDATE_STATE(this->tree, tree);
+    }
+
     void updateRect(const QRectF & rect)
     {
         UPDATE_STATE(this->rect, rect);
@@ -387,8 +244,13 @@ struct RenderNode::Impl
             renderer.emplace(context, engine, framesInFlight);
         }
         renderer.value().setFrameSettings(frameSettings);
-        if (scene && !renderer.value().getScene()) {
-            renderer.value().setScene(scene);
+        if (renderer.value().getScene() != scene) {
+            if (renderer.value().getScene()) {
+                renderer.value().unsetScene();
+            }
+            if (scene) {
+                renderer.value().setScene(scene);
+            }
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;
@@ -475,33 +337,38 @@ struct RenderNode::Impl
     }
 };
 
-RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & sceneFutureWatcher, QSharedPointer<QFutureWatcherBase> & treeFutureWatcher)
-    : impl_{window, engineWrapper, taskQueue, sceneFutureWatcher, treeFutureWatcher}
+RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper)
+    : impl_{window, engineWrapper}
 {}
 
-void RenderNode::unsetScene(bool * isUpdated)
+void RenderNode::unsetScene()
 {
-    return impl_->unsetScene(isUpdated);
+    return impl_->unsetScene();
 }
 
-QString RenderNode::updateScene(const std::filesystem::path & scenePath, bool * isUpdated)
+void RenderNode::updateScene(const ScenePtr & scene)
 {
-    return impl_->updateScene(scenePath, isUpdated);
+    return impl_->updateScene(scene);
 }
 
-const std::shared_ptr<const Scene> & RenderNode::getScene() const &
+auto RenderNode::getScene() const & -> const ScenePtr &
 {
     return impl_->scene;
 }
 
-void RenderNode::unsetTree(bool * isUpdated)
+void RenderNode::unsetTree()
 {
-    return impl_->unsetTree(isUpdated);
+    return impl_->unsetTree();
 }
 
-QString RenderNode::updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth, bool * isUpdated)
+void RenderNode::updateTree(const TreePtr & tree)
 {
-    return impl_->updateTree(emptinessFactor, traversalCost, intersectionCost, maxDepth, isUpdated);
+    return impl_->updateTree(tree);
+}
+
+auto RenderNode::getTree() const & -> const TreePtr &
+{
+    return impl_->tree;
 }
 
 void RenderNode::updateRect(const QRectF & rect)

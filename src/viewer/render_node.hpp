@@ -2,7 +2,6 @@
 
 #include <builder/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
-#include <viewer/task_queue.hpp>
 
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QRectF>
@@ -13,7 +12,6 @@
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 
-#include <filesystem>
 #include <memory>
 
 #include <cstddef>
@@ -26,14 +24,18 @@ struct Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper, TaskQueue * taskQueue, QSharedPointer<QFutureWatcherBase> & sceneFutureWatcher, QSharedPointer<QFutureWatcherBase> & treeFutureWatcher);
+    using ScenePtr = std::shared_ptr<const Scene>;
+    using TreePtr = std::shared_ptr<const builder::Tree>;
 
-    void unsetScene(bool * isUpdated);
-    QString updateScene(const std::filesystem::path & scenePath, bool * isUpdated);
-    [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
+    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper);
 
-    void unsetTree(bool * isUpdated);
-    QString updateTree(float emptinessFactor, float traversalCost, float intersectionCost, uint32_t maxDepth, bool * isUpdated);
+    void unsetScene();
+    void updateScene(const ScenePtr & scene);
+    [[nodiscard]] const ScenePtr & getScene() const &;
+
+    void unsetTree();
+    void updateTree(const TreePtr & tree);
+    [[nodiscard]] const TreePtr & getTree() const &;
 
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
@@ -45,7 +47,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 920;
+    static constexpr size_t kSize = 896;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

@@ -1,5 +1,7 @@
 ﻿#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <viewer/engine.hpp>
+#include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
 #include <viewer/scenes.hpp>
 #include <viewer/task_queue.hpp>
@@ -55,81 +57,245 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 SceneSettings::SceneSettings(QObject * parent)
     : QObject{parent}
 {
-    const auto onUrlChanged = [this]
+    if (!connect(this, &SceneSettings::urlChanged, &SceneSettings::onUrlChanged)) {
+        qFatal("unreachable");
+    }
+    if (!connect(this, &SceneSettings::sceneChanged, &SceneSettings::onTreeSettingsChanged)) {
+        qFatal("unreachable");
+    }
+    if (!connect(this, &SceneSettings::treeSettingsChanged, &SceneSettings::onTreeSettingsChanged)) {
+        qFatal("unreachable");
+    }
+
+    const auto addTasks = [this]
     {
+        if (!taskQueue) {
+            return;
+        }
+        using namespace std::chrono_literals;
+        for (int64_t i = 0; i < 12; ++i) {
+            auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
+            {
+                if (promise.isCanceled()) {
+                    return;
+                }
+                constexpr int kProgressRangeStart = 0;
+                constexpr int kProgressRangeStop = 100;
+                promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
+                promise.setProgressValueAndText(kProgressRangeStart, u"0%"_s);
+                std::mt19937 rng{utils::safeCast<std::mt19937::result_type>(*i)};
+                QList<int> indices(kProgressRangeStop - kProgressRangeStart);
+                std::iota(std::begin(indices), std::end(indices), 0);
+                std::shuffle(std::begin(indices), std::end(indices), rng);
+                auto index = std::begin(indices);
+                int progress = kProgressRangeStart;
+                while (++progress <= kProgressRangeStop) {
+                    promise.suspendIfRequested();
+                    if (promise.isCanceled()) {
+                        return;
+                    }
+                    {  // work hard
+                        std::this_thread::sleep_for(100ms);
+                    }
+                    const float numerator = utils::autoCast(progress - kProgressRangeStart);
+                    const float denominator = utils::autoCast(kProgressRangeStop - kProgressRangeStart);
+                    promise.setProgressValueAndText(progress, u"%1%"_s.arg(qRound(100.0f * numerator / denominator)));
+                    Q_ASSERT(index != std::end(indices));
+                    if (!promise.emplaceResultAt(*index++, progress)) {
+                        qCWarning(viewerCategory).noquote() << u"Cannot add result %1 at index %2"_s.arg(progress).arg(*std::prev(index));
+                    }
+                }
+            };
+            Q_ASSERT(taskQueue);
+            tasks.append(taskQueue->runTask(u"(w/ promise) name %1"_s.arg(i), u"(w/ promise) description %1"_s.arg(i), std::move(taskWithPromise)));
+
+            const auto task = []
+            {
+                std::this_thread::sleep_for(10000ms);
+                return 0;
+            };
+            Q_ASSERT(taskQueue);
+            tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
+        }
+    };
+    // QTimer::singleShot(1000, this, addTasks);
+}
+
+QVector3D SceneSettings::getSceneAabbMin() const
+{
+    if (!scene) {
+        return {};
+    }
+    const auto & aabbMin = scene->sceneData.aabb.min;
+    return {aabbMin.x, aabbMin.y, aabbMin.z};
+}
+
+QVector3D SceneSettings::getSceneAabbMax() const
+{
+    if (!scene) {
+        return {};
+    }
+    const auto & aabbMax = scene->sceneData.aabb.max;
+    return {aabbMax.x, aabbMax.y, aabbMax.z};
+}
+
+void SceneSettings::updateScene()
+{
+    Q_CHECK_PTR(sceneFutureWatcher);
+    Q_ASSERT(sceneFutureWatcher->isFinished());
+    auto future = sceneFutureWatcher->future();
+    Q_ASSERT(future.isValid());
+    if (future.isCanceled()) {
+        /*
+        try {
+            (void)future.result();
+        } catch (const std::exception & e) {
+            sceneStatus = u"Exception: %1"_s.arg(QString::fromUtf8(e.what()));
+        }
+        */
+        {
+            scene.reset();
+            Q_EMIT sceneChanged();
+        }
+        sceneStatus = u"Cancelled"_s;
+    } else {
+        ScenePtr newScene = future.result();
+        if (scene != newScene) {
+            scene = std::move(newScene);
+            Q_EMIT sceneChanged();
+        }
+        sceneStatus.clear();
+    }
+    Q_EMIT sceneStatusChanged();
+};
+
+void SceneSettings::onUrlChanged()
+{
+    if (sceneFutureWatcher) {
+        if (!sceneFutureWatcher->disconnect(this)) {
+            qFatal("unreachable");
+        }
+        sceneFutureWatcher->cancel();
+        sceneFutureWatcher.clear();
+    }
+    if (url.isEmpty() || !url.isLocalFile()) {
+        if (scene) {
+            scene.reset();
+            Q_EMIT sceneChanged();
+        }
+        if (url.isEmpty()) {
+            sceneStatus.clear();
+        } else {
+            Q_ASSERT(!url.isLocalFile());
+            sceneStatus = u"Scene URL is not local file: %1"_s.arg(url.toString());
+        }
+        Q_EMIT sceneStatusChanged();
+        return;
+    }
+    QFileInfo sceneFileInfo{url.toLocalFile()};
+    std::filesystem::path scenePath = sceneFileInfo.filesystemCanonicalFilePath();
+    if (scene && (scene->scenePath == scenePath)) {
+        return;
+    }
+    Q_CHECK_PTR(engineWrapper);
+    const auto buidScene = [this, sceneFileInfo, scenePath = std::move(scenePath)](QPromise<ScenePtr> & promise)
+    {
+        ElapsedTimer elapsedTimer{viewerCategory, u"Build scene '%1'"_s.arg(sceneFileInfo.canonicalFilePath())};
+        if (promise.isCanceled()) {
+            return;
+        }
+        if (auto scene = engineWrapper->getEngine().getScenes().getScene(scenePath)) {
+            promise.addResult(std::move(scene));
+        }
+    };
+    Q_ASSERT(taskQueue);
+    sceneFutureWatcher = taskQueue->runTask(sceneFileInfo.fileName(), sceneFileInfo.filePath(), std::move(buidScene));
+    if (!connect(sceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &SceneSettings::updateScene)) {
+        qFatal("unreachable");
+    }
+}
+
+void SceneSettings::updateTree()
+{
+    Q_CHECK_PTR(treeFutureWatcher);
+    Q_ASSERT(treeFutureWatcher->isFinished());
+    auto future = treeFutureWatcher->future();
+    Q_ASSERT(future.isValid());
+    if (future.isCanceled()) {
+        {
+            tree.reset();
+            Q_EMIT treeChanged();
+        }
+        treeStatus = u"Cancelled"_s;
+    } else {
+        TreePtr newTree = future.result();
+        if (tree != newTree) {
+            tree = std::move(newTree);
+            Q_EMIT treeChanged();
+        }
+        treeStatus.clear();
+    }
+    Q_EMIT treeStatusChanged();
+}
+
+void SceneSettings::onTreeSettingsChanged()
+{
+    if (treeFutureWatcher) {
+        if (!treeFutureWatcher->disconnect(this)) {
+            qFatal("unreachable");
+        }
+        treeFutureWatcher->cancel();
+        treeFutureWatcher.clear();
+    }
+    if (!scene) {
+        if (tree) {
+            tree.reset();
+            Q_EMIT treeChanged();
+        }
         if (!sceneStatus.isEmpty()) {
             sceneStatus.clear();
-            Q_EMIT sceneStatusChanged();
-        }
-    };
-    connect(this, &SceneSettings::urlChanged, onUrlChanged);
-    const auto onTreeSettingsChanged = [this]
-    {
-        if (!treeStatus.isEmpty()) {
-            treeStatus.clear();
             Q_EMIT treeStatusChanged();
         }
-    };
-    connect(this, &SceneSettings::treeSettingsChanged, onTreeSettingsChanged);
-}
-
-void SceneSettings::updateRenderNodeScene(RenderNode & renderNode)
-{
-    if (!sceneStatus.isEmpty()) {
         return;
     }
-    const auto updateSceneCharacteristics = [this, &renderNode]
+    const builder::Tree::Settings treeSettings = {
+        .emptinessFactor = emptinessFactor,
+        .traversalCost = traversalCost,
+        .intersectionCost = intersectionCost,
+        .maxDepth = utils::autoCast(maxDepth),
+    };
+    if (tree && (tree->getSettings() == treeSettings)) {
+        return;
+    }
+    auto scenePath = QString::fromStdString(scene->scenePath.native());
+    Q_CHECK_PTR(engineWrapper);
+    const auto buildTree = [this, scenePath, scene = scene, treeSettings](QPromise<TreePtr> & promise)
     {
-        if (const auto & scene = renderNode.getScene()) {
-            const auto & [aabbMin, aabbMax] = scene->sceneData.aabb;
-            sceneAabbMin = {aabbMin.x, aabbMin.y, aabbMin.z};
-            sceneAabbMax = {aabbMax.x, aabbMax.y, aabbMax.z};
-        } else {
-            sceneAabbMin = {};
-            sceneAabbMax = {};
+        ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
+        if (promise.isCanceled()) {
+            return;
         }
-        Q_EMIT sceneCharacteristicsChanged();
+        const auto cancel = [&promise]
+        {
+            promise.suspendIfRequested();
+            return promise.isCanceled();
+        };
+        if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, scene->sceneData, cancel)) {
+            promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
+        }
     };
-    bool isUpdated = false;
-    if (url.isEmpty()) {
-        renderNode.unsetScene(&isUpdated);
-        if (isUpdated) {
-            updateSceneCharacteristics();
-        }
-        return;
-    }
-    if (!url.isLocalFile()) {
-        renderNode.unsetScene(&isUpdated);
-        sceneStatus = u"Scene URL is not local file: %1"_s.arg(url.toString());
-        if (isUpdated) {
-            updateSceneCharacteristics();
-        }
-    } else {
-        std::filesystem::path scenePath = QFileInfo{url.toLocalFile()}.filesystemCanonicalFilePath();
-        sceneStatus = renderNode.updateScene(scenePath, &isUpdated);
-        if (isUpdated) {
-            updateSceneCharacteristics();
-        }
-    }
-    if (!sceneStatus.isEmpty()) {
-        qCWarning(viewerCategory) << sceneStatus;
-        Q_EMIT sceneStatusChanged();
-    }
-}
-
-void SceneSettings::updateRenderNodeTree(RenderNode & renderNode)
-{
-    if (!treeStatus.isEmpty()) {
-        return;
-    }
-    bool isUpdated = false;
-    treeStatus = renderNode.updateTree(emptinessFactor, traversalCost, intersectionCost, utils::autoCast(maxDepth), &isUpdated);
-    if (isUpdated) {
-        qCInfo(viewerCategory).noquote() << u"Tree is updated"_s;
-    }
-    if (!treeStatus.isEmpty()) {
-        qCWarning(viewerCategory) << treeStatus;
-        Q_EMIT treeStatusChanged();
+    QFileInfo sceneFileInfo{scenePath};
+    auto name = u"%1 tree"_s.arg(sceneFileInfo.fileName());
+    auto description = u"%1:\n\temptinessFactor %2,\n\ttraversalCost: %3,\n\tintersectionCost: %4,\n\tmaxDepth: %5"_s  //
+                           .arg(sceneFileInfo.filePath())                                                              //
+                           .arg(utils::safeCast<double>(treeSettings.emptinessFactor))                                 //
+                           .arg(utils::safeCast<double>(treeSettings.traversalCost))                                   //
+                           .arg(utils::safeCast<double>(treeSettings.intersectionCost))                                //
+                           .arg(treeSettings.maxDepth);                                                                //
+    Q_ASSERT(taskQueue);
+    treeFutureWatcher = taskQueue->runTask(qMove(name), qMove(description), std::move(buildTree));
+    if (!connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &SceneSettings::updateTree)) {
+        qFatal("unreachable");
     }
 }
 
@@ -360,18 +526,21 @@ Viewer::Viewer(QQuickItem * parent)
 
     const auto onSceneSettingsChanged = [this]
     {
-        disconnect(sceneSettingsUrlChangedConnection);
+        disconnect(sceneUrlChangedConnection);
+        disconnect(sceneChangedConnection);
         disconnect(sceneStatusChangedConnection);
-        disconnect(sceneSettingsSettingsChangedConnection);
-        disconnect(sceneSettingsBuildSettingsChangedConnection);
+        disconnect(sceneSettingsTreeChangedConnection);
         disconnect(sceneSettingsTreeStatusChangedConnection);
+        disconnect(sceneSettingsBuildSettingsChangedConnection);
         if (!sceneSettings) {
             return;
         }
-        sceneSettingsUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
+        sceneUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
+        sceneChangedConnection = connect(sceneSettings, &SceneSettings::sceneChanged, this, &QQuickItem::update);
         sceneStatusChangedConnection = connect(sceneSettings, &SceneSettings::sceneStatusChanged, this, &QQuickItem::update);
-        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
+        sceneSettingsTreeChangedConnection = connect(sceneSettings, &SceneSettings::treeChanged, this, &QQuickItem::update);
         sceneSettingsTreeStatusChangedConnection = connect(sceneSettings, &SceneSettings::treeStatusChanged, this, &QQuickItem::update);
+        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
     };
     connect(this, &Viewer::sceneSettingsChanged, onSceneSettingsChanged);
     connect(cameraView, &CameraView::viewChanged, this, &QQuickItem::update);
@@ -393,57 +562,6 @@ Viewer::Viewer(QQuickItem * parent)
         sceneGraphInvalidatedConnection = connect(window, &QQuickWindow::sceneGraphInvalidated, this, onSceneGraphInvalidated, Qt::ConnectionType::DirectConnection);
     };
     connect(this, &QQuickItem::windowChanged, onWindowChanged);
-
-    const auto addTasks = [this]
-    {
-        if (!taskQueue) {
-            return;
-        }
-        using namespace std::chrono_literals;
-        for (int64_t i = 0; i < 12; ++i) {
-            auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
-            {
-                if (promise.isCanceled()) {
-                    return;
-                }
-                constexpr int kProgressRangeStart = 0;
-                constexpr int kProgressRangeStop = 100;
-                promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
-                promise.setProgressValueAndText(kProgressRangeStart, u"0%"_s);
-                std::mt19937 rng{utils::safeCast<std::mt19937::result_type>(*i)};
-                QList<int> indices(kProgressRangeStop - kProgressRangeStart);
-                std::iota(std::begin(indices), std::end(indices), 0);
-                std::shuffle(std::begin(indices), std::end(indices), rng);
-                auto index = std::begin(indices);
-                int progress = kProgressRangeStart;
-                while (++progress <= kProgressRangeStop) {
-                    promise.suspendIfRequested();
-                    if (promise.isCanceled()) {
-                        return;
-                    }
-                    {  // work hard
-                        std::this_thread::sleep_for(100ms);
-                    }
-                    const float numerator = utils::autoCast(progress - kProgressRangeStart);
-                    const float denominator = utils::autoCast(kProgressRangeStop - kProgressRangeStart);
-                    promise.setProgressValueAndText(progress, u"%1%"_s.arg(qRound(100.0f * numerator / denominator)));
-                    Q_ASSERT(index != std::end(indices));
-                    if (!promise.emplaceResultAt(*index++, progress)) {
-                        qCWarning(viewerCategory).noquote() << u"Cannot add result %1 at index %2"_s.arg(progress).arg(*std::prev(index));
-                    }
-                }
-            };
-            tasks.append(taskQueue->runTask(u"(w/ promise) name %1"_s.arg(i), u"(w/ promise) description %1"_s.arg(i), std::move(taskWithPromise)));
-
-            const auto task = []
-            {
-                std::this_thread::sleep_for(10000ms);
-                return 0;
-            };
-            tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
-        }
-    };
-    // QTimer::singleShot(1000, this, addTasks);
 }
 
 void Viewer::handleKeyboardInput()
@@ -758,44 +876,10 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
     } else {
-        renderNode = new RenderNode{window(), *engineWrapper, taskQueue, sceneFutureWatcher, treeFutureWatcher};
+        renderNode = new RenderNode{window(), *engineWrapper};
     }
-    {
-        auto oldSceneFutureWatcher = sceneFutureWatcher;
-        sceneSettings->updateRenderNodeScene(*renderNode);
-        if (oldSceneFutureWatcher != sceneFutureWatcher) {
-            if (oldSceneFutureWatcher) {
-                if (!disconnect(oldSceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update)) {
-                    qFatal("unreachable");
-                }
-            }
-            if (sceneFutureWatcher) {
-                if (!connect(sceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update, Qt::ConnectionType::QueuedConnection)) {
-                    qFatal("unreachable");
-                }
-            }
-        }
-    }
-    {
-        auto oldTreeFutureWatcher = treeFutureWatcher;
-        if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-            sceneSettings->updateRenderNodeTree(*renderNode);
-        } else {
-            renderNode->unsetTree(nullptr);
-        }
-        if (oldTreeFutureWatcher != treeFutureWatcher) {
-            if (oldTreeFutureWatcher) {
-                if (disconnect(oldTreeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update)) {
-                    qFatal("unreachable");
-                }
-            }
-            if (treeFutureWatcher) {
-                if (!connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QQuickItem::update, Qt::ConnectionType::QueuedConnection)) {
-                    qFatal("unreachable");
-                }
-            }
-        }
-    }
+    renderNode->updateScene(sceneSettings->scene);
+    renderNode->updateTree(sceneSettings->tree);
     renderNode->updateRect(boundingRect());
     const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
     const bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;

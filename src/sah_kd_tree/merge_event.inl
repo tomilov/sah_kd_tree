@@ -139,7 +139,7 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     // sort splitted event
     auto splittedEventBegin = thrust::next(eventBegin, splittedEventOffset);
     auto splittedEventEnd = thrust::next(splittedEventBegin, splittedEventCount);
-    thrust::sort(splittedEventBegin, splittedEventEnd);
+    thrust::sort(splittedEventBegin, splittedEventEnd);  // max sqrt(N) * log(sqrt(N)) for "reasonable" scenes
 
     // cleanup repeating planar events
     if (std::is_floating_point_v<F>) {

@@ -838,9 +838,10 @@ C.ApplicationWindow {
                                     .arg(description.join(verbose ? " OR " : "|"))
                             }
                             engine: SKT.SahKdTreeEngine
-                            taskQueue: taskQueue
                             scene: SKT.SceneSettings {
                                 id: sceneSettings
+                                engine: SKT.SahKdTreeEngine
+                                taskQueue: taskQueue
                                 url: fileUrl
                             }
                             renderer {
