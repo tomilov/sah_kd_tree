@@ -108,6 +108,7 @@ private:
 
     QString treeStatus;
     QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
+    ScenePtr treeScene;
     TreePtr tree;
 };
 

@@ -57,13 +57,16 @@ Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
 SceneSettings::SceneSettings(QObject * parent)
     : QObject{parent}
 {
-    if (!connect(this, &SceneSettings::urlChanged, &SceneSettings::onUrlChanged)) {
+    // onUrlChanged have to be postponed to a moment after QQmlApplicationEngine::objectCreated,
+    // because VkDevice is not created at the ApplicationWindow construction time.
+    // The moment is when event handling loop is started.
+    if (!connect(this, &SceneSettings::urlChanged, this, &SceneSettings::onUrlChanged, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");
     }
-    if (!connect(this, &SceneSettings::sceneChanged, &SceneSettings::onTreeSettingsChanged)) {
+    if (!connect(this, &SceneSettings::sceneChanged, this, &SceneSettings::onTreeSettingsChanged, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");
     }
-    if (!connect(this, &SceneSettings::treeSettingsChanged, &SceneSettings::onTreeSettingsChanged)) {
+    if (!connect(this, &SceneSettings::treeSettingsChanged, this, &SceneSettings::onTreeSettingsChanged, Qt::ConnectionType::QueuedConnection)) {
         qFatal("unreachable");
     }
 
@@ -248,12 +251,13 @@ void SceneSettings::onTreeSettingsChanged()
         treeFutureWatcher.clear();
     }
     if (!scene) {
+        treeScene.reset();
         if (tree) {
             tree.reset();
             Q_EMIT treeChanged();
         }
-        if (!sceneStatus.isEmpty()) {
-            sceneStatus.clear();
+        if (!treeStatus.isEmpty()) {
+            treeStatus.clear();
             Q_EMIT treeStatusChanged();
         }
         return;
@@ -264,9 +268,10 @@ void SceneSettings::onTreeSettingsChanged()
         .intersectionCost = intersectionCost,
         .maxDepth = utils::autoCast(maxDepth),
     };
-    if (tree && (tree->getSettings() == treeSettings)) {
+    if ((scene == treeScene) && tree && (tree->getSettings() == treeSettings)) {
         return;
     }
+    treeScene = scene;
     auto scenePath = QString::fromStdString(scene->scenePath.native());
     Q_CHECK_PTR(engineWrapper);
     const auto buildTree = [this, scenePath, scene = scene, treeSettings](QPromise<TreePtr> & promise)
