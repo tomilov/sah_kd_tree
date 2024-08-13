@@ -43,6 +43,7 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
     node.polygonCountRight.resize(1);
 
     Tree<Traits> tree{allocator};
+    tree.layerDepth.push_back(node.count);
     for (;;) {
         if (cancel()) {
             return std::nullopt;

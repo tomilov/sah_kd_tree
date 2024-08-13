@@ -225,7 +225,7 @@ template<typename T>
                 return {};
             }
             INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
-            dataSize -= size;
+            dataSize -= utils::safeCast<size_t>(size);
             d += size;
         }
         return true;
@@ -250,7 +250,7 @@ template<typename T>
             return {};
         }
         qCDebug(sceneLoaderLog).noquote() << u"loadArrayFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
-        array = utils::MemArray<T>{utils::autoCast(arrayLength)};
+        array = utils::MemArray<T>{utils::safeCast<size_t>(arrayLength)};
         if (!loadDataFromCache(array.begin(), array.getCount(), arrayName)) {
             return {};
         }
@@ -336,7 +336,7 @@ template<typename T>
                 return {};
             }
             INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
-            dataSize -= size;
+            dataSize -= utils::safeCast<size_t>(size);
             d += size;
         }
         return true;
@@ -480,11 +480,11 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
     qCDebug(sceneLoaderLog) << "scene has materials (required if not flag set):" << assimpScene->HasMaterials();
     qCDebug(sceneLoaderLog) << "scene has meshes (required if not flag set):" << assimpScene->HasMeshes();
     qCDebug(sceneLoaderLog) << "scene has textures:" << assimpScene->HasTextures();
-    if (((importer.GetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS) & aiComponent_MESHES) == 0) && !assimpScene->HasMeshes()) {
+    if (((utils::safeCast<uint32_t>(importer.GetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS)) & aiComponent_MESHES) == 0) && !assimpScene->HasMeshes()) {
         qCCritical(sceneLoaderLog).noquote() << u"scene %1 has no meshes"_s.arg(sceneFileInfo.filePath());
         return {};
     }
-    if (((importer.GetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS) & aiComponent_MATERIALS) == 0) && !assimpScene->HasMaterials()) {
+    if (((utils::safeCast<uint32_t>(importer.GetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS)) & aiComponent_MATERIALS) == 0) && !assimpScene->HasMaterials()) {
         qCCritical(sceneLoaderLog).noquote() << u"scene %1 has no materials"_s.arg(sceneFileInfo.filePath());
         return {};
     }
@@ -592,7 +592,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
         std::unordered_map<size_t, size_t> meshIndexRemap;
         meshIndexRemap.reserve(std::size(usedMeshes));
         for (auto & [assimpMesh, meshUsage] : usedMeshes) {
-            if ((assimpMesh->mPrimitiveTypes & ~(aiPrimitiveType_TRIANGLE | aiPrimitiveType_NGONEncodingFlag)) != 0) {
+            if ((assimpMesh->mPrimitiveTypes & ~utils::safeCast<uint32_t>(aiPrimitiveType_TRIANGLE | aiPrimitiveType_NGONEncodingFlag)) != 0) {
                 qCWarning(sceneLoaderLog).noquote() << u"primitive type of mesh %1 is not triangle (possibly NGON-encoded)"_s.arg(QString::fromLatin1(assimpMesh->mName.C_Str()));
                 return {};
             }

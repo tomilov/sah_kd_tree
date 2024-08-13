@@ -17,7 +17,7 @@
 
 namespace builder
 {
-class CudaDevice;
+using DeviceUuidType = std::array<std::byte, 16>;
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
 {
@@ -45,7 +45,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 
-    Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneData & sceneData);
+    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, size_t minAlignment, const scene_data::SceneData & sceneData);
 
     static constexpr void completeClassContext()
     {
@@ -58,10 +58,7 @@ class BUILDER_EXPORT Builder : utils::OneTime<Builder>
 public:
     struct Settings
     {
-        using DeviceUuidType = std::array<std::byte, 16>;
-
-        bool skipDeviceCheck = false;  // first device will be selected
-        DeviceUuidType deviceUuid;
+        std::optional<DeviceUuidType> deviceUuid;
         size_t minAlignment;
     };
 

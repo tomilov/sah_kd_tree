@@ -72,7 +72,6 @@ protected:
 
 private:
     const builder::Builder::Settings builderSettings = {
-        .skipDeviceCheck = true,
         .deviceUuid = {},
         .minAlignment = 0,
     };

@@ -884,7 +884,11 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         renderNode = new RenderNode{window(), *engineWrapper};
     }
     renderNode->updateScene(sceneSettings->scene);
-    renderNode->updateTree(sceneSettings->tree);
+    if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
+        renderNode->updateTree(sceneSettings->tree);
+    } else {
+        renderNode->unsetTree();
+    }
     renderNode->updateRect(boundingRect());
     const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
     const bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;

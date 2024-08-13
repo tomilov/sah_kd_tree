@@ -121,7 +121,7 @@ private:
     QHash<QPersistentModelIndex, QPair<int, int>> indexToId;
 
     template<typename T>
-    [[nodiscard]] auto addTask(QString name, QString description, QFuture<T> future)
+    [[nodiscard]] auto addTask(QString && name, QString && description, QFuture<T> future)
     {
         auto futureWatcher = QSharedPointer<QFutureWatcher<T>>::create();
         futureWatcher->setFuture(future);
