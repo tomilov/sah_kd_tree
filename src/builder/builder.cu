@@ -24,6 +24,7 @@
 #include <iterator>
 #include <numeric>
 #include <optional>
+#include <type_traits>
 
 #include <cstddef>
 #include <cstring>
@@ -71,7 +72,6 @@ struct fmt::formatter<::CUresult> : fmt::formatter<fmt::string_view>
 
 namespace builder
 {
-
 namespace
 {
 #if SAH_KD_TREE_HEADER_ONLY
@@ -89,7 +89,6 @@ struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA p
 #else
 using Traits = sah_kd_tree::DefaultTraits;
 #endif
-}  // namespace
 
 class CudaDevice : utils::OneTime<CudaDevice>
 {
@@ -97,7 +96,6 @@ public:
     CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
         : deviceUuid{deviceUuid}
     {
-        checkTraits();
         selectCudaDevice();
     }
 
@@ -175,22 +173,24 @@ private:
             INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
         }
     }
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
 };
 
-class DeviceMemory
+class DeviceMemory : utils::OneTime<DeviceMemory>
 {
 public:
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
-    class MappedDeviceMemory
+    class MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
     {
     public:
-        MappedDeviceMemory(::CUmemGenericAllocationHandle allocationHandle, size_t alignedAllocationSize, size_t allocGranularity, const ::CUmemLocation & location)
-            : allocationHandle{allocationHandle}
-            , alignedAllocationSize{alignedAllocationSize}
-            , allocGranularity{allocGranularity}
-            , location{location}
+        MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSize, ::CUmemGenericAllocationHandle allocationHandle)
+            : alignedAllocationSize{alignedAllocationSize}
         {
             CU_CHECK_ERROR(cuMemAddressReserve(&devPtr, alignedAllocationSize, allocGranularity, devPtr, 0));
             CU_CHECK_ERROR(cuMemMap(devPtr, alignedAllocationSize, 0, allocationHandle, 0));
@@ -203,8 +203,16 @@ public:
             CU_CHECK_ERROR(cuMemSetAccess(devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor)));
         }
 
+        MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
+            : alignedAllocationSize{rhs.alignedAllocationSize}
+            , devPtr{std::exchange(rhs.devPtr, devPtr)}
+        {}
+
         ~MappedDeviceMemory()
         {
+            if (devPtr == ::CUdeviceptr{}) {
+                return;
+            }
             CU_CHECK_ERROR(cuMemUnmap(devPtr, alignedAllocationSize));
             CU_CHECK_ERROR(cuMemAddressFree(devPtr, alignedAllocationSize));
         }
@@ -217,88 +225,178 @@ public:
     private:
         friend DeviceMemory;
 
-        const ::CUmemGenericAllocationHandle allocationHandle;
         const size_t alignedAllocationSize;
-        const size_t allocGranularity;
-        const ::CUmemLocation & location;
 
         ::CUdeviceptr devPtr = {};
+
+        static constexpr void completeClassContext [[maybe_unused]] ()
+        {
+            checkTraits();
+        }
     };
 
-    DeviceMemory(::CUdevice cuDev, size_t minAlignment, size_t allocationSize, size_t allocationAlignment)
-        : cuDev{cuDev}
-        , minAlignment{minAlignment}
-        , allocationSize{allocationSize}
-        , allocationAlignment{allocationAlignment}
-    {
-        init();
-    }
+    DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment = 0)
+        : memAllocationProp{makeMemAllocationProp(cuDev)}
+        , allocGranularity{getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED)}
+        , alignedAllocationSize{getAlignedAllocationSize(allocationSize, allocationAlignment)}
+        , allocationHandle{makeMemGenericAllocationHandle()}
+    {}
+
+    DeviceMemory(DeviceMemory && rhs) noexcept
+        : memAllocationProp{rhs.memAllocationProp}
+        , allocGranularity{rhs.allocGranularity}
+        , alignedAllocationSize{rhs.alignedAllocationSize}
+        , allocationHandle{std::exchange(rhs.allocationHandle, allocationHandle)}
+    {}
 
     ~DeviceMemory()
     {
+        if (allocationHandle == ::CUmemGenericAllocationHandle{}) {
+            return;
+        }
         CU_CHECK_ERROR(cuMemRelease(allocationHandle));  // after both cuMemExportToShareableHandle and cuMemMap
     }
 
-    MappedDeviceMemory map() const &
+    MappedDeviceMemory map() const
     {
-        return {allocationHandle, alignedAllocationSize, allocGranularity, memAllocationProp.location};
+        return {memAllocationProp.location, allocGranularity, alignedAllocationSize, allocationHandle};
     }
 
-    int exportToFd() const &
+    File exportMemoryObject() const
     {
         int fd = -1;
         CU_CHECK_ERROR(cuMemExportToShareableHandle(&fd, allocationHandle, kHandleType, 0));
-        //::close(fd);
-        return fd;
+        INVARIANT(fd >= 0, "");
+        return File::make(fd);
     }
 
 private:
-    const ::CUdevice cuDev;
-    const size_t minAlignment;
-    const size_t allocationSize;
-    const size_t allocationAlignment;
-
-    const ::CUmemAllocationProp memAllocationProp = {
-        .type = CU_MEM_ALLOCATION_TYPE_PINNED,
-        .requestedHandleTypes = kHandleType,
-        .location = {
-            .type = CU_MEM_LOCATION_TYPE_DEVICE,
-            .id = cuDev,
-        },
-        .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
-        .allocFlags = {},
-    };
-    size_t allocGranularity = 0;
-    size_t alignedAllocationSize = 0;
+    const ::CUmemAllocationProp memAllocationProp;
+    const size_t allocGranularity;
+    const size_t alignedAllocationSize = 0;
     ::CUmemGenericAllocationHandle allocationHandle = {};
 
-    void init()
+    static ::CUmemAllocationProp makeMemAllocationProp(::CUdevice cuDev)
     {
-        CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
-        SPDLOG_INFO("minimum allocGranularity {}", allocGranularity);
-        alignedAllocationSize = utils::divUp(allocationSize, allocGranularity) * allocGranularity;
-        CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, CU_MEM_ALLOC_GRANULARITY_RECOMMENDED));
-        SPDLOG_INFO("minAlignment {}, recommended allocGranularity {}", minAlignment, allocGranularity);
-        allocGranularity = std::max({allocGranularity, allocationAlignment, minAlignment});
+        return {
+            .type = CU_MEM_ALLOCATION_TYPE_PINNED,
+            .requestedHandleTypes = kHandleType,
+            .location = {
+                .type = CU_MEM_LOCATION_TYPE_DEVICE,
+            },
+            .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
+            .allocFlags = {},
+        };
+    }
+
+    size_t getAllocMinGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const
+    {
+        size_t allocGranularity = 0;
+        CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, memAllocationGranularityFlag));
+        const char * kind = nullptr;
+        switch (memAllocationGranularityFlag) {
+        case CU_MEM_ALLOC_GRANULARITY_MINIMUM: {
+            kind = "minimum";
+            break;
+        }
+        case CU_MEM_ALLOC_GRANULARITY_RECOMMENDED: {
+            kind = "recommended";
+            break;
+        }
+        }
+        SPDLOG_INFO("{} allocGranularity {}", kind, allocGranularity);
+        return allocGranularity;
+    }
+
+    size_t getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
+    {
+        const size_t recommendedAllocGranularity = getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
+        const size_t alignment = std::max(recommendedAllocGranularity, allocationAlignment);
+        return utils::divUp(allocationSize, alignment) * alignment;
+    }
+
+    ::CUmemGenericAllocationHandle makeMemGenericAllocationHandle() const
+    {
+        ::CUmemGenericAllocationHandle allocationHandle = {};
         CU_CHECK_ERROR(cuMemCreate(&allocationHandle, alignedAllocationSize, &memAllocationProp, 0));
+        // TODO: CUDA_ERROR_OUT_OF_MEMORY -> std::bad_alloc
+        return allocationHandle;
+    }
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
     }
 };
+
+}  // namespace
+
+File::File(File && file) noexcept
+    : fd{std::exchange(file.fd, fd)}
+{
+    INVARIANT(fd >= 0, "");
+}
+
+File::~File()
+{
+    if (fd < 0) {
+        return;
+    }
+    ::close(fd);
+}
+
+File File::make(int fd)
+{
+    return File{fd};
+}
+
+File File::dup(int fd)
+{
+    return File{::dup(fd)};
+}
+
+File::File(int fd)
+    : fd{fd}
+{}
 
 struct Tree::Impl : utils::OneTime<Impl>
 {
     const Settings settings;
     const std::optional<DeviceUuidType> & deviceUuid;
-    const size_t minAlignment;
     const scene_data::SceneData & sceneData;
 
-    Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, size_t minAlignment, const scene_data::SceneData & sceneData)
+    Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, const scene_data::SceneData & sceneData)
         : settings{settings}
         , deviceUuid{deviceUuid}
-        , minAlignment{minAlignment}
         , sceneData{sceneData}
     {}
 
     Impl(Impl &&) noexcept = default;
+
+    static size_t getTreeSize(const sah_kd_tree::Tree<Traits> & tree)
+    {
+        std::vector<Traits::U> layerDepth;
+        layerDepth.reserve(std::size(tree.layerDepth));
+        std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::back_inserter(layerDepth));
+        SPDLOG_INFO("Tree depth: {}", std::size(layerDepth));
+        SPDLOG_INFO("Layer sizes: {}", layerDepth);
+        SPDLOG_INFO("Polygon count: {}", std::size(tree.polygon.triangle));
+        SPDLOG_INFO("Node count: {}", std::size(tree.node.parent));
+        size_t allocationSize = 0;
+        static constexpr auto getVectorSize = []<typename Vector>(const Vector & v) -> size_t
+        {
+            return std::size(v) * sizeof(typename Vector::value_type);
+        };
+        static constexpr auto getProjectionSize = [](const auto & p) -> size_t
+        {
+            return getVectorSize(p.node.min) + getVectorSize(p.node.max) + getVectorSize(p.node.leftRope) + getVectorSize(p.node.rightRope);
+        };
+        allocationSize += getProjectionSize(tree.x) + getProjectionSize(tree.y) + getProjectionSize(tree.z);
+        allocationSize += getVectorSize(tree.polygon.triangle);
+        allocationSize += getVectorSize(tree.node.splitDimension) + getVectorSize(tree.node.splitPos) + getVectorSize(tree.node.leftChild) + getVectorSize(tree.node.rightChild) + getVectorSize(tree.node.parent);
+        SPDLOG_INFO("Allocation size for tree: {}", allocationSize);
+        return allocationSize;
+    }
 
     bool build(const std::function<bool()> & cancel)
     {
@@ -337,24 +435,23 @@ struct Tree::Impl : utils::OneTime<Impl>
         if (!tree) {
             return false;
         }
-        std::vector<Traits::U> layerDepth;
-        layerDepth.reserve(std::size(tree->layerDepth));
-        std::adjacent_difference(std::cbegin(tree->layerDepth), std::cend(tree->layerDepth), std::back_inserter(layerDepth));
-        SPDLOG_INFO("Tree depth: {}", std::size(layerDepth));
-        SPDLOG_INFO("Layer sizes: {}", layerDepth);
-        SPDLOG_INFO("Polygon count: {}", std::size(tree->polygon.triangle));
-        SPDLOG_INFO("Node count: {}", std::size(tree->node.parent));
+        static_assert(std::is_same_v<Traits::F, glm::float32>);
+        static_assert(std::is_same_v<Traits::U, glm::uint32>);
+        static_assert(std::is_same_v<Traits::I, glm::int32>);
+        size_t allocationSize = getTreeSize(tree.value());
+        DeviceMemory deviceMemory{cudaDevice.getCudaDev(), allocationSize};
+        auto mappedDeviceMemory = deviceMemory.map();
         return true;
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
 };
 
-Tree::Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, size_t minAlignment, const scene_data::SceneData & sceneData)
-    : impl_{std::make_unique<Impl>(settings, deviceUuidType, minAlignment, sceneData)}
+Tree::Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneData & sceneData)
+    : impl_{std::make_unique<Impl>(settings, deviceUuidType, sceneData)}
 {}
 
 Tree::Tree(Tree &&) noexcept = default;
@@ -382,7 +479,7 @@ struct Builder::Impl : utils::OneTime<Impl>
 
     std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
     {
-        Tree tree{treeSettings, settings.deviceUuid, settings.minAlignment, sceneData};
+        Tree tree{treeSettings, settings.deviceUuid, sceneData};
         if (!tree.build(cancel)) {
             return {};
         }
@@ -415,7 +512,7 @@ struct Builder::Impl : utils::OneTime<Impl>
         SPDLOG_DEBUG("Thrust device system: {}", deviceSystem);
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -423,9 +520,7 @@ struct Builder::Impl : utils::OneTime<Impl>
 
 Builder::Builder(const Settings & settings)
     : impl_{std::make_unique<Impl>(settings)}
-{
-    ASSERT((settings.minAlignment == 0) || std::has_single_bit(settings.minAlignment));
-}
+{}
 
 Builder::Builder(Builder &&) noexcept = default;
 Builder::~Builder() = default;

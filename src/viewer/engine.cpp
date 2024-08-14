@@ -295,7 +295,6 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
         std::transform(std::cbegin(vkDeviceUuid), std::cend(vkDeviceUuid), std::begin(deviceUuid), uint8ToByte);
         const builder::Builder::Settings builderSettings = {
             .deviceUuid = std::move(deviceUuid),
-            .minAlignment = physicalDevice.getMinAlignment(),
         };
         builder.emplace(builderSettings);
     }

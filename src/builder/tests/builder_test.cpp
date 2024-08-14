@@ -73,7 +73,6 @@ protected:
 private:
     const builder::Builder::Settings builderSettings = {
         .deviceUuid = {},
-        .minAlignment = 0,
     };
     const builder::Builder builder{builderSettings};
 };

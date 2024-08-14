@@ -215,7 +215,7 @@ struct RenderNode::Impl
         return true;
     }
 
-    [[nodiscard]] QRectF getScissorRect(const QSize & renderTargetSize, const QMatrix4x4 & mvp)
+    [[nodiscard]] QRectF getScissorRect(int width, int height, const QMatrix4x4 & mvp)
     {
         QRectF scissorRect = mvp.mapRect(rect);
         scissorRect.translate(1.0, 1.0);
@@ -224,12 +224,12 @@ struct RenderNode::Impl
         scissorRect &= QRectF{0.0, 0.0, 1.0, 1.0};
 
         auto [x, y] = scissorRect.topLeft();
-        x *= renderTargetSize.width();
-        y *= renderTargetSize.height();
+        x *= width;
+        y *= height;
 
         auto [w, h] = scissorRect.bottomRight();
-        w *= renderTargetSize.width();
-        h *= renderTargetSize.height();
+        w *= width;
+        h *= height;
 
         return {x, y, w, h};
     }
@@ -279,7 +279,7 @@ struct RenderNode::Impl
             .maxDepth = 1.0f,
         };
 
-        const QRectF scissorRect = getScissorRect(renderTargetSize, mvp);
+        const QRectF scissorRect = getScissorRect(renderTargetSize.width(), renderTargetSize.height(), mvp);
         frameSettings.scissor = vk::Rect2D{
             .offset = {
                 .x = utils::autoCast(std::floor(scissorRect.x())),

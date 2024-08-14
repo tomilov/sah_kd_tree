@@ -5,6 +5,8 @@
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
+#include <glm/fwd.hpp>
+
 #include <array>
 #include <functional>
 #include <memory>
@@ -18,6 +20,26 @@
 namespace builder
 {
 using DeviceUuidType = std::array<std::byte, 16>;
+
+class File : utils::OneTime<File>
+{
+public:
+    File(File && file) noexcept;
+    ~File();
+
+    [[nodiscard]] static File make(int fd);
+    [[nodiscard]] static File dup(int fd);
+
+private:
+    int fd = -1;
+
+    explicit File(int fd);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
 {
@@ -37,17 +59,17 @@ public:
 
     [[nodiscard]] const Settings & getSettings() const &;
 
-    bool build(const std::function<bool()> & cancel);
-
 private:
     friend Builder;
     struct Impl;
 
     std::unique_ptr<Impl> impl_;
 
-    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, size_t minAlignment, const scene_data::SceneData & sceneData);
+    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneData & sceneData);
 
-    static constexpr void completeClassContext()
+    bool build(const std::function<bool()> & cancel);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -59,7 +81,6 @@ public:
     struct Settings
     {
         std::optional<DeviceUuidType> deviceUuid;
-        size_t minAlignment;
     };
 
     Builder(const Settings & settings);
@@ -73,7 +94,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

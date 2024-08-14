@@ -57,9 +57,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#if __linux__
 #include <unistd.h>
-#endif
 
 using namespace Qt::StringLiterals;
 
