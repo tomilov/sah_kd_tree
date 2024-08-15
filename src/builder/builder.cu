@@ -239,7 +239,7 @@ public:
 
     DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment = 0)
         : memAllocationProp{makeMemAllocationProp(cuDev)}
-        , allocGranularity{getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
+        , allocGranularity{getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
         , alignedAllocationSize{getAlignedAllocationSize(allocationSize, allocationAlignment)}
         , allocationHandle{makeMemGenericAllocationHandle()}
     {}
@@ -291,7 +291,7 @@ private:
         };
     }
 
-    size_t getAllocMinGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const
+    size_t getAllocationGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const
     {
         size_t allocGranularity = 0;
         CU_CHECK_ERROR(cuMemGetAllocationGranularity(&allocGranularity, &memAllocationProp, memAllocationGranularityFlag));
@@ -313,7 +313,7 @@ private:
 
     size_t getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
     {
-        const size_t recommendedAllocGranularity = getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
+        const size_t recommendedAllocGranularity = getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
         const size_t alignment = std::max(recommendedAllocGranularity, allocationAlignment);
         return utils::divUp(allocationSize, alignment) * alignment;
     }
@@ -410,9 +410,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     bool build(const std::function<bool()> & cancel)
     {
-#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
         const CudaDevice cudaDevice{deviceUuid};
-#endif
         auto triangles = sceneData.makeTriangles();
 #if SAH_KD_TREE_HEADER_ONLY
         sah_kd_tree::Triangle<Traits> triangle{allocator};
@@ -465,11 +463,16 @@ struct Tree::Impl : utils::OneTime<Impl>
             {
                 const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
                 const size_t size = std::size(v) * sizeof(typename Vector::value_type);
+#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
                 ::cuMemcpyDtoD(p, src, size);
+#else
+                ::cuMemcpyHtoD(p, src, size);
+#endif
                 p += size;
             };
             traverseTree(tree.value(), gatherData);
             INVARIANT(p == devPtr + allocationSize, "{} ^ {}", p, devPtr + allocationSize);
+            CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         }
         return true;
     }
