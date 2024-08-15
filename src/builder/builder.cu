@@ -180,64 +180,66 @@ private:
     }
 };
 
+class DeviceMemory;
+
+class MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
+{
+public:
+    MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSize, ::CUmemGenericAllocationHandle allocationHandle)
+        : alignedAllocationSize{alignedAllocationSize}
+    {
+        CU_CHECK_ERROR(cuMemAddressReserve(&devPtr, alignedAllocationSize, allocGranularity, devPtr, 0));
+        CU_CHECK_ERROR(cuMemMap(devPtr, alignedAllocationSize, 0, allocationHandle, 0));
+        ::CUmemAccessDesc accessDescriptor[] = {
+            {
+                .location = location,
+                .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
+            },
+        };
+        CU_CHECK_ERROR(cuMemSetAccess(devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor)));
+    }
+
+    MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
+        : alignedAllocationSize{rhs.alignedAllocationSize}
+        , devPtr{std::exchange(rhs.devPtr, devPtr)}
+    {}
+
+    ~MappedDeviceMemory()
+    {
+        if (devPtr == ::CUdeviceptr{}) {
+            return;
+        }
+        CU_CHECK_ERROR(cuMemUnmap(devPtr, alignedAllocationSize));
+        CU_CHECK_ERROR(cuMemAddressFree(devPtr, alignedAllocationSize));
+    }
+
+    ::CUdeviceptr getPtr() const
+    {
+        return devPtr;
+    }
+
+private:
+    friend DeviceMemory;
+
+    const size_t alignedAllocationSize;
+
+    ::CUdeviceptr devPtr = {};
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
 class DeviceMemory : utils::OneTime<DeviceMemory>
 {
 public:
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
-    class MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
-    {
-    public:
-        MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSize, ::CUmemGenericAllocationHandle allocationHandle)
-            : alignedAllocationSize{alignedAllocationSize}
-        {
-            CU_CHECK_ERROR(cuMemAddressReserve(&devPtr, alignedAllocationSize, allocGranularity, devPtr, 0));
-            CU_CHECK_ERROR(cuMemMap(devPtr, alignedAllocationSize, 0, allocationHandle, 0));
-            ::CUmemAccessDesc accessDescriptor[] = {
-                {
-                    .location = location,
-                    .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
-                },
-            };
-            CU_CHECK_ERROR(cuMemSetAccess(devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor)));
-        }
-
-        MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
-            : alignedAllocationSize{rhs.alignedAllocationSize}
-            , devPtr{std::exchange(rhs.devPtr, devPtr)}
-        {}
-
-        ~MappedDeviceMemory()
-        {
-            if (devPtr == ::CUdeviceptr{}) {
-                return;
-            }
-            CU_CHECK_ERROR(cuMemUnmap(devPtr, alignedAllocationSize));
-            CU_CHECK_ERROR(cuMemAddressFree(devPtr, alignedAllocationSize));
-        }
-
-        void * getPtr() const
-        {
-            return utils::autoCast(devPtr);
-        }
-
-    private:
-        friend DeviceMemory;
-
-        const size_t alignedAllocationSize;
-
-        ::CUdeviceptr devPtr = {};
-
-        static constexpr void completeClassContext [[maybe_unused]] ()
-        {
-            checkTraits();
-        }
-    };
-
     DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment = 0)
         : memAllocationProp{makeMemAllocationProp(cuDev)}
-        , allocGranularity{getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED)}
+        , allocGranularity{getAllocMinGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
         , alignedAllocationSize{getAlignedAllocationSize(allocationSize, allocationAlignment)}
         , allocationHandle{makeMemGenericAllocationHandle()}
     {}
@@ -304,6 +306,7 @@ private:
             break;
         }
         }
+        INVARIANT(kind, "{}", fmt::underlying(memAllocationGranularityFlag));
         SPDLOG_INFO("{} allocGranularity {}", kind, allocGranularity);
         return allocGranularity;
     }
@@ -373,7 +376,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     Impl(Impl &&) noexcept = default;
 
-    static size_t getTreeSize(const sah_kd_tree::Tree<Traits> & tree)
+    static void printTreeInfo(const sah_kd_tree::Tree<Traits> & tree)
     {
         std::vector<Traits::U> layerDepth;
         layerDepth.reserve(std::size(tree.layerDepth));
@@ -382,20 +385,27 @@ struct Tree::Impl : utils::OneTime<Impl>
         SPDLOG_INFO("Layer sizes: {}", layerDepth);
         SPDLOG_INFO("Polygon count: {}", std::size(tree.polygon.triangle));
         SPDLOG_INFO("Node count: {}", std::size(tree.node.parent));
-        size_t allocationSize = 0;
-        static constexpr auto getVectorSize = []<typename Vector>(const Vector & v) -> size_t
+    }
+
+    template<typename F>
+    static void traverseTree(const sah_kd_tree::Tree<Traits> & tree, const F & f)
+    {
+        const auto getProjectionSize = [&f](const auto & projection)
         {
-            return std::size(v) * sizeof(typename Vector::value_type);
+            f(projection.node.min);
+            f(projection.node.max);
+            f(projection.node.leftRope);
+            f(projection.node.rightRope);
         };
-        static constexpr auto getProjectionSize = [](const auto & p) -> size_t
-        {
-            return getVectorSize(p.node.min) + getVectorSize(p.node.max) + getVectorSize(p.node.leftRope) + getVectorSize(p.node.rightRope);
-        };
-        allocationSize += getProjectionSize(tree.x) + getProjectionSize(tree.y) + getProjectionSize(tree.z);
-        allocationSize += getVectorSize(tree.polygon.triangle);
-        allocationSize += getVectorSize(tree.node.splitDimension) + getVectorSize(tree.node.splitPos) + getVectorSize(tree.node.leftChild) + getVectorSize(tree.node.rightChild) + getVectorSize(tree.node.parent);
-        SPDLOG_INFO("Allocation size for tree: {}", allocationSize);
-        return allocationSize;
+        getProjectionSize(tree.x);
+        getProjectionSize(tree.y);
+        getProjectionSize(tree.z);
+        f(tree.polygon.triangle);
+        f(tree.node.splitDimension);
+        f(tree.node.splitPos);
+        f(tree.node.leftChild);
+        f(tree.node.rightChild);
+        f(tree.node.parent);
     }
 
     bool build(const std::function<bool()> & cancel)
@@ -438,9 +448,29 @@ struct Tree::Impl : utils::OneTime<Impl>
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
-        size_t allocationSize = getTreeSize(tree.value());
+        printTreeInfo(tree.value());
+        size_t allocationSize = 0;
+        const auto gatherSize = [&allocationSize]<typename Vector>(const Vector & v)
+        {
+            allocationSize += std::size(v) * sizeof(typename Vector::value_type);
+        };
+        traverseTree(tree.value(), gatherSize);
+        SPDLOG_INFO("Allocation size for tree: {}", allocationSize);
         DeviceMemory deviceMemory{cudaDevice.getCudaDev(), allocationSize};
-        auto mappedDeviceMemory = deviceMemory.map();
+        {
+            auto mappedDeviceMemory = deviceMemory.map();
+            const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
+            ::CUdeviceptr p = devPtr;
+            const auto gatherData = [&p]<typename Vector>(const Vector & v)
+            {
+                const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
+                const size_t size = std::size(v) * sizeof(typename Vector::value_type);
+                ::cuMemcpyDtoD(p, src, size);
+                p += size;
+            };
+            traverseTree(tree.value(), gatherData);
+            INVARIANT(p == devPtr + allocationSize, "{} ^ {}", p, devPtr + allocationSize);
+        }
         return true;
     }
 
