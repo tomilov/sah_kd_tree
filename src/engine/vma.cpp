@@ -251,7 +251,7 @@ struct MappedMemory<void>::Impl final : utils::OneTime<Impl>
     Impl(Impl && rhs) noexcept;
     ~Impl();
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -337,7 +337,7 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
 
     Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority);
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -612,7 +612,7 @@ struct Image::Impl final : utils::OneTime<Impl>
 
     Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority);
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

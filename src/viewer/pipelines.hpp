@@ -30,7 +30,7 @@ struct ShaderModule final : utils::OneTime<ShaderModule>
         , shaderReflection{context, shaderModule, entryPoint}
     {}
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -115,7 +115,7 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 
     [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass);
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -145,7 +145,7 @@ private:
     mutable std::weak_ptr<Shaders> sceneShaders;
     mutable std::weak_ptr<Shaders> displayShaders;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

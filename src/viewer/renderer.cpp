@@ -132,7 +132,7 @@ private:
         return {new Storage{std::forward<F>(f), std::forward<Args>(args)...}, recycle};
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -248,7 +248,7 @@ struct UniformBufferResource final
         return {getBindingName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()};
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         utils::OneTime<UniformBufferResource>::checkTraits();
     }
@@ -493,7 +493,7 @@ private:
     std::vector<vk::PipelineStageFlags> waitDstStageMasks;
     std::vector<vk::Semaphore> signalSemaphores;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

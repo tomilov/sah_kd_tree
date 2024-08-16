@@ -93,7 +93,7 @@ public:
     void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> sescriptorSetInfos) const;
     void fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

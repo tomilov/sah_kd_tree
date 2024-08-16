@@ -77,7 +77,7 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles() const;
     [[nodiscard]] utils::MemArray<Triangle> makeTriangles(size_t rootNodeIndex) const;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

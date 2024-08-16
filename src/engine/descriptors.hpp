@@ -59,7 +59,7 @@ private:
 
     void init();
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

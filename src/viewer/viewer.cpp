@@ -8,6 +8,8 @@
 #include <viewer/utils.hpp>
 #include <viewer/viewer.hpp>
 
+#include <fmt/std.h>
+
 #include <QtCore/QDebug>
 #include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
@@ -285,8 +287,13 @@ void SceneSettings::onTreeSettingsChanged()
             promise.suspendIfRequested();
             return promise.isCanceled();
         };
-        if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, scene->sceneData, cancel)) {
-            promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
+        try {
+            if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, scene->sceneData, cancel)) {
+                promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
+            }
+        } catch (const std::exception & e) {
+            qCCritical(viewerCategory).noquote() << QString::fromStdString(fmt::to_string(e));
+            throw;
         }
     };
     QFileInfo sceneFileInfo{scenePath};

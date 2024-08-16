@@ -16,7 +16,7 @@ struct Scene : utils::OneTime<Scene>
     std::filesystem::path scenePath;
     scene_data::SceneData sceneData;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

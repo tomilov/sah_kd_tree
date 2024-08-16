@@ -65,7 +65,7 @@ private:
 
     vk::UniqueShaderModule shaderModuleHolder;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -78,7 +78,7 @@ struct ENGINE_EXPORT VertexInputState final : utils::OneTime<VertexInputState>
     std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
     vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -114,7 +114,7 @@ private:
 
     void reflect();
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

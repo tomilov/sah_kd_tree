@@ -114,7 +114,7 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
             }
 
             if (rpos < lpos) {
-                rpos = lpos = (lpos + rpos) / F(2);
+                rpos = lpos = (lpos + rpos) / static_cast<F>(2);
             }
         }
         assert(!(rpos < lpos));

@@ -104,9 +104,9 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         F z = nodeZMaxs[eventNode] - nodeZMins[eventNode];
         F area = y * z;  // half area
         F splitCost;
-        if (F(0) < area) {
+        if (static_cast<F>(0) < area) {
             F perimeter = y + z;  // half perimeter
-            assert(F(0) < perimeter);
+            assert(static_cast<F>(0) < perimeter);
             splitCost = (static_cast<F>(polygonCountLeft) * (area + perimeter * l) + static_cast<F>(polygonCountRight) * (area + perimeter * r)) / (area + perimeter * x);
         } else {
             splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / x;

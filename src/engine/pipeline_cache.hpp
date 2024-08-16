@@ -40,7 +40,7 @@ private:
 
     [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

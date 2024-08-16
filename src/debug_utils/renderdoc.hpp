@@ -39,7 +39,7 @@ public:
 
         std::unique_lock<std::mutex> lock;
 
-        static void completeClassContext();
+        static void completeClassContext [[maybe_unused]] ();
     };
 
     ~Renderdoc();

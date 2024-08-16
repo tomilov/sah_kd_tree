@@ -50,7 +50,7 @@ private:
 
     void init();
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
@@ -102,7 +102,7 @@ private:
 
     vk::UniquePipeline pipeline;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

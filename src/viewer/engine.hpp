@@ -41,7 +41,7 @@ struct SceneResources final
     [[nodiscard]] static std::string getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         utils::OneTime<SceneResources>::checkTraits();
     }
@@ -69,7 +69,7 @@ struct OffscreenRenderPass final
         return *renderPass;
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
 #if !__GNUC__
         utils::OneTime<OffscreenRenderPass>::checkTraits();
@@ -99,7 +99,7 @@ struct Framebuffer final
         return *framebuffer;
     }
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         utils::OneTime<Framebuffer>::checkTraits();
     }
@@ -118,7 +118,7 @@ struct DisplayResources final : utils::OneTime<DisplayResources>
     [[nodiscard]] static std::string getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

@@ -74,17 +74,27 @@ namespace builder
 {
 namespace
 {
+
+class OutOfMemoryException : public std::bad_alloc
+{
+    const char * what() const noexcept override
+    {
+        return "OutOfMemoryException: out of memory";
+    }
+};
+
 #if SAH_KD_TREE_HEADER_ONLY
 struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
 {
-    using sah_kd_tree::DefaultTraits::F;
-    using sah_kd_tree::DefaultTraits::I;
-    using sah_kd_tree::DefaultTraits::U;
+    using F = sah_kd_tree::DefaultTraits::F;
+    using I = sah_kd_tree::DefaultTraits::I;
+    using U = sah_kd_tree::DefaultTraits::U;
     using MemoryResource = thrust::device_memory_resource;
     template<typename T>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
+    using Cancel = std::function<bool()>;
 };
 #else
 using Traits = sah_kd_tree::DefaultTraits;
@@ -114,30 +124,6 @@ private:
 
     int cudaDev = cudaInvalidDeviceId;
     ::CUdevice cuDev = CU_DEVICE_INVALID;
-
-    void selectCudaDevice()
-    {
-        cudaDeviceProp devProp = {};
-        static_assert(sizeof(DeviceUuidType) == sizeof cudaDeviceProp::uuid);
-        CUDA_CHECK_ERROR(cudaGetDevice(&cudaDev));
-        if (cudaDev == cudaInvalidDeviceId) {
-            int devCount = 0;
-            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
-            INVARIANT(devCount > 0, "");
-            for (cudaDev = 0; cudaDev < devCount; ++cudaDev) {
-                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
-                if (!deviceUuid || (std::memcmp(&devProp.uuid, std::data(deviceUuid.value()), sizeof devProp.uuid) == 0)) {
-                    break;
-                }
-            }
-            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
-            selectCuDevice(devProp.uuid);
-            CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
-        } else {
-            CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
-            selectCuDevice(devProp.uuid);
-        }
-    }
 
     void selectCuDevice(const cudaUUID_t & cudaDeviceUuid)
     {
@@ -172,6 +158,26 @@ private:
             CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
             INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
         }
+    }
+
+    void selectCudaDevice()
+    {
+        cudaDeviceProp devProp = {};
+        static_assert(sizeof(DeviceUuidType) == sizeof devProp.uuid);
+        {
+            int devCount = 0;
+            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
+            INVARIANT(devCount > 0, "");
+            for (cudaDev = 0; cudaDev < devCount; ++cudaDev) {
+                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
+                if (!deviceUuid || (std::memcmp(&devProp.uuid, std::data(deviceUuid.value()), sizeof devProp.uuid) == 0)) {
+                    break;
+                }
+            }
+            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
+        }
+        selectCuDevice(devProp.uuid);
+        CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
     }
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -314,15 +320,17 @@ private:
     size_t getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
     {
         const size_t recommendedAllocGranularity = getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
-        const size_t alignment = std::max(recommendedAllocGranularity, allocationAlignment);
-        return utils::divUp(allocationSize, alignment) * alignment;
+        return utils::divUp(std::max(allocationSize, allocationAlignment), recommendedAllocGranularity) * recommendedAllocGranularity;
     }
 
     ::CUmemGenericAllocationHandle makeMemGenericAllocationHandle() const
     {
         ::CUmemGenericAllocationHandle allocationHandle = {};
-        CU_CHECK_ERROR(cuMemCreate(&allocationHandle, alignedAllocationSize, &memAllocationProp, 0));
-        // TODO: CUDA_ERROR_OUT_OF_MEMORY -> std::bad_alloc
+        const auto result = cuMemCreate(&allocationHandle, alignedAllocationSize, &memAllocationProp, 0);
+        if (result == CUDA_ERROR_OUT_OF_MEMORY) {
+            throw OutOfMemoryException{};
+        }
+        INVARIANT(result == CUDA_SUCCESS, "{}", result);
         return allocationHandle;
     }
 
@@ -388,18 +396,20 @@ struct Tree::Impl : utils::OneTime<Impl>
     }
 
     template<typename F>
+    static void traverseProjection(const sah_kd_tree::Tree<Traits>::Projection & projection, const F & f)
+    {
+        f(projection.node.min);
+        f(projection.node.max);
+        f(projection.node.leftRope);
+        f(projection.node.rightRope);
+    };
+
+    template<typename F>
     static void traverseTree(const sah_kd_tree::Tree<Traits> & tree, const F & f)
     {
-        const auto getProjectionSize = [&f](const auto & projection)
-        {
-            f(projection.node.min);
-            f(projection.node.max);
-            f(projection.node.leftRope);
-            f(projection.node.rightRope);
-        };
-        getProjectionSize(tree.x);
-        getProjectionSize(tree.y);
-        getProjectionSize(tree.z);
+        traverseProjection(tree.x, f);
+        traverseProjection(tree.y, f);
+        traverseProjection(tree.z, f);
         f(tree.polygon.triangle);
         f(tree.node.splitDimension);
         f(tree.node.splitPos);
@@ -413,6 +423,8 @@ struct Tree::Impl : utils::OneTime<Impl>
         const CudaDevice cudaDevice{deviceUuid};
         auto triangles = sceneData.makeTriangles();
 #if SAH_KD_TREE_HEADER_ONLY
+        typename Traits::MemoryResource memoryResource;
+        typename Traits::Allocator<void> allocator{&memoryResource};
         sah_kd_tree::Triangle<Traits> triangle{allocator};
 #else
         sah_kd_tree::Triangle<Traits> triangle;
@@ -432,14 +444,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             .intersectionCost = settings.intersectionCost,
             .maxDepth = settings.maxDepth,
         };
-#if SAH_KD_TREE_HEADER_ONLY
-        typename Traits::MemoryResource memoryResource;
-        typename Traits::Allocator<void> allocator{&memoryResource};
-        std::optional<sah_kd_tree::Tree<Traits>> tree{allocator};
-#else
-        std::optional<sah_kd_tree::Tree<Traits>> tree;
-#endif
-        tree = builder(cancel, params, x, y, z);
+        std::optional<sah_kd_tree::Tree<Traits>> tree = builder(cancel, params, x, y, z);
         if (!tree) {
             return false;
         }
@@ -474,6 +479,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             INVARIANT(p == devPtr + allocationSize, "{} ^ {}", p, devPtr + allocationSize);
             CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         }
+        deviceMemory.exportMemoryObject();
         return true;
     }
 

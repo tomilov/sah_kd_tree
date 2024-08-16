@@ -56,7 +56,7 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     // grant additional storage for all merge operations
     event.node.resize(eventStorageSize + event.count);
     event.pos.resize(eventStorageSize + event.count);
-    event.kind.resize(eventStorageSize + event.count, I(0));
+    event.kind.resize(eventStorageSize + event.count, static_cast<I>(0));
     event.polygon.resize(eventStorageSize + event.count);
 
     // merge l and r event

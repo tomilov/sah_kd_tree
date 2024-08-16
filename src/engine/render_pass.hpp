@@ -29,7 +29,7 @@ private:
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

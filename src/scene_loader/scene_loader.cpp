@@ -94,7 +94,7 @@ private:
         : f{::fdopen(fd, "rb")}
     {}
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }

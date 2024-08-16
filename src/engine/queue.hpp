@@ -36,7 +36,7 @@ private:
     CommandPool commandPool;
     vk::Queue queue;
 
-    static constexpr void completeClassContext()
+    static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
