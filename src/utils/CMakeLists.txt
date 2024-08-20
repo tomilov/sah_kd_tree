@@ -30,6 +30,8 @@ target_sources(
         "exception.hpp"
         "fast_pimpl.cpp"
         "fast_pimpl.hpp"
+        "fd.cpp"
+        "fd.hpp"
         "hash.cpp"
         "hash.hpp"
         "math.cpp"

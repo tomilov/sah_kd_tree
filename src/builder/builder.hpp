@@ -3,6 +3,7 @@
 #include <builder/fwd.hpp>
 #include <scene_data/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/fd.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <glm/fwd.hpp>
@@ -11,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include <cstddef>
 #include <cstdint>
@@ -20,26 +22,6 @@
 namespace builder
 {
 using DeviceUuidType = std::array<std::byte, 16>;
-
-class File : utils::OneTime<File>
-{
-public:
-    File(File && file) noexcept;
-    ~File();
-
-    [[nodiscard]] static File make(int fd);
-    [[nodiscard]] static File dup(int fd);
-
-private:
-    int fd = -1;
-
-    explicit File(int fd);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
 {
@@ -58,6 +40,11 @@ public:
     ~Tree();
 
     [[nodiscard]] const Settings & getSettings() const &;
+
+    [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
+    [[nodiscard]] size_t getPolygonCount() const;
+    [[nodiscard]] size_t getNodeCount() const;
+    [[nodiscard]] utils::Fd getFd() &&;
 
 private:
     friend Builder;

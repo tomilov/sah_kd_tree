@@ -19,19 +19,21 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <bit>
 #include <functional>
 #include <iterator>
+#include <memory>
+#include <new>
 #include <numeric>
 #include <optional>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <cstddef>
 #include <cstring>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <unistd.h>
 
 #define CUDA_CHECK_ERROR(call)                                   \
     do {                                                         \
@@ -270,12 +272,12 @@ public:
         return {memAllocationProp.location, allocGranularity, alignedAllocationSize, allocationHandle};
     }
 
-    File exportMemoryObject() const
+    utils::Fd exportMemoryObject() const
     {
         int fd = -1;
         CU_CHECK_ERROR(cuMemExportToShareableHandle(&fd, allocationHandle, kHandleType, 0));
         INVARIANT(fd >= 0, "");
-        return File::make(fd);
+        return utils::Fd::make(fd);
     }
 
 private:
@@ -291,6 +293,7 @@ private:
             .requestedHandleTypes = kHandleType,
             .location = {
                 .type = CU_MEM_LOCATION_TYPE_DEVICE,
+                .id = cuDev,
             },
             .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
             .allocFlags = {},
@@ -342,39 +345,16 @@ private:
 
 }  // namespace
 
-File::File(File && file) noexcept
-    : fd{std::exchange(file.fd, fd)}
-{
-    INVARIANT(fd >= 0, "");
-}
-
-File::~File()
-{
-    if (fd < 0) {
-        return;
-    }
-    ::close(fd);
-}
-
-File File::make(int fd)
-{
-    return File{fd};
-}
-
-File File::dup(int fd)
-{
-    return File{::dup(fd)};
-}
-
-File::File(int fd)
-    : fd{fd}
-{}
-
 struct Tree::Impl : utils::OneTime<Impl>
 {
     const Settings settings;
     const std::optional<DeviceUuidType> & deviceUuid;
     const scene_data::SceneData & sceneData;
+
+    std::vector<size_t> layerSizes;
+    size_t polygonCount = 0;
+    size_t nodeCount = 0;
+    std::optional<utils::Fd> fd;
 
     Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, const scene_data::SceneData & sceneData)
         : settings{settings}
@@ -384,15 +364,17 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     Impl(Impl &&) noexcept = default;
 
-    static void printTreeInfo(const sah_kd_tree::Tree<Traits> & tree)
+    void populateTreeSizes(const sah_kd_tree::Tree<Traits> & tree)
     {
-        std::vector<Traits::U> layerDepth;
-        layerDepth.reserve(std::size(tree.layerDepth));
-        std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::back_inserter(layerDepth));
-        SPDLOG_INFO("Tree depth: {}", std::size(layerDepth));
-        SPDLOG_INFO("Layer sizes: {}", layerDepth);
-        SPDLOG_INFO("Polygon count: {}", std::size(tree.polygon.triangle));
-        SPDLOG_INFO("Node count: {}", std::size(tree.node.parent));
+        ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
+        layerSizes.resize(std::size(tree.layerDepth));
+        std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::begin(layerSizes));
+        polygonCount = std::size(tree.polygon.triangle);
+        nodeCount = std::size(tree.node.parent);
+        SPDLOG_INFO("Tree depth: {}", std::size(layerSizes));
+        SPDLOG_INFO("Layer sizes: {}", layerSizes);
+        SPDLOG_INFO("Polygon count: {}", polygonCount);
+        SPDLOG_INFO("Node count: {}", nodeCount);
     }
 
     template<typename F>
@@ -451,7 +433,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
-        printTreeInfo(tree.value());
+        populateTreeSizes(tree.value());
         size_t allocationSize = 0;
         const auto gatherSize = [&allocationSize]<typename Vector>(const Vector & v)
         {
@@ -479,7 +461,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             INVARIANT(p == devPtr + allocationSize, "{} ^ {}", p, devPtr + allocationSize);
             CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         }
-        deviceMemory.exportMemoryObject();
+        fd.emplace(deviceMemory.exportMemoryObject());
         return true;
     }
 
@@ -499,6 +481,29 @@ Tree::~Tree() = default;
 auto Tree::getSettings() const & -> const Settings &
 {
     return impl_->settings;
+}
+
+const std::vector<size_t> & Tree::getLayerSizes() const &
+{
+    return impl_->layerSizes;
+}
+
+size_t Tree::getPolygonCount() const
+{
+    return impl_->polygonCount;
+}
+
+size_t Tree::getNodeCount() const
+{
+    return impl_->nodeCount;
+}
+
+utils::Fd Tree::getFd() &&
+{
+    ASSERT(impl_->fd);
+    utils::Fd fd = std::move(impl_->fd).value();
+    impl_->fd.reset();
+    return fd;
 }
 
 bool Tree::build(const std::function<bool()> & cancel)
