@@ -284,17 +284,13 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
         }
     }
     {
-        const auto & physicalDevice = context.getPhysicalDevice();
-        const auto & vkDeviceUuid = physicalDevice.properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
+        const auto & properties2Chain = context.getPhysicalDevice().properties2Chain;
+        const auto & vkDeviceUuid = properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
         builder::DeviceUuidType deviceUuid;
-        ASSERT(VK_UUID_SIZE == std::size(deviceUuid));
-        const auto uint8ToByte = [](uint8_t byte) -> std::byte
-        {
-            return utils::autoCast(byte);
-        };
-        std::transform(std::cbegin(vkDeviceUuid), std::cend(vkDeviceUuid), std::begin(deviceUuid), uint8ToByte);
+        ASSERT(std::size(vkDeviceUuid) == std::size(deviceUuid));
+        std::memcpy(std::data(deviceUuid), std::data(vkDeviceUuid), std::size(vkDeviceUuid));
         const builder::Builder::Settings builderSettings = {
-            .deviceUuid = std::move(deviceUuid),
+            .deviceUuid = deviceUuid,
         };
         builder.emplace(builderSettings);
     }
@@ -318,10 +314,8 @@ auto Engine::createUniformBuffer(size_t uniformBufferSize) const -> engine::Buff
     return uniformBuffer;
 }
 
-SceneResources Engine::makeResources(const Scene & scene) const
+SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) const
 {
-    const scene_data::SceneData & sceneData = scene.sceneData;
-
     std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
     {

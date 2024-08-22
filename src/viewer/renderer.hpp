@@ -3,6 +3,7 @@
 #include <engine/fwd.hpp>
 #include <format/glm.hpp>
 #include <format/vulkan.hpp>
+#include <scene_data/fwd.hpp>
 #include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
@@ -62,9 +63,9 @@ public:
 
     void setFrameSettings(const FrameSettings & frameSettings);
 
-    void setScene(std::shared_ptr<const Scene> scene);
+    void setScene(scene_data::SceneDataPtr sceneData);
     void unsetScene();
-    [[nodiscard]] const std::shared_ptr<const Scene> & getScene() const &;
+    [[nodiscard]] const scene_data::SceneDataPtr & getScene() const &;
 
     void advance(uint32_t currentFrameSlot);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);

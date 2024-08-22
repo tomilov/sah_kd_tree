@@ -276,8 +276,7 @@ public:
     {
         int fd = -1;
         CU_CHECK_ERROR(cuMemExportToShareableHandle(&fd, allocationHandle, kHandleType, 0));
-        INVARIANT(fd >= 0, "");
-        return utils::Fd::make(fd);
+        return utils::Fd{fd};
     }
 
 private:
@@ -349,18 +348,20 @@ struct Tree::Impl : utils::OneTime<Impl>
 {
     const Settings settings;
     const std::optional<DeviceUuidType> & deviceUuid;
-    const scene_data::SceneData & sceneData;
+    const scene_data::SceneDataPtr sceneData;
 
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
     std::optional<utils::Fd> fd;
 
-    Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, const scene_data::SceneData & sceneData)
+    Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, const scene_data::SceneDataPtr & sceneData)
         : settings{settings}
         , deviceUuid{deviceUuid}
         , sceneData{sceneData}
-    {}
+    {
+        ASSERT(sceneData);
+    }
 
     Impl(Impl &&) noexcept = default;
 
@@ -403,7 +404,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     bool build(const std::function<bool()> & cancel)
     {
         const CudaDevice cudaDevice{deviceUuid};
-        auto triangles = sceneData.makeTriangles();
+        auto triangles = sceneData->makeTriangles();
 #if SAH_KD_TREE_HEADER_ONLY
         typename Traits::MemoryResource memoryResource;
         typename Traits::Allocator<void> allocator{&memoryResource};
@@ -441,7 +442,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         };
         traverseTree(tree.value(), gatherSize);
         SPDLOG_INFO("Allocation size for tree: {}", allocationSize);
-        DeviceMemory deviceMemory{cudaDevice.getCudaDev(), allocationSize};
+        DeviceMemory deviceMemory{cudaDevice.getCuDev(), allocationSize};
         {
             auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
@@ -471,7 +472,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     }
 };
 
-Tree::Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneData & sceneData)
+Tree::Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneDataPtr & sceneData)
     : impl_{std::make_unique<Impl>(settings, deviceUuidType, sceneData)}
 {}
 
@@ -521,7 +522,7 @@ struct Builder::Impl : utils::OneTime<Impl>
         printThrustVersion();
     }
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const
     {
         Tree tree{treeSettings, settings.deviceUuid, sceneData};
         if (!tree.build(cancel)) {
@@ -569,7 +570,7 @@ Builder::Builder(const Settings & settings)
 Builder::Builder(Builder &&) noexcept = default;
 Builder::~Builder() = default;
 
-std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const
+std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const
 {
     return impl_->build(settings, sceneData, cancel);
 }

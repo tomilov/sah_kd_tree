@@ -1,6 +1,7 @@
 #pragma once
 
 #include <builder/fwd.hpp>
+#include <scene_data/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 
 #include <QtCore/QFutureWatcher>
@@ -24,18 +25,15 @@ struct Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    using ScenePtr = std::shared_ptr<const Scene>;
-    using TreePtr = std::shared_ptr<const builder::Tree>;
-
     explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper);
 
     void unsetScene();
-    void updateScene(const ScenePtr & scene);
-    [[nodiscard]] const ScenePtr & getScene() const &;
+    void updateScene(const scene_data::SceneDataPtr & sceneData);
+    [[nodiscard]] const scene_data::SceneDataPtr & getScene() const &;
 
     void unsetTree();
-    void updateTree(const TreePtr & tree);
-    [[nodiscard]] const TreePtr & getTree() const &;
+    void updateTree(const builder::TreePtr & tree);
+    [[nodiscard]] const builder::TreePtr & getTree() const &;
 
     void updateRect(const QRectF & rect);
     void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);

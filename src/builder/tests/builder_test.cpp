@@ -14,6 +14,7 @@
 #include <QtCore/QtLogging>
 
 #include <chrono>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <utility>
@@ -66,7 +67,7 @@ protected:
             }
             return false;
         };
-        auto tree = builder.build(treeSettings, sceneData, cancel);
+        auto tree = builder.build(treeSettings, std::make_shared<scene_data::SceneData>(std::move(sceneData)), cancel);
         return tree.has_value();
     }
 

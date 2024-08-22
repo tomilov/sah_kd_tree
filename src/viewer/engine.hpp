@@ -159,7 +159,7 @@ public:
 
     [[nodiscard]] auto createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>;
 
-    [[nodiscard]] SceneResources makeResources(const Scene & scene) const;
+    [[nodiscard]] SceneResources makeResources(const scene_data::SceneData & sceneData) const;
 
     template<typename Resource>
     [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource) const

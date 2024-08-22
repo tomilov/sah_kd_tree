@@ -128,19 +128,19 @@ SceneSettings::SceneSettings(QObject * parent)
 
 QVector3D SceneSettings::getSceneAabbMin() const
 {
-    if (!scene) {
+    if (!sceneData) {
         return {};
     }
-    const auto & aabbMin = scene->sceneData.aabb.min;
+    const auto & aabbMin = sceneData->aabb.min;
     return {aabbMin.x, aabbMin.y, aabbMin.z};
 }
 
 QVector3D SceneSettings::getSceneAabbMax() const
 {
-    if (!scene) {
+    if (!sceneData) {
         return {};
     }
-    const auto & aabbMax = scene->sceneData.aabb.max;
+    const auto & aabbMax = sceneData->aabb.max;
     return {aabbMax.x, aabbMax.y, aabbMax.z};
 }
 
@@ -159,14 +159,14 @@ void SceneSettings::updateScene()
         }
         */
         {
-            scene.reset();
+            sceneData.reset();
             Q_EMIT sceneChanged();
         }
         sceneStatus = u"Cancelled"_s;
     } else {
-        ScenePtr newScene = future.result();
-        if (scene != newScene) {
-            scene = std::move(newScene);
+        scene_data::SceneDataPtr newSceneData = future.result();
+        if (sceneData != newSceneData) {
+            sceneData = std::move(newSceneData);
             Q_EMIT sceneChanged();
         }
         sceneStatus.clear();
@@ -184,8 +184,8 @@ void SceneSettings::onUrlChanged()
         sceneFutureWatcher.clear();
     }
     if (url.isEmpty() || !url.isLocalFile()) {
-        if (scene) {
-            scene.reset();
+        if (sceneData) {
+            sceneData.reset();
             Q_EMIT sceneChanged();
         }
         if (url.isEmpty()) {
@@ -199,22 +199,22 @@ void SceneSettings::onUrlChanged()
     }
     QFileInfo sceneFileInfo{url.toLocalFile()};
     std::filesystem::path scenePath = sceneFileInfo.filesystemCanonicalFilePath();
-    if (scene && (scene->scenePath == scenePath)) {
+    if (sceneData && (sceneData->name == scenePath)) {
         return;
     }
     Q_CHECK_PTR(engineWrapper);
-    const auto buidScene = [this, sceneFileInfo, scenePath = std::move(scenePath)](QPromise<ScenePtr> & promise)
+    const auto buidSceneData = [this, sceneFileInfo, scenePath = std::move(scenePath)](QPromise<scene_data::SceneDataPtr> & promise)
     {
-        ElapsedTimer elapsedTimer{viewerCategory, u"Build scene '%1'"_s.arg(sceneFileInfo.canonicalFilePath())};
+        ElapsedTimer elapsedTimer{viewerCategory, u"Build scene data '%1'"_s.arg(sceneFileInfo.canonicalFilePath())};
         if (promise.isCanceled()) {
             return;
         }
-        if (auto scene = engineWrapper->getEngine().getScenes().getScene(scenePath)) {
-            promise.addResult(std::move(scene));
+        if (auto sceneData = engineWrapper->getEngine().getScenes().getScene(scenePath)) {
+            promise.addResult(std::move(sceneData));
         }
     };
     Q_ASSERT(taskQueue);
-    sceneFutureWatcher = taskQueue->runTask(sceneFileInfo.fileName(), sceneFileInfo.filePath(), std::move(buidScene));
+    sceneFutureWatcher = taskQueue->runTask(sceneFileInfo.fileName(), sceneFileInfo.filePath(), std::move(buidSceneData));
     if (!connect(sceneFutureWatcher.get(), &QFutureWatcherBase::finished, this, &SceneSettings::updateScene)) {
         qFatal("unreachable");
     }
@@ -233,7 +233,7 @@ void SceneSettings::updateTree()
         }
         treeStatus = u"Cancelled"_s;
     } else {
-        TreePtr newTree = future.result();
+        builder::TreePtr newTree = future.result();
         if (tree != newTree) {
             tree = std::move(newTree);
             Q_EMIT treeChanged();
@@ -252,8 +252,8 @@ void SceneSettings::onTreeSettingsChanged()
         treeFutureWatcher->cancel();
         treeFutureWatcher.clear();
     }
-    if (!scene) {
-        treeScene.reset();
+    if (!sceneData) {
+        treeSceneData.reset();
         if (tree) {
             tree.reset();
             Q_EMIT treeChanged();
@@ -270,13 +270,13 @@ void SceneSettings::onTreeSettingsChanged()
         .intersectionCost = intersectionCost,
         .maxDepth = utils::autoCast(maxDepth),
     };
-    if ((scene == treeScene) && tree && (tree->getSettings() == treeSettings)) {
+    if ((sceneData == treeSceneData) && tree && (tree->getSettings() == treeSettings)) {
         return;
     }
-    treeScene = scene;
-    auto scenePath = QString::fromStdString(scene->scenePath.native());
+    treeSceneData = sceneData;
+    auto scenePath = QString::fromStdString(sceneData->name);
     Q_CHECK_PTR(engineWrapper);
-    const auto buildTree = [this, scenePath, scene = scene, treeSettings](QPromise<TreePtr> & promise)
+    const auto buildTree = [this, scenePath, treeSceneData = treeSceneData, treeSettings](QPromise<builder::TreePtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
         if (promise.isCanceled()) {
@@ -288,7 +288,7 @@ void SceneSettings::onTreeSettingsChanged()
             return promise.isCanceled();
         };
         try {
-            if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, scene->sceneData, cancel)) {
+            if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, treeSceneData, cancel)) {
                 promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
             }
         } catch (const std::exception & e) {
@@ -890,7 +890,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     } else {
         renderNode = new RenderNode{window(), *engineWrapper};
     }
-    renderNode->updateScene(sceneSettings->scene);
+    renderNode->updateScene(sceneSettings->sceneData);
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
         renderNode->updateTree(sceneSettings->tree);
     } else {

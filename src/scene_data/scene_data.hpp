@@ -8,6 +8,7 @@
 #include <glm/vec3.hpp>
 
 #include <limits>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -63,6 +64,8 @@ struct SCENE_DATA_EXPORT Mesh
 
 struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 {
+    std::string name;
+
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
     AABB aabb = {};

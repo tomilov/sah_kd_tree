@@ -12,6 +12,7 @@
 #include <engine/queue.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
+#include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
@@ -568,7 +569,7 @@ struct Renderer::Impl : utils::NonCopyable
     const engine::Queue graphicsQueue{"renderer"sv, context, context.getPhysicalDevice().graphicsQueueCreateInfo};
 
     FrameSettings frameSettings;
-    std::shared_ptr<const Scene> scene;
+    scene_data::SceneDataPtr sceneData;
 
     FencePool fencePool{context};
 
@@ -593,7 +594,7 @@ struct Renderer::Impl : utils::NonCopyable
     void setFrameSettings(const FrameSettings & frameSettings);
 
     void unsetScene();
-    void setScene(std::shared_ptr<const Scene> scene);
+    void setScene(scene_data::SceneDataPtr sceneData);
 
     void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -638,9 +639,9 @@ void Renderer::setFrameSettings(const FrameSettings & frameSettings)
     return impl_->setFrameSettings(frameSettings);
 }
 
-void Renderer::setScene(std::shared_ptr<const Scene> scene)
+void Renderer::setScene(scene_data::SceneDataPtr sceneData)
 {
-    return impl_->setScene(std::move(scene));
+    return impl_->setScene(std::move(sceneData));
 }
 
 void Renderer::unsetScene()
@@ -648,9 +649,9 @@ void Renderer::unsetScene()
     impl_->unsetScene();
 }
 
-const std::shared_ptr<const Scene> & Renderer::getScene() const &
+const scene_data::SceneDataPtr & Renderer::getScene() const &
 {
-    return impl_->scene;
+    return impl_->sceneData;
 }
 
 void Renderer::advance(uint32_t currentFrameSlot)
@@ -680,15 +681,15 @@ void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)
 void Renderer::Impl::unsetScene()
 {
     sceneResourcesAndDescriptors.reset();
-    scene.reset();
+    sceneData.reset();
 }
 
-void Renderer::Impl::setScene(std::shared_ptr<const Scene> newScene)
+void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
 {
-    ASSERT(!scene);
+    ASSERT(!sceneData);
     ASSERT(!sceneResourcesAndDescriptors);
-    ASSERT(newScene);
-    scene = std::move(newScene);
+    ASSERT(newSceneData);
+    sceneData = std::move(newSceneData);
 }
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const
@@ -904,7 +905,7 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
 void Renderer::Impl::advance(uint32_t currentFrameSlot)
 {
     ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
-    if (!scene) {
+    if (!sceneData) {
         return;
     }
 
@@ -943,9 +944,9 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
         fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
     }
     if (!sceneResourcesAndDescriptors) {
-        ASSERT(scene);
+        ASSERT(sceneData);
         auto & graphicsPipeline = frameSettings.useOffscreenTexture ? displayPool->getGraphicsPipeline() : *directGraphicsPipeline;
-        auto resources = engine.makeResources(*scene);
+        auto resources = engine.makeResources(*sceneData);
         auto descriptors = engine.makeDescriptors(graphicsPipeline.shaders->getShaderStagesPtr(), resources);
         sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
     }
@@ -995,7 +996,7 @@ void Renderer::Impl::render(vk::CommandBuffer commandBuffer, vk::RenderPass rend
     ASSERT(currentFrameSlot < framesInFlight);
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
     updateRenderPass(renderPass, isRenderPassFormatChanged);
-    if (!scene) {
+    if (!sceneData) {
         return;
     }
     if (frameSettings.useOffscreenTexture) {

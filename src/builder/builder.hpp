@@ -52,7 +52,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 
-    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneData & sceneData);
+    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneDataPtr & sceneData);
 
     bool build(const std::function<bool()> & cancel);
 
@@ -74,7 +74,7 @@ public:
     Builder(Builder &&) noexcept;
     ~Builder();
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneData & sceneData, const std::function<bool()> & cancel) const;
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const;
 
 private:
     struct Impl;

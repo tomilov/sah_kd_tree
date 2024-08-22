@@ -1,3 +1,4 @@
+#include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/assert.hpp>
 #include <viewer/scenes.hpp>
@@ -19,30 +20,30 @@ using namespace std::string_view_literals;
 namespace viewer
 {
 
-std::shared_ptr<Scene> Scenes::getScene(const std::filesystem::path & scenePath) const
+scene_data::SceneDataPtr Scenes::getScene(const std::filesystem::path & scenePath) const
 {
     ASSERT(!std::empty(scenePath));
     std::lock_guard<std::mutex> lockGuard{mutex};
     auto & w = scenes[scenePath];
     auto p = w.lock();
     if (p) {
-        SPDLOG_TRACE("Old scene {} reused", scenePath);
+        SPDLOG_TRACE("Old scene data {} reused", scenePath);
     } else {
-        Scene scene;
-        scene.scenePath = scenePath;
+        scene_data::SceneData sceneData;
+        sceneData.name = scenePath.string();
         if ((true)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-            if (!scene_loader::cachingLoad(scene.sceneData, QFileInfo{scenePath}, cacheLocation)) {
+            if (!scene_loader::cachingLoad(sceneData, QFileInfo{scenePath}, cacheLocation)) {
                 return nullptr;
             }
         } else {
-            if (!scene_loader::load(scene.sceneData, QFileInfo{scenePath})) {
+            if (!scene_loader::load(sceneData, QFileInfo{scenePath})) {
                 return nullptr;
             }
         }
-        p = std::make_shared<Scene>(std::move(scene));
+        p = std::make_shared<scene_data::SceneData>(std::move(sceneData));
         w = p;
-        SPDLOG_TRACE("New scene {} created", scenePath);
+        SPDLOG_TRACE("New scene data {} created", scenePath);
     }
     return p;
 }

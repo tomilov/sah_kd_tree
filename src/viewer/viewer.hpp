@@ -1,6 +1,7 @@
 #pragma once
 
 #include <builder/fwd.hpp>
+#include <scene_data/fwd.hpp>
 
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QHash>
@@ -97,19 +98,17 @@ private Q_SLOTS:
 private:
     friend Viewer;
 
-    using ScenePtr = std::shared_ptr<const Scene>;
-    using SceneFutureWatcher = QFutureWatcher<ScenePtr>;
-    using TreePtr = std::shared_ptr<const builder::Tree>;
-    using TreeFutureWatcher = QFutureWatcher<TreePtr>;
+    using SceneFutureWatcher = QFutureWatcher<scene_data::SceneDataPtr>;
+    using TreeFutureWatcher = QFutureWatcher<builder::TreePtr>;
 
     QString sceneStatus;
     QSharedPointer<SceneFutureWatcher> sceneFutureWatcher;
-    ScenePtr scene;
+    scene_data::SceneDataPtr sceneData;
 
     QString treeStatus;
     QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
-    ScenePtr treeScene;
-    TreePtr tree;
+    scene_data::SceneDataPtr treeSceneData;
+    builder::TreePtr tree;
 };
 
 class RendererSettings : public QObject

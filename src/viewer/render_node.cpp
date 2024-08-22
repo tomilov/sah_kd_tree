@@ -113,9 +113,9 @@ struct RenderNode::Impl
     const engine::Context & context;
     const Engine & engine;
 
-    ScenePtr scene;
+    scene_data::SceneDataPtr sceneData;
     std::optional<Renderer> renderer;
-    TreePtr tree;
+    builder::TreePtr tree;
 
     bool isDirty = false;
 
@@ -150,15 +150,15 @@ struct RenderNode::Impl
 #define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
     void unsetScene()
     {
-        if (scene) {
-            scene.reset();
+        if (sceneData) {
+            sceneData.reset();
             isDirty = true;
         }
     }
 
-    void updateScene(const ScenePtr & scene)
+    void updateScene(const scene_data::SceneDataPtr & sceneData)
     {
-        UPDATE_STATE(this->scene, scene);
+        UPDATE_STATE(this->sceneData, sceneData);
     }
 
     void unsetTree()
@@ -169,7 +169,7 @@ struct RenderNode::Impl
         }
     }
 
-    void updateTree(const TreePtr & tree)
+    void updateTree(const builder::TreePtr & tree)
     {
         UPDATE_STATE(this->tree, tree);
     }
@@ -244,12 +244,12 @@ struct RenderNode::Impl
             renderer.emplace(context, engine, framesInFlight);
         }
         renderer.value().setFrameSettings(frameSettings);
-        if (renderer.value().getScene() != scene) {
+        if (renderer.value().getScene() != sceneData) {
             if (renderer.value().getScene()) {
                 renderer.value().unsetScene();
             }
-            if (scene) {
-                renderer.value().setScene(scene);
+            if (sceneData) {
+                renderer.value().setScene(sceneData);
             }
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
@@ -346,14 +346,14 @@ void RenderNode::unsetScene()
     return impl_->unsetScene();
 }
 
-void RenderNode::updateScene(const ScenePtr & scene)
+void RenderNode::updateScene(const scene_data::SceneDataPtr & sceneData)
 {
-    return impl_->updateScene(scene);
+    return impl_->updateScene(sceneData);
 }
 
-auto RenderNode::getScene() const & -> const ScenePtr &
+auto RenderNode::getScene() const & -> const scene_data::SceneDataPtr &
 {
-    return impl_->scene;
+    return impl_->sceneData;
 }
 
 void RenderNode::unsetTree()
@@ -361,12 +361,12 @@ void RenderNode::unsetTree()
     return impl_->unsetTree();
 }
 
-void RenderNode::updateTree(const TreePtr & tree)
+void RenderNode::updateTree(const builder::TreePtr & tree)
 {
     return impl_->updateTree(tree);
 }
 
-auto RenderNode::getTree() const & -> const TreePtr &
+auto RenderNode::getTree() const & -> const builder::TreePtr &
 {
     return impl_->tree;
 }

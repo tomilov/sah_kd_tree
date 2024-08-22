@@ -22,14 +22,14 @@ Fd::~Fd()
     ::close(fd);
 }
 
-Fd Fd::make(int fd)
-{
-    return Fd{fd};
-}
-
 Fd Fd::dup(int fd)
 {
-    return make(::dup(fd));
+    return Fd{::dup(fd)};
+}
+
+int Fd::release() &&
+{
+    return std::exchange(fd, -1);
 }
 
 Fd::Fd(int fd)
