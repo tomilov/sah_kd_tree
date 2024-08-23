@@ -138,6 +138,9 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
 
+    [[nodiscard]] uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, vk::DeviceSize allocationSize, vk::MemoryPropertyFlags requiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                               vk::MemoryHeapFlags requiredMemoryHeapFlags = vk::MemoryHeapFlagBits::eDeviceLocal) const;
+
 private:
     const Context & context;
 

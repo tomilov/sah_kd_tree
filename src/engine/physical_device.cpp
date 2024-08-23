@@ -26,6 +26,8 @@
 #include <cstddef>
 #include <cstdint>
 
+using namespace std::string_view_literals;
+
 namespace engine
 {
 
@@ -345,6 +347,12 @@ const std::vector<const char *> & PhysicalDevice::getEnabledExtensions() const &
 
 bool PhysicalDevice::isExtensionEnabled(const char * extension) const
 {
+    const auto extensionPromotionVersion = vk::getExtensionPromotedTo(extension);
+    for (auto vkVersion : {"VK_VERSION_1_0"sv, "VK_VERSION_1_1"sv, "VK_VERSION_1_2"sv, "VK_VERSION_1_3"sv}) {
+        if (vkVersion == extensionPromotionVersion) {
+            return true;
+        }
+    }
     return enabledExtensionSet.contains(extension);
 }
 
@@ -475,6 +483,33 @@ size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) cons
     }
     }
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
+}
+
+uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::DeviceSize allocationSize, vk::MemoryPropertyFlags requiredMemoryPropertyFlags, vk::MemoryHeapFlags requiredMemoryHeapFlags) const
+{
+    const auto & physicalDeviceMemoryProperties = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>().memoryProperties;
+    for (uint32_t memoryTypeIndex = 0; memoryTypeIndex < physicalDeviceMemoryProperties.memoryTypeCount; ++memoryTypeIndex) {
+        SPDLOG_INFO("memoryTypeIndex {}", memoryTypeIndex);
+        const uint32_t memoryTypeBit = uint32_t{1} << memoryTypeIndex;
+        if ((memoryTypeBits & memoryTypeBit) != memoryTypeBit) {
+            continue;
+        }
+        const vk::MemoryType & memoryType = physicalDeviceMemoryProperties.memoryTypes[memoryTypeIndex];
+        SPDLOG_INFO("heapIndex {}, propertyFlags {}", memoryType.heapIndex, memoryType.propertyFlags);
+        const vk::MemoryHeap & memoryHeap = physicalDeviceMemoryProperties.memoryHeaps[memoryType.heapIndex];
+        SPDLOG_INFO("size {}, flags {}", memoryHeap.size, memoryHeap.flags);
+        if ((memoryType.propertyFlags & requiredMemoryPropertyFlags) != requiredMemoryPropertyFlags) {
+            continue;
+        }
+        if ((memoryHeap.flags & requiredMemoryHeapFlags) != requiredMemoryHeapFlags) {
+            continue;
+        }
+        if (memoryHeap.size < allocationSize) {
+            continue;
+        }
+        return memoryTypeIndex;
+    }
+    return VK_MAX_MEMORY_TYPES;
 }
 
 PhysicalDevices::PhysicalDevices(const Context & context)

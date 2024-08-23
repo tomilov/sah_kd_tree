@@ -289,10 +289,7 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
         builder::DeviceUuidType deviceUuid;
         ASSERT(std::size(vkDeviceUuid) == std::size(deviceUuid));
         std::memcpy(std::data(deviceUuid), std::data(vkDeviceUuid), std::size(vkDeviceUuid));
-        const builder::Builder::Settings builderSettings = {
-            .deviceUuid = deviceUuid,
-        };
-        builder.emplace(builderSettings);
+        builder.emplace(deviceUuid);
     }
 }
 

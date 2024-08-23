@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <cstddef>
@@ -21,6 +22,7 @@
 
 namespace builder
 {
+class CudaDevice;
 using DeviceUuidType = std::array<std::byte, 16>;
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
@@ -40,11 +42,13 @@ public:
     ~Tree();
 
     [[nodiscard]] const Settings & getSettings() const &;
+    [[nodiscard]] scene_data::SceneDataPtr getSceneData() const;
 
     [[nodiscard]] bool isEmpty() const;
     [[nodiscard]] utils::Fd getFd() &&;
-    [[nodiscard]] utils::Fd getFd() const &;
+    [[nodiscard]] utils::Fd cloneFd() const &;
     [[nodiscard]] size_t getAllocationSize() const;
+    [[nodiscard]] size_t getDataSize() const;
 
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] size_t getPolygonCount() const;
@@ -56,9 +60,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 
-    Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneDataPtr & sceneData);
-
-    bool build(const std::function<bool()> & cancel);
+    Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -69,16 +71,11 @@ private:
 class BUILDER_EXPORT Builder : utils::OneTime<Builder>
 {
 public:
-    struct Settings
-    {
-        std::optional<DeviceUuidType> deviceUuid;
-    };
-
-    Builder(const Settings & settings);
+    Builder(const std::optional<DeviceUuidType> & deviceUuid);
     Builder(Builder &&) noexcept;
     ~Builder();
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const;
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress) const;
 
 private:
     struct Impl;

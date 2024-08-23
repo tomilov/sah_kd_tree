@@ -6,5 +6,6 @@ namespace scene_data
 {
 struct SceneData;
 
-using SceneDataPtr = std::shared_ptr<SceneData>;
+using SceneDataPtr = std::shared_ptr<const SceneData>;
+using SceneDataWeakPtr = std::weak_ptr<const SceneData>;
 }  // namespace scene_data

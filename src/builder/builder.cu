@@ -96,97 +96,11 @@ struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA p
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using Cancel = std::function<bool()>;
+    using Progress = std::function<bool(float progressValue, const std::string & progressText)>;
 };
 #else
 using Traits = sah_kd_tree::DefaultTraits;
 #endif
-
-class CudaDevice : utils::OneTime<CudaDevice>
-{
-public:
-    CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
-        : deviceUuid{deviceUuid}
-    {
-        selectCudaDevice();
-    }
-
-    int getCudaDev() const
-    {
-        return cudaDev;
-    }
-
-    ::CUdevice getCuDev() const
-    {
-        return cuDev;
-    }
-
-private:
-    const std::optional<DeviceUuidType> & deviceUuid;
-
-    int cudaDev = cudaInvalidDeviceId;
-    ::CUdevice cuDev = CU_DEVICE_INVALID;
-
-    void selectCuDevice(const cudaUUID_t & cudaDeviceUuid)
-    {
-        {
-            int cuDevCount = 0;
-            CU_CHECK_ERROR(cuDeviceGetCount(&cuDevCount));
-            int cuDevIndex = 0;
-            for (; cuDevIndex < cuDevCount; ++cuDevIndex) {
-                CU_CHECK_ERROR(cuDeviceGet(&cuDev, cuDevIndex));
-                ::CUuuid uuid = {};
-                CU_CHECK_ERROR(cuDeviceGetUuid(&uuid, cuDev));
-                static_assert(sizeof cudaDeviceUuid == sizeof uuid);
-                if (std::memcmp(&cudaDeviceUuid, &uuid, sizeof uuid) == 0) {
-                    break;
-                }
-            }
-            INVARIANT(cuDevIndex != cuDevCount, "No matching by UUID devices found using CUDA Driver API");
-        }
-        {
-            int deviceAttribute = 0;
-            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev));
-            INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
-        }
-        {
-            int deviceAttribute = 0;
-            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev));
-            INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
-        }
-        {
-            int deviceAttribute = 0;
-            // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
-            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
-            INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
-        }
-    }
-
-    void selectCudaDevice()
-    {
-        cudaDeviceProp devProp = {};
-        static_assert(sizeof(DeviceUuidType) == sizeof devProp.uuid);
-        {
-            int devCount = 0;
-            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
-            INVARIANT(devCount > 0, "");
-            for (cudaDev = 0; cudaDev < devCount; ++cudaDev) {
-                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
-                if (!deviceUuid || (std::memcmp(&devProp.uuid, std::data(deviceUuid.value()), sizeof devProp.uuid) == 0)) {
-                    break;
-                }
-            }
-            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
-        }
-        selectCuDevice(devProp.uuid);
-        CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
-    }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
 
 class DeviceMemory;
 
@@ -279,6 +193,11 @@ public:
         return utils::Fd{fd};
     }
 
+    size_t getSize() const
+    {
+        return alignedAllocationSize;
+    }
+
 private:
     const ::CUmemAllocationProp memAllocationProp;
     const size_t allocGranularity;
@@ -344,24 +263,169 @@ private:
 
 }  // namespace
 
+class CudaDevice : utils::OneTime<CudaDevice>
+{
+public:
+    CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
+        : deviceUuid{deviceUuid}
+    {
+        selectCudaDevice();
+    }
+
+    int getCudaDev() const
+    {
+        return cudaDev;
+    }
+
+    ::CUdevice getCuDev() const
+    {
+        return cuDev;
+    }
+
+private:
+    const std::optional<DeviceUuidType> deviceUuid;
+
+    int cudaDev = cudaInvalidDeviceId;
+    ::CUdevice cuDev = CU_DEVICE_INVALID;
+
+    void selectCuDevice(const cudaUUID_t & cudaDeviceUuid)
+    {
+        {
+            int cuDevCount = 0;
+            CU_CHECK_ERROR(cuDeviceGetCount(&cuDevCount));
+            int cuDevIndex = 0;
+            for (; cuDevIndex < cuDevCount; ++cuDevIndex) {
+                CU_CHECK_ERROR(cuDeviceGet(&cuDev, cuDevIndex));
+                ::CUuuid uuid = {};
+                CU_CHECK_ERROR(cuDeviceGetUuid(&uuid, cuDev));
+                static_assert(sizeof cudaDeviceUuid == sizeof uuid);
+                if (std::memcmp(&cudaDeviceUuid, &uuid, sizeof uuid) == 0) {
+                    break;
+                }
+            }
+            INVARIANT(cuDevIndex != cuDevCount, "No matching by UUID devices found using CUDA Driver API");
+        }
+        {
+            int deviceAttribute = 0;
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev));
+            INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
+        }
+        {
+            int deviceAttribute = 0;
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev));
+            INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
+        }
+        {
+            int deviceAttribute = 0;
+            // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
+            CU_CHECK_ERROR(cuDeviceGetAttribute(&deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev));
+            INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
+        }
+    }
+
+    void selectCudaDevice()
+    {
+        cudaDeviceProp devProp = {};
+        static_assert(sizeof(DeviceUuidType) == sizeof devProp.uuid);
+        {
+            int devCount = 0;
+            CUDA_CHECK_ERROR(cudaGetDeviceCount(&devCount));
+            INVARIANT(devCount > 0, "");
+            for (cudaDev = 0; cudaDev < devCount; ++cudaDev) {
+                CUDA_CHECK_ERROR(cudaGetDeviceProperties(&devProp, cudaDev));
+                if (!deviceUuid || (std::memcmp(&devProp.uuid, std::data(deviceUuid.value()), sizeof devProp.uuid) == 0)) {
+                    break;
+                }
+            }
+            INVARIANT(cudaDev != devCount, "No matching by UUID devices found using CUDA Runtime API");
+        }
+        selectCuDevice(devProp.uuid);
+        CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
+    }
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
 struct Tree::Impl : utils::OneTime<Impl>
 {
     const Settings settings;
-    const std::optional<DeviceUuidType> & deviceUuid;
-    const scene_data::SceneDataPtr sceneData;
+    const scene_data::SceneDataWeakPtr sceneData;
 
+    size_t dataSize = 0;
     size_t allocationSize = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
     std::optional<utils::Fd> fd;
 
-    Impl(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuid, const scene_data::SceneDataPtr & sceneData)
+    Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress)
         : settings{settings}
-        , deviceUuid{deviceUuid}
         , sceneData{sceneData}
     {
         ASSERT(sceneData);
+        auto triangles = sceneData->makeTriangles();
+#if SAH_KD_TREE_HEADER_ONLY
+        typename Traits::MemoryResource memoryResource;
+        typename Traits::Allocator<void> allocator{&memoryResource};
+        sah_kd_tree::Triangle<Traits> triangle{allocator};
+#else
+        sah_kd_tree::Triangle<Traits> triangle;
+#endif
+        triangle.setTriangle(triangles.begin(), triangles.end());
+#if SAH_KD_TREE_HEADER_ONLY
+        sah_kd_tree::Builder<Traits> builder{allocator};
+        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+#else
+        sah_kd_tree::Builder<Traits> builder;
+        sah_kd_tree::Projection<Traits> x, y, z;
+#endif
+        sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
+        const sah_kd_tree::Params<Traits> params = {
+            .emptinessFactor = settings.emptinessFactor,
+            .traversalCost = settings.traversalCost,
+            .intersectionCost = settings.intersectionCost,
+            .maxDepth = settings.maxDepth,
+        };
+        std::optional<sah_kd_tree::Tree<Traits>> tree = builder.build(progress, params, x, y, z);
+        if (!tree) {
+            return;
+        }
+        static_assert(std::is_same_v<Traits::F, glm::float32>);
+        static_assert(std::is_same_v<Traits::U, glm::uint32>);
+        static_assert(std::is_same_v<Traits::I, glm::int32>);
+        populateTreeSizes(tree.value());
+        const auto gatherSize = [this]<typename Vector>(const Vector & v)
+        {
+            dataSize += std::size(v) * sizeof(typename Vector::value_type);
+        };
+        traverseTree(tree.value(), gatherSize);
+        SPDLOG_INFO("Allocation size for tree: {}", dataSize);
+        DeviceMemory deviceMemory{cudaDevice.getCuDev(), dataSize};
+        allocationSize = deviceMemory.getSize();
+        SPDLOG_INFO("Tree size {}, allocation size {}", dataSize, allocationSize);
+        {
+            auto mappedDeviceMemory = deviceMemory.map();
+            const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
+            ::CUdeviceptr p = devPtr;
+            const auto gatherData = [&p]<typename Vector>(const Vector & v)
+            {
+                const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
+                const size_t size = std::size(v) * sizeof(typename Vector::value_type);
+#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
+                ::cuMemcpyDtoD(p, src, size);
+#else
+                ::cuMemcpyHtoD(p, src, size);
+#endif
+                p += size;
+            };
+            traverseTree(tree.value(), gatherData);
+            ASSERT_MSG(p == devPtr + dataSize, "{} ^ {}", p, devPtr + dataSize);
+            CUDA_CHECK_ERROR(cudaDeviceSynchronize());
+        }
+        fd.emplace(deviceMemory.exportMemoryObject());
     }
 
     Impl(Impl &&) noexcept = default;
@@ -402,79 +466,14 @@ struct Tree::Impl : utils::OneTime<Impl>
         f(tree.node.parent);
     }
 
-    bool build(const std::function<bool()> & cancel)
-    {
-        const CudaDevice cudaDevice{deviceUuid};
-        auto triangles = sceneData->makeTriangles();
-#if SAH_KD_TREE_HEADER_ONLY
-        typename Traits::MemoryResource memoryResource;
-        typename Traits::Allocator<void> allocator{&memoryResource};
-        sah_kd_tree::Triangle<Traits> triangle{allocator};
-#else
-        sah_kd_tree::Triangle<Traits> triangle;
-#endif
-        triangle.setTriangle(triangles.begin(), triangles.end());
-#if SAH_KD_TREE_HEADER_ONLY
-        sah_kd_tree::Builder<Traits> builder{allocator};
-        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
-#else
-        sah_kd_tree::Builder<Traits> builder;
-        sah_kd_tree::Projection<Traits> x, y, z;
-#endif
-        sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
-        const sah_kd_tree::Params<Traits> params = {
-            .emptinessFactor = settings.emptinessFactor,
-            .traversalCost = settings.traversalCost,
-            .intersectionCost = settings.intersectionCost,
-            .maxDepth = settings.maxDepth,
-        };
-        std::optional<sah_kd_tree::Tree<Traits>> tree = builder(cancel, params, x, y, z);
-        if (!tree) {
-            return false;
-        }
-        static_assert(std::is_same_v<Traits::F, glm::float32>);
-        static_assert(std::is_same_v<Traits::U, glm::uint32>);
-        static_assert(std::is_same_v<Traits::I, glm::int32>);
-        populateTreeSizes(tree.value());
-        allocationSize = 0;
-        const auto gatherSize = [this]<typename Vector>(const Vector & v)
-        {
-            allocationSize += std::size(v) * sizeof(typename Vector::value_type);
-        };
-        traverseTree(tree.value(), gatherSize);
-        SPDLOG_INFO("Allocation size for tree: {}", allocationSize);
-        DeviceMemory deviceMemory{cudaDevice.getCuDev(), allocationSize};
-        {
-            auto mappedDeviceMemory = deviceMemory.map();
-            const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
-            ::CUdeviceptr p = devPtr;
-            const auto gatherData = [&p]<typename Vector>(const Vector & v)
-            {
-                const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
-                const size_t size = std::size(v) * sizeof(typename Vector::value_type);
-#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
-                ::cuMemcpyDtoD(p, src, size);
-#else
-                ::cuMemcpyHtoD(p, src, size);
-#endif
-                p += size;
-            };
-            traverseTree(tree.value(), gatherData);
-            INVARIANT(p == devPtr + allocationSize, "{} ^ {}", p, devPtr + allocationSize);
-            CUDA_CHECK_ERROR(cudaDeviceSynchronize());
-        }
-        fd.emplace(deviceMemory.exportMemoryObject());
-        return true;
-    }
-
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
         checkTraits();
     }
 };
 
-Tree::Tree(const Settings & settings, const std::optional<DeviceUuidType> & deviceUuidType, const scene_data::SceneDataPtr & sceneData)
-    : impl_{std::make_unique<Impl>(settings, deviceUuidType, sceneData)}
+Tree::Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress)
+    : impl_{std::make_unique<Impl>(settings, cudaDevice, sceneData, progress)}
 {}
 
 Tree::Tree(Tree &&) noexcept = default;
@@ -483,6 +482,11 @@ Tree::~Tree() = default;
 auto Tree::getSettings() const & -> const Settings &
 {
     return impl_->settings;
+}
+
+scene_data::SceneDataPtr Tree::getSceneData() const
+{
+    return impl_->sceneData.lock();
 }
 
 bool Tree::isEmpty() const
@@ -498,7 +502,7 @@ utils::Fd Tree::getFd() &&
     return fd;
 }
 
-utils::Fd Tree::getFd() const &
+utils::Fd Tree::cloneFd() const &
 {
     ASSERT(!isEmpty());
     return impl_->fd.value().clone();
@@ -506,7 +510,14 @@ utils::Fd Tree::getFd() const &
 
 size_t Tree::getAllocationSize() const
 {
+    ASSERT(impl_->allocationSize > 0);
     return impl_->allocationSize;
+}
+
+size_t Tree::getDataSize() const
+{
+    ASSERT(impl_->dataSize > 0);
+    return impl_->dataSize;
 }
 
 const std::vector<size_t> & Tree::getLayerSizes() const &
@@ -524,28 +535,14 @@ size_t Tree::getNodeCount() const
     return impl_->nodeCount;
 }
 
-bool Tree::build(const std::function<bool()> & cancel)
-{
-    return impl_->build(cancel);
-}
-
 struct Builder::Impl : utils::OneTime<Impl>
 {
-    const Settings settings;
+    CudaDevice cudaDevice;
 
-    Impl(const Settings & settings)
-        : settings{settings}
+    Impl(const std::optional<DeviceUuidType> & deviceUuid)
+        : cudaDevice{deviceUuid}
     {
         printThrustVersion();
-    }
-
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const
-    {
-        Tree tree{treeSettings, settings.deviceUuid, sceneData};
-        if (!tree.build(cancel)) {
-            return {};
-        }
-        return tree;
     }
 
     static void printThrustVersion()
@@ -580,16 +577,20 @@ struct Builder::Impl : utils::OneTime<Impl>
     }
 };
 
-Builder::Builder(const Settings & settings)
-    : impl_{std::make_unique<Impl>(settings)}
+Builder::Builder(const std::optional<DeviceUuidType> & deviceUuid)
+    : impl_{std::make_unique<Impl>(deviceUuid)}
 {}
 
 Builder::Builder(Builder &&) noexcept = default;
 Builder::~Builder() = default;
 
-std::optional<Tree> Builder::build(const Tree::Settings & settings, const scene_data::SceneDataPtr & sceneData, const std::function<bool()> & cancel) const
+std::optional<Tree> Builder::build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress) const
 {
-    return impl_->build(settings, sceneData, cancel);
+    Tree tree{treeSettings, impl_->cudaDevice, sceneData, progress};
+    if (tree.isEmpty()) {
+        return std::nullopt;
+    }
+    return tree;
 }
 
 }  // namespace builder

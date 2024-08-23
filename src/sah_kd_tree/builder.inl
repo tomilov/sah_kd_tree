@@ -15,8 +15,8 @@
 #include <cassert>
 
 template<typename Traits>
-template<typename C>
-auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
+template<typename P>
+auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
@@ -45,8 +45,11 @@ auto sah_kd_tree::Builder<Traits>::operator()(const C & cancel, const Params<Tra
     Tree<Traits> tree{allocator};
     tree.layerDepth.push_back(node.count);
     for (;;) {
-        if (cancel()) {
-            return std::nullopt;
+        {
+            using namespace std::string_literals;
+            if (progress(0.0f, ""s)) {
+                return std::nullopt;
+            }
         }
 
         filterLayerNodeOffset();

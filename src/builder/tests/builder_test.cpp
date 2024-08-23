@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <string>
 #include <utility>
 
 #include <cuda_runtime.h>
@@ -59,7 +60,7 @@ protected:
             .intersectionCost = intersectionCost,
             .maxDepth = utils::autoCast(maxDepth),
         };
-        const auto cancel = [start = std::chrono::steady_clock::now()]
+        const auto progress = [start = std::chrono::steady_clock::now()]([[maybe_unused]] float progressValue, [[maybe_unused]] const std::string & progressText)
         {
             using namespace std::chrono_literals;
             if (start + 10s < std::chrono::steady_clock::now()) {
@@ -67,15 +68,12 @@ protected:
             }
             return false;
         };
-        auto tree = builder.build(treeSettings, std::make_shared<scene_data::SceneData>(std::move(sceneData)), cancel);
+        auto tree = builder.build(treeSettings, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress);
         return tree.has_value();
     }
 
 private:
-    const builder::Builder::Settings builderSettings = {
-        .deviceUuid = {},
-    };
-    const builder::Builder builder{builderSettings};
+    const builder::Builder builder{std::nullopt};
 };
 
 TEST_F(Builder, DISABLED_AllScenes)

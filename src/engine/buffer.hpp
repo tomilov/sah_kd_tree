@@ -158,6 +158,9 @@ public:
 
     [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {});
 
+    void copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize dstAllocationOffset);
+    void copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::DeviceSize size) const;
+
 private:
     friend class MappedMemory<void>;
 
@@ -250,6 +253,16 @@ public:
     [[nodiscard]] MappedMemory<T> map() const &
     {
         return {&buffer, count};
+    }
+
+    void copyFrom(const T * p, vk::DeviceSize count, vk::DeviceSize dstOffset)
+    {
+        return buffer.copyFrom(p, sizeof(T) * count, sizeof(T) * dstOffset);
+    }
+
+    void copyTo(vk::DeviceSize srcOffset, T * p, vk::DeviceSize size) const
+    {
+        return buffer.copyTo(sizeof(T) * srcOffset, p, sizeof(T) * size);
     }
 
     [[nodiscard]] Buffer<void> & base() &

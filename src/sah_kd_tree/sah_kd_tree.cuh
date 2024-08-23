@@ -9,6 +9,7 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <string>
 #include <type_traits>
 
 #include <cassert>
@@ -35,7 +36,7 @@ struct DefaultTraits
     using Allocator = thrust::device_allocator<T>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using Cancel = std::function<bool()>;
+    using Progress = std::function<bool(float progressValue, const std::string & progressText)>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -250,7 +251,7 @@ struct Builder
     using Allocator = typename Traits::template Allocator<T>;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
-    using Cancel = typename Traits::Cancel;
+    using Progress = typename Traits::Progress;
 
     static inline constexpr I kNoSplitDimension = -1;
 
@@ -366,8 +367,8 @@ struct Builder
     template<I dimension, bool forth>
     void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
-    template<typename C = Cancel>
-    std::optional<Tree<Traits>> operator()(const C & cancel, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
+    template<typename P = Progress>
+    std::optional<Tree<Traits>> build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
 };
 
 template<typename Traits = DefaultTraits>

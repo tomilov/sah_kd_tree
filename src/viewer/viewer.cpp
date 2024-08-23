@@ -73,57 +73,60 @@ SceneSettings::SceneSettings(QObject * parent)
         qFatal("unreachable");
     }
 
-    const auto addTasks = [this]
-    {
-        if (!taskQueue) {
-            return;
-        }
-        for (int64_t i = 0; i < 12; ++i) {
-            auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
-            {
-                if (promise.isCanceled()) {
-                    return;
-                }
-                constexpr int kProgressRangeStart = 0;
-                constexpr int kProgressRangeStop = 100;
-                promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
-                promise.setProgressValueAndText(kProgressRangeStart, u"0%"_s);
-                std::mt19937 rng{utils::safeCast<std::mt19937::result_type>(*i)};
-                QList<int> indices(kProgressRangeStop - kProgressRangeStart);
-                std::iota(std::begin(indices), std::end(indices), 0);
-                std::shuffle(std::begin(indices), std::end(indices), rng);
-                auto index = std::begin(indices);
-                int progress = kProgressRangeStart;
-                while (++progress <= kProgressRangeStop) {
+    if ((false)) {
+        const auto addTasks = [this]
+        {
+            if (!taskQueue) {
+                return;
+            }
+            for (int64_t i = 0; i < 12; ++i) {
+                auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
+                {
                     promise.suspendIfRequested();
                     if (promise.isCanceled()) {
                         return;
                     }
-                    {  // work hard
-                        std::this_thread::sleep_for(100ms);
+                    constexpr int kProgressRangeStart = 0;
+                    constexpr int kProgressRangeStop = 100;
+                    promise.setProgressRange(kProgressRangeStart, kProgressRangeStop);
+                    promise.setProgressValueAndText(kProgressRangeStart, u"0%"_s);
+                    std::mt19937 rng{utils::safeCast<std::mt19937::result_type>(*i)};
+                    QList<int> indices(kProgressRangeStop - kProgressRangeStart);
+                    std::iota(std::begin(indices), std::end(indices), 0);
+                    std::shuffle(std::begin(indices), std::end(indices), rng);
+                    auto index = std::begin(indices);
+                    int progress = kProgressRangeStart;
+                    while (++progress <= kProgressRangeStop) {
+                        promise.suspendIfRequested();
+                        if (promise.isCanceled()) {
+                            return;
+                        }
+                        {  // work hard
+                            std::this_thread::sleep_for(100ms);
+                        }
+                        const float numerator = utils::autoCast(progress - kProgressRangeStart);
+                        const float denominator = utils::autoCast(kProgressRangeStop - kProgressRangeStart);
+                        promise.setProgressValueAndText(progress, u"%1%"_s.arg(qRound(100.0f * numerator / denominator)));
+                        Q_ASSERT(index != std::end(indices));
+                        if (!promise.emplaceResultAt(*index++, progress)) {
+                            qCWarning(viewerCategory).noquote() << u"Cannot add result %1 at index %2"_s.arg(progress).arg(*std::prev(index));
+                        }
                     }
-                    const float numerator = utils::autoCast(progress - kProgressRangeStart);
-                    const float denominator = utils::autoCast(kProgressRangeStop - kProgressRangeStart);
-                    promise.setProgressValueAndText(progress, u"%1%"_s.arg(qRound(100.0f * numerator / denominator)));
-                    Q_ASSERT(index != std::end(indices));
-                    if (!promise.emplaceResultAt(*index++, progress)) {
-                        qCWarning(viewerCategory).noquote() << u"Cannot add result %1 at index %2"_s.arg(progress).arg(*std::prev(index));
-                    }
-                }
-            };
-            Q_ASSERT(taskQueue);
-            tasks.append(taskQueue->runTask(u"(w/ promise) name %1"_s.arg(i), u"(w/ promise) description %1"_s.arg(i), std::move(taskWithPromise)));
+                };
+                Q_ASSERT(taskQueue);
+                tasks.append(taskQueue->runTask(u"(w/ promise) name %1"_s.arg(i), u"(w/ promise) description %1"_s.arg(i), std::move(taskWithPromise)));
 
-            const auto task = []
-            {
-                std::this_thread::sleep_for(10000ms);
-                return 0;
-            };
-            Q_ASSERT(taskQueue);
-            tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
-        }
-    };
-    // QTimer::singleShot(1000, this, addTasks);
+                const auto task = []
+                {
+                    std::this_thread::sleep_for(10000ms);
+                    return 0;
+                };
+                Q_ASSERT(taskQueue);
+                tasks.append(taskQueue->runTask(u"(w/o promise) name %1"_s.arg(i), u"(w/o promise) description %1"_s.arg(i), task));
+            }
+        };
+        QTimer::singleShot(1000, this, addTasks);
+    }
 }
 
 QVector3D SceneSettings::getSceneAabbMin() const
@@ -206,6 +209,7 @@ void SceneSettings::onUrlChanged()
     const auto buidSceneData = [this, sceneFileInfo, scenePath = std::move(scenePath)](QPromise<scene_data::SceneDataPtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build scene data '%1'"_s.arg(sceneFileInfo.canonicalFilePath())};
+        promise.suspendIfRequested();
         if (promise.isCanceled()) {
             return;
         }
@@ -228,14 +232,14 @@ void SceneSettings::updateTree()
     Q_ASSERT(future.isValid());
     if (future.isCanceled()) {
         {
-            tree.reset();
+            builderTree.reset();
             Q_EMIT treeChanged();
         }
         treeStatus = u"Cancelled"_s;
     } else {
         builder::TreePtr newTree = future.result();
-        if (tree != newTree) {
-            tree = std::move(newTree);
+        if (builderTree != newTree) {
+            builderTree = std::move(newTree);
             Q_EMIT treeChanged();
         }
         treeStatus.clear();
@@ -253,9 +257,8 @@ void SceneSettings::onTreeSettingsChanged()
         treeFutureWatcher.clear();
     }
     if (!sceneData) {
-        treeSceneData.reset();
-        if (tree) {
-            tree.reset();
+        if (builderTree) {
+            builderTree.reset();
             Q_EMIT treeChanged();
         }
         if (!treeStatus.isEmpty()) {
@@ -264,32 +267,32 @@ void SceneSettings::onTreeSettingsChanged()
         }
         return;
     }
-    const builder::Tree::Settings treeSettings = {
+    const builder::Tree::Settings builderTreeSettings = {
         .emptinessFactor = emptinessFactor,
         .traversalCost = traversalCost,
         .intersectionCost = intersectionCost,
         .maxDepth = utils::autoCast(maxDepth),
     };
-    if ((sceneData == treeSceneData) && tree && (tree->getSettings() == treeSettings)) {
+    if (builderTree && (builderTree->getSettings() == builderTreeSettings) && (builderTree->getSceneData() == sceneData)) {
         return;
     }
-    treeSceneData = sceneData;
     auto scenePath = QString::fromStdString(sceneData->name);
     Q_CHECK_PTR(engineWrapper);
-    const auto buildTree = [this, scenePath, treeSceneData = treeSceneData, treeSettings](QPromise<builder::TreePtr> & promise)
+    const auto buildTree = [this, scenePath, sceneData = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
-        if (promise.isCanceled()) {
-            return;
-        }
-        const auto cancel = [&promise]
+        static constexpr int kProgressRange = 100;
+        promise.setProgressRange(0, kProgressRange);
+        const auto progress = [&promise](float progressValue, const std::string & progressText)
         {
+            const int p = utils::autoCast(progressValue * kProgressRange);
+            promise.setProgressValueAndText(qBound(0, p, kProgressRange), QString::fromStdString(progressText));
             promise.suspendIfRequested();
             return promise.isCanceled();
         };
         try {
-            if (auto tree = engineWrapper->getEngine().getBuilder().build(treeSettings, treeSceneData, cancel)) {
-                promise.addResult(std::make_shared<builder::Tree>(std::move(tree).value()));
+            if (auto t = engineWrapper->getEngine().getBuilder().build(builderTreeSettings, sceneData, progress)) {
+                promise.addResult(std::make_shared<builder::Tree>(std::move(t).value()));
             }
         } catch (const std::exception & e) {
             qCCritical(viewerCategory).noquote() << QString::fromStdString(fmt::to_string(e));
@@ -300,10 +303,10 @@ void SceneSettings::onTreeSettingsChanged()
     auto name = u"%1 tree"_s.arg(sceneFileInfo.fileName());
     auto description = u"%1:\n\temptinessFactor %2,\n\ttraversalCost: %3,\n\tintersectionCost: %4,\n\tmaxDepth: %5"_s  //
                            .arg(sceneFileInfo.filePath())                                                              //
-                           .arg(utils::safeCast<double>(treeSettings.emptinessFactor))                                 //
-                           .arg(utils::safeCast<double>(treeSettings.traversalCost))                                   //
-                           .arg(utils::safeCast<double>(treeSettings.intersectionCost))                                //
-                           .arg(treeSettings.maxDepth);                                                                //
+                           .arg(utils::safeCast<double>(builderTreeSettings.emptinessFactor))                          //
+                           .arg(utils::safeCast<double>(builderTreeSettings.traversalCost))                            //
+                           .arg(utils::safeCast<double>(builderTreeSettings.intersectionCost))                         //
+                           .arg(builderTreeSettings.maxDepth);                                                         //
     Q_ASSERT(taskQueue);
     treeFutureWatcher = taskQueue->runTask(qMove(name), qMove(description), std::move(buildTree));
     if (!connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &SceneSettings::updateTree)) {
@@ -892,7 +895,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     }
     renderNode->updateScene(sceneSettings->sceneData);
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-        renderNode->updateTree(sceneSettings->tree);
+        renderNode->updateTree(sceneSettings->builderTree);
     } else {
         renderNode->unsetTree();
     }

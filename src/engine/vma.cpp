@@ -167,11 +167,12 @@ Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, c
 MemoryAllocator::Impl::Impl(const Context & context)
     : context{context}
 {
+    const auto & physicalDevice = context.getPhysicalDevice();
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = utils::safeCast<vk::Instance::NativeType>(context.getInstance().getInstance());
-    allocatorInfo.physicalDevice = utils::safeCast<vk::PhysicalDevice::NativeType>(context.getPhysicalDevice().getPhysicalDevice());
+    allocatorInfo.physicalDevice = utils::safeCast<vk::PhysicalDevice::NativeType>(physicalDevice.getPhysicalDevice());
     allocatorInfo.device = utils::safeCast<vk::Device::NativeType>(context.getDevice().getDevice());
-    allocatorInfo.vulkanApiVersion = context.getPhysicalDevice().apiVersion;
+    allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
 
     if (context.getAllocationCallbacks()) {
         allocatorInfo.pAllocationCallbacks = &static_cast<const vk::AllocationCallbacks::NativeType &>(*context.getAllocationCallbacks());
@@ -181,11 +182,17 @@ MemoryAllocator::Impl::Impl(const Context & context)
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    if (context.getPhysicalDevice().isExtensionEnabled(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+    if (physicalDevice.isExtensionEnabled(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
-    if (context.getPhysicalDevice().isExtensionEnabled(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+    if (physicalDevice.isExtensionEnabled(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+    }
+    if (physicalDevice.isExtensionEnabled(VK_KHR_MAINTENANCE_4_EXTENSION_NAME)) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT;
+    }
+    if (physicalDevice.isExtensionEnabled(VK_KHR_MAINTENANCE_5_EXTENSION_NAME)) {
+        allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT;
     }
 
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
@@ -447,6 +454,22 @@ bool Buffer<void>::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMa
     dependencyInfo.setBufferMemoryBarriers(bufferMemoryBarrier);
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
     return true;
+}
+
+void Buffer<void>::copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize dstAllocationOffset)
+{
+    ASSERT(p);
+    ASSERT(dstAllocationOffset + size < getSize());
+    vk::Result result = utils::autoCast(vmaCopyMemoryToAllocation(impl_->memoryAllocator.impl_->allocator, p, impl_->resource->allocation, dstAllocationOffset, size));
+    INVARIANT(result == vk::Result::eSuccess, "Cannot copy memory to allocation: {}", result);
+}
+
+void Buffer<void>::copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::DeviceSize size) const
+{
+    ASSERT(p);
+    ASSERT(srcAllocationOffset + size < getSize());
+    vk::Result result = utils::autoCast(vmaCopyAllocationToMemory(impl_->memoryAllocator.impl_->allocator, impl_->resource->allocation, srcAllocationOffset, p, size));
+    INVARIANT(result == vk::Result::eSuccess, "Cannot copy allocation to memory: {}", result);
 }
 
 void * Buffer<void>::getMappedData() const &

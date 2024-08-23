@@ -107,8 +107,7 @@ private:
 
     QString treeStatus;
     QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
-    scene_data::SceneDataPtr treeSceneData;
-    builder::TreePtr tree;
+    builder::TreePtr builderTree;
 };
 
 class RendererSettings : public QObject

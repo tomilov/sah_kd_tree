@@ -11,8 +11,8 @@
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
 #include <viewer/renderer.hpp>
-#include <viewer/sah_kd_tree.hpp>
 #include <viewer/scenes.hpp>
+#include <viewer/tree.hpp>
 #include <viewer/utils.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -114,7 +114,8 @@ struct RenderNode::Impl
 
     scene_data::SceneDataPtr sceneData;
     std::optional<Renderer> renderer;
-    builder::TreePtr tree;
+    builder::TreePtr builderTree;
+    std::optional<Tree> tree;
 
     bool isDirty = false;
 
@@ -162,15 +163,15 @@ struct RenderNode::Impl
 
     void unsetTree()
     {
-        if (tree) {
-            tree.reset();
+        if (builderTree) {
+            builderTree.reset();
             isDirty = true;
         }
     }
 
     void updateTree(const builder::TreePtr & tree)
     {
-        UPDATE_STATE(this->tree, tree);
+        UPDATE_STATE(this->builderTree, tree);
     }
 
     void updateRect(const QRectF & rect)
@@ -251,9 +252,17 @@ struct RenderNode::Impl
                 renderer.value().setScene(sceneData);
             }
         }
-        if (tree) {
-            // TODO: tree
-            Tree t{context, tree};
+        if (builderTree) {
+            if (!tree || (tree.value().getBuilderTree() != builderTree)) {
+                constexpr vk::BufferUsageFlags kUsage = vk::BufferUsageFlagBits::eTransferSrc;
+                const uint32_t queueFamilyIndices[] = {
+                    context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex,
+                    context.getPhysicalDevice().computeQueueCreateInfo.familyIndex,
+                };
+                tree.emplace(context, builderTree, kUsage, queueFamilyIndices);
+            }
+        } else {
+            tree.reset();
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;
@@ -371,7 +380,7 @@ void RenderNode::updateTree(const builder::TreePtr & tree)
 
 auto RenderNode::getTree() const & -> const builder::TreePtr &
 {
-    return impl_->tree;
+    return impl_->builderTree;
 }
 
 void RenderNode::updateRect(const QRectF & rect)
