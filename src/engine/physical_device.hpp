@@ -106,6 +106,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,  //
         VK_KHR_MAINTENANCE_5_EXTENSION_NAME,                 // not supported by Renderdoc 1.6
         VK_KHR_MAINTENANCE_6_EXTENSION_NAME,                 // not supported by Renderdoc 1.6
+        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,            //
     };
 
     QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics"};

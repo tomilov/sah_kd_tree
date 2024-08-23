@@ -49,6 +49,8 @@ target_sources(
         "scenes.cpp"
         "engine.hpp"
         "engine.cpp"
+        "sah_kd_tree.hpp"
+        "sah_kd_tree.cpp"
         "descriptors.hpp"
         "descriptors.cpp"
         "pipelines.hpp"

@@ -41,10 +41,14 @@ public:
 
     [[nodiscard]] const Settings & getSettings() const &;
 
+    [[nodiscard]] bool isEmpty() const;
+    [[nodiscard]] utils::Fd getFd() &&;
+    [[nodiscard]] utils::Fd getFd() const &;
+    [[nodiscard]] size_t getAllocationSize() const;
+
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] size_t getPolygonCount() const;
     [[nodiscard]] size_t getNodeCount() const;
-    [[nodiscard]] utils::Fd getFd() &&;
 
 private:
     friend Builder;

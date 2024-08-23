@@ -27,9 +27,19 @@ Fd Fd::dup(int fd)
     return Fd{::dup(fd)};
 }
 
+int Fd::getFd() const
+{
+    return fd;
+}
+
 int Fd::release() &&
 {
     return std::exchange(fd, -1);
+}
+
+Fd Fd::clone() const
+{
+    return Fd::dup(fd);
 }
 
 Fd::Fd(int fd)

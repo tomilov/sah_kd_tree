@@ -11,6 +11,7 @@
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
 #include <viewer/renderer.hpp>
+#include <viewer/sah_kd_tree.hpp>
 #include <viewer/scenes.hpp>
 #include <viewer/utils.hpp>
 
@@ -42,8 +43,6 @@
 #include <QtQuick/QSGNode>
 #include <QtQuick/QSGRendererInterface>
 
-#include <memory>
-#include <new>
 #include <optional>
 #include <utility>
 
@@ -251,6 +250,10 @@ struct RenderNode::Impl
             if (sceneData) {
                 renderer.value().setScene(sceneData);
             }
+        }
+        if (tree) {
+            // TODO: tree
+            Tree t{context, tree};
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;

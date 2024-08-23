@@ -46,6 +46,7 @@
 #include <cmath>
 
 using namespace Qt::StringLiterals;
+using namespace std::chrono_literals;
 
 namespace viewer
 {
@@ -77,7 +78,6 @@ SceneSettings::SceneSettings(QObject * parent)
         if (!taskQueue) {
             return;
         }
-        using namespace std::chrono_literals;
         for (int64_t i = 0; i < 12; ++i) {
             auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
             {

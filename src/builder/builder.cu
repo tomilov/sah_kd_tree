@@ -350,6 +350,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     const std::optional<DeviceUuidType> & deviceUuid;
     const scene_data::SceneDataPtr sceneData;
 
+    size_t allocationSize = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
@@ -435,8 +436,8 @@ struct Tree::Impl : utils::OneTime<Impl>
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
         populateTreeSizes(tree.value());
-        size_t allocationSize = 0;
-        const auto gatherSize = [&allocationSize]<typename Vector>(const Vector & v)
+        allocationSize = 0;
+        const auto gatherSize = [this]<typename Vector>(const Vector & v)
         {
             allocationSize += std::size(v) * sizeof(typename Vector::value_type);
         };
@@ -484,6 +485,30 @@ auto Tree::getSettings() const & -> const Settings &
     return impl_->settings;
 }
 
+bool Tree::isEmpty() const
+{
+    return !impl_->fd;
+}
+
+utils::Fd Tree::getFd() &&
+{
+    ASSERT(!isEmpty());
+    utils::Fd fd = std::move(impl_->fd).value();
+    impl_->fd.reset();
+    return fd;
+}
+
+utils::Fd Tree::getFd() const &
+{
+    ASSERT(!isEmpty());
+    return impl_->fd.value().clone();
+}
+
+size_t Tree::getAllocationSize() const
+{
+    return impl_->allocationSize;
+}
+
 const std::vector<size_t> & Tree::getLayerSizes() const &
 {
     return impl_->layerSizes;
@@ -497,14 +522,6 @@ size_t Tree::getPolygonCount() const
 size_t Tree::getNodeCount() const
 {
     return impl_->nodeCount;
-}
-
-utils::Fd Tree::getFd() &&
-{
-    ASSERT(impl_->fd);
-    utils::Fd fd = std::move(impl_->fd).value();
-    impl_->fd.reset();
-    return fd;
 }
 
 bool Tree::build(const std::function<bool()> & cancel)
