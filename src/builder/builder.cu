@@ -356,6 +356,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     size_t dataSize = 0;
     size_t allocationSize = 0;
+    size_t trianglesCount = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
@@ -396,7 +397,10 @@ struct Tree::Impl : utils::OneTime<Impl>
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
+        trianglesCount = triangles.getCount();
         populateTreeSizes(tree.value());
+        const size_t trianglesSize = triangles.getCount() * sizeof(scene_data::Triangle);
+        dataSize += trianglesSize;
         const auto gatherSize = [this]<typename Vector>(const Vector & v)
         {
             dataSize += std::size(v) * sizeof(typename Vector::value_type);
@@ -410,14 +414,18 @@ struct Tree::Impl : utils::OneTime<Impl>
             auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
             ::CUdeviceptr p = devPtr;
+            {
+                CU_CHECK_ERROR(::cuMemcpyHtoD(p, triangles.begin(), trianglesSize));
+                p += trianglesSize;
+            }
             const auto gatherData = [&p]<typename Vector>(const Vector & v)
             {
                 const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
                 const size_t size = std::size(v) * sizeof(typename Vector::value_type);
 #if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
-                ::cuMemcpyDtoD(p, src, size);
+                CU_CHECK_ERROR(::cuMemcpyDtoD(p, src, size));
 #else
-                ::cuMemcpyHtoD(p, src, size);
+                CU_CHECK_ERROR(::cuMemcpyHtoD(p, src, size));
 #endif
                 p += size;
             };
@@ -520,18 +528,27 @@ size_t Tree::getDataSize() const
     return impl_->dataSize;
 }
 
+size_t Tree::getTrianglesCount() const
+{
+    ASSERT(impl_->trianglesCount > 0);
+    return impl_->trianglesCount;
+}
+
 const std::vector<size_t> & Tree::getLayerSizes() const &
 {
+    ASSERT(!std::empty(impl_->layerSizes));
     return impl_->layerSizes;
 }
 
 size_t Tree::getPolygonCount() const
 {
+    ASSERT(impl_->polygonCount > 0);
     return impl_->polygonCount;
 }
 
 size_t Tree::getNodeCount() const
 {
+    ASSERT(impl_->nodeCount > 0);
     return impl_->nodeCount;
 }
 

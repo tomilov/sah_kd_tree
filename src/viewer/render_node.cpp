@@ -254,11 +254,7 @@ struct RenderNode::Impl
         }
         if (builderTree) {
             if (!tree || (tree.value().getBuilderTree() != builderTree)) {
-                const uint32_t queueFamilyIndices[] = {
-                    context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex,
-                    context.getPhysicalDevice().computeQueueCreateInfo.familyIndex,
-                };
-                tree.emplace(context, builderTree, queueFamilyIndices);
+                tree.emplace(context, builderTree);
             }
         } else {
             tree.reset();
