@@ -17,8 +17,9 @@
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <string>
 #include <utility>
+
+#include <cstddef>
 
 #include <cuda_runtime.h>
 
@@ -60,11 +61,11 @@ protected:
             .intersectionCost = intersectionCost,
             .maxDepth = utils::autoCast(maxDepth),
         };
-        const auto progress = [start = std::chrono::steady_clock::now()]([[maybe_unused]] float progressValue, [[maybe_unused]] const std::string & progressText)
+        const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
         {
             using namespace std::chrono_literals;
             if (start + 10s < std::chrono::steady_clock::now()) {
-                return true;
+                INVARIANT(false, "{}", progressValue);
             }
             return false;
         };

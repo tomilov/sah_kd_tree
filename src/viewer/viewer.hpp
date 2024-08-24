@@ -41,6 +41,7 @@ class SceneSettings : public QObject
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneChanged STORED false)
     Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
 
+    Q_PROPERTY(int depth READ getDepth NOTIFY treeChanged STORED false)
     Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
@@ -69,6 +70,8 @@ public:
     {
         return sceneStatus;
     }
+
+    [[nodiscard]] int getDepth() const &;
 
     [[nodiscard]] const QString & getTreeStatus() const &
     {
@@ -107,7 +110,7 @@ private:
 
     QString treeStatus;
     QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
-    builder::TreePtr builderTree;
+    builder::TreePtr tree;
 };
 
 class RendererSettings : public QObject

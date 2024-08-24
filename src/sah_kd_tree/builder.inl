@@ -32,7 +32,7 @@ auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
     polygon.triangle.resize(polygon.count);
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
-    polygon.node.resize(polygon.count, sizeToU<U>(0));
+    polygon.node.resize(polygon.count, static_cast<U>(0));
 
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
@@ -42,17 +42,16 @@ auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
     node.polygonCountLeft.resize(1);
     node.polygonCountRight.resize(1);
 
+    layer.nodeOffset.resize(1, static_cast<U>(0));
+
     Tree<Traits> tree{allocator};
     tree.layerDepth.push_back(node.count);
     for (;;) {
-        {
-            using namespace std::string_literals;
-            if (progress(0.0f, ""s)) {
-                return std::nullopt;
-            }
-        }
+        assert(!std::empty(layer.nodeOffset));
 
-        filterLayerNodeOffset();
+        if (progress(tree.layerDepth.size())) {
+            return std::nullopt;
+        }
 
         if (tree.layerDepth.size() == sah.maxDepth) {
             leaf.count += layer.size;
@@ -143,6 +142,7 @@ auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
         resizeNode();
         tree.layerDepth.push_back(node.count);
+        filterLayerNodeOffset();
     }
 
     populateNodeParent();

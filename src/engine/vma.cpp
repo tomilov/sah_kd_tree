@@ -560,10 +560,8 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
     vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);
     memoryPropertyFlags = vk::MemoryPropertyFlags{cMemoryPropertyFlags};
 
-    {
-        auto result = vk::Result{vmaFindMemoryTypeIndexForBufferInfo(allocator, &bufferCreateInfo, &allocationCreateInfo, &memoryTypeIndex)};
-        INVARIANT(result == vk::Result::eSuccess, "{}", result);
-    }
+    result = vk::Result{vmaFindMemoryTypeIndexForBufferInfo(allocator, &bufferCreateInfo, &allocationCreateInfo, &memoryTypeIndex)};
+    INVARIANT(result == vk::Result::eSuccess, "{}", result);
 }
 
 vk::AccessFlags2 getAccessFlagsForImageLayout(vk::ImageLayout imageLayout)
@@ -806,10 +804,8 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
     vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);
     memoryPropertyFlags = vk::MemoryPropertyFlags{cMemoryPropertyFlags};
 
-    {
-        auto result = vk::Result{vmaFindMemoryTypeIndexForImageInfo(allocator, &imageCreateInfo, &allocationCreateInfo, &memoryTypeIndex)};
-        INVARIANT(result == vk::Result::eSuccess, "{}", result);
-    }
+    result = vk::Result{vmaFindMemoryTypeIndexForImageInfo(allocator, &imageCreateInfo, &allocationCreateInfo, &memoryTypeIndex)};
+    INVARIANT(result == vk::Result::eSuccess, "{}", result);
 }
 
 }  // namespace engine

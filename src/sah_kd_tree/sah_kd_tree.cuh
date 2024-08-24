@@ -9,7 +9,7 @@
 #include <functional>
 #include <limits>
 #include <optional>
-#include <string>
+#include <stdexcept>
 #include <type_traits>
 
 #include <cassert>
@@ -20,10 +20,25 @@
 namespace sah_kd_tree
 {
 
-template<typename U>
-U sizeToU(size_t size)
+template<typename U, typename T>
+U sizeToU(T size)
 {
-    assert(size <= std::numeric_limits<U>::max());
+    if constexpr (std::is_signed_v<T> == std::is_signed_v<U>) {
+        if (size > std::numeric_limits<T>::max()) {
+            throw std::overflow_error{""};
+        }
+    } else if constexpr (std::is_signed_v<T>) {
+        if (size < 0) {
+            throw std::underflow_error{""};
+        }
+        if (static_cast<std::make_unsigned_t<T>>(size) > std::numeric_limits<T>::max()) {
+            throw std::overflow_error{""};
+        }
+    } else {
+        if (size > static_cast<std::make_unsigned_t<U>>(std::numeric_limits<U>::max())) {
+            throw std::overflow_error{""};
+        }
+    }
     return static_cast<U>(size);
 }
 
@@ -36,7 +51,7 @@ struct DefaultTraits
     using Allocator = thrust::device_allocator<T>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using Progress = std::function<bool(float progressValue, const std::string & progressText)>;
+    using Progress = std::function<bool(size_t progressValue)>;
 };
 
 template<typename Traits = DefaultTraits>

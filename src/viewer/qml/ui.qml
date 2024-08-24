@@ -617,7 +617,7 @@ C.ApplicationWindow {
                                 RowLayout {
                                     id: sahKdTreeRow
                                     CenteredText {
-                                        text: qsTr("SAH kd-tree")
+                                        text: qsTr("SAH kd-tree (depth: %1)").arg(sceneSettings.depth)
                                     }
                                 }
                                 MouseArea {

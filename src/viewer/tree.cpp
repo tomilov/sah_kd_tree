@@ -14,21 +14,25 @@ namespace viewer
 
 struct Tree::Impl
 {
+    static constexpr vk::BufferUsageFlags kBufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
     static constexpr vk::ExternalMemoryHandleTypeFlagBits kHandleType = vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd;
 
     const engine::Context & context;
     const builder::TreeWeakPtr builderTree;
+    const vk::DeviceSize dataSize;
     const vk::DeviceSize allocationSize;
-    const vk::BufferUsageFlags usage;
+    const std::vector<size_t> layerSizes;
+    const uint32_t polygonCount;
+    const uint32_t nodeCount;
 
     vk::UniqueDeviceMemory deviceMemory;
     vk::UniqueBuffer buffer;  // buffer should be destructed first
 
-    Impl(const engine::Context & context, const builder::TreePtr & builderTree, vk::BufferUsageFlags usage, std::span<const uint32_t> queueFamilies);
+    Impl(const engine::Context & context, const builder::TreePtr & builderTree, std::span<const uint32_t> queueFamilies);
 };
 
-Tree::Tree(const engine::Context & context, const builder::TreePtr & builderTree, vk::BufferUsageFlags usage, std::span<const uint32_t> queueFamilies)
-    : impl_{std::make_unique<Impl>(context, builderTree, usage, queueFamilies)}
+Tree::Tree(const engine::Context & context, const builder::TreePtr & builderTree, std::span<const uint32_t> queueFamilies)
+    : impl_{std::make_unique<Impl>(context, builderTree, queueFamilies)}
 {
     ASSERT(builderTree);
 }
@@ -38,13 +42,46 @@ builder::TreePtr Tree::getBuilderTree() const
     return impl_->builderTree.lock();
 }
 
+vk::DeviceSize Tree::getAllocationSize() const
+{
+    ASSERT(impl_->allocationSize > 0);
+    return impl_->allocationSize;
+}
+
+vk::DeviceSize Tree::getDataSize() const
+{
+    ASSERT(impl_->dataSize > 0);
+    return impl_->dataSize;
+}
+
+const std::vector<size_t> & Tree::getLayerSizes() const &
+{
+    ASSERT(!std::empty(impl_->layerSizes));
+    return impl_->layerSizes;
+}
+
+uint32_t Tree::getPolygonCount() const
+{
+    ASSERT(impl_->polygonCount > 0);
+    return impl_->polygonCount;
+}
+
+uint32_t Tree::getNodeCount() const
+{
+    ASSERT(impl_->nodeCount > 0);
+    return impl_->nodeCount;
+}
+
 Tree::~Tree() = default;
 
-Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & builderTree, vk::BufferUsageFlags usage, std::span<const uint32_t> queueFamilies)
+Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & builderTree, std::span<const uint32_t> queueFamilies)
     : context{context}
     , builderTree{builderTree}
+    , dataSize{utils::autoCast(builderTree->getDataSize())}
     , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
-    , usage{usage}
+    , layerSizes{builderTree->getLayerSizes()}
+    , polygonCount{utils::autoCast(builderTree->getPolygonCount())}
+    , nodeCount{utils::autoCast(builderTree->getNodeCount())}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME), "");
@@ -54,7 +91,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
 
     vk::PhysicalDeviceExternalBufferInfo physicalDeviceExternalBufferInfo = {
         .flags = {},
-        .usage = usage,
+        .usage = kBufferUsage,
         .handleType = kHandleType,
     };
     vk::ExternalMemoryProperties externalMemoryProperties = physicalDevice.getPhysicalDevice().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
@@ -67,7 +104,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     auto & bufferCreateInfo = bufferCreateInfoChain.get<vk::BufferCreateInfo>();
     bufferCreateInfo = {
         .size = allocationSize,
-        .usage = usage,
+        .usage = kBufferUsage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
     bufferCreateInfo.setQueueFamilyIndices(queueFamilies);
@@ -90,7 +127,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     // INVARIANT(memoryRequirements.memoryTypeBits == memoryFdProperties.memoryTypeBits, "");
     const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
-    vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
+    vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
     vk::MemoryAllocateInfo & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
     memoryAllocateInfo = vk::MemoryAllocateInfo{
         .allocationSize = allocationSize,
@@ -100,6 +137,10 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     importMemoryFdInfo = {
         .handleType = kHandleType,
         .fd = fd.getFd(),
+    };
+    vk::MemoryAllocateFlagsInfo & memoryAllocateFlagsInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateFlagsInfo>();
+    memoryAllocateFlagsInfo = {
+        .flags = vk::MemoryAllocateFlagBits::eDeviceAddress,
     };
     {
         const bool requiresDedicatedAllocation = memoryDedicatedRequirements.requiresDedicatedAllocation != VK_FALSE;

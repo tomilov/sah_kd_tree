@@ -147,6 +147,14 @@ QVector3D SceneSettings::getSceneAabbMax() const
     return {aabbMax.x, aabbMax.y, aabbMax.z};
 }
 
+int SceneSettings::getDepth() const &
+{
+    if (!tree) {
+        return -1;
+    }
+    return utils::autoCast(tree->getLayerSizes().size());
+}
+
 void SceneSettings::updateScene()
 {
     Q_CHECK_PTR(sceneFutureWatcher);
@@ -167,9 +175,15 @@ void SceneSettings::updateScene()
         }
         sceneStatus = u"Cancelled"_s;
     } else {
-        scene_data::SceneDataPtr newSceneData = future.result();
-        if (sceneData != newSceneData) {
-            sceneData = std::move(newSceneData);
+        INVARIANT(future.isFinished(), "");
+        if (future.isResultReadyAt(0)) {
+            scene_data::SceneDataPtr newSceneData = future.result();
+            if (sceneData != newSceneData) {
+                sceneData = std::move(newSceneData);
+                Q_EMIT sceneChanged();
+            }
+        } else {
+            sceneData.reset();
             Q_EMIT sceneChanged();
         }
         sceneStatus.clear();
@@ -232,14 +246,20 @@ void SceneSettings::updateTree()
     Q_ASSERT(future.isValid());
     if (future.isCanceled()) {
         {
-            builderTree.reset();
+            tree.reset();
             Q_EMIT treeChanged();
         }
         treeStatus = u"Cancelled"_s;
     } else {
-        builder::TreePtr newTree = future.result();
-        if (builderTree != newTree) {
-            builderTree = std::move(newTree);
+        INVARIANT(future.isFinished(), "");
+        if (future.isResultReadyAt(0)) {
+            builder::TreePtr newTree = future.result();
+            if (tree != newTree) {
+                tree = std::move(newTree);
+                Q_EMIT treeChanged();
+            }
+        } else {
+            tree.reset();
             Q_EMIT treeChanged();
         }
         treeStatus.clear();
@@ -257,8 +277,8 @@ void SceneSettings::onTreeSettingsChanged()
         treeFutureWatcher.clear();
     }
     if (!sceneData) {
-        if (builderTree) {
-            builderTree.reset();
+        if (tree) {
+            tree.reset();
             Q_EMIT treeChanged();
         }
         if (!treeStatus.isEmpty()) {
@@ -273,7 +293,7 @@ void SceneSettings::onTreeSettingsChanged()
         .intersectionCost = intersectionCost,
         .maxDepth = utils::autoCast(maxDepth),
     };
-    if (builderTree && (builderTree->getSettings() == builderTreeSettings) && (builderTree->getSceneData() == sceneData)) {
+    if (tree && (tree->getSettings() == builderTreeSettings) && (tree->getSceneData() == sceneData)) {
         return;
     }
     auto scenePath = QString::fromStdString(sceneData->name);
@@ -281,15 +301,16 @@ void SceneSettings::onTreeSettingsChanged()
     const auto buildTree = [this, scenePath, sceneData = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
-        static constexpr int kProgressRange = 100;
-        promise.setProgressRange(0, kProgressRange);
-        const auto progress = [&promise](float progressValue, const std::string & progressText)
+        const int progressRange = utils::autoCast(builderTreeSettings.maxDepth);
+        promise.setProgressRange(0, progressRange);
+        const auto progress = [&promise, progressRange](size_t p)
         {
-            const int p = utils::autoCast(progressValue * kProgressRange);
-            promise.setProgressValueAndText(qBound(0, p, kProgressRange), QString::fromStdString(progressText));
+            const int progressValue = utils::autoCast(p);
+            promise.setProgressValueAndText(qBound(0, progressValue, progressRange), u"%1/%2"_s.arg(progressValue).arg(progressRange));
             promise.suspendIfRequested();
             return promise.isCanceled();
         };
+        progress(0);
         try {
             if (auto t = engineWrapper->getEngine().getBuilder().build(builderTreeSettings, sceneData, progress)) {
                 promise.addResult(std::make_shared<builder::Tree>(std::move(t).value()));
@@ -895,7 +916,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     }
     renderNode->updateScene(sceneSettings->sceneData);
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-        renderNode->updateTree(sceneSettings->builderTree);
+        renderNode->updateTree(sceneSettings->tree);
     } else {
         renderNode->unsetTree();
     }

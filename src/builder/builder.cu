@@ -96,7 +96,7 @@ struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA p
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using Progress = std::function<bool(float progressValue, const std::string & progressText)>;
+    using Progress = std::function<bool(size_t progressValue)>;
 };
 #else
 using Traits = sah_kd_tree::DefaultTraits;
@@ -156,9 +156,6 @@ private:
 class DeviceMemory : utils::OneTime<DeviceMemory>
 {
 public:
-    // Win32 CU_MEM_HANDLE_TYPE_WIN32
-    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
-
     DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment = 0)
         : memAllocationProp{makeMemAllocationProp(cuDev)}
         , allocGranularity{getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
@@ -199,6 +196,9 @@ public:
     }
 
 private:
+    // Win32 CU_MEM_HANDLE_TYPE_WIN32
+    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+
     const ::CUmemAllocationProp memAllocationProp;
     const size_t allocGranularity;
     const size_t alignedAllocationSize = 0;
@@ -361,7 +361,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     size_t nodeCount = 0;
     std::optional<utils::Fd> fd;
 
-    Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress)
+    Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)
         : settings{settings}
         , sceneData{sceneData}
     {
@@ -472,7 +472,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     }
 };
 
-Tree::Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress)
+Tree::Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)
     : impl_{std::make_unique<Impl>(settings, cudaDevice, sceneData, progress)}
 {}
 
@@ -584,7 +584,7 @@ Builder::Builder(const std::optional<DeviceUuidType> & deviceUuid)
 Builder::Builder(Builder &&) noexcept = default;
 Builder::~Builder() = default;
 
-std::optional<Tree> Builder::build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress) const
+std::optional<Tree> Builder::build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) const
 {
     Tree tree{treeSettings, impl_->cudaDevice, sceneData, progress};
     if (tree.isEmpty()) {

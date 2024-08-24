@@ -788,8 +788,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             }
         };
         vk::Buffer vertexBuffer = bufferOrNull(sceneResources.vertexBuffer);
-        vk::DeviceSize vertexBufferOffset = 0;
-        commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffer, vertexBufferOffset, context.getDispatcher());  // bindVertexBuffers2?
+        constexpr vk::DeviceSize kVertexBufferOffset = 0;
+        commandBuffer.bindVertexBuffers(kFirstBinding, vertexBuffer, kVertexBufferOffset, context.getDispatcher());  // bindVertexBuffers2?
     }
 
     const auto & features2Chain = context.getPhysicalDevice().features2Chain;
@@ -889,6 +889,13 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
         };
         DisplayPushConstants displayPushConstants = getDisplayPushConstants(frameSettings);
         bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants));
+    }
+
+    {
+        constexpr uint32_t kFirstBinding = 0;
+        constexpr vk::Buffer kVertexBuffer = VK_NULL_HANDLE;
+        constexpr vk::DeviceSize kVertexBufferOffset = 0;
+        commandBuffer.bindVertexBuffers(kFirstBinding, kVertexBuffer, kVertexBufferOffset, context.getDispatcher());
     }
 
     {

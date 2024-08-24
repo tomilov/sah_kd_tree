@@ -370,6 +370,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
     constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
     auto physicalDevice = getPhysicalDevice();
     vk::Format depthFormat = vk::Format::eUndefined;
+    auto unmuteMessageGuard = context.getInstance().muteDebugUtilsMessages({0x46835167});  // format () does not fall within the begin..end range of the core VkFormat enumeration tokens and is not an extension added token
     for (vk::Format format : codegen::vulkan::kAllFormats) {
         auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
         if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {

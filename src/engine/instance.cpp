@@ -414,6 +414,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
         // 0xa96ad8,
         // 0xc714b932,
         0xfbdd4d2e,
+        0x46835167,
     };
     if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");
@@ -424,10 +425,11 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
 vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
     static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {};
-    if (kMutedMessageIdNumbers.contains(callbackData.messageIdNumber)) {
+    const uint32_t messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
+    if (kMutedMessageIdNumbers.contains(messageIdNumber)) {
         return VK_FALSE;
     }
-    if (shouldMuteDebugUtilsMessage(static_cast<uint32_t>(callbackData.messageIdNumber))) {
+    if (shouldMuteDebugUtilsMessage(messageIdNumber)) {
         return VK_FALSE;
     }
     return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);

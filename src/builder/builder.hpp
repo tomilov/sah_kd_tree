@@ -60,7 +60,7 @@ private:
 
     std::unique_ptr<Impl> impl_;
 
-    Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress);
+    Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -75,7 +75,7 @@ public:
     Builder(Builder &&) noexcept;
     ~Builder();
 
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(float progressValue, const std::string & progressText)> & progress) const;
+    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) const;
 
 private:
     struct Impl;
