@@ -47,8 +47,8 @@ public:
     [[nodiscard]] bool isEmpty() const;
     [[nodiscard]] utils::Fd getFd() &&;
     [[nodiscard]] utils::Fd cloneFd() const &;
-    [[nodiscard]] size_t getAllocationSize() const;
     [[nodiscard]] size_t getDataSize() const;
+    [[nodiscard]] size_t getAllocationSize() const;
 
     [[nodiscard]] size_t getTrianglesCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;

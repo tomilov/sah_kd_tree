@@ -22,8 +22,8 @@ public:
 
     [[nodiscard]] builder::TreePtr getBuilderTree() const;
 
-    [[nodiscard]] vk::DeviceSize getAllocationSize() const;
     [[nodiscard]] vk::DeviceSize getDataSize() const;
+    [[nodiscard]] vk::DeviceSize getAllocationSize() const;
 
     [[nodiscard]] uint32_t getTrianglesCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;

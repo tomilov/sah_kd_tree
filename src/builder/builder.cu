@@ -263,7 +263,7 @@ private:
 
 }  // namespace
 
-class CudaDevice : utils::OneTime<CudaDevice>
+class CudaDevice
 {
 public:
     CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
@@ -342,11 +342,6 @@ private:
         selectCuDevice(devProp.uuid);
         CUDA_CHECK_ERROR(cudaSetDevice(cudaDev));
     }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct Tree::Impl : utils::OneTime<Impl>
@@ -366,6 +361,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         : settings{settings}
         , sceneData{sceneData}
     {
+        CUDA_CHECK_ERROR(cudaSetDevice(cudaDevice.getCudaDev()));
         ASSERT(sceneData);
         auto triangles = sceneData->makeTriangles();
 #if SAH_KD_TREE_HEADER_ONLY
@@ -516,16 +512,16 @@ utils::Fd Tree::cloneFd() const &
     return impl_->fd.value().clone();
 }
 
-size_t Tree::getAllocationSize() const
-{
-    ASSERT(impl_->allocationSize > 0);
-    return impl_->allocationSize;
-}
-
 size_t Tree::getDataSize() const
 {
     ASSERT(impl_->dataSize > 0);
     return impl_->dataSize;
+}
+
+size_t Tree::getAllocationSize() const
+{
+    ASSERT(impl_->allocationSize > 0);
+    return impl_->allocationSize;
 }
 
 size_t Tree::getTrianglesCount() const

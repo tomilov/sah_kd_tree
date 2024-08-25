@@ -41,16 +41,16 @@ builder::TreePtr Tree::getBuilderTree() const
     return impl_->builderTree.lock();
 }
 
-vk::DeviceSize Tree::getAllocationSize() const
-{
-    ASSERT(impl_->allocationSize > 0);
-    return impl_->allocationSize;
-}
-
 vk::DeviceSize Tree::getDataSize() const
 {
     ASSERT(impl_->dataSize > 0);
     return impl_->dataSize;
+}
+
+vk::DeviceSize Tree::getAllocationSize() const
+{
+    ASSERT(impl_->allocationSize > 0);
+    return impl_->allocationSize;
 }
 
 uint32_t Tree::getTrianglesCount() const
@@ -117,16 +117,17 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
 
     vk::StructureChain<vk::BufferCreateInfo, vk::ExternalMemoryBufferCreateInfoKHR> bufferCreateInfoChain;
     auto & bufferCreateInfo = bufferCreateInfoChain.get<vk::BufferCreateInfo>();
-    bufferCreateInfo = {
-        .size = allocationSize,
-        .usage = kBufferUsage,
-        .sharingMode = vk::SharingMode::eExclusive,
-    };
-    bufferCreateInfo.setQueueFamilyIndices(nullptr);
+    {
+        bufferCreateInfo.flags = {};
+        bufferCreateInfo.size = allocationSize;
+        bufferCreateInfo.usage = kBufferUsage;
+        bufferCreateInfo.sharingMode = vk::SharingMode::eExclusive;
+        bufferCreateInfo.setQueueFamilyIndices(nullptr);
+    }
     auto & externalMemoryBufferCreateInfo = bufferCreateInfoChain.get<vk::ExternalMemoryBufferCreateInfoKHR>();
-    externalMemoryBufferCreateInfo = {
-        .handleTypes = kHandleType,
-    };
+    {
+        externalMemoryBufferCreateInfo.handleTypes = kHandleType;
+    }
     buffer = device.createBufferUnique(bufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
     vk::BufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo = {
@@ -141,30 +142,30 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
     vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
-    vk::MemoryAllocateInfo & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
-    memoryAllocateInfo = vk::MemoryAllocateInfo{
-        .allocationSize = allocationSize,
-        .memoryTypeIndex = memoryTypeIndex,
-    };
-    vk::ImportMemoryFdInfoKHR & importMemoryFdInfo = memoryAllocationInfoChain.get<vk::ImportMemoryFdInfoKHR>();
-    importMemoryFdInfo = {
-        .handleType = kHandleType,
-        .fd = fd.getFd(),
-    };
-    vk::MemoryAllocateFlagsInfo & memoryAllocateFlagsInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateFlagsInfo>();
-    memoryAllocateFlagsInfo = {
-        .flags = vk::MemoryAllocateFlagBits::eDeviceAddress,
-    };
+    auto & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
+    {
+        memoryAllocateInfo.allocationSize = allocationSize;
+        memoryAllocateInfo.memoryTypeIndex = memoryTypeIndex;
+    }
+    auto & importMemoryFdInfo = memoryAllocationInfoChain.get<vk::ImportMemoryFdInfoKHR>();
+    {
+        importMemoryFdInfo.handleType = kHandleType;
+        importMemoryFdInfo.fd = fd.getFd();
+    }
+    auto & memoryAllocateFlagsInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateFlagsInfo>();
+    {
+        memoryAllocateFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
+    }
     {
         const bool requiresDedicatedAllocation = memoryDedicatedRequirements.requiresDedicatedAllocation != VK_FALSE;
         const bool prefersDedicatedAllocation = memoryDedicatedRequirements.prefersDedicatedAllocation != VK_FALSE;
         const bool dedicatedOnly = (externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly) == vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly;
         SPDLOG_INFO("{}requiresDedicatedAllocation, {}prefersDedicatedAllocation, {}dedicatedOnly", requiresDedicatedAllocation ? "" : "not ", prefersDedicatedAllocation ? "" : "not ", dedicatedOnly ? "" : "not ");
         if (requiresDedicatedAllocation || prefersDedicatedAllocation || dedicatedOnly) {
-            vk::MemoryDedicatedAllocateInfo & memoryDedicatedAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryDedicatedAllocateInfo>();
-            memoryDedicatedAllocateInfo = vk::MemoryDedicatedAllocateInfo{
-                .buffer = *buffer,
-            };
+            auto & memoryDedicatedAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryDedicatedAllocateInfo>();
+            {
+                memoryDedicatedAllocateInfo.buffer = *buffer;
+            }
         } else {
             memoryAllocationInfoChain.unlink<vk::MemoryDedicatedAllocateInfo>();
         }

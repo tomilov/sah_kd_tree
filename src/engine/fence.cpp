@@ -20,9 +20,7 @@ Fences::Fences(std::string_view name, const Context & context, size_t count, vk:
     const auto & device = context.getDevice();
 
     auto & fenceCreateInfo = fenceCreateInfoChain.get<vk::FenceCreateInfo>();
-    fenceCreateInfo = {
-        .flags = fenceCreateFlags,
-    };
+    fenceCreateInfo.flags = fenceCreateFlags;
     for (size_t i = 0; i < count; ++i) {
         fencesHolder.push_back(device.getDevice().createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
         auto fence = *fencesHolder.back();

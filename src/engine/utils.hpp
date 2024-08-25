@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -133,6 +134,36 @@ std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> 
         heads.push_back(chain.get());
     }
     return heads;
+}
+
+template<typename Type, typename Head>
+Type * findInPNextChain(Head * head)
+{
+    static_assert(vk::StructExtends<Type, Head>::value);
+    ASSERT(head);
+    vk::BaseOutStructure * currentStruct = utils::autoCast(const_cast<void *>(head->pNext));
+    while (currentStruct) {
+        if (currentStruct->sType == Type::structureType) {
+            break;
+        }
+        currentStruct = currentStruct->pNext;
+    }
+    return utils::autoCast(currentStruct);
+}
+
+template<typename Type, typename Head>
+const Type * findInPNextChain(const Head * head)
+{
+    static_assert(vk::StructExtends<Type, Head>::value);
+    ASSERT(head);
+    const vk::BaseInStructure * currentStruct = utils::autoCast(head->pNext);
+    while (currentStruct) {
+        if (currentStruct->sType == Type::structureType) {
+            break;
+        }
+        currentStruct = currentStruct->pNext;
+    }
+    return utils::autoCast(currentStruct);
 }
 
 template<vk::IndexType indexType>
