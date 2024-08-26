@@ -50,7 +50,7 @@ public:
     [[nodiscard]] size_t getDataSize() const;
     [[nodiscard]] size_t getAllocationSize() const;
 
-    [[nodiscard]] size_t getTrianglesCount() const;
+    [[nodiscard]] size_t getTriangleCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] size_t getPolygonCount() const;
     [[nodiscard]] size_t getNodeCount() const;

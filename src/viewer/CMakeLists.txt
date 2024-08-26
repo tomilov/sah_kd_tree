@@ -93,6 +93,7 @@ target_shaders(
         "shaders/fullscreen_rect.vert.glsl"
         "shaders/identity.vert.glsl"
         "shaders/offscreen.frag.glsl"
+        "shaders/trace.comp.glsl"
     OUTPUT_VARIABLE
         compiled_shaders)
 

@@ -351,7 +351,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     size_t dataSize = 0;
     size_t allocationSize = 0;
-    size_t trianglesCount = 0;
+    size_t triangleCount = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
@@ -393,9 +393,9 @@ struct Tree::Impl : utils::OneTime<Impl>
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
-        trianglesCount = triangles.getCount();
+        triangleCount = triangles.getCount();
         populateTreeSizes(tree.value());
-        const size_t trianglesSize = triangles.getCount() * sizeof(scene_data::Triangle);
+        const size_t trianglesSize = triangleCount * sizeof(scene_data::Triangle);
         dataSize += trianglesSize;
         const auto gatherSize = [this]<typename Vector>(const Vector & v)
         {
@@ -524,10 +524,10 @@ size_t Tree::getAllocationSize() const
     return impl_->allocationSize;
 }
 
-size_t Tree::getTrianglesCount() const
+size_t Tree::getTriangleCount() const
 {
-    ASSERT(impl_->trianglesCount > 0);
-    return impl_->trianglesCount;
+    ASSERT(impl_->triangleCount > 0);
+    return impl_->triangleCount;
 }
 
 const std::vector<size_t> & Tree::getLayerSizes() const &

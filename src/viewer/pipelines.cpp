@@ -41,10 +41,28 @@ void Shaders::create()
     pipelineLayout.emplace(name, context, shaderStages);
 }
 
+GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shaders)
+    : shaders{std::move(shaders)}
+{
+    ASSERT(this->shaders);
+}
+
 engine::GraphicsPipeline & GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass)
 {
     ASSERT(shaders);
-    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getGraphicsPipelineLayout(), renderPass);
+    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout(), renderPass);
+}
+
+ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shaders)
+    : shaders{std::move(shaders)}
+{
+    ASSERT(this->shaders);
+}
+
+engine::ComputePipeline & ComputePipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled)
+{
+    ASSERT(shaders);
+    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout());
 }
 
 Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabled)
@@ -63,6 +81,18 @@ std::shared_ptr<const Shaders> Pipelines::getDisplayShaders() const
         shaders->addShader("offscreen.frag"sv);
         shaders->create();
         displayShaders = shaders;
+    }
+    return shaders;
+}
+
+std::shared_ptr<const Shaders> Pipelines::getTraceSahKdTreeShaders() const
+{
+    auto shaders = traceSahKdTreeShaders.lock();
+    if (!shaders) {
+        shaders = Shaders::make("trace"sv, context, fileIo, descriptorBufferEnabled);
+        shaders->addShader("trace.comp"sv);
+        shaders->create();
+        traceSahKdTreeShaders = shaders;
     }
     return shaders;
 }

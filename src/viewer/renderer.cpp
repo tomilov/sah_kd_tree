@@ -9,6 +9,7 @@
 #include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
+#include <engine/pipeline_layout.hpp>
 #include <engine/queue.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
@@ -697,7 +698,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline.value(), context.getDispatcher());
 
     constexpr uint32_t kFirstSet = 0;
-    vk::PipelineLayout pipelineLayout = pipeline.shaders->getGraphicsPipelineLayout();
+    vk::PipelineLayout pipelineLayout = pipeline.shaders->getPipelineLayout();
     if (engine.getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));

@@ -20,42 +20,6 @@ inline constexpr float kMinDepth = 0.0f;
 inline constexpr float kMinDepth = -1.0f;
 #endif
 
-struct ENGINE_EXPORT GraphicsPipelineLayout final : utils::OneTime<GraphicsPipelineLayout>
-{
-    GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages);
-
-    [[nodiscard]] const ShaderStages & getShaderStages() const &
-    {
-        return shaderStages;
-    }
-
-    [[nodiscard]] vk::PipelineLayout getPipelineLayout() const &
-    {
-        ASSERT(pipelineLayout);
-        return *pipelineLayout;
-    }
-
-    [[nodiscard]] operator vk::PipelineLayout() const &  // NOLINT: google-explicit-constructor
-    {
-        return getPipelineLayout();
-    }
-
-private:
-    std::string name;
-    const Context & context;
-    const ShaderStages & shaderStages;
-
-    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
-    vk::UniquePipelineLayout pipelineLayout;
-
-    void init();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
-
 struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
 {
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
@@ -69,7 +33,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
     vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
     vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
 
-    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass);
+    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass);
 
     void create();
 

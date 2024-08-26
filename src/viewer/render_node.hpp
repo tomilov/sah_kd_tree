@@ -13,8 +13,6 @@
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 
-#include <memory>
-
 #include <cstddef>
 
 namespace viewer
@@ -36,7 +34,7 @@ public:
     [[nodiscard]] const builder::TreePtr & getTree() const &;
 
     void updateRect(const QRectF & rect);
-    void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
+    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
     void updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar);
     void updateClearColor(const QColor & clearColor);
     void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter);

@@ -179,8 +179,9 @@ struct RenderNode::Impl
         UPDATE_STATE(this->rect, rect);
     }
 
-    void updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
     {
+        UPDATE_STATE(frameSettings.traceSahKdTree, traceSahKdTree);
         UPDATE_STATE(frameSettings.useOffscreenTexture, useOffscreenTexture);
         UPDATE_STATE(frameSettings.discardInvisible, discardInvisible);
         UPDATE_STATE(frameSettings.wireFrame, wireFrame);
@@ -383,9 +384,9 @@ void RenderNode::updateRect(const QRectF & rect)
     return impl_->updateRect(rect);
 }
 
-void RenderNode::updateMode(bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+void RenderNode::updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
 {
-    return impl_->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
+    return impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireFrame);
 }
 
 void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar)

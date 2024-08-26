@@ -921,10 +921,11 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         renderNode->unsetTree();
     }
     renderNode->updateRect(boundingRect());
+    const bool traceSahKdTree = rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree;
     const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
     const bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
     const bool wireFrame = rendererSettings->texturingMode == RendererSettings::TexturingMode::WireFrame;
-    renderNode->updateMode(useOffscreenTexture, discardInvisible, wireFrame);
+    renderNode->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireFrame);
     {
         const QVector3D sceneCenter = (sceneSettings->getSceneAabbMin() + sceneSettings->getSceneAabbMax()) / 2.0f;
         const float zFar = (sceneSettings->getSceneAabbMax() - sceneSettings->getSceneAabbMin()).length() + (cameraView->position - sceneCenter).length();

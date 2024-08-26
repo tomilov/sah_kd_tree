@@ -28,6 +28,7 @@ struct Scene;
 
 struct FrameSettings
 {
+    bool traceSahKdTree = false;
     bool useOffscreenTexture = false;
     bool discardInvisible = false;
     bool wireFrame = false;

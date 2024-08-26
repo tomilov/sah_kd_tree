@@ -1,9 +1,11 @@
 #pragma once
 
+#include <engine/compute_pipeline.hpp>
 #include <engine/context.hpp>
 #include <engine/file_io.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_cache.hpp>
+#include <engine/pipeline_layout.hpp>
 #include <engine/shader_module.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
@@ -78,15 +80,15 @@ public:
         return {shared_from_this(), &getShaderStages()};
     }
 
-    [[nodiscard]] const engine::GraphicsPipelineLayout & getGraphicsPipelineLayout() const &
+    [[nodiscard]] const engine::PipelineLayout & getPipelineLayout() const &
     {
         ASSERT(pipelineLayout);
         return pipelineLayout.value();
     }
 
-    [[nodiscard]] std::shared_ptr<const engine::GraphicsPipelineLayout> getGraphicsPipelineLayoutPtr() const
+    [[nodiscard]] std::shared_ptr<const engine::PipelineLayout> getPipelineLayoutPtr() const
     {
-        return {shared_from_this(), &getGraphicsPipelineLayout()};
+        return {shared_from_this(), &getPipelineLayout()};
     }
 
 private:
@@ -99,7 +101,7 @@ private:
 
     std::vector<ShaderModule> shaderModules;
     engine::ShaderStages shaderStages;
-    std::optional<engine::GraphicsPipelineLayout> pipelineLayout;
+    std::optional<engine::PipelineLayout> pipelineLayout;
 };
 
 struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
@@ -107,13 +109,24 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
     std::shared_ptr<const Shaders> shaders;
     std::optional<engine::GraphicsPipeline> pipeline;
 
-    explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders)
-        : shaders{std::move(shaders)}
-    {
-        ASSERT(this->shaders);
-    }
+    explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders);
 
     [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
+struct ComputePipeline : utils::OneTime<ComputePipeline>
+{
+    std::shared_ptr<const Shaders> shaders;
+    std::optional<engine::ComputePipeline> pipeline;
+
+    explicit ComputePipeline(std::shared_ptr<const Shaders> shaders);
+
+    [[nodiscard]] engine::ComputePipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -135,6 +148,7 @@ public:
 
     [[nodiscard]] std::shared_ptr<const Shaders> getSceneShaders() const;
     [[nodiscard]] std::shared_ptr<const Shaders> getDisplayShaders() const;
+    [[nodiscard]] std::shared_ptr<const Shaders> getTraceSahKdTreeShaders() const;
 
 private:
     const engine::Context & context;
@@ -144,6 +158,7 @@ private:
     engine::PipelineCache pipelineCache;
     mutable std::weak_ptr<Shaders> sceneShaders;
     mutable std::weak_ptr<Shaders> displayShaders;
+    mutable std::weak_ptr<Shaders> traceSahKdTreeShaders;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

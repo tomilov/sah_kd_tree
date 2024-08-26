@@ -1,6 +1,7 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/graphics_pipeline.hpp>
+#include <engine/pipeline_layout.hpp>
 #include <engine/shader_module.hpp>
 #include <utils/assert.hpp>
 
@@ -12,27 +13,7 @@
 namespace engine
 {
 
-GraphicsPipelineLayout::GraphicsPipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages)
-    : name{name}
-    , context{context}
-    , shaderStages{std::move(shaderStages)}
-{
-    init();
-}
-
-void GraphicsPipelineLayout::init()
-{
-    ASSERT(!std::empty(name));
-
-    pipelineLayoutCreateInfo.flags = {};
-    pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
-    pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
-
-    pipelineLayout = context.getDevice().getDevice().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    context.getDevice().setDebugUtilsObjectName(*pipelineLayout, name);
-}
-
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const GraphicsPipelineLayout & graphicsPipelineLayout, vk::RenderPass renderPass)
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass)
     : name{name}
     , context{context}
     , pipelineCache{pipelineCache}
@@ -111,7 +92,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     };
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
-    const ShaderStages & shaderStages = graphicsPipelineLayout.getShaderStages();
+    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     graphicsPipelineCreateInfo.flags = {};
     if (descriptorBufferEnabled) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
@@ -128,7 +109,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
     graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
     graphicsPipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
-    graphicsPipelineCreateInfo.layout = graphicsPipelineLayout;
+    graphicsPipelineCreateInfo.layout = pipelineLayout;
     graphicsPipelineCreateInfo.renderPass = renderPass;
     graphicsPipelineCreateInfo.subpass = 0;
     graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -137,9 +118,9 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
 
 void GraphicsPipeline::create()
 {
-    auto result = context.getDevice().getDevice().createGraphicsPipelinesUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    auto result = context.getDevice().getDevice().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
-    pipeline = std::move(result.value.at(0));
+    pipeline = std::move(result.value);
     context.getDevice().setDebugUtilsObjectName(*pipeline, name);
 }
 

@@ -18,7 +18,7 @@ struct Tree::Impl
     const builder::TreeWeakPtr builderTree;
     const vk::DeviceSize dataSize;
     const vk::DeviceSize allocationSize;
-    const uint32_t trianglesCount;
+    const uint32_t triangleCount;
     const std::vector<size_t> layerSizes;
     const uint32_t polygonCount;
     const uint32_t nodeCount;
@@ -53,10 +53,10 @@ vk::DeviceSize Tree::getAllocationSize() const
     return impl_->allocationSize;
 }
 
-uint32_t Tree::getTrianglesCount() const
+uint32_t Tree::getTriangleCount() const
 {
-    ASSERT(impl_->trianglesCount > 0);
-    return impl_->trianglesCount;
+    ASSERT(impl_->triangleCount > 0);
+    return impl_->triangleCount;
 }
 
 const std::vector<size_t> & Tree::getLayerSizes() const &
@@ -90,7 +90,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     , builderTree{builderTree}
     , dataSize{utils::autoCast(builderTree->getDataSize())}
     , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
-    , trianglesCount{utils::autoCast(builderTree->getTrianglesCount())}
+    , triangleCount{utils::autoCast(builderTree->getTriangleCount())}
     , layerSizes{builderTree->getLayerSizes()}
     , polygonCount{utils::autoCast(builderTree->getPolygonCount())}
     , nodeCount{utils::autoCast(builderTree->getNodeCount())}

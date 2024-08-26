@@ -25,7 +25,7 @@ public:
     [[nodiscard]] vk::DeviceSize getDataSize() const;
     [[nodiscard]] vk::DeviceSize getAllocationSize() const;
 
-    [[nodiscard]] uint32_t getTrianglesCount() const;
+    [[nodiscard]] uint32_t getTriangleCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] uint32_t getPolygonCount() const;
     [[nodiscard]] uint32_t getNodeCount() const;
