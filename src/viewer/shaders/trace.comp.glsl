@@ -50,21 +50,83 @@ struct Ray
 
 struct Hit
 {
-    uint nodeIndex;
     float distance;
-    uint tirangleIndex;
+    uint triangle;
     vec2 uv;
 };
 
-float clearZeroSign(float x)
+float clearZeroSign(const in float x)
 {
     return floatBitsToUint(x) == 0x80000000u ? 0.0f : x;
 }
 
-vec3 clearZeroSign(vec3 v)
+vec3 clearZeroSign(const in vec3 v)
 {
     return vec3(clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z));
 }
+
+bool rayTriangleIntersection(const in Tree tree, const in Ray ray, inout Hit hit, const in float tNear, const in float tFar)
+{
+    // TODO:
+    return true;
+}
+
+bool traceRay(const in Tree tree, in uint nodeIndex, const in Ray ray, inout Hit hit, out vec4 color)
+{
+    // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
+    const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
+    const bvec3 corner = lessThan(invDir, vec3(0.0f));
+    vec3 aabbMin = vec3(tree.x.min[nodeIndex], tree.y.min[nodeIndex], tree.z.min[nodeIndex]);  // TODO: SoA to AoS for that (ProjectionNode.xyz.min -> ProjectionNode.min.xyz)
+    vec3 aabbMax = vec3(tree.x.max[nodeIndex], tree.y.max[nodeIndex], tree.z.max[nodeIndex]);  // TODO: SoA to AoS for that (ProjectionNode.xyz.max -> ProjectionNode.max.xyz)
+    vec3 aabbHitDistances = (mix(aabbMin, aabbMax, corner) - ray.src) * invDir;
+    float tMin = min(aabbHitDistances.x, min(aabbHitDistances.y, aabbHitDistances.z));
+    // TODO: walk down, then walk using ropes
+    do {
+        const float tNear = min(0.0f, tMin);
+        for (;;) {
+            const int splitDimension = tree.node.splitDimension[nodeIndex];
+            if (splitDimension < 0) {
+                break;
+            }
+            if (corner[splitDimension] == (tree.node.splitPos[nodeIndex] - ray.src[splitDimension]) * invDir[splitDimension] < tNear) {
+                nodeIndex = tree.node.leftChild[nodeIndex];
+            } else {
+                nodeIndex = tree.node.rightChild[nodeIndex];
+            }
+        }
+        aabbMin = vec3(tree.x.min[nodeIndex], tree.y.min[nodeIndex], tree.z.min[nodeIndex]);
+        aabbMax = vec3(tree.x.max[nodeIndex], tree.y.max[nodeIndex], tree.z.max[nodeIndex]);
+        aabbHitDistances = (mix(aabbMin, aabbMax, corner) - ray.src) * invDir;
+        const float tMax = min(aabbHitDistances.x, min(aabbHitDistances.y, aabbHitDistances.z));
+        if (tMin > tMax) {
+            break;
+        }
+        const uvec3 indices = uvec3(equal(aabbHitDistances, vec3(tMax)));
+        const uint ropeDirection = findLSB((indices.x << 0) | (indices.y << 1) | (indices.z << 2));  // rope direction
+        const uint polygonStart = tree.node.leftChild[nodeIndex];
+        const uint polygonEnd = polygonStart + tree.node.rightChild[nodeIndex];
+        for (uint t = polygonStart; t < polygonEnd; ++t) {
+            float tFar = min(hit.distance, tMax);
+            Hit newHit;
+            newHit.triangle = tree.polygon.triangle[t];
+            if (rayTriangleIntersection(tree, ray, newHit, tNear, tFar)) {
+                hit = newHit;
+            }
+        }
+        if (hit.distance <= tMax) {
+            return true;
+        }
+        tMin = tMax;
+        nodeIndex = /* TODO: tree.node.ropes[nodeIndex][ropeDirection] */ 0;
+    } while (nodeIndex != 0);
+    return false;
+}
+
+layout(local_size_x = 32, local_size_y = 32) in;
+layout(local_size_x_id = 3) in;
+layout(local_size_y_id = 4) in;
+
+layout(binding = 0, rgba8) uniform image2D colorImage;
 
 struct Frustum
 {
@@ -74,32 +136,11 @@ struct Frustum
 layout(push_constant, scalar) uniform PushConstants
 {
     Tree tree;
+    uint nodeIndex;
     vec3 pos;
     Frustum frustum;
-    uint nodeIndex;
     vec4 clearColor;
 };
-
-layout(local_size_x = 32, local_size_y = 32) in;
-layout(local_size_x_id = 3) in;
-layout(local_size_y_id = 4) in;
-
-layout(binding = 0, rgba8) uniform image2D colorImage;
-
-bool traceRay(inout Ray ray, inout Hit hit, out vec4 color)
-{
-    // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
-    vec3 aabbMin = vec3(tree.x.min[hit.nodeIndex], tree.y.min[hit.nodeIndex], tree.z.min[hit.nodeIndex]);  // TODO: Projection SoA to AoS for that
-    vec3 aabbMax = vec3(tree.x.max[hit.nodeIndex], tree.y.max[hit.nodeIndex], tree.z.max[hit.nodeIndex]);  // TODO: Projection SoA to AoS for that
-    vec3 invDir = 1.0f / clearZeroSign(ray.dir);
-    bvec3 sign = lessThan(invDir, vec3(0.0f));
-    vec3 corner = (mix(aabbMin, aabbMax, sign) - ray.src) * invDir;
-    float tMin = min(corner.x, min(corner.y, corner.z));
-    // TODO: walk down, then walk using ropes
-
-    color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    return true;
-}
 
 void main()
 {
@@ -109,10 +150,11 @@ void main()
     ray.src = pos;
     ray.dir = mix(mix(frustum.leftBottom, frustum.rightBottom, loc.x), mix(frustum.leftTop, frustum.rightTop, loc.x), loc.y);
     Hit hit;
-    hit.nodeIndex = nodeIndex;
     hit.distance = 0.0f;
     vec4 color;
-    if (!traceRay(ray, hit, color)) {
+    if (traceRay(tree, nodeIndex, ray, hit, color)) {
+        color = vec4(1.0f - hit.uv.x - hit.uv.y, hit.uv, 1.0f);
+    } else {
         color = clearColor;
     }
     imageStore(colorImage, ivec2(pixelCoords), color);
