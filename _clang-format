@@ -86,6 +86,7 @@ IncludeCategories:
     Priority: 5
   - Regex: ^<(Q[A-Z]|Qt)
     Priority: 6
+    CaseSensitive: true
   - Regex: \.hpp>$
     Priority: 3
   - Regex: ^<vulkan/.*\.h>$

@@ -24,6 +24,7 @@
 #include <viewer/pipelines.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
+#include <viewer/tree.hpp>
 
 #include <fmt/format.h>
 #include <fmt/std.h>
@@ -37,8 +38,6 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_format_traits.hpp>
 
-#include <queue>
-
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
@@ -47,8 +46,10 @@
 #include <list>
 #include <memory>
 #include <numeric>
+#include <queue>
 #include <set>
 #include <stack>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <vector>
@@ -563,6 +564,7 @@ vk::Extent2D FrameSettings::getFramebufferSize() const
 
 struct Renderer::Impl : utils::NonCopyable
 {
+    std::string name;
     const engine::Context & context;
     const Engine & engine;
     const uint32_t framesInFlight;
@@ -571,11 +573,13 @@ struct Renderer::Impl : utils::NonCopyable
 
     FrameSettings frameSettings;
     scene_data::SceneDataPtr sceneData;
+    std::optional<Tree> tree;
 
     FencePool fencePool{context};
 
     std::shared_ptr<GraphicsPipeline> directGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getSceneShaders());
     std::shared_ptr<GraphicsPipeline> offscreenGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getDisplayShaders());
+    std::shared_ptr<ComputePipeline> traceComputePipeline;  // TODO:
 
     std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
@@ -590,12 +594,15 @@ struct Renderer::Impl : utils::NonCopyable
     // revocation lists should be the last members
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
-    Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
+    Impl(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
 
     void setFrameSettings(const FrameSettings & frameSettings);
 
     void unsetScene();
     void setScene(scene_data::SceneDataPtr sceneData);
+
+    void unsetTree();
+    void setTree(builder::TreePtr builderTree);
 
     void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const;
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -624,8 +631,8 @@ struct Renderer::Impl : utils::NonCopyable
     }
 };
 
-Renderer::Renderer(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
-    : impl_{context, engine, framesInFlight}
+Renderer::Renderer(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
+    : impl_{name, context, engine, framesInFlight}
 {}
 
 uint32_t Renderer::getFramesInFlight() const
@@ -655,6 +662,21 @@ const scene_data::SceneDataPtr & Renderer::getScene() const &
     return impl_->sceneData;
 }
 
+void Renderer::setTree(builder::TreePtr builderTree)
+{
+    return impl_->setTree(std::move(builderTree));
+}
+
+void Renderer::unsetTree()
+{
+    impl_->unsetTree();
+}
+
+builder::TreePtr Renderer::getTree() const
+{
+    return impl_->tree ? impl_->tree.value().getBuilderTree() : nullptr;
+}
+
 void Renderer::advance(uint32_t currentFrameSlot)
 {
     return impl_->advance(currentFrameSlot);
@@ -665,8 +687,9 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
     return impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged, currentFrameSlot);
 }
 
-Renderer::Impl::Impl(const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
-    : context{context}
+Renderer::Impl::Impl(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
+    : name{name}
+    , context{context}
     , engine{engine}
     , framesInFlight{framesInFlight}
 {
@@ -691,6 +714,56 @@ void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
     ASSERT(!sceneResourcesAndDescriptors);
     ASSERT(newSceneData);
     sceneData = std::move(newSceneData);
+}
+
+void Renderer::Impl::unsetTree()
+{
+    tree.reset();
+}
+
+void Renderer::Impl::setTree(builder::TreePtr builderTree)
+{
+    ASSERT(builderTree);
+    if (tree && (tree.value().getBuilderTree() == builderTree)) {
+        return;
+    }
+    tree.emplace(name, context, builderTree);
+    traceComputePipeline = std::make_shared<ComputePipeline>(engine.getPipelines().getTraceSahKdTreeShaders());
+    auto & pipeline = traceComputePipeline->initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled);
+
+    struct SpecializationData
+    {
+        const uint32_t kTriangleCount;
+        const uint32_t kPolygonCount;
+        const uint32_t kNodeCount;
+    };
+    const SpecializationData specializationData = {
+        .kTriangleCount = tree.value().getTriangleCount(),
+        .kPolygonCount = tree.value().getPolygonCount(),
+        .kNodeCount = tree.value().getNodeCount(),
+    };
+    pipeline.specializationInfo.setData<SpecializationData>(specializationData);
+
+    const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
+        {
+            .constantID = 0,
+            .offset = offsetof(SpecializationData, kTriangleCount),
+            .size = sizeof(SpecializationData::kTriangleCount),
+        },
+        {
+            .constantID = 1,
+            .offset = offsetof(SpecializationData, kPolygonCount),
+            .size = sizeof(SpecializationData::kPolygonCount),
+        },
+        {
+            .constantID = 2,
+            .offset = offsetof(SpecializationData, kNodeCount),
+            .size = sizeof(SpecializationData::kNodeCount),
+        },
+    };
+    pipeline.specializationInfo.setMapEntries(specializationMapEntries);
+
+    pipeline.create();
 }
 
 void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const

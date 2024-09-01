@@ -12,7 +12,6 @@
 #include <viewer/render_node.hpp>
 #include <viewer/renderer.hpp>
 #include <viewer/scenes.hpp>
-#include <viewer/tree.hpp>
 #include <viewer/utils.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -52,6 +51,7 @@
 #include <cstdint>
 
 using namespace Qt::StringLiterals;
+using namespace std::string_view_literals;
 
 namespace viewer
 {
@@ -108,6 +108,7 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 
 struct RenderNode::Impl
 {
+    QString name;
     QQuickWindow * const window;
     const engine::Context & context;
     const Engine & engine;
@@ -115,7 +116,6 @@ struct RenderNode::Impl
     scene_data::SceneDataPtr sceneData;
     std::optional<Renderer> renderer;
     builder::TreePtr builderTree;
-    std::optional<Tree> tree;
 
     bool isDirty = false;
 
@@ -128,8 +128,9 @@ struct RenderNode::Impl
 
     QVector<quint32> renderPassFormat;
 
-    Impl(QQuickWindow * window, const EngineWrapper & engineWrapper)
-        : window{window}
+    Impl(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
+        : name{name}
+        , window{window}
         , context{engineWrapper.getContext()}
         , engine{engineWrapper.getEngine()}
     {
@@ -242,7 +243,7 @@ struct RenderNode::Impl
         if (renderer) {
             ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
         } else {
-            renderer.emplace(context, engine, framesInFlight);
+            renderer.emplace(name.toStdString(), context, engine, framesInFlight);
         }
         renderer.value().setFrameSettings(frameSettings);
         if (renderer.value().getScene() != sceneData) {
@@ -254,11 +255,9 @@ struct RenderNode::Impl
             }
         }
         if (builderTree) {
-            if (!tree || (tree.value().getBuilderTree() != builderTree)) {
-                tree.emplace(context, builderTree);
-            }
+            renderer.value().setTree(builderTree);
         } else {
-            tree.reset();
+            renderer.value().unsetTree();
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;
@@ -345,8 +344,8 @@ struct RenderNode::Impl
     }
 };
 
-RenderNode::RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper)
-    : impl_{window, engineWrapper}
+RenderNode::RenderNode(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
+    : impl_{name, window, engineWrapper}
 {}
 
 void RenderNode::unsetScene()

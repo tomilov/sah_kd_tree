@@ -375,9 +375,11 @@ struct Tree::Impl : utils::OneTime<Impl>
 #if SAH_KD_TREE_HEADER_ONLY
         sah_kd_tree::Builder<Traits> builder{allocator};
         sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+        sah_kd_tree::Tree<Traits> tree{allocator};
 #else
         sah_kd_tree::Builder<Traits> builder;
         sah_kd_tree::Projection<Traits> x, y, z;
+        sah_kd_tree::Tree<Traits> tree;
 #endif
         sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
         const sah_kd_tree::Params<Traits> params = {
@@ -386,22 +388,21 @@ struct Tree::Impl : utils::OneTime<Impl>
             .intersectionCost = settings.intersectionCost,
             .maxDepth = settings.maxDepth,
         };
-        std::optional<sah_kd_tree::Tree<Traits>> tree = builder.build(progress, params, x, y, z);
-        if (!tree) {
+        if (!builder.build(progress, params, x, y, z, tree)) {
             return;
         }
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
         triangleCount = triangles.getCount();
-        populateTreeSizes(tree.value());
+        populateTreeSizes(tree);
         const size_t trianglesSize = triangleCount * sizeof(scene_data::Triangle);
         dataSize += trianglesSize;
         const auto gatherSize = [this]<typename Vector>(const Vector & v)
         {
             dataSize += std::size(v) * sizeof(typename Vector::value_type);
         };
-        traverseTree(tree.value(), gatherSize);
+        traverseTree(tree, gatherSize);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
         DeviceMemory deviceMemory{cudaDevice.getCuDev(), dataSize};
         allocationSize = deviceMemory.getSize();
@@ -425,7 +426,7 @@ struct Tree::Impl : utils::OneTime<Impl>
 #endif
                 p += size;
             };
-            traverseTree(tree.value(), gatherData);
+            traverseTree(tree, gatherData);
             ASSERT_MSG(p == devPtr + dataSize, "{} ^ {}", p, devPtr + dataSize);
             CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         }

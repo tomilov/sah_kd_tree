@@ -8,7 +8,6 @@
 
 #include <functional>
 #include <limits>
-#include <optional>
 #include <stdexcept>
 #include <type_traits>
 
@@ -383,7 +382,7 @@ struct Builder
     void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
     template<typename P = Progress>
-    std::optional<Tree<Traits>> build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) SAH_KD_TREE_EXPORT;
+    bool build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree) SAH_KD_TREE_EXPORT;
 };
 
 template<typename Traits = DefaultTraits>

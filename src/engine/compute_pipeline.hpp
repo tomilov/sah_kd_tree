@@ -2,6 +2,7 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -16,6 +17,7 @@ namespace engine
 
 struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 {
+    vk::SpecializationInfo specializationInfo;
     vk::ComputePipelineCreateInfo computePipelineCreateInfo;
 
     ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout);

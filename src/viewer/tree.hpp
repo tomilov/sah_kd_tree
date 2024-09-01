@@ -8,6 +8,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
+#include <string_view>
 
 #include <cstdint>
 
@@ -17,7 +18,7 @@ namespace viewer
 class Tree : utils::OneTime<Tree>
 {
 public:
-    explicit Tree(const engine::Context & context, const builder::TreePtr & builderTree);
+    explicit Tree(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree);
     ~Tree();
 
     [[nodiscard]] builder::TreePtr getBuilderTree() const;

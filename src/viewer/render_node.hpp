@@ -7,6 +7,7 @@
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QRectF>
 #include <QtCore/QSharedPointer>
+#include <QtCore/QString>
 #include <QtGui/QColor>
 #include <QtGui/QQuaternion>
 #include <QtGui/QVector3D>
@@ -23,7 +24,7 @@ struct Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QQuickWindow * window, const EngineWrapper & engineWrapper);
+    explicit RenderNode(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper);
 
     void unsetScene();
     void updateScene(const scene_data::SceneDataPtr & sceneData);
@@ -43,7 +44,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 912;
+    static constexpr size_t kSize = 984;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 

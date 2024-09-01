@@ -72,6 +72,19 @@ Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabl
     , pipelineCache{"rasterization"sv, context, *fileIo}
 {}
 
+std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const
+{
+    auto shaders = sceneShaders.lock();
+    if (!shaders) {
+        shaders = Shaders::make("scene"sv, context, fileIo, descriptorBufferEnabled);
+        shaders->addShader("identity.vert"sv);
+        shaders->addShader("barycentric_color.frag"sv);
+        shaders->create();
+        sceneShaders = shaders;
+    }
+    return shaders;
+}
+
 std::shared_ptr<const Shaders> Pipelines::getDisplayShaders() const
 {
     auto shaders = displayShaders.lock();
@@ -93,19 +106,6 @@ std::shared_ptr<const Shaders> Pipelines::getTraceSahKdTreeShaders() const
         shaders->addShader("trace.comp"sv);
         shaders->create();
         traceSahKdTreeShaders = shaders;
-    }
-    return shaders;
-}
-
-std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const
-{
-    auto shaders = sceneShaders.lock();
-    if (!shaders) {
-        shaders = Shaders::make("scene"sv, context, fileIo, descriptorBufferEnabled);
-        shaders->addShader("identity.vert"sv);
-        shaders->addShader("barycentric_color.frag"sv);
-        shaders->create();
-        sceneShaders = shaders;
     }
     return shaders;
 }

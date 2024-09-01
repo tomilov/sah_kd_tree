@@ -21,8 +21,10 @@ ComputePipeline::ComputePipeline(std::string_view name, const Context & context,
     if (descriptorBufferEnabled) {
         computePipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
+    computePipelineCreateInfo.layout = pipelineLayout;
     INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
+    computePipelineCreateInfo.stage.setPSpecializationInfo(&specializationInfo);
 }
 
 void ComputePipeline::create()

@@ -912,7 +912,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
     } else {
-        renderNode = new RenderNode{window(), *engineWrapper};
+        renderNode = new RenderNode{sceneSettings->url.toString(), window(), *engineWrapper};
     }
     renderNode->updateScene(sceneSettings->sceneData);
     if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {

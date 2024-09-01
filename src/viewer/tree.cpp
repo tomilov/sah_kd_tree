@@ -14,6 +14,7 @@ namespace viewer
 
 struct Tree::Impl
 {
+    std::string name;
     const engine::Context & context;
     const builder::TreeWeakPtr builderTree;
     const vk::DeviceSize dataSize;
@@ -27,11 +28,11 @@ struct Tree::Impl
     vk::UniqueBuffer buffer;  // buffer should be destructed first
     vk::DeviceAddress deviceAddress = 0;
 
-    Impl(const engine::Context & context, const builder::TreePtr & builderTree);
+    Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree);
 };
 
-Tree::Tree(const engine::Context & context, const builder::TreePtr & builderTree)
-    : impl_{std::make_unique<Impl>(context, builderTree)}
+Tree::Tree(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
+    : impl_{std::make_unique<Impl>(name, context, builderTree)}
 {
     ASSERT(builderTree);
 }
@@ -85,8 +86,9 @@ vk::DeviceAddress Tree::getDeviceAddress() const &
 
 Tree::~Tree() = default;
 
-Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & builderTree)
-    : context{context}
+Tree::Impl::Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
+    : name{name}
+    , context{context}
     , builderTree{builderTree}
     , dataSize{utils::autoCast(builderTree->getDataSize())}
     , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
@@ -129,6 +131,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
         externalMemoryBufferCreateInfo.handleTypes = kHandleType;
     }
     buffer = device.createBufferUnique(bufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    context.getDevice().setDebugUtilsObjectName(*buffer, name);
 
     vk::BufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo = {
         .buffer = *buffer,
@@ -177,6 +180,7 @@ Tree::Impl::Impl(const engine::Context & context, const builder::TreePtr & build
     // from the application to the Vulkan implementation.
     // So release it
     std::ignore = std::move(fd).release();
+    context.getDevice().setDebugUtilsObjectName(*deviceMemory, name);
 
     vk::BindBufferMemoryInfo bindBufferMemoryInfo = {
         .buffer = *buffer,

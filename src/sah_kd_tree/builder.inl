@@ -10,13 +10,12 @@
 #include <thrust/transform_scan.h>
 
 #include <utility>
-#include <optional>
 
 #include <cassert>
 
 template<typename Traits>
 template<typename P>
-auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) -> std::optional<Tree<Traits>>
+bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree)
 {
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
@@ -44,13 +43,12 @@ auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
     layer.nodeOffset.resize(1, static_cast<U>(0));
 
-    Tree<Traits> tree{allocator};
     tree.layerDepth.push_back(node.count);
     for (;;) {
         assert(!std::empty(layer.nodeOffset));
 
         if (progress(tree.layerDepth.size())) {
-            return std::nullopt;
+            return false;
         }
 
         if (tree.layerDepth.size() == sah.maxDepth) {
@@ -184,5 +182,5 @@ auto sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         tree.node.parent = std::move(node.parent);
     }
 
-    return tree;
+    return true;
 }

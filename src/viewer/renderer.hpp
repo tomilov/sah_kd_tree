@@ -1,5 +1,6 @@
 #pragma once
 
+#include <builder/fwd.hpp>
 #include <engine/fwd.hpp>
 #include <format/glm.hpp>
 #include <format/vulkan.hpp>
@@ -18,6 +19,8 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
+
+#include <string_view>
 
 #include <cstdint>
 
@@ -46,7 +49,7 @@ struct FrameSettings
     vk::Rect2D scissor = {};
     glm::mat4 windowMvp{1.0f};
 
-    glm::vec4 clearColor{0.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec4 clearColor{0.0f, 0.0f, 0.0f, 1.0f};
 
     bool operator==(const FrameSettings &) const = default;
     bool operator!=(const FrameSettings &) const = default;
@@ -57,7 +60,7 @@ struct FrameSettings
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
+    Renderer(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
     ~Renderer();
 
     [[nodiscard]] uint32_t getFramesInFlight() const;
@@ -68,13 +71,17 @@ public:
     void unsetScene();
     [[nodiscard]] const scene_data::SceneDataPtr & getScene() const &;
 
+    void setTree(builder::TreePtr builderTree);
+    void unsetTree();
+    [[nodiscard]] builder::TreePtr getTree() const;
+
     void advance(uint32_t currentFrameSlot);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
 
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 536;
+    static constexpr size_t kSize = 600;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };

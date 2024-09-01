@@ -8,6 +8,7 @@
 #include <engine/pipeline_layout.hpp>
 #include <engine/shader_module.hpp>
 #include <utils/assert.hpp>
+#include <utils/hash.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -17,6 +18,7 @@
 #include <string_view>
 #include <vector>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace viewer
