@@ -197,6 +197,7 @@ private:
 };
 
 #pragma pack(push, 1)
+
 struct UniformBuffer
 {
     vk::Bool32 useOffscreenTexture = VK_FALSE;
@@ -210,24 +211,21 @@ struct UniformBuffer
     float alpha = 0.0f;
     glm::mat4 windowMvp{1.0f};
 };
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<UniformBuffer>);
 
-#pragma pack(push, 1)
 struct ScenePushConstants
 {
     glm::mat4 mvp{1.0f};
 };
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<ScenePushConstants>);
 
-#pragma pack(push, 1)
 struct DisplayPushConstants
 {
     float x = 1E-5f;
 };
-#pragma pack(pop)
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
+
+#pragma pack(pop)
 
 struct UniformBufferResource final
 {
@@ -302,17 +300,17 @@ class DisplayPool final
     };
 
 public:
-    DisplayPool(Private, const engine::Context & context, const Engine & engine)
+    DisplayPool(Private, const engine::Context & context, const Engine & engine, std::shared_ptr<const vk::UniqueSampler> && sampler)
         : context{context}
         , engine{engine}
         , displayRenderPass{OffscreenRenderPass::make(context)}
         , displayGraphicsPipeline{makeGraphicsPipeline()}
-        , sampler{makeSampler()}
+        , sampler{std::move(sampler)}
     {}
 
-    [[nodiscard]] static std::shared_ptr<DisplayPool> make(const engine::Context & context, const Engine & engine)
+    [[nodiscard]] static std::shared_ptr<DisplayPool> make(const engine::Context & context, const Engine & engine, std::shared_ptr<const vk::UniqueSampler> sampler)
     {
-        return std::make_shared<DisplayPool>(Private{}, context, engine);
+        return std::make_shared<DisplayPool>(Private{}, context, engine, std::move(sampler));
     }
 
     [[nodiscard]] const OffscreenRenderPass & getOffscreenRenderPass() const &
@@ -381,30 +379,6 @@ private:
     GraphicsPipeline displayGraphicsPipeline;
     std::shared_ptr<const vk::UniqueSampler> sampler;
     ResourceStack<std::shared_ptr<DisplayResourcesAndDescriptors>> pool;
-
-    [[nodiscard]] std::shared_ptr<const vk::UniqueSampler> makeSampler() const
-    {
-        float maxSamplerAnisotropy = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxSamplerAnisotropy;
-        vk::SamplerCreateInfo samplerCreateInfo = {
-            .flags = {},
-            .magFilter = vk::Filter::eLinear,
-            .minFilter = vk::Filter::eLinear,
-            .mipmapMode = vk::SamplerMipmapMode::eNearest,
-            .addressModeU = vk::SamplerAddressMode::eRepeat,
-            .addressModeV = vk::SamplerAddressMode::eRepeat,
-            .addressModeW = vk::SamplerAddressMode::eRepeat,
-            .mipLodBias = 0.0f,
-            .anisotropyEnable = VK_FALSE,
-            .maxAnisotropy = maxSamplerAnisotropy,
-            .compareEnable = VK_FALSE,
-            .compareOp = vk::CompareOp::eNever,
-            .minLod = 0.0f,
-            .maxLod = 0.0f,
-            .borderColor = vk::BorderColor::eFloatTransparentBlack,
-            .unnormalizedCoordinates = VK_FALSE,
-        };
-        return std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
-    }
 
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
@@ -581,6 +555,8 @@ struct Renderer::Impl : utils::NonCopyable
     std::shared_ptr<GraphicsPipeline> offscreenGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getDisplayShaders());
     std::shared_ptr<ComputePipeline> traceComputePipeline;  // TODO:
 
+    std::shared_ptr<const vk::UniqueSampler> sampler = makeSampler();
+
     std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
@@ -595,6 +571,8 @@ struct Renderer::Impl : utils::NonCopyable
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
     Impl(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
+
+    [[nodiscard]] std::shared_ptr<const vk::UniqueSampler> makeSampler() const;
 
     void setFrameSettings(const FrameSettings & frameSettings);
 
@@ -697,6 +675,30 @@ Renderer::Impl::Impl(std::string_view name, const engine::Context & context, con
     INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
 }
 
+std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
+{
+    float maxSamplerAnisotropy = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxSamplerAnisotropy;
+    vk::SamplerCreateInfo samplerCreateInfo = {
+        .flags = {},
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eNearest,
+        .addressModeU = vk::SamplerAddressMode::eRepeat,
+        .addressModeV = vk::SamplerAddressMode::eRepeat,
+        .addressModeW = vk::SamplerAddressMode::eRepeat,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = VK_FALSE,
+        .maxAnisotropy = maxSamplerAnisotropy,
+        .compareEnable = VK_FALSE,
+        .compareOp = vk::CompareOp::eNever,
+        .minLod = 0.0f,
+        .maxLod = 0.0f,
+        .borderColor = vk::BorderColor::eFloatTransparentBlack,
+        .unnormalizedCoordinates = VK_FALSE,
+    };
+    return std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+}
+
 void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)
 {
     this->frameSettings = frameSettings;
@@ -718,6 +720,7 @@ void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
 
 void Renderer::Impl::unsetTree()
 {
+    traceComputePipeline.reset();
     tree.reset();
 }
 
@@ -733,14 +736,19 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
 
     struct SpecializationData
     {
-        const uint32_t kTriangleCount;
-        const uint32_t kPolygonCount;
-        const uint32_t kNodeCount;
+        const glm::uint kTriangleCount;
+        const glm::uint kPolygonCount;
+        const glm::uint kNodeCount;
+        const glm::float32 kEps = 1E-7f;
+        const glm::uint kSubgroupSizeX;
+        const glm::uint kSubgroupSizeY;
     };
     const SpecializationData specializationData = {
         .kTriangleCount = tree.value().getTriangleCount(),
         .kPolygonCount = tree.value().getPolygonCount(),
         .kNodeCount = tree.value().getNodeCount(),
+        .kSubgroupSizeX = 32,
+        .kSubgroupSizeY = 32,
     };
     pipeline.specializationInfo.setData<SpecializationData>(specializationData);
 
@@ -759,6 +767,21 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
             .constantID = 2,
             .offset = offsetof(SpecializationData, kNodeCount),
             .size = sizeof(SpecializationData::kNodeCount),
+        },
+        {
+            .constantID = 3,
+            .offset = offsetof(SpecializationData, kEps),
+            .size = sizeof(SpecializationData::kEps),
+        },
+        {
+            .constantID = 4,
+            .offset = offsetof(SpecializationData, kSubgroupSizeX),
+            .size = sizeof(SpecializationData::kSubgroupSizeX),
+        },
+        {
+            .constantID = 5,
+            .offset = offsetof(SpecializationData, kSubgroupSizeY),
+            .size = sizeof(SpecializationData::kSubgroupSizeY),
         },
     };
     pipeline.specializationInfo.setMapEntries(specializationMapEntries);
@@ -1013,7 +1036,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
     }
     if (frameSettings.useOffscreenTexture) {
         if (!displayPool) {
-            displayPool = DisplayPool::make(context, engine);
+            displayPool = DisplayPool::make(context, engine, sampler);
         }
     }
     {

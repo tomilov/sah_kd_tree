@@ -257,6 +257,43 @@ std::string DisplayResources::getBindingName()
     return {getBindingName(), vk::DescriptorType::eCombinedImageSampler, getDescriptorData()};
 }
 
+TreeFrameResources::TreeFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler)
+    : image{makeImage(context, imageSize)}
+    , imageView{image.createImageView(vk::ImageViewType::e2D, kImageAspectMask)}
+    , sampler{std::move(sampler)}
+{}
+
+engine::Image TreeFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
+{
+    constexpr auto imageName = "tree render target"sv;
+    return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask);
+}
+
+std::string TreeFrameResources::getBindingName()
+{
+    return "image"s;
+}
+
+DescriptorInfo TreeFrameResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+{
+    ASSERT(sampler);
+    ASSERT(*sampler);
+    vk::DescriptorImageInfo descriptorImageInfo = {
+        .sampler = **sampler,
+        .imageView = *imageView,
+        .imageLayout = kExternalImageLayout,
+    };
+    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]() -> DescriptorData
+    {
+        if (descriptorBufferEnabled) {
+            return DescriptorBufferData{descriptorImageInfo};
+        } else {
+            return DescriptorSetData{descriptorImageInfo};
+        }
+    };
+    return {getBindingName(), vk::DescriptorType::eCombinedImageSampler, getDescriptorData()};
+}
+
 Engine::Engine(const engine::Context & context, const Settings & settings)
     : context{context}
     , settings{settings}

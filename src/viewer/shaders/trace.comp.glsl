@@ -1,13 +1,12 @@
 #version 460 core
 
-#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_buffer_reference : require
-
-#include "uniform_buffer.glsl"
+#extension GL_EXT_scalar_block_layout : enable
 
 layout(constant_id = 0) const uint kTriangleCount = 1;
 layout(constant_id = 1) const uint kPolygonCount = 1;
 layout(constant_id = 2) const uint kNodeCount = 1;
+layout(constant_id = 3) const float kEps = 1E-7f;
 
 struct Triangle
 {
@@ -34,7 +33,7 @@ struct Node  // TODO: transpose and fuse w/ ProjectionNode
     uint parent[kNodeCount];
 };
 
-layout(scalar, buffer_reference, buffer_reference_align = 4) readonly buffer Tree
+layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer Tree
 {
     Triangle triangles[kTriangleCount];
     ProjectionNode x, y, z;
@@ -65,8 +64,6 @@ vec3 clearZeroSign(const in vec3 v)
     return vec3(clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z));
 }
 
-const float kEps = 1E-7f;
-
 bool rayIntersectsTriangle(const in Tree tree, const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
 {
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
@@ -80,47 +77,50 @@ bool rayIntersectsTriangle(const in Tree tree, const in Ray ray, inout Hit hit, 
     if (denominator2 == 0.0f) {
         return false;
     }
-    if (((tNear - kEps) <= hit.distance) && (hit.distance <= tFar + kEps)) {
-        float xx = dot(edge1, edge1);
-        float yy = dot(edge2, edge2);
-        float xy = dot(edge1, edge2);
-        float denominator = xy * xy - xx * yy;
-        if (denominator != 0.0f) {
-            denominator = 1.0f / denominator;
-            vec3 intersection = ray.src + ray.dir * hit.distance;
-            vec3 e = intersection - a;
-            float ex = dot(e, edge1);
-            float ey = dot(e, edge2);
-            hit.uv.x = (xy * ey - yy * ex) * denominator;
-            if (hit.uv.x < -kEps * invNormal * sqrt(xx)) {
-                return false;
-            }
-            hit.uv.y = (xy * ex - xx * ey) * denominator;
-            if (hit.uv.y < -kEps * invNormal * sqrt(yy)) {
-                return false;
-            }
-            if ((1.0f - (hit.uv.x + hit.uv.y)) >= -kEps * invNormal * length(edge1 - edge2)) {
-                return true;
-            }
-        }
+    if ((tNear - kEps > hit.distance) || (hit.distance > tFar + kEps)) {
+        return false;
+    }
+    float xx = dot(edge1, edge1);
+    float yy = dot(edge2, edge2);
+    float xy = dot(edge1, edge2);
+    float denominator = xy * xy - xx * yy;
+    if (denominator == 0.0f) {
+        return false;
+    }
+    denominator = 1.0f / denominator;
+    vec3 intersection = ray.src + ray.dir * hit.distance;
+    vec3 e = intersection - a;
+    float ex = dot(e, edge1);
+    float ey = dot(e, edge2);
+    hit.uv.x = (xy * ey - yy * ex) * denominator;
+    if (hit.uv.x < -kEps * invNormal * sqrt(xx)) {
+        return false;
+    }
+    hit.uv.y = (xy * ex - xx * ey) * denominator;
+    if (hit.uv.y < -kEps * invNormal * sqrt(yy)) {
+        return false;
+    }
+    if ((1.0f - (hit.uv.x + hit.uv.y)) < -kEps * invNormal * length(edge1 - edge2)) {
+        return false;
     }
     return true;
 }
 
 bool traceRay(const in Tree tree, in uint nodeIndex, const in Ray ray, inout Hit hit)
 {
-    for (;;) {
-        const int splitDimension = tree.node.splitDimension[nodeIndex];
-        if (splitDimension < 0) {
-            break;
-        }
-        if (ray.src[splitDimension] < tree.node.splitPos[nodeIndex]) {
-            nodeIndex = tree.node.leftChild[nodeIndex];
-        } else {
-            nodeIndex = tree.node.rightChild[nodeIndex];
+    if (nodeIndex == 0) {
+        for (;;) {
+            const int splitDimension = tree.node.splitDimension[nodeIndex];
+            if (splitDimension < 0) {
+                break;
+            }
+            if (ray.src[splitDimension] < tree.node.splitPos[nodeIndex]) {
+                nodeIndex = tree.node.leftChild[nodeIndex];
+            } else {
+                nodeIndex = tree.node.rightChild[nodeIndex];
+            }
         }
     }
-
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
@@ -176,11 +176,9 @@ struct Frustum
     vec3 leftTop, rightTop, leftBottom, rightBottom;
 };
 
-layout(local_size_x = 32, local_size_y = 32) in;
-layout(local_size_x_id = 3) in;
-layout(local_size_y_id = 4) in;
+layout(local_size_x_id = 4, local_size_y_id = 5) in;
 
-layout(binding = 0, rgba8) uniform image2D colorImage;
+layout(binding = 0, rgba8) uniform image2D image;
 
 layout(push_constant, scalar) uniform PushConstants
 {
@@ -189,26 +187,34 @@ layout(push_constant, scalar) uniform PushConstants
     vec3 pos;
     Frustum frustum;
     vec4 clearColor;
-} pushConstants;
+};
 
 void main()
 {
     uvec2 pixelCoords = gl_GlobalInvocationID.xy;
     vec2 loc = (pixelCoords + 0.5f) / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
     Ray ray;
-    ray.src = pushConstants.pos;
+    ray.src = pos;
     ray.dir = mix(
-        mix(pushConstants.frustum.leftBottom, pushConstants.frustum.rightBottom, loc.x),
-        mix(pushConstants.frustum.leftTop, pushConstants.frustum.rightTop, loc.x),
+        mix(
+            frustum.leftBottom,
+            frustum.rightBottom,
+            loc.x
+        ),
+        mix(
+            frustum.leftTop,
+            frustum.rightTop,
+            loc.x
+        ),
         loc.y
     );
     Hit hit;
     hit.distance = 0.0f;
     vec4 color;
-    if (traceRay(pushConstants.tree, pushConstants.nodeIndex, ray, hit)) {
+    if (traceRay(tree, nodeIndex, ray, hit)) {
         color = vec4(1.0f - hit.uv.x - hit.uv.y, hit.uv, 1.0f);
     } else {
-        color = pushConstants.clearColor;
+        color = clearColor;
     }
-    imageStore(colorImage, ivec2(pixelCoords), color);
+    imageStore(image, ivec2(pixelCoords), color);
 }

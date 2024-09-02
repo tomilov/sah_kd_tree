@@ -124,6 +124,30 @@ struct DisplayResources final : utils::OneTime<DisplayResources>
     }
 };
 
+struct TreeFrameResources final : utils::OneTime<TreeFrameResources>
+{
+    static constexpr vk::ImageUsageFlags kImageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled;
+    static constexpr vk::ImageAspectFlags kImageAspectMask = vk::ImageAspectFlagBits::eColor;
+    static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
+    static constexpr vk::ImageLayout kExternalImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    engine::Image image;
+    vk::UniqueImageView imageView;
+    std::shared_ptr<const vk::UniqueSampler> sampler;
+
+    TreeFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler);
+
+    [[nodiscard]] static engine::Image makeImage(const engine::Context & context, const vk::Extent2D & imageSize);
+
+    [[nodiscard]] static std::string getBindingName();
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
 class Engine final : utils::NonCopyable
 {
 public:

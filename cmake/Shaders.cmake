@@ -24,6 +24,8 @@ list(
 list(JOIN stage_shader_extensions "|" stage_shader_regex)
 set(stage_shader_regex "\.(${stage_shader_regex})\.glsl")
 
+find_program(spirv-val NAMES spirv-val)
+
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
 function(target_shaders target)
@@ -72,6 +74,12 @@ function(target_shaders target)
                     "${shader_file}"
                     --depfile "${output_file}.d"
                     -o "${output_file}"
+            COMMAND
+                spirv-val
+                ARGS
+                    --target-env vulkan1.3
+                    --scalar-block-layout
+                    "${output_file}"
             COMMAND
                 Python3::Interpreter
                 ARGS
