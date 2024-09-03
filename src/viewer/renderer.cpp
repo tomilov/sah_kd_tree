@@ -736,17 +736,11 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
 
     struct SpecializationData
     {
-        const glm::uint kTriangleCount;
-        const glm::uint kPolygonCount;
-        const glm::uint kNodeCount;
-        const glm::float32 kEps = 1E-7f;
         const glm::uint kSubgroupSizeX;
         const glm::uint kSubgroupSizeY;
+        const glm::float32 kEps = 1E-7f;
     };
     const SpecializationData specializationData = {
-        .kTriangleCount = tree.value().getTriangleCount(),
-        .kPolygonCount = tree.value().getPolygonCount(),
-        .kNodeCount = tree.value().getNodeCount(),
         .kSubgroupSizeX = 32,
         .kSubgroupSizeY = 32,
     };
@@ -755,33 +749,18 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
     const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
         {
             .constantID = 0,
-            .offset = offsetof(SpecializationData, kTriangleCount),
-            .size = sizeof(SpecializationData::kTriangleCount),
-        },
-        {
-            .constantID = 1,
-            .offset = offsetof(SpecializationData, kPolygonCount),
-            .size = sizeof(SpecializationData::kPolygonCount),
-        },
-        {
-            .constantID = 2,
-            .offset = offsetof(SpecializationData, kNodeCount),
-            .size = sizeof(SpecializationData::kNodeCount),
-        },
-        {
-            .constantID = 3,
-            .offset = offsetof(SpecializationData, kEps),
-            .size = sizeof(SpecializationData::kEps),
-        },
-        {
-            .constantID = 4,
             .offset = offsetof(SpecializationData, kSubgroupSizeX),
             .size = sizeof(SpecializationData::kSubgroupSizeX),
         },
         {
-            .constantID = 5,
+            .constantID = 1,
             .offset = offsetof(SpecializationData, kSubgroupSizeY),
             .size = sizeof(SpecializationData::kSubgroupSizeY),
+        },
+        {
+            .constantID = 2,
+            .offset = offsetof(SpecializationData, kEps),
+            .size = sizeof(SpecializationData::kEps),
         },
     };
     pipeline.specializationInfo.setMapEntries(specializationMapEntries);
