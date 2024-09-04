@@ -64,7 +64,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
         assert(layerSplitDimensionEnd == node.splitDimension.cend());
-        U layerLeafNodeCount = sizeToU<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
+        U layerLeafNodeCount = safeConvert<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
             assert(tree.layerDepth.size() < sah.maxDepth);
@@ -161,24 +161,26 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
     {
         tree.x.node.min = std::move(x.node.min);
         tree.x.node.max = std::move(x.node.max);
-        tree.y.node.min = std::move(y.node.min);
-        tree.y.node.max = std::move(y.node.max);
-        tree.z.node.min = std::move(z.node.min);
-        tree.z.node.max = std::move(z.node.max);
-
         tree.x.node.leftRope = std::move(x.node.leftRope);
         tree.x.node.rightRope = std::move(x.node.rightRope);
+
+        tree.y.node.min = std::move(y.node.min);
+        tree.y.node.max = std::move(y.node.max);
         tree.y.node.leftRope = std::move(y.node.leftRope);
         tree.y.node.rightRope = std::move(y.node.rightRope);
+
+        tree.z.node.min = std::move(z.node.min);
+        tree.z.node.max = std::move(z.node.max);
         tree.z.node.leftRope = std::move(z.node.leftRope);
         tree.z.node.rightRope = std::move(z.node.rightRope);
-
-        tree.polygon.triangle = std::move(polygon.triangle);
 
         tree.node.splitDimension = std::move(node.splitDimension);
         tree.node.splitPos = std::move(node.splitPos);
         tree.node.leftChild = std::move(node.leftChild);
         tree.node.rightChild = std::move(node.rightChild);
+
+        tree.polygonTriangle = std::move(polygon.triangle);
+
         tree.node.parent = std::move(node.parent);
     }
 

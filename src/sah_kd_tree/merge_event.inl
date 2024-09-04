@@ -34,8 +34,8 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     auto splittedPolygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
     auto splittedPolygonRightBboxBegin = thrust::next(polygonBboxBegin, polygonCount);
 
-    auto splittedPlanarPolygonLeftCount = sizeToU<U>(thrust::count_if(splittedPolygonLeftBboxBegin, thrust::next(splittedPolygonLeftBboxBegin, splittedPolygonCount), isPlanarPolygon));
-    auto splittedPlanarPolygonRightCount = sizeToU<U>(thrust::count_if(splittedPolygonRightBboxBegin, thrust::next(splittedPolygonRightBboxBegin, splittedPolygonCount), isPlanarPolygon));
+    auto splittedPlanarPolygonLeftCount = safeConvert<U>(thrust::count_if(splittedPolygonLeftBboxBegin, thrust::next(splittedPolygonLeftBboxBegin, splittedPolygonCount), isPlanarPolygon));
+    auto splittedPlanarPolygonRightCount = safeConvert<U>(thrust::count_if(splittedPolygonRightBboxBegin, thrust::next(splittedPolygonRightBboxBegin, splittedPolygonCount), isPlanarPolygon));
 
     U splittedEventLeftCount = splittedPolygonCount * 2 - splittedPlanarPolygonLeftCount;
     U splittedEventRightCount = splittedPolygonCount * 2 - splittedPlanarPolygonRightCount;
@@ -45,8 +45,8 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     const auto & eventLeft = event.polygonCountLeft;
     const auto & eventRight = event.polygonCountRight;
 
-    auto eventLeftCount = sizeToU<U>(eventLeft.size());
-    auto eventRightCount = sizeToU<U>(eventRight.size());
+    auto eventLeftCount = safeConvert<U>(eventLeft.size());
+    auto eventRightCount = safeConvert<U>(eventRight.size());
 
     U eventStorageSize = std::exchange(event.count, eventLeftCount + eventRightCount + splittedEventCount);
     if (eventStorageSize < event.count) {
@@ -144,7 +144,7 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     // cleanup repeating planar events
     if (std::is_floating_point_v<F>) {
         auto cleanSplittedEventEnd = thrust::unique(splittedEventBegin, splittedEventEnd);
-        event.count -= sizeToU<U>(thrust::distance(cleanSplittedEventEnd, splittedEventEnd));
+        event.count -= safeConvert<U>(thrust::distance(cleanSplittedEventEnd, splittedEventEnd));
         splittedEventEnd = cleanSplittedEventEnd;
     }
 

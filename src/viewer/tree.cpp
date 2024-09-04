@@ -136,8 +136,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
     vk::BufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo = {
         .buffer = *buffer,
     };
-    const vk::StructureChain<vk::MemoryRequirements2, vk::MemoryDedicatedRequirements> memoryRequirementsChain
-        = device.getBufferMemoryRequirements2<vk::MemoryRequirements2, vk::MemoryDedicatedRequirements>(bufferMemoryRequirementsInfo, context.getDispatcher());
+    const auto memoryRequirementsChain = device.getBufferMemoryRequirements2<vk::MemoryRequirements2, vk::MemoryDedicatedRequirements>(bufferMemoryRequirementsInfo, context.getDispatcher());
     const auto & memoryRequirements = memoryRequirementsChain.get<vk::MemoryRequirements2>().memoryRequirements;
     SPDLOG_INFO("Memory requirements: size {}, alignment {}, memoryTypeBits {:b}b", memoryRequirements.size, memoryRequirements.alignment, memoryRequirements.memoryTypeBits);
     const auto & memoryDedicatedRequirements = memoryRequirementsChain.get<vk::MemoryDedicatedRequirements>();

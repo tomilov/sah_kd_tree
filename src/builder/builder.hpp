@@ -48,7 +48,9 @@ public:
     [[nodiscard]] utils::Fd getFd() &&;
     [[nodiscard]] utils::Fd cloneFd() const &;
     [[nodiscard]] size_t getDataSize() const;
+    [[nodiscard]] size_t getDataAlignment() const;
     [[nodiscard]] size_t getAllocationSize() const;
+    [[nodiscard]] size_t getAllocationAlignment() const;
 
     [[nodiscard]] size_t getTriangleCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;

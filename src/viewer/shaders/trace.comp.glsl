@@ -1,12 +1,19 @@
 #version 460 core
 
-#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_scalar_block_layout : enable
+
+#define sizeof(Type) (uint64_t(Type(uint64_t(0))+1))
 
 layout(local_size_x_id = 0, local_size_y_id = 1) in;
 layout(constant_id = 2) const float kEps = 1E-7f;
 
-struct Nodes  // sizeof(Node) == 64
+struct Triangle  // sizeof == 36
+{
+    vec3 a, b, c;
+};
+
+struct Node  // sizeof == 64
 {
     vec3 aabbMin;
     vec3 aabbMax;
@@ -16,27 +23,26 @@ struct Nodes  // sizeof(Node) == 64
     float splitPos;
     uint leftChild;
     uint rightChild;
-    //uint parent;
 };
 
-struct Triangle
-{
-    vec3 a, b, c;
-};
-
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer TreeTriangles
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Triangles
 {
     Triangle triangle[];
 };
 
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer TreePolygons
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Polygons
 {
-    uint polygon[];
+    uint triangle[];
 };
 
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer TreeNodes
+layout(buffer_reference, scalar, buffer_reference_align = 64) readonly buffer Nodes
 {
-    Nodes node[];
+    Node node[];
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer NodeParents
+{
+    uint parent[];
 };
 
 struct Frustum
@@ -44,19 +50,16 @@ struct Frustum
     vec3 leftTop, rightTop, leftBottom, rightBottom;
 };
 
-layout(push_constant, scalar) uniform PushConstants
+layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    uvec2 size;
-    TreeTriangles treeTriangles;
-    TreePolygons treePolygons;
-    TreeNodes treeNodes;
-    uint startNodeIndex;
-    vec3 pos;
-    Frustum frustum;
-    vec4 clearColor;
+    uvec2 imageSize;
+    Triangles triangles;
+    Polygons polygons;
+    Nodes nodes;
+    NodeParents nodeParents;
 };
 
-layout(binding = 0, rgba8) uniform image2D image;
+layout(set = 0, binding = 1, rgba8) uniform image2D image;
 
 struct Ray
 {
@@ -81,7 +84,7 @@ vec3 clearZeroSign(const in vec3 v)
     return vec3(clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z));
 }
 
-bool rayIntersectsTriangle(const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
+bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
 {
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
     const vec3 edge1 = triangle.b - triangle.a;
@@ -128,47 +131,47 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
 {
     if (nodeIndex == 0) {
         for (;;) {
-            const int splitDimension = treeNodes.node[nodeIndex].splitDimension;
+            const int splitDimension = nodes.node[nodeIndex].splitDimension;
             if (splitDimension < 0) {
                 break;
             }
-            if (ray.src[splitDimension] < treeNodes.node[nodeIndex].splitPos) {
-                nodeIndex = treeNodes.node[nodeIndex].leftChild;
+            if (ray.src[splitDimension] < nodes.node[nodeIndex].splitPos) {
+                nodeIndex = nodes.node[nodeIndex].leftChild;
             } else {
-                nodeIndex = treeNodes.node[nodeIndex].rightChild;
+                nodeIndex = nodes.node[nodeIndex].rightChild;
             }
         }
     }
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    vec3 aabbHitDist = (mix(treeNodes.node[nodeIndex].aabbMax, treeNodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
+    vec3 aabbHitDist = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
     float tMin = min(aabbHitDist.x, min(aabbHitDist.y, aabbHitDist.z));
     do {
         const float tNear = min(0.0f, tMin);
         for (;;) {
-            const int splitDimension = treeNodes.node[nodeIndex].splitDimension;
+            const int splitDimension = nodes.node[nodeIndex].splitDimension;
             if (splitDimension < 0) {
                 break;
             }
-            if (corner[splitDimension] == ((treeNodes.node[nodeIndex].splitPos - ray.src[splitDimension]) * invDir[splitDimension] < tNear)) {
-                nodeIndex = treeNodes.node[nodeIndex].leftChild;
+            if (corner[splitDimension] == ((nodes.node[nodeIndex].splitPos - ray.src[splitDimension]) * invDir[splitDimension] < tNear)) {
+                nodeIndex = nodes.node[nodeIndex].leftChild;
             } else {
-                nodeIndex = treeNodes.node[nodeIndex].rightChild;
+                nodeIndex = nodes.node[nodeIndex].rightChild;
             }
         }
-        aabbHitDist = (mix(treeNodes.node[nodeIndex].aabbMax, treeNodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
+        aabbHitDist = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
         const float tMax = min(aabbHitDist.x, min(aabbHitDist.y, aabbHitDist.z));
         if (tMin > tMax) {
             break;
         }
-        const uint polygonStart = treeNodes.node[nodeIndex].leftChild;
-        const uint polygonEnd = polygonStart + treeNodes.node[nodeIndex].rightChild;
+        const uint polygonStart = nodes.node[nodeIndex].leftChild;
+        const uint polygonEnd = polygonStart + nodes.node[nodeIndex].rightChild;
         for (uint p = polygonStart; p < polygonEnd; ++p) {
             const float tFar = min(hit.dist, tMax);
             Hit newHit;
-            newHit.triangle = treePolygons.polygon[p];
-            if (rayIntersectsTriangle(ray, newHit, treeTriangles.triangle[newHit.triangle], tNear, tFar)) {
+            newHit.triangle = polygons.triangle[p];
+            if (rayTriangleIntersect(ray, newHit, triangles.triangle[newHit.triangle], tNear, tFar)) {
                 hit = newHit;
             }
         }
@@ -178,15 +181,23 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
         tMin = tMax;
         const uvec3 indices = mix(uvec3(0), uvec3(0, 1, 2), equal(aabbHitDist, vec3(tMax)));
         const uint ropeDirection = max(indices.x, max(indices.y, indices.z));
-        nodeIndex = corner[ropeDirection] ? treeNodes.node[nodeIndex].leftRope[ropeDirection] : treeNodes.node[nodeIndex].rightRope[ropeDirection];
+        nodeIndex = corner[ropeDirection] ? nodes.node[nodeIndex].leftRope[ropeDirection] : nodes.node[nodeIndex].rightRope[ropeDirection];
     } while (nodeIndex != 0);
     return false;
 }
 
+layout(push_constant, scalar) uniform PushConstants
+{
+    uint nodeIndex;
+    vec3 pos;
+    Frustum frustum;
+    vec4 clearColor;
+};
+
 void main()
 {
     const uvec2 pixelCoords = gl_GlobalInvocationID.xy;
-    if ((size.x >= pixelCoords.x) || (size.y >= pixelCoords.y)) {
+    if ((imageSize.x >= pixelCoords.x) || (imageSize.y >= pixelCoords.y)) {
         return;
     }
     const vec2 loc = (pixelCoords + 0.5f) / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
@@ -208,7 +219,7 @@ void main()
     Hit hit;
     hit.dist = 0.0f;
     vec4 color;
-    if (traceRay(startNodeIndex, ray, hit)) {
+    if (traceRay(nodeIndex, ray, hit)) {
         color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
     } else {
         color = clearColor;

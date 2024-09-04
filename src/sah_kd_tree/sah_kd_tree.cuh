@@ -1,9 +1,13 @@
 #pragma once
 
+#include <thrust/device_allocator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/iterator_traits.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/pair.h>
+#include <thrust/transform.h>
 #include <thrust/tuple.h>
 
 #include <functional>
@@ -20,7 +24,7 @@ namespace sah_kd_tree
 {
 
 template<typename U, typename T>
-U sizeToU(T size)
+U safeConvert(T size)
 {
     if constexpr (std::is_signed_v<T> == std::is_signed_v<U>) {
         if (size > std::numeric_limits<T>::max()) {
@@ -92,11 +96,6 @@ struct Tree
         } node;
     } x, y, z;
 
-    struct Polygon
-    {
-        Vector<U> triangle;
-    } polygon;
-
     struct Node
     {
         Vector<I> splitDimension;
@@ -104,6 +103,8 @@ struct Tree
         Vector<U> leftChild, rightChild;
         Vector<U> parent;
     } node;
+
+    Vector<U> polygonTriangle;
 
     Tree() = default;
 
@@ -133,9 +134,6 @@ struct Tree
                   .rightRope{allocator},
               },
           }
-        , polygon{
-              .triangle{allocator}
-          }
         , node{
               .splitDimension{allocator},
               .splitPos{allocator},
@@ -143,6 +141,7 @@ struct Tree
               .rightChild{allocator},
               .parent{allocator},
           }
+        , polygonTriangle{allocator}
     {}
 };
 
@@ -269,8 +268,6 @@ struct Builder
 
     static inline constexpr I kNoSplitDimension = -1;
 
-    Allocator<void> allocator;
-
     struct IsNotLeaf
     {
         __host__ __device__ bool operator()(I nodeSplitDimension) const
@@ -331,8 +328,7 @@ struct Builder
     Builder() = default;
 
     Builder(const Allocator<void> & allocator)
-        : allocator{allocator}
-        , polygon{
+        : polygon{
               .triangle{allocator},
               .node{allocator},
               .side{allocator},
@@ -447,7 +443,7 @@ struct Triangle
         using TriangleType = std::remove_const_t<thrust::iterator_value_t<TriangleIterator>>;
         thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
         t.assign(triangleBegin, triangleEnd);
-        count = sizeToU<U>(t.size());
+        count = safeConvert<U>(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)
         {
             component.a.resize(count);

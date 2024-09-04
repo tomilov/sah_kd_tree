@@ -8,10 +8,12 @@
 #include <thrust/device_allocator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/device_memory_resource.h>
 #include <thrust/mr/memory_resource.h>
 #include <thrust/system/cuda/pointer.h>
+#include <thrust/uninitialized_copy.h>
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -19,6 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <bit>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -195,6 +198,11 @@ public:
         return alignedAllocationSize;
     }
 
+    size_t getAlignment() const
+    {
+        return allocGranularity;
+    }
+
 private:
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
@@ -350,12 +358,46 @@ struct Tree::Impl : utils::OneTime<Impl>
     const scene_data::SceneDataWeakPtr sceneData;
 
     size_t dataSize = 0;
+    size_t dataAlignment = 0;
     size_t allocationSize = 0;
+    size_t allocationAlignment = 0;
     size_t triangleCount = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
     std::optional<utils::Fd> fd;
+
+    [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<Traits> & tree)
+    {
+        auto aabbMin = thrust::make_zip_iterator(tree.x.node.min.begin(), tree.y.node.min.begin(), tree.z.node.min.begin());
+        auto aabbMax = thrust::make_zip_iterator(tree.x.node.max.begin(), tree.y.node.max.begin(), tree.z.node.max.begin());
+        auto leftRope = thrust::make_zip_iterator(tree.x.node.leftRope.begin(), tree.y.node.leftRope.begin(), tree.z.node.leftRope.begin());
+        auto rightRope = thrust::make_zip_iterator(tree.x.node.rightRope.begin(), tree.y.node.rightRope.begin(), tree.z.node.rightRope.begin());
+        auto splitDimension = tree.node.splitDimension.begin();
+        auto splitPos = tree.node.splitPos.begin();
+        auto leftChild = tree.node.leftChild.begin();
+        auto rightChild = tree.node.rightChild.begin();
+        return thrust::make_zip_iterator(aabbMin, aabbMax, leftRope, rightRope, splitDimension, splitPos, leftChild, rightChild);
+    }
+
+    template<typename T>
+    size_t gatherSize(size_t count)
+    {
+        constexpr size_t kElementSize = sizeof(T);
+        constexpr size_t kElementAlignment = size_t{1} << std::countr_zero(kElementSize);
+        if (dataAlignment < kElementAlignment) {
+            dataAlignment = kElementAlignment;
+        }
+        const size_t offset = utils::divUp(dataSize, kElementAlignment) * kElementAlignment;
+        dataSize = offset + count * kElementSize;
+        return offset;
+    }
+
+    template<typename T>
+    size_t gatherSize(const typename Traits::template Vector<T> & v)
+    {
+        return gatherSize<T>(std::size(v));
+    }
 
     Impl(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)
         : settings{settings}
@@ -364,112 +406,93 @@ struct Tree::Impl : utils::OneTime<Impl>
         CUDA_CHECK_ERROR(cudaSetDevice(cudaDevice.getCudaDev()));
         ASSERT(sceneData);
         auto triangles = sceneData->makeTriangles();
+        triangleCount = triangles.getCount();
 #if SAH_KD_TREE_HEADER_ONLY
-        typename Traits::MemoryResource memoryResource;
-        typename Traits::Allocator<void> allocator{&memoryResource};
-        sah_kd_tree::Triangle<Traits> triangle{allocator};
-#else
-        sah_kd_tree::Triangle<Traits> triangle;
-#endif
-        triangle.setTriangle(triangles.begin(), triangles.end());
-#if SAH_KD_TREE_HEADER_ONLY
-        sah_kd_tree::Builder<Traits> builder{allocator};
-        sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
         sah_kd_tree::Tree<Traits> tree{allocator};
 #else
-        sah_kd_tree::Builder<Traits> builder;
-        sah_kd_tree::Projection<Traits> x, y, z;
         sah_kd_tree::Tree<Traits> tree;
 #endif
-        sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
-        const sah_kd_tree::Params<Traits> params = {
-            .emptinessFactor = settings.emptinessFactor,
-            .traversalCost = settings.traversalCost,
-            .intersectionCost = settings.intersectionCost,
-            .maxDepth = settings.maxDepth,
-        };
-        if (!builder.build(progress, params, x, y, z, tree)) {
-            return;
-        }
+        {
+#if SAH_KD_TREE_HEADER_ONLY
+            sah_kd_tree::Builder<Traits> builder{allocator};
+            sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+
+            typename Traits::MemoryResource memoryResource;
+            typename Traits::Allocator<void> allocator{&memoryResource};
+            sah_kd_tree::Triangle<Traits> triangle{allocator};
+#else
+            sah_kd_tree::Builder<Traits> builder;
+            sah_kd_tree::Projection<Traits> x, y, z;
+
+            sah_kd_tree::Triangle<Traits> triangle;
+#endif
+            triangle.setTriangle(triangles.begin(), triangles.end());
+            sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
+            const sah_kd_tree::Params<Traits> params = {
+                .emptinessFactor = settings.emptinessFactor,
+                .traversalCost = settings.traversalCost,
+                .intersectionCost = settings.intersectionCost,
+                .maxDepth = settings.maxDepth,
+            };
+            if (!builder.build(progress, params, x, y, z, tree)) {
+                return;
+            }
+        }  // free device memory occupied by temporary arrays required for tree building
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
-        triangleCount = triangles.getCount();
-        populateTreeSizes(tree);
-        const size_t trianglesSize = triangleCount * sizeof(scene_data::Triangle);
-        dataSize += trianglesSize;
-        const auto gatherSize = [this]<typename Vector>(const Vector & v)
         {
-            dataSize += std::size(v) * sizeof(typename Vector::value_type);
-        };
-        traverseTree(tree, gatherSize);
+            ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
+            layerSizes.resize(std::size(tree.layerDepth));
+            std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::begin(layerSizes));
+            polygonCount = std::size(tree.polygonTriangle);
+            nodeCount = std::size(tree.node.parent);
+            SPDLOG_INFO("Tree depth: {}", std::size(layerSizes));
+            SPDLOG_INFO("Layer sizes: {}", layerSizes);
+            SPDLOG_INFO("Polygon count: {}", polygonCount);
+            SPDLOG_INFO("Node count: {}", nodeCount);
+        }
+        const size_t triangleOffset = gatherSize<scene_data::Triangle>(triangleCount);
+        const size_t polygonOffset = gatherSize(tree.polygonTriangle);
+        auto node = getNode(tree);
+        using NodeType = thrust::iterator_value_t<decltype(node)>;
+        static_assert(sizeof(NodeType) == 64, "Keep in sync with Node in 'trace.comp'");
+        const size_t nodeOffset = gatherSize<NodeType>(nodeCount);
+        const size_t nodeParentOffset = gatherSize(tree.node.parent);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
-        DeviceMemory deviceMemory{cudaDevice.getCuDev(), dataSize};
+        const DeviceMemory deviceMemory{cudaDevice.getCuDev(), dataSize, dataAlignment};
         allocationSize = deviceMemory.getSize();
-        SPDLOG_INFO("Tree size {}, allocation size {}", dataSize, allocationSize);
+        allocationAlignment = deviceMemory.getAlignment();
+        SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}, allocation alignment {}", dataSize, dataAlignment, allocationSize, allocationAlignment);
         {
             auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
-            ::CUdeviceptr p = devPtr;
-            {
-                CU_CHECK_ERROR(::cuMemcpyHtoD(p, triangles.begin(), trianglesSize));
-                p += trianglesSize;
-            }
-            const auto gatherData = [&p]<typename Vector>(const Vector & v)
+            const auto gatherDeviceData = [devPtr]<typename Vector>(size_t offset, const Vector & v)
             {
                 const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
                 const size_t size = std::size(v) * sizeof(typename Vector::value_type);
 #if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
-                CU_CHECK_ERROR(::cuMemcpyDtoD(p, src, size));
+                CU_CHECK_ERROR(::cuMemcpyDtoD(devPtr + offset, src, size));
 #else
-                CU_CHECK_ERROR(::cuMemcpyHtoD(p, src, size));
+                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + offset, src, size));
 #endif
-                p += size;
             };
-            traverseTree(tree, gatherData);
-            ASSERT_MSG(p == devPtr + dataSize, "{} ^ {}", p, devPtr + dataSize);
+            {
+                constexpr size_t kTriangleSize = sizeof(scene_data::Triangle);
+                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize));
+            }
+            gatherDeviceData(polygonOffset, tree.polygonTriangle);
+            {
+                auto dst = Traits::Allocator<NodeType>::pointer(utils::safeCast<NodeType *>(devPtr + nodeOffset));
+                thrust::uninitialized_copy_n(node, nodeCount, dst);
+            }
+            gatherDeviceData(nodeParentOffset, tree.node.parent);
             CUDA_CHECK_ERROR(cudaDeviceSynchronize());
         }
         fd.emplace(deviceMemory.exportMemoryObject());
     }
 
     Impl(Impl &&) noexcept = default;
-
-    void populateTreeSizes(const sah_kd_tree::Tree<Traits> & tree)
-    {
-        ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
-        layerSizes.resize(std::size(tree.layerDepth));
-        std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::begin(layerSizes));
-        polygonCount = std::size(tree.polygon.triangle);
-        nodeCount = std::size(tree.node.parent);
-        SPDLOG_INFO("Tree depth: {}", std::size(layerSizes));
-        SPDLOG_INFO("Layer sizes: {}", layerSizes);
-        SPDLOG_INFO("Polygon count: {}", polygonCount);
-        SPDLOG_INFO("Node count: {}", nodeCount);
-    }
-
-    template<typename F>
-    static void traverseProjection(const sah_kd_tree::Tree<Traits>::Projection & projection, const F & f)
-    {
-        f(projection.node.min);
-        f(projection.node.max);
-        f(projection.node.leftRope);
-        f(projection.node.rightRope);
-    };
-
-    template<typename F>
-    static void traverseTree(const sah_kd_tree::Tree<Traits> & tree, const F & f)
-    {
-        traverseProjection(tree.x, f);
-        traverseProjection(tree.y, f);
-        traverseProjection(tree.z, f);
-        f(tree.polygon.triangle);
-        f(tree.node.splitDimension);
-        f(tree.node.splitPos);
-        f(tree.node.leftChild);
-        f(tree.node.rightChild);
-        f(tree.node.parent);
-    }
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -519,10 +542,22 @@ size_t Tree::getDataSize() const
     return impl_->dataSize;
 }
 
+size_t Tree::getDataAlignment() const
+{
+    ASSERT(impl_->dataAlignment > 0);
+    return impl_->dataAlignment;
+}
+
 size_t Tree::getAllocationSize() const
 {
     ASSERT(impl_->allocationSize > 0);
     return impl_->allocationSize;
+}
+
+size_t Tree::getAllocationAlignment() const
+{
+    ASSERT(impl_->allocationAlignment > 0);
+    return impl_->allocationAlignment;
 }
 
 size_t Tree::getTriangleCount() const
