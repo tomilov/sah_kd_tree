@@ -52,7 +52,9 @@ struct Frustum
 
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    uvec2 imageSize;
+    vec4 clearColor;
+
+    uint treeDepthMax;
     Triangles triangles;
     Polygons polygons;
     Nodes nodes;
@@ -69,8 +71,8 @@ struct Ray
 
 struct Hit
 {
-    float dist;
     uint triangle;
+    float dist;
     vec2 uv;
 };
 
@@ -145,10 +147,10 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    vec3 aabbHitDist = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
+    vec3 aabbHitDist = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.src) * invDir;
     float tMin = min(aabbHitDist.x, min(aabbHitDist.y, aabbHitDist.z));
     do {
-        const float tNear = min(0.0f, tMin);
+        const float tNear = min(0.0f, tMin);  // adjust for the case if we are not outside
         for (;;) {
             const int splitDimension = nodes.node[nodeIndex].splitDimension;
             if (splitDimension < 0) {
@@ -167,12 +169,12 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
         }
         const uint polygonStart = nodes.node[nodeIndex].leftChild;
         const uint polygonEnd = polygonStart + nodes.node[nodeIndex].rightChild;
-        for (uint p = polygonStart; p < polygonEnd; ++p) {
+        for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
             const float tFar = min(hit.dist, tMax);
-            Hit newHit;
-            newHit.triangle = polygons.triangle[p];
-            if (rayTriangleIntersect(ray, newHit, triangles.triangle[newHit.triangle], tNear, tFar)) {
-                hit = newHit;
+            Hit closerHit;
+            closerHit.triangle = polygons.triangle[polygon];
+            if (rayTriangleIntersect(ray, closerHit, triangles.triangle[closerHit.triangle], tNear, tFar)) {
+                hit = closerHit;
             }
         }
         if (hit.dist <= tMax) {
@@ -188,16 +190,16 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
 
 layout(push_constant, scalar) uniform PushConstants
 {
-    uint nodeIndex;
     vec3 pos;
     Frustum frustum;
-    vec4 clearColor;
+    uint nodeIndex;
 };
 
 void main()
 {
     const uvec2 pixelCoords = gl_GlobalInvocationID.xy;
-    if ((imageSize.x >= pixelCoords.x) || (imageSize.y >= pixelCoords.y)) {
+    const ivec2 imageSize = imageSize(image);
+    if ((imageSize.x <= pixelCoords.x) || (imageSize.y <= pixelCoords.y)) {
         return;
     }
     const vec2 loc = (pixelCoords + 0.5f) / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
@@ -220,7 +222,7 @@ void main()
     hit.dist = 0.0f;
     vec4 color;
     if (traceRay(nodeIndex, ray, hit)) {
-        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
+        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f / (1.0f + hit.dist));
     } else {
         color = clearColor;
     }

@@ -12,7 +12,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include <cstddef>
@@ -44,18 +43,23 @@ public:
     [[nodiscard]] const Settings & getSettings() const &;
     [[nodiscard]] scene_data::SceneDataPtr getSceneData() const;
 
-    [[nodiscard]] bool isEmpty() const;
-    [[nodiscard]] utils::Fd getFd() &&;
-    [[nodiscard]] utils::Fd cloneFd() const &;
-    [[nodiscard]] size_t getDataSize() const;
-    [[nodiscard]] size_t getDataAlignment() const;
-    [[nodiscard]] size_t getAllocationSize() const;
-    [[nodiscard]] size_t getAllocationAlignment() const;
-
     [[nodiscard]] size_t getTriangleCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] size_t getPolygonCount() const;
     [[nodiscard]] size_t getNodeCount() const;
+
+    [[nodiscard]] size_t getDataSize() const;
+    [[nodiscard]] size_t getDataAlignment() const;
+    [[nodiscard]] size_t getAllocationSize() const;
+
+    [[nodiscard]] size_t getTriangleOffset() const;
+    [[nodiscard]] size_t getPolygonOffset() const;
+    [[nodiscard]] size_t getNodeOffset() const;
+    [[nodiscard]] size_t getNodeParentOffset() const;
+
+    [[nodiscard]] bool isEmpty() const;
+    [[nodiscard]] utils::Fd getFd() &&;
+    [[nodiscard]] utils::Fd cloneFd() const &;
 
 private:
     friend Builder;

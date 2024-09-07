@@ -198,18 +198,13 @@ public:
         return alignedAllocationSize;
     }
 
-    size_t getAlignment() const
-    {
-        return allocGranularity;
-    }
-
 private:
     // Win32 CU_MEM_HANDLE_TYPE_WIN32
     static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 
     const ::CUmemAllocationProp memAllocationProp;
     const size_t allocGranularity;
-    const size_t alignedAllocationSize = 0;
+    const size_t alignedAllocationSize;
     ::CUmemGenericAllocationHandle allocationHandle = {};
 
     static ::CUmemAllocationProp makeMemAllocationProp(::CUdevice cuDev)
@@ -360,11 +355,17 @@ struct Tree::Impl : utils::OneTime<Impl>
     size_t dataSize = 0;
     size_t dataAlignment = 0;
     size_t allocationSize = 0;
-    size_t allocationAlignment = 0;
+
     size_t triangleCount = 0;
     std::vector<size_t> layerSizes;
     size_t polygonCount = 0;
     size_t nodeCount = 0;
+
+    size_t triangleOffset = 0;
+    size_t polygonOffset = 0;
+    size_t nodeOffset = 0;
+    size_t nodeParentOffset = 0;
+
     std::optional<utils::Fd> fd;
 
     [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<Traits> & tree)
@@ -408,6 +409,9 @@ struct Tree::Impl : utils::OneTime<Impl>
         auto triangles = sceneData->makeTriangles();
         triangleCount = triangles.getCount();
 #if SAH_KD_TREE_HEADER_ONLY
+        typename Traits::MemoryResource memoryResource;
+        typename Traits::Allocator<void> allocator{&memoryResource};
+
         sah_kd_tree::Tree<Traits> tree{allocator};
 #else
         sah_kd_tree::Tree<Traits> tree;
@@ -417,8 +421,6 @@ struct Tree::Impl : utils::OneTime<Impl>
             sah_kd_tree::Builder<Traits> builder{allocator};
             sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
 
-            typename Traits::MemoryResource memoryResource;
-            typename Traits::Allocator<void> allocator{&memoryResource};
             sah_kd_tree::Triangle<Traits> triangle{allocator};
 #else
             sah_kd_tree::Builder<Traits> builder;
@@ -437,7 +439,8 @@ struct Tree::Impl : utils::OneTime<Impl>
             if (!builder.build(progress, params, x, y, z, tree)) {
                 return;
             }
-        }  // free device memory occupied by temporary arrays required for tree building
+            // free device memory occupied by temporary arrays required for tree building
+        }
         static_assert(std::is_same_v<Traits::F, glm::float32>);
         static_assert(std::is_same_v<Traits::U, glm::uint32>);
         static_assert(std::is_same_v<Traits::I, glm::int32>);
@@ -452,20 +455,21 @@ struct Tree::Impl : utils::OneTime<Impl>
             SPDLOG_INFO("Polygon count: {}", polygonCount);
             SPDLOG_INFO("Node count: {}", nodeCount);
         }
-        const size_t triangleOffset = gatherSize<scene_data::Triangle>(triangleCount);
-        const size_t polygonOffset = gatherSize(tree.polygonTriangle);
+        triangleOffset = gatherSize<scene_data::Triangle>(triangleCount);
+        polygonOffset = gatherSize(tree.polygonTriangle);
         auto node = getNode(tree);
         using NodeType = thrust::iterator_value_t<decltype(node)>;
         static_assert(sizeof(NodeType) == 64, "Keep in sync with Node in 'trace.comp'");
-        const size_t nodeOffset = gatherSize<NodeType>(nodeCount);
-        const size_t nodeParentOffset = gatherSize(tree.node.parent);
+        nodeOffset = gatherSize<NodeType>(nodeCount);
+        nodeParentOffset = gatherSize(tree.node.parent);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
+        ASSERT(dataSize > 0);
+        ASSERT(dataAlignment > 0);
         const DeviceMemory deviceMemory{cudaDevice.getCuDev(), dataSize, dataAlignment};
         allocationSize = deviceMemory.getSize();
-        allocationAlignment = deviceMemory.getAlignment();
-        SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}, allocation alignment {}", dataSize, dataAlignment, allocationSize, allocationAlignment);
+        SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}", dataSize, dataAlignment, allocationSize);
         {
-            auto mappedDeviceMemory = deviceMemory.map();
+            const auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
             const auto gatherDeviceData = [devPtr]<typename Vector>(size_t offset, const Vector & v)
             {
@@ -483,7 +487,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
-                auto dst = Traits::Allocator<NodeType>::pointer(utils::safeCast<NodeType *>(devPtr + nodeOffset));
+                const auto dst = Traits::Allocator<NodeType>::pointer(utils::safeCast<NodeType *>(devPtr + nodeOffset));
                 thrust::uninitialized_copy_n(node, nodeCount, dst);
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);
@@ -517,49 +521,6 @@ scene_data::SceneDataPtr Tree::getSceneData() const
     return impl_->sceneData.lock();
 }
 
-bool Tree::isEmpty() const
-{
-    return !impl_->fd;
-}
-
-utils::Fd Tree::getFd() &&
-{
-    ASSERT(!isEmpty());
-    utils::Fd fd = std::move(impl_->fd).value();
-    impl_->fd.reset();
-    return fd;
-}
-
-utils::Fd Tree::cloneFd() const &
-{
-    ASSERT(!isEmpty());
-    return impl_->fd.value().clone();
-}
-
-size_t Tree::getDataSize() const
-{
-    ASSERT(impl_->dataSize > 0);
-    return impl_->dataSize;
-}
-
-size_t Tree::getDataAlignment() const
-{
-    ASSERT(impl_->dataAlignment > 0);
-    return impl_->dataAlignment;
-}
-
-size_t Tree::getAllocationSize() const
-{
-    ASSERT(impl_->allocationSize > 0);
-    return impl_->allocationSize;
-}
-
-size_t Tree::getAllocationAlignment() const
-{
-    ASSERT(impl_->allocationAlignment > 0);
-    return impl_->allocationAlignment;
-}
-
 size_t Tree::getTriangleCount() const
 {
     ASSERT(impl_->triangleCount > 0);
@@ -582,6 +543,63 @@ size_t Tree::getNodeCount() const
 {
     ASSERT(impl_->nodeCount > 0);
     return impl_->nodeCount;
+}
+
+size_t Tree::getDataSize() const
+{
+    ASSERT(impl_->dataSize > 0);
+    return impl_->dataSize;
+}
+
+size_t Tree::getDataAlignment() const
+{
+    ASSERT(impl_->dataAlignment > 0);
+    return impl_->dataAlignment;
+}
+
+size_t Tree::getAllocationSize() const
+{
+    ASSERT(impl_->allocationSize > 0);
+    return impl_->allocationSize;
+}
+
+size_t Tree::getTriangleOffset() const
+{
+    return impl_->triangleOffset;
+}
+
+size_t Tree::getPolygonOffset() const
+{
+    return impl_->polygonOffset;
+}
+
+size_t Tree::getNodeOffset() const
+{
+    return impl_->nodeOffset;
+}
+
+size_t Tree::getNodeParentOffset() const
+{
+    return impl_->nodeParentOffset;
+}
+
+bool Tree::isEmpty() const
+{
+    return !impl_->fd;
+}
+
+utils::Fd Tree::getFd() &&
+{
+    ASSERT(!isEmpty());
+    utils::Fd fd = std::move(impl_->fd).value();
+    impl_->fd.reset();
+    return fd;
+}
+
+utils::Fd Tree::cloneFd() const &
+{
+    ASSERT(!isEmpty());
+    return impl_->fd.value().clone();
 }
 
 struct Builder::Impl : utils::OneTime<Impl>

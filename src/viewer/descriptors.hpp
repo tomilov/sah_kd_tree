@@ -28,7 +28,7 @@ using DescriptorBufferData = std::variant<std::monostate, vk::Sampler, vk::Descr
 
 using DescriptorData = std::variant<DescriptorSetData, DescriptorBufferData>;
 
-using DescriptorInfo = std::tuple<std::string /* bindingName */, vk::DescriptorType, DescriptorData>;
+using DescriptorInfo = std::tuple<engine::DescriptorBindingNameAndType, DescriptorData>;
 using DescriptorInfos = std::vector<DescriptorInfo>;
 
 using DescriptorBuffer = engine::Buffer<std::byte>;

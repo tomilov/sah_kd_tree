@@ -16,13 +16,21 @@ struct Tree::Impl
 {
     std::string name;
     const engine::Context & context;
-    const builder::TreeWeakPtr builderTree;
-    const vk::DeviceSize dataSize;
-    const vk::DeviceSize allocationSize;
+    builder::TreeWeakPtr builderTree;
+
     const uint32_t triangleCount;
-    const std::vector<size_t> layerSizes;
+    std::vector<size_t> layerSizes;
     const uint32_t polygonCount;
     const uint32_t nodeCount;
+
+    const vk::DeviceSize dataSize;
+    const vk::DeviceSize dataAlignment;
+    const vk::DeviceSize allocationSize;
+
+    const vk::DeviceSize triangleOffset;
+    const vk::DeviceSize polygonOffset;
+    const vk::DeviceSize nodeOffset;
+    const vk::DeviceSize nodeParentOffset;
 
     vk::UniqueDeviceMemory deviceMemory;
     vk::UniqueBuffer buffer;  // buffer should be destructed first
@@ -37,21 +45,13 @@ Tree::Tree(std::string_view name, const engine::Context & context, const builder
     ASSERT(builderTree);
 }
 
+Tree::Tree(Tree &&) noexcept = default;
+
+Tree::~Tree() = default;
+
 builder::TreePtr Tree::getBuilderTree() const
 {
     return impl_->builderTree.lock();
-}
-
-vk::DeviceSize Tree::getDataSize() const
-{
-    ASSERT(impl_->dataSize > 0);
-    return impl_->dataSize;
-}
-
-vk::DeviceSize Tree::getAllocationSize() const
-{
-    ASSERT(impl_->allocationSize > 0);
-    return impl_->allocationSize;
 }
 
 uint32_t Tree::getTriangleCount() const
@@ -78,24 +78,65 @@ uint32_t Tree::getNodeCount() const
     return impl_->nodeCount;
 }
 
+vk::DeviceSize Tree::getDataSize() const
+{
+    ASSERT(impl_->dataSize > 0);
+    return impl_->dataSize;
+}
+
+vk::DeviceSize Tree::getDataAlignment() const
+{
+    ASSERT(impl_->dataAlignment > 0);
+    return impl_->dataAlignment;
+}
+
+vk::DeviceSize Tree::getAllocationSize() const
+{
+    ASSERT(impl_->allocationSize > 0);
+    return impl_->allocationSize;
+}
+
 vk::DeviceAddress Tree::getDeviceAddress() const &
 {
     ASSERT(impl_->deviceAddress != 0);
     return impl_->deviceAddress;
 }
 
-Tree::~Tree() = default;
+vk::DeviceAddress Tree::getTriangleAddress() const &
+{
+    return getDeviceAddress() + impl_->triangleOffset;
+}
+
+vk::DeviceAddress Tree::getPolygonAddress() const &
+{
+    return getDeviceAddress() + impl_->polygonOffset;
+}
+
+vk::DeviceAddress Tree::getNodeAddress() const &
+{
+    return getDeviceAddress() + impl_->nodeOffset;
+}
+
+vk::DeviceAddress Tree::getNodeParentAddress() const &
+{
+    return getDeviceAddress() + impl_->nodeParentOffset;
+}
 
 Tree::Impl::Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
     : name{name}
     , context{context}
     , builderTree{builderTree}
-    , dataSize{utils::autoCast(builderTree->getDataSize())}
-    , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
     , triangleCount{utils::autoCast(builderTree->getTriangleCount())}
     , layerSizes{builderTree->getLayerSizes()}
     , polygonCount{utils::autoCast(builderTree->getPolygonCount())}
     , nodeCount{utils::autoCast(builderTree->getNodeCount())}
+    , dataSize{utils::autoCast(builderTree->getDataSize())}
+    , dataAlignment{utils::autoCast(builderTree->getDataAlignment())}
+    , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
+    , triangleOffset{utils::autoCast(builderTree->getTriangleOffset())}
+    , polygonOffset{utils::autoCast(builderTree->getPolygonOffset())}
+    , nodeOffset{utils::autoCast(builderTree->getNodeOffset())}
+    , nodeParentOffset{utils::autoCast(builderTree->getNodeParentOffset())}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME), VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME " is not enabled");
@@ -192,6 +233,8 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
         .buffer = *buffer,
     };
     deviceAddress = device.getBufferAddress(bufferDeviceAddressInfo, context.getDispatcher());
+    ASSERT(dataAlignment > 0);
+    ASSERT_MSG((deviceAddress & (dataAlignment - 1)) == 0, "{:b} & {:b}", deviceAddress, dataAlignment - 1);
 }
 
 }  // namespace viewer

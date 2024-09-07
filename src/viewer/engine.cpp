@@ -27,9 +27,9 @@ using namespace std::string_view_literals;
 namespace viewer
 {
 
-std::string SceneResources::getBindingName()
+engine::DescriptorBindingNameAndType SceneResources::getBindingName()
 {
-    return "transformBuffer"s;
+    return {"transformBuffer"s, vk::DescriptorType::eStorageBuffer};
 }
 
 [[nodiscard]] DescriptorInfo SceneResources::getDescriptorInfo(bool descriptorBufferEnabled) const
@@ -50,7 +50,7 @@ std::string SceneResources::getBindingName()
             return DescriptorSetData{t.getDescriptorBufferInfo()};
         }
     };
-    return {getBindingName(), vk::DescriptorType::eStorageBuffer, getDescriptorData()};
+    return {getBindingName(), getDescriptorData()};
 }
 
 OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
@@ -231,9 +231,9 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     };
 }
 
-std::string DisplayResources::getBindingName()
+engine::DescriptorBindingNameAndType DisplayResources::getBindingName()
 {
-    return "display"s;
+    return {"display"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
 [[nodiscard]] DescriptorInfo DisplayResources::getDescriptorInfo(bool descriptorBufferEnabled) const
@@ -254,27 +254,27 @@ std::string DisplayResources::getBindingName()
             return DescriptorSetData{descriptorImageInfo};
         }
     };
-    return {getBindingName(), vk::DescriptorType::eCombinedImageSampler, getDescriptorData()};
+    return {getBindingName(), getDescriptorData()};
 }
 
-TreeFrameResources::TreeFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler)
+TraceFrameResources::TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler)
     : image{makeImage(context, imageSize)}
     , imageView{image.createImageView(vk::ImageViewType::e2D, kImageAspectMask)}
     , sampler{std::move(sampler)}
 {}
 
-engine::Image TreeFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
+engine::Image TraceFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
 {
     constexpr auto imageName = "tree render target"sv;
     return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask);
 }
 
-std::string TreeFrameResources::getBindingName()
+engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName()
 {
-    return "image"s;
+    return {"image"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
-DescriptorInfo TreeFrameResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabled) const
 {
     ASSERT(sampler);
     ASSERT(*sampler);
@@ -291,7 +291,7 @@ DescriptorInfo TreeFrameResources::getDescriptorInfo(bool descriptorBufferEnable
             return DescriptorSetData{descriptorImageInfo};
         }
     };
-    return {getBindingName(), vk::DescriptorType::eCombinedImageSampler, getDescriptorData()};
+    return {getBindingName(), getDescriptorData()};
 }
 
 Engine::Engine(const engine::Context & context, const Settings & settings)
@@ -583,7 +583,7 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
     return transformBuffer;
 }
 
-Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const
+Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<engine::DescriptorBindingNameAndType> & bindingNames, const DescriptorInfos & descriptorInfos) const
 {
     ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
     const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(bindingNames.at(0)));

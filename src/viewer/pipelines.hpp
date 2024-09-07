@@ -14,11 +14,11 @@
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <cstddef>
 #include <cstdint>
 
 namespace viewer
@@ -108,6 +108,8 @@ private:
 
 struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 {
+    static constexpr vk::PipelineBindPoint kPipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+
     std::shared_ptr<const Shaders> shaders;
     std::optional<engine::GraphicsPipeline> pipeline;
 
@@ -123,6 +125,8 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 
 struct ComputePipeline : utils::OneTime<ComputePipeline>
 {
+    static constexpr vk::PipelineBindPoint kPipelineBindPoint = vk::PipelineBindPoint::eCompute;
+
     std::shared_ptr<const Shaders> shaders;
     std::optional<engine::ComputePipeline> pipeline;
 

@@ -150,7 +150,7 @@ private:
 
     std::vector<vk::ExtensionProperties> extensionPropertyList;
     StringUnorderedSet extensions;
-    StringUnorderedMultiMap extensionLayers;
+    StringUnorderedMultiMap<const char *> extensionLayers;
     StringUnorderedSet enabledExtensionSet;
     std::vector<const char *> enabledExtensions;
 

@@ -95,8 +95,9 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
     writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
     const auto & setBindings = shaderStages->setBindings.at(set);
     INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorSetInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorSetInfos));
-    for (const auto & [symbol, descriptorType, descriptorData] : descriptorSetInfos) {
-        const auto * binding = setBindings.getBinding(symbol);
+    for (const auto & [nameAndType, descriptorData] : descriptorSetInfos) {
+        const auto & [symbol, descriptorType] = nameAndType;
+        const auto * binding = setBindings.getBinding(nameAndType);
         ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
         ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
         const auto & descriptorSetData = std::get<DescriptorSetData>(descriptorData);
@@ -190,8 +191,9 @@ void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
     auto mappedDescriptorSetBuffer = descriptorBuffer.map();
     auto descriptorSetBufferData = mappedDescriptorSetBuffer.data();
-    for (const auto & [symbol, descriptorType, descriptorData] : descriptorBufferInfos) {
-        const vk::DescriptorSetLayoutBinding * binding = setBindings.getBinding(symbol);
+    for (const auto & [nameAndType, descriptorData] : descriptorBufferInfos) {
+        const auto & [symbol, descriptorType] = nameAndType;
+        const vk::DescriptorSetLayoutBinding * binding = setBindings.getBinding(nameAndType);
         ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
         ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
         const auto & descriptorBufferData = std::get<DescriptorBufferData>(descriptorData);

@@ -472,12 +472,14 @@ void ShaderModuleReflection::reflect()
         for (uint32_t b = 0; b < bindingCount; ++b) {
             const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
-            auto descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : fmt::format("_{}", reflectDescriptorBinding->spirv_id);
-            INVARIANT(!descriptorSetLayoutBindings.contains(descriptorBindingName), "Duplicated descriptor binding name '{}'", descriptorBindingName);
-            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[descriptorBindingName];
+            auto descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : "";  // fmt::format("_{}", reflectDescriptorBinding->spirv_id)
+            const vk::DescriptorType descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
+            DescriptorBindingNameAndType descriptorBindingNameAndType{descriptorBindingName, descriptorType};
+            INVARIANT(!descriptorSetLayoutBindings.contains(descriptorBindingNameAndType), "Duplicated descriptor binding name '{}' and type {}", descriptorBindingName, descriptorType);
+            auto & descriptorSetLayoutBinding = descriptorSetLayoutBindings[std::move(descriptorBindingNameAndType)];
             descriptorSetLayoutBinding.binding = {
                 .binding = reflectDescriptorBinding->binding,
-                .descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type),
+                .descriptorType = descriptorType,
                 .descriptorCount = 1,  // ? reflectDescriptorBinding->count,
             };
             const auto & block = reflectDescriptorBinding->block;
@@ -564,24 +566,25 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
         auto & mergedBindings = setBindings[set];
         for (const auto & [bindingName, binding] : bindings) {
-            bool merged = false;
+            bool isMultistage = false;
             size_t b = 0;
             for (auto & mergedBinding : mergedBindings.bindings) {
                 if (binding.binding.binding == mergedBinding.binding) {
-                    INVARIANT(binding.binding.descriptorType == mergedBinding.descriptorType, "{} != {} (binding {})", binding.binding.descriptorType, mergedBinding.descriptorType, b);
-                    INVARIANT(binding.binding.descriptorCount == mergedBinding.descriptorCount, "{} != {} (binding {})", binding.binding.descriptorCount, mergedBinding.descriptorCount, b);
-                    INVARIANT(binding.binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {} (binding {})", fmt::ptr(binding.binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers), b);
+                    const auto & [n, t] = mergedBindings.bindingNames.at(b);
+                    INVARIANT(binding.binding.descriptorType == mergedBinding.descriptorType, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorType, mergedBinding.descriptorType, b, n, t);
+                    INVARIANT(binding.binding.descriptorCount == mergedBinding.descriptorCount, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorCount, mergedBinding.descriptorCount, b, n, t);
+                    INVARIANT(binding.binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {} (binding #{}: {}, {})", fmt::ptr(binding.binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers), b, n, t);
                     mergedBinding.stageFlags |= binding.binding.stageFlags;
-                    merged = true;
+                    isMultistage = true;
                     break;
                 }
                 ++b;
             }
-            if (!merged) {
+            if (!isMultistage) {
                 size_t index = std::size(mergedBindings.bindings);
                 mergedBindings.bindings.push_back(binding.binding);
                 mergedBindings.bindingIndices.emplace(bindingName, index);
-                mergedBindings.bindingNames.push_back(bindingName);
+                mergedBindings.bindingNames.push_back(std::move(bindingName));
             }
         }
     }
@@ -636,14 +639,15 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
     pushConstantRanges = mergePushConstantRanges(pushConstantRanges);
 }
 
-size_t ShaderStages::findSetByBindingName(const std::string & bindingName) const
+size_t ShaderStages::findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const
 {
     for (const auto & [set, setBindings] : setBindings) {
-        if (setBindings.bindingIndices.contains(bindingName)) {
+        if (setBindings.bindingIndices.contains(nameAndType)) {
             return set;
         }
     }
-    INVARIANT(false, "{}", bindingName);
+    const auto & [name, type] = nameAndType;
+    INVARIANT(false, "{} {}", name, type);
 }
 
 }  // namespace engine

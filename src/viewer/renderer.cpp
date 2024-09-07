@@ -225,15 +225,27 @@ struct DisplayPushConstants
 };
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
+struct TraceUniformBuffer
+{
+    glm::vec4 clearColor;
+
+    glm::uint treeDepthMax;
+    vk::DeviceAddress triangles;
+    vk::DeviceAddress polygons;
+    vk::DeviceAddress nodes;
+    vk::DeviceAddress nodeParents;
+};
+static_assert(std::is_standard_layout_v<TraceUniformBuffer>);
+
 #pragma pack(pop)
 
 struct UniformBufferResource final
 {
     engine::Buffer<UniformBuffer> uniformBuffer;
 
-    [[nodiscard]] static std::string getBindingName()
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName()
     {
-        return "uniformBuffer"s;
+        return {"uniformBuffer"s, vk::DescriptorType::eUniformBuffer};
     }
 
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
@@ -246,7 +258,36 @@ struct UniformBufferResource final
                 return viewer::DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
             }
         };
-        return {getBindingName(), vk::DescriptorType::eUniformBuffer, getDescriptorData()};
+        return {getBindingName(), getDescriptorData()};
+    }
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        utils::OneTime<UniformBufferResource>::checkTraits();
+    }
+};
+
+struct TraceSceneResources final
+{
+    Tree tree;
+    engine::Buffer<TraceUniformBuffer> uniformBuffer;
+
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName()
+    {
+        return {""s, vk::DescriptorType::eUniformBuffer};
+    }
+
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
+    {
+        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+        {
+            if (descriptorBufferEnabled) {
+                return DescriptorBufferData{uniformBuffer.getDescriptorAddressInfo()};
+            } else {
+                return viewer::DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
+            }
+        };
+        return {getBindingName(), getDescriptorData()};
     }
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -265,6 +306,17 @@ struct FrameResourcesAndDescriptors
         : resources{std::move(resources)}
         , directDescriptors{std::move(sceneDescriptors)}
         , displayDescriptors{std::move(displayDescriptors)}
+    {}
+};
+
+struct TraceSceneResourcesAndDescriptors
+{
+    TraceSceneResources resources;
+    Descriptors descriptors;
+
+    TraceSceneResourcesAndDescriptors(TraceSceneResources && resources, Descriptors && descriptors)
+        : resources{std::move(resources)}
+        , descriptors{std::move(descriptors)}
     {}
 };
 
@@ -502,6 +554,18 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     };
 }
 
+void fillTraceUniformBuffer(const FrameSettings & frameSettings, const Tree & tree, TraceUniformBuffer & uniformBuffer)
+{
+    uniformBuffer = {
+        .clearColor = frameSettings.clearColor,
+        .treeDepthMax = utils::autoCast(std::size(tree.getLayerSizes())),
+        .triangles = tree.getTriangleAddress(),
+        .polygons = tree.getPolygonAddress(),
+        .nodes = tree.getNodeAddress(),
+        .nodeParents = tree.getNodeParentAddress(),
+    };
+}
+
 [[nodiscard]] ScenePushConstants getScenePushConstants(const FrameSettings & frameSettings)
 {
     // conjugate?
@@ -538,6 +602,8 @@ vk::Extent2D FrameSettings::getFramebufferSize() const
 
 struct Renderer::Impl : utils::NonCopyable
 {
+    using DescriptorRefs = std::initializer_list<std::reference_wrapper<const Descriptors>>;
+
     std::string name;
     const engine::Context & context;
     const Engine & engine;
@@ -547,19 +613,20 @@ struct Renderer::Impl : utils::NonCopyable
 
     FrameSettings frameSettings;
     scene_data::SceneDataPtr sceneData;
-    std::optional<Tree> tree;
 
     FencePool fencePool{context};
 
     std::shared_ptr<GraphicsPipeline> directGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getSceneShaders());
     std::shared_ptr<GraphicsPipeline> offscreenGraphicsPipeline = std::make_shared<GraphicsPipeline>(engine.getPipelines().getDisplayShaders());
-    std::shared_ptr<ComputePipeline> traceComputePipeline;  // TODO:
 
     std::shared_ptr<const vk::UniqueSampler> sampler = makeSampler();
 
     std::shared_ptr<SceneResourcesAndDescriptors> sceneResourcesAndDescriptors;
     ResourceStack<std::shared_ptr<FrameResourcesAndDescriptors>> frameResourcesAndDescriptorsPool;
     std::shared_ptr<FrameResourcesAndDescriptors> frameResourcesAndDescriptors;
+
+    std::shared_ptr<TraceSceneResourcesAndDescriptors> traceSceneResourcesAndDescriptors;
+    std::shared_ptr<ComputePipeline> tracePipeline;
 
     std::shared_ptr<DisplayPool> displayPool;
 
@@ -582,7 +649,17 @@ struct Renderer::Impl : utils::NonCopyable
     void unsetTree();
     void setTree(builder::TreePtr builderTree);
 
-    void bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const;
+    [[nodiscard]] ComputePipeline makeTracePipeline(std::shared_ptr<const Shaders> shaders) const;
+
+    void bindPipeline(vk::CommandBuffer commandBuffer, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const;
+
+    template<typename Pipeline>
+    void bindPipeline(vk::CommandBuffer commandBuffer, const Pipeline & pipeline, DescriptorRefs descriptors, const std::byte * pushConstants) const
+    {
+        commandBuffer.bindPipeline(Pipeline::kPipelineBindPoint, pipeline.pipeline.value(), context.getDispatcher());
+        bindPipeline(commandBuffer, *pipeline.shaders, descriptors, pushConstants);
+    }
+
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass);
     void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -652,7 +729,7 @@ void Renderer::unsetTree()
 
 builder::TreePtr Renderer::getTree() const
 {
-    return impl_->tree ? impl_->tree.value().getBuilderTree() : nullptr;
+    return impl_->traceSceneResourcesAndDescriptors ? impl_->traceSceneResourcesAndDescriptors->resources.tree.getBuilderTree() : nullptr;
 }
 
 void Renderer::advance(uint32_t currentFrameSlot)
@@ -720,20 +797,45 @@ void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
 
 void Renderer::Impl::unsetTree()
 {
-    traceComputePipeline.reset();
-    tree.reset();
+    ASSERT(!traceSceneResourcesAndDescriptors == !tracePipeline);
+    if (!traceSceneResourcesAndDescriptors) {
+        return;
+    }
+    tracePipeline.reset();
+    traceSceneResourcesAndDescriptors.reset();
+    SPDLOG_INFO("{}: Tree is unset", name);
 }
 
 void Renderer::Impl::setTree(builder::TreePtr builderTree)
 {
     ASSERT(builderTree);
-    if (tree && (tree.value().getBuilderTree() == builderTree)) {
+    if (traceSceneResourcesAndDescriptors && (traceSceneResourcesAndDescriptors->resources.tree.getBuilderTree() == builderTree)) {
         return;
     }
-    tree.emplace(name, context, builderTree);
-    traceComputePipeline = std::make_shared<ComputePipeline>(engine.getPipelines().getTraceSahKdTreeShaders());
-    auto & pipeline = traceComputePipeline->initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled);
 
+    Tree tree{name, context, builderTree};
+
+    engine::Buffer<TraceUniformBuffer> uniformBuffer{engine.createUniformBuffer(sizeof(TraceUniformBuffer))};
+    fillTraceUniformBuffer(frameSettings, tree, uniformBuffer.map().at(0));
+
+    auto shaders = engine.getPipelines().getTraceSahKdTreeShaders();
+
+    TraceSceneResources traceSceneResources = {
+        .tree = std::move(tree),
+        .uniformBuffer = std::move(uniformBuffer),
+    };
+    auto descriptors = engine.makeDescriptors("trace"sv, shaders->getShaderStagesPtr(), traceSceneResources);
+    traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
+
+    SPDLOG_INFO("{}: Tree is set", name);
+
+    tracePipeline = std::make_shared<ComputePipeline>(makeTracePipeline(shaders));
+}
+
+ComputePipeline Renderer::Impl::makeTracePipeline(std::shared_ptr<const Shaders> shaders) const
+{
+    ComputePipeline computePipeline{std::move(shaders)};
+    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled);
     struct SpecializationData
     {
         const glm::uint kSubgroupSizeX;
@@ -745,7 +847,6 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
         .kSubgroupSizeY = 32,
     };
     pipeline.specializationInfo.setData<SpecializationData>(specializationData);
-
     const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
         {
             .constantID = 0,
@@ -764,16 +865,14 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
         },
     };
     pipeline.specializationInfo.setMapEntries(specializationMapEntries);
-
     pipeline.create();
+    return computePipeline;
 }
 
-void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline, std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors, const std::byte * pushConstants) const
+void Renderer::Impl::bindPipeline(vk::CommandBuffer commandBuffer, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const
 {
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.pipeline.value(), context.getDispatcher());
-
     constexpr uint32_t kFirstSet = 0;
-    vk::PipelineLayout pipelineLayout = pipeline.shaders->getPipelineLayout();
+    vk::PipelineLayout pipelineLayout = shaders.getPipelineLayout();
     if (engine.getSettings().descriptorBufferEnabled) {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
@@ -799,7 +898,7 @@ void Renderer::Impl::bindGraphicsPipeline(vk::CommandBuffer commandBuffer, const
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
-    for (const auto & pushConstantRange : pipeline.shaders->getShaderStages().pushConstantRanges) {
+    for (const auto & pushConstantRange : shaders.getShaderStages().pushConstantRanges) {
         commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, std::next(pushConstants, pushConstantRange.offset), context.getDispatcher());
     }
 }
@@ -809,12 +908,12 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     {
         ASSERT(frameResourcesAndDescriptors);
         ASSERT(sceneResourcesAndDescriptors);
-        std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors = {
+        DescriptorRefs descriptors = {
             std::cref(frameResourcesAndDescriptors->directDescriptors),
             std::cref(sceneResourcesAndDescriptors->descriptors),
         };
         ScenePushConstants scenePushConstants = getScenePushConstants(frameSettings);
-        bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&scenePushConstants));
+        bindPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&scenePushConstants));
     }
 
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
@@ -959,12 +1058,12 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
     {
         ASSERT(frameResourcesAndDescriptors->displayDescriptors);
         ASSERT(displayResourcesAndDescriptors);
-        std::initializer_list<std::reference_wrapper<const Descriptors>> descriptors = {
+        DescriptorRefs descriptors = {
             std::cref(frameResourcesAndDescriptors->displayDescriptors.value()),
             std::cref(displayResourcesAndDescriptors->descriptors),
         };
         DisplayPushConstants displayPushConstants = getDisplayPushConstants(frameSettings);
-        bindGraphicsPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants));
+        bindPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&displayPushConstants));
     }
 
     {

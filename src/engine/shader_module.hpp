@@ -6,6 +6,7 @@
 #include <engine/utils.hpp>
 #include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/hash.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -17,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -32,6 +34,8 @@ struct ShaderModule;
 
 namespace engine
 {
+
+using DescriptorBindingNameAndType = std::tuple<std::string, vk::DescriptorType>;
 
 struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
 {
@@ -92,7 +96,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleR
         size_t size = 0;
     };
 
-    std::unordered_map<uint32_t /* set */, std::unordered_map<std::string, DescriptorSetLayoutBinding>> descriptorSetLayoutSetBindings;
+    std::unordered_map<uint32_t /* set */, std::unordered_map<DescriptorBindingNameAndType, DescriptorSetLayoutBinding, utils::Hash<DescriptorBindingNameAndType>>> descriptorSetLayoutSetBindings;
     std::optional<vk::PushConstantRange> pushConstantRange;
 
     ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName);
@@ -126,16 +130,21 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     {
         uint32_t setIndex = std::numeric_limits<uint32_t>::max();
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        std::unordered_map<std::string, size_t> bindingIndices;
-        std::vector<std::string> bindingNames;
+        std::unordered_map<DescriptorBindingNameAndType, size_t, utils::Hash<DescriptorBindingNameAndType>> bindingIndices;
+        std::vector<DescriptorBindingNameAndType> bindingNames;
 
-        const vk::DescriptorSetLayoutBinding * getBinding(const std::string & variableName) const
+        [[nodiscard]] const vk::DescriptorSetLayoutBinding * getBinding(const DescriptorBindingNameAndType & nameAndType) const &
         {
-            auto bindingIndex = bindingIndices.find(variableName);
+            auto bindingIndex = bindingIndices.find(nameAndType);
             if (bindingIndex == std::cend(bindingIndices)) {
                 return nullptr;
             }
             return &bindings.at(bindingIndex->second);
+        }
+
+        [[nodiscard]] const vk::DescriptorSetLayoutBinding * getBinding(const std::string & variableName, vk::DescriptorType descriptorType) const &
+        {
+            return getBinding(DescriptorBindingNameAndType{variableName, descriptorType});
         }
     };
 
@@ -158,7 +167,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     void add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
-    size_t findSetByBindingName(const std::string & bindingName) const;
+    size_t findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const;
 
 private:
     const Context & context;

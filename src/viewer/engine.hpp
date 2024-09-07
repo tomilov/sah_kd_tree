@@ -16,7 +16,6 @@
 
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include <cstddef>
@@ -38,7 +37,7 @@ struct SceneResources final
     std::optional<engine::Buffer<scene_data::VertexAttributes>> vertexBuffer;
     std::optional<engine::Buffer<void>> indexBuffer;
 
-    [[nodiscard]] static std::string getBindingName();
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -115,7 +114,7 @@ struct DisplayResources final : utils::OneTime<DisplayResources>
         , sampler{std::move(sampler)}
     {}
 
-    [[nodiscard]] static std::string getBindingName();
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -124,7 +123,7 @@ struct DisplayResources final : utils::OneTime<DisplayResources>
     }
 };
 
-struct TreeFrameResources final : utils::OneTime<TreeFrameResources>
+struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
 {
     static constexpr vk::ImageUsageFlags kImageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled;
     static constexpr vk::ImageAspectFlags kImageAspectMask = vk::ImageAspectFlagBits::eColor;
@@ -135,11 +134,11 @@ struct TreeFrameResources final : utils::OneTime<TreeFrameResources>
     vk::UniqueImageView imageView;
     std::shared_ptr<const vk::UniqueSampler> sampler;
 
-    TreeFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler);
+    TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler);
 
     [[nodiscard]] static engine::Image makeImage(const engine::Context & context, const vk::Extent2D & imageSize);
 
-    [[nodiscard]] static std::string getBindingName();
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -203,7 +202,7 @@ private:
     std::optional<builder::Builder> builder;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<std::string> & bindingNames, const DescriptorInfos & descriptorInfos) const;
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<engine::DescriptorBindingNameAndType> & bindingNames, const DescriptorInfos & descriptorInfos) const;
 };
 
 }  // namespace viewer
