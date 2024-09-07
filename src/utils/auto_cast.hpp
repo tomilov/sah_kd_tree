@@ -4,6 +4,7 @@
 
 #include <bit>
 #include <limits>
+#include <source_location>
 #include <type_traits>
 #include <utility>
 
@@ -42,9 +43,9 @@ constexpr bool inRange(const From & value) noexcept
 }
 
 template<typename To, typename From>
-constexpr To convertIfInRange(From && value)
+constexpr To convertIfInRange(From && value, const std::source_location & sourceLocation = std::source_location::current())
 {
-    INVARIANT(inRange<To>(value), "Unable to convert");
+    INVARIANT_SRCLOC(inRange<To>(value), sourceLocation, "Unable to convert");
     return static_cast<To>(std::forward<From>(value));
 }
 
@@ -52,8 +53,9 @@ template<typename Source>
 class autoCast
 {
 public:
-    constexpr explicit autoCast(Source && source) noexcept
+    constexpr explicit autoCast(Source && source, const std::source_location & sourceLocation = std::source_location::current()) noexcept
         : source{source}
+        , sourceLocation{sourceLocation}
     {}
 
     template<typename Destination>
@@ -66,10 +68,10 @@ public:
             if constexpr (std::is_enum_v<Destination>) {
                 using SourceUnderlyingType = std::underlying_type_t<S>;
                 using DestinationUnderlyingType = std::underlying_type_t<Destination>;
-                return static_cast<Destination>(convertIfInRange<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source)));
+                return static_cast<Destination>(convertIfInRange<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source), sourceLocation));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<Destination, bool>);
-                return convertIfInRange<Destination>(source);
+                return convertIfInRange<Destination>(source, sourceLocation);
             } else {
                 static_assert(!std::is_pointer_v<Destination>);
                 return static_cast<Destination>(source);
@@ -77,21 +79,21 @@ public:
         } else if constexpr (std::is_arithmetic_v<S>) {
             if constexpr (std::is_enum_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
-                return static_cast<Destination>(convertIfInRange<std::underlying_type_t<Destination>>(source));
+                return static_cast<Destination>(convertIfInRange<std::underlying_type_t<Destination>>(source, sourceLocation));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
-                return convertIfInRange<Destination>(source);
+                return convertIfInRange<Destination>(source, sourceLocation);
             } else if constexpr (std::is_pointer_v<Destination>) {
                 static_assert(!std::is_same_v<S, bool>);
                 static_assert(!std::is_function_v<std::remove_pointer_t<Destination>>);
-                return std::bit_cast<Destination>(convertIfInRange<uintptr_t>(source));
+                return std::bit_cast<Destination>(convertIfInRange<uintptr_t>(source, sourceLocation));
             } else {
                 return static_cast<Destination>(source);
             }
         } else if constexpr (std::is_pointer_v<S>) {
             if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<Destination, bool>);
-                return convertIfInRange<Destination>(std::bit_cast<uintptr_t>(source));
+                return convertIfInRange<Destination>(std::bit_cast<uintptr_t>(source), sourceLocation);
             } else if constexpr (std::is_pointer_v<Destination>) {
                 if constexpr (std::is_function_v<std::remove_pointer_t<S>>) {
                     static_assert(std::is_function_v<std::remove_pointer_t<Destination>>);
@@ -112,15 +114,16 @@ public:
 
 private:
     Source & source;
+    std::source_location sourceLocation;
 };
 
 template<typename Source>
 autoCast(Source && source) -> autoCast<Source>;
 
 template<typename Destination, typename Source>
-constexpr Destination safeCast(Source && source)
+constexpr Destination safeCast(Source && source, const std::source_location & sourceLocation = std::source_location::current())
 {
-    return autoCast<Source>{std::forward<Source>(source)}.operator Destination();
+    return autoCast<Source>{std::forward<Source>(source), sourceLocation}.operator Destination();
 }
 
 }  // namespace utils

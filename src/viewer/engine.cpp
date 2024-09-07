@@ -231,12 +231,12 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     };
 }
 
-engine::DescriptorBindingNameAndType DisplayResources::getBindingName()
+engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
 {
     return {"display"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
-[[nodiscard]] DescriptorInfo DisplayResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+[[nodiscard]] DescriptorInfo DrawOffscreenResources::getDescriptorInfo(bool descriptorBufferEnabled) const
 {
     ASSERT(sampler);
     ASSERT(*sampler);
@@ -269,12 +269,16 @@ engine::Image TraceFrameResources::makeImage(const engine::Context & context, co
     return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask);
 }
 
-engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName()
+engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool target)
 {
-    return {"image"s, vk::DescriptorType::eCombinedImageSampler};
+    if (target) {
+        return {"target"s, vk::DescriptorType::eStorageImage};
+    } else {
+        return {"display"s, vk::DescriptorType::eCombinedImageSampler};
+    }
 }
 
-DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabled, bool target) const
 {
     ASSERT(sampler);
     ASSERT(*sampler);
@@ -291,7 +295,7 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
             return DescriptorSetData{descriptorImageInfo};
         }
     };
-    return {getBindingName(), getDescriptorData()};
+    return {getBindingName(target), getDescriptorData()};
 }
 
 Engine::Engine(const engine::Context & context, const Settings & settings)
@@ -542,14 +546,19 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
     };
 }
 
-Descriptors Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const
+Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const DescriptorInfos & descriptorInfos) const
 {
-    return makeDescriptors("scene"sv, std::move(shaderStages), sceneResources);
-}
-
-Descriptors Engine::makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const
-{
-    return makeDescriptors("display"sv, std::move(shaderStages), displayResources);
+    const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(std::get<0>(descriptorInfos.at(0))));
+    auto shaderBindingName = std::cbegin(shaderStages->setBindings.at(set).bindingNames);
+    for (const auto & [name, data] : descriptorInfos) {
+        if (*shaderBindingName != name) {
+            INVARIANT(false, "{} ^ {}", *shaderBindingName, name);
+        }
+        ++shaderBindingName;
+    }
+    Descriptors descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
+    descriptors.fill(descriptorInfos);
+    return descriptors;
 }
 
 auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>
@@ -581,19 +590,6 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
     }
 
     return transformBuffer;
-}
-
-Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<engine::DescriptorBindingNameAndType> & bindingNames, const DescriptorInfos & descriptorInfos) const
-{
-    ASSERT_MSG(std::size(bindingNames) == std::size(descriptorInfos), "{} ^ {}", std::size(bindingNames), std::size(descriptorInfos));
-    const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(bindingNames.at(0)));
-    const auto & shaderBindingNames = shaderStages->setBindings.at(set).bindingNames;
-    if (!std::equal(std::cbegin(bindingNames), std::cend(bindingNames), std::cbegin(shaderBindingNames))) {
-        INVARIANT(false, "{} ^ {}", bindingNames, shaderBindingNames);
-    }
-    Descriptors descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
-    descriptors.fill(descriptorInfos);
-    return descriptors;
 }
 
 }  // namespace viewer

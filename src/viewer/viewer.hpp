@@ -35,7 +35,7 @@ class SceneSettings : public QObject
     Q_PROPERTY(EngineWrapper * engine MEMBER engineWrapper NOTIFY engineChanged REQUIRED)
     Q_PROPERTY(TaskQueue * taskQueue MEMBER taskQueue NOTIFY taskQueueChanged REQUIRED)
 
-    Q_PROPERTY(QUrl url MEMBER url NOTIFY urlChanged)
+    Q_PROPERTY(QUrl url MEMBER url NOTIFY urlChanged RESET resetUrl)
 
     Q_PROPERTY(QVector3D sceneAabbMin READ getSceneAabbMin NOTIFY sceneChanged STORED false)
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneChanged STORED false)
@@ -90,6 +90,9 @@ Q_SIGNALS:
     void treeChanged();
     void treeStatusChanged();
     void treeSettingsChanged();
+
+public Q_SLOTS:
+    void resetUrl();
 
 private Q_SLOTS:
     void updateScene();

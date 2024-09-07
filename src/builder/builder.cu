@@ -385,7 +385,7 @@ struct Tree::Impl : utils::OneTime<Impl>
     size_t gatherSize(size_t count)
     {
         constexpr size_t kElementSize = sizeof(T);
-        constexpr size_t kElementAlignment = size_t{1} << std::countr_zero(kElementSize);
+        constexpr size_t kElementAlignment = static_cast<size_t>(1) << std::countr_zero(kElementSize);
         if (dataAlignment < kElementAlignment) {
             dataAlignment = kElementAlignment;
         }

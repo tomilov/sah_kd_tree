@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include <cstddef>
@@ -104,12 +105,12 @@ struct Framebuffer final
     }
 };
 
-struct DisplayResources final : utils::OneTime<DisplayResources>
+struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
 {
     Framebuffer framebuffer;
     std::shared_ptr<const vk::UniqueSampler> sampler;
 
-    DisplayResources(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler)
+    DrawOffscreenResources(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler)
         : framebuffer{Framebuffer::make(context, framebufferSize, offscreenRenderPass)}
         , sampler{std::move(sampler)}
     {}
@@ -138,8 +139,8 @@ struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
 
     [[nodiscard]] static engine::Image makeImage(const engine::Context & context, const vk::Extent2D & imageSize);
 
-    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
+    [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName(bool target);
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled, bool target) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -184,14 +185,13 @@ public:
 
     [[nodiscard]] SceneResources makeResources(const scene_data::SceneData & sceneData) const;
 
-    template<typename Resource>
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource) const
-    {
-        return makeDescriptors(name, std::move(shaderStages), {resource.getBindingName()}, {resource.getDescriptorInfo(settings.descriptorBufferEnabled)});
-    }
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const DescriptorInfos & descriptorInfos) const;
 
-    [[nodiscard]] Descriptors makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const SceneResources & sceneResources) const;
-    [[nodiscard]] Descriptors makeDescriptors(std::shared_ptr<const engine::ShaderStages> shaderStages, const DisplayResources & displayResources) const;
+    template<typename Resource, typename... Args>
+    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource, Args &&... args) const
+    {
+        return makeDescriptors(name, std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorBufferEnabled, std::forward<Args>(args)...)});
+    }
 
 private:
     const engine::Context & context;
@@ -202,7 +202,6 @@ private:
     std::optional<builder::Builder> builder;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const std::vector<engine::DescriptorBindingNameAndType> & bindingNames, const DescriptorInfos & descriptorInfos) const;
 };
 
 }  // namespace viewer

@@ -12,7 +12,7 @@
 namespace utils
 {
 
-void vAssertFailed(bool assert, const char * expression, spdlog::source_loc sourceLoc, fmt::string_view format, fmt::format_args args)
+void vAssertFailed(bool assert, const char * expression, std::source_location sourceLocation, fmt::string_view format, fmt::format_args args)
 {
     std::string errorMessage;
     if (std::size(format) == 0) {
@@ -20,7 +20,8 @@ void vAssertFailed(bool assert, const char * expression, spdlog::source_loc sour
     } else {
         errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation: {}"), expression, fmt::vformat(format, args));
     }
-    spdlog::log(sourceLoc, spdlog::level::critical, "{}", errorMessage);
+    spdlog::source_loc srcLoc{sourceLocation.file_name(), static_cast<int>(sourceLocation.line()), sourceLocation.function_name()};
+    spdlog::log(srcLoc, spdlog::level::critical, "{}", errorMessage);
     if (assert) {
         std::abort();
     } else {

@@ -155,6 +155,15 @@ int SceneSettings::getDepth() const &
     return utils::autoCast(tree->getLayerSizes().size());
 }
 
+void SceneSettings::resetUrl()
+{
+    if (url.isEmpty()) {
+        return;
+    }
+    url.clear();
+    Q_EMIT urlChanged();
+}
+
 void SceneSettings::updateScene()
 {
     Q_CHECK_PTR(sceneFutureWatcher);

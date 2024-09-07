@@ -219,7 +219,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
     // transfers ownership of the file descriptor
     // from the application to the Vulkan implementation.
     // So release it
-    std::ignore = std::move(fd).release();
+    std::ignore = std::move(fd).releaseFd();
     context.getDevice().setDebugUtilsObjectName(*deviceMemory, name);
 
     vk::BindBufferMemoryInfo bindBufferMemoryInfo = {

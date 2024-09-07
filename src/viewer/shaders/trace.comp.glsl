@@ -52,8 +52,6 @@ struct Frustum
 
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
-    vec4 clearColor;
-
     uint treeDepthMax;
     Triangles triangles;
     Polygons polygons;
@@ -61,7 +59,7 @@ layout(set = 0, binding = 0, scalar) uniform UniformBuffer
     NodeParents nodeParents;
 };
 
-layout(set = 0, binding = 1, rgba8) uniform image2D image;
+layout(set = 1, binding = 0, rgba8) uniform image2D target;
 
 struct Ray
 {
@@ -174,7 +172,9 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
             Hit closerHit;
             closerHit.triangle = polygons.triangle[polygon];
             if (rayTriangleIntersect(ray, closerHit, triangles.triangle[closerHit.triangle], tNear, tFar)) {
-                hit = closerHit;
+                if (closerHit.dist < hit.dist) {
+                    hit = closerHit;
+                }
             }
         }
         if (hit.dist <= tMax) {
@@ -190,6 +190,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
 
 layout(push_constant, scalar) uniform PushConstants
 {
+    vec4 clearColor;
     vec3 pos;
     Frustum frustum;
     uint nodeIndex;
@@ -198,14 +199,12 @@ layout(push_constant, scalar) uniform PushConstants
 void main()
 {
     const uvec2 pixelCoords = gl_GlobalInvocationID.xy;
-    const ivec2 imageSize = imageSize(image);
+    const ivec2 imageSize = imageSize(target);
     if ((imageSize.x <= pixelCoords.x) || (imageSize.y <= pixelCoords.y)) {
         return;
     }
     const vec2 loc = (pixelCoords + 0.5f) / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
-    Ray ray;
-    ray.src = pos;
-    ray.dir = mix(
+    const vec3 dir = mix(
         mix(
             frustum.leftBottom,
             frustum.rightBottom,
@@ -218,6 +217,9 @@ void main()
         ),
         loc.y
     );
+    Ray ray;
+    ray.src = pos;
+    ray.dir = normalize(dir);
     Hit hit;
     hit.dist = 0.0f;
     vec4 color;
@@ -226,5 +228,5 @@ void main()
     } else {
         color = clearColor;
     }
-    imageStore(image, ivec2(pixelCoords), color);
+    imageStore(target, ivec2(pixelCoords), color);
 }

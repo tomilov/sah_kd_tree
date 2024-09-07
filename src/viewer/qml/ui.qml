@@ -237,7 +237,7 @@ C.ApplicationWindow {
                 Qt.callLater(tabBar.setCurrentIndex, currentIndex)
             } else {
                 let currentIndex = stackLayout.currentIndex
-                if (false) {
+                if (true) {
                     tabListModel.remove(currentIndex)
                     tabListModel.insert(currentIndex, listItem)
                 } else {
@@ -434,6 +434,11 @@ C.ApplicationWindow {
                     C.MenuItem {
                         text: qsTr("Renderdoc capture frame")
                         onTriggered: viewer.renderer.renderdocCaptureFrame()
+                    }
+                    C.MenuSeparator {}
+                    C.MenuItem {
+                        text: qsTr("Close scene")
+                        onTriggered: sceneSettings.resetUrl()
                     }
                 }
                 MouseArea {

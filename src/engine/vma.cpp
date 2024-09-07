@@ -718,6 +718,15 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->layout, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, layout, queueFamilyIndex)) {
         return false;
     }
+    if (impl_->queueFamilyIndex != queueFamilyIndex) {  // QFOT
+        if (stageMask == vk::PipelineStageFlagBits2::eBottomOfPipe) {
+            // release
+        } else {
+            // acquire
+            INVARIANT(impl_->stageMask == vk::PipelineStageFlagBits2::eBottomOfPipe, "{}", stageMask);
+            impl_->stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
+        }
+    }
     vk::ImageMemoryBarrier2 imageMemoryBarrier = {
         .srcStageMask = std::exchange(impl_->stageMask, stageMask),
         .srcAccessMask = std::exchange(impl_->accessMask, accessMask),

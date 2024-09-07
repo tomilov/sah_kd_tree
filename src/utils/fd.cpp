@@ -8,10 +8,16 @@
 namespace utils
 {
 
+Fd::Fd(int fd)
+    : fd{fd}
+{
+    INVARIANT(fd >= 0, "{}", fd);
+}
+
 Fd::Fd(Fd && file) noexcept
     : fd{std::exchange(file.fd, fd)}
 {
-    INVARIANT(fd >= 0, "");
+    INVARIANT(fd >= 0, "{}", fd);
 }
 
 Fd::~Fd()
@@ -24,7 +30,10 @@ Fd::~Fd()
 
 Fd Fd::dup(int fd)
 {
-    return Fd{::dup(fd)};
+    INVARIANT(fd >= 0, "{}", fd);
+    fd = ::dup(fd);
+    INVARIANT(fd >= 0, "{}", fd);
+    return Fd{fd};
 }
 
 int Fd::getFd() const
@@ -32,7 +41,7 @@ int Fd::getFd() const
     return fd;
 }
 
-int Fd::release() &&
+int Fd::releaseFd() &&
 {
     return std::exchange(fd, -1);
 }
@@ -41,9 +50,5 @@ Fd Fd::clone() const
 {
     return Fd::dup(fd);
 }
-
-Fd::Fd(int fd)
-    : fd{fd}
-{}
 
 }  // namespace utils
