@@ -156,7 +156,8 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 #else
     apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
 #endif
-    INVARIANT((VK_VERSION_MAJOR(apiVersion) == 1) && (VK_VERSION_MINOR(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
+    INVARIANT((vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}.{}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion),
+              vk::apiVersionVariant(apiVersion));
 
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.getDispatcher());
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
@@ -230,14 +231,14 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
         return false;
     };
     if (sah_kd_tree::kIsDebugBuild) {
-        if (!enableExtensionIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            SPDLOG_WARN(VK_EXT_DEBUG_UTILS_EXTENSION_NAME " instance extension is not available in debug build");
+        if (!enableExtensionIfAvailable(vk::EXTDebugUtilsExtensionName)) {
+            SPDLOG_WARN("{} instance extension is not available in debug build", vk::EXTDebugUtilsExtensionName);
         } else {
-            if (!enableExtensionIfAvailable(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
-                SPDLOG_WARN(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME " instance extension is not available in debug build");
+            if (!enableExtensionIfAvailable(vk::EXTDeviceAddressBindingReportExtensionName)) {
+                SPDLOG_WARN("{} instance extension is not available in debug build", vk::EXTDeviceAddressBindingReportExtensionName);
             }
         }
-        if (enableExtensionIfAvailable(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)) {
+        if (enableExtensionIfAvailable(vk::EXTLayerSettingsExtensionName)) {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_layer_settings.html
             // https://vulkan.lunarg.com/doc/view/1.3.283.0/linux/layer_configuration.html
             auto & layerSettingsCreateInfo = instanceCreateInfoChain.get<vk::LayerSettingsCreateInfoEXT>();
@@ -272,9 +273,9 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
                 layerSettings.push_back(layerSetting);
             };
             // setValues("validate_gpu_based", {"GPU_BASED_DEBUG_PRINTF"});  // "GPU_BASED_GPU_ASSISTED"
-            setValues("validate_sync", {vk::Bool32{VK_TRUE}});
-            // setValues("validate_best_practices", {vk::Bool32{VK_TRUE}});
-            // setValues("validate_best_practices_nvidia", {vk::Bool32{VK_TRUE}});
+            setValues("validate_sync", {vk::Bool32{vk::True}});
+            // setValues("validate_best_practices", {vk::Bool32{vk::True}});
+            // setValues("validate_best_practices_nvidia", {vk::Bool32{vk::True}});
 
             layerSettingsCreateInfo.setSettings(layerSettings);
         } else {
@@ -289,7 +290,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     }
 
     auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
-    if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+    if (enabledExtensionSet.contains(vk::EXTDebugUtilsExtensionName)) {
         static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback
             = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32
         {
@@ -301,7 +302,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;
         using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageType = MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance;
-        if (enabledExtensionSet.contains(VK_EXT_DEVICE_ADDRESS_BINDING_REPORT_EXTENSION_NAME)) {
+        if (enabledExtensionSet.contains(vk::EXTDeviceAddressBindingReportExtensionName)) {
             debugUtilsMessengerCreateInfo.messageType |= MessageType::eDeviceAddressBinding;
         }
         debugUtilsMessengerCreateInfo.pfnUserCallback = kUserCallback;
@@ -311,7 +312,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     applicationInfo.pApplicationName = this->applicationName.c_str();
     applicationInfo.applicationVersion = applicationVersion;
     applicationInfo.pEngineName = sah_kd_tree::kProjectName;
-    applicationInfo.engineVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+    applicationInfo.engineVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     applicationInfo.apiVersion = apiVersion;
 
     auto & instanceCreateInfo = instanceCreateInfoChain.get<vk::InstanceCreateInfo>();
@@ -327,7 +328,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     library.getDispatcher().init(*instanceHolder);
 #endif
 
-    if (enabledExtensionSet.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+    if (enabledExtensionSet.contains(vk::EXTDebugUtilsExtensionName)) {
         instanceCreateInfoChain.unlink<vk::DebugUtilsMessengerCreateInfoEXT>();
         debugUtilsMessengerCreateInfo.pNext = nullptr;
         debugUtilsMessenger = instanceHolder->createDebugUtilsMessengerEXTUnique(debugUtilsMessengerCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
@@ -390,7 +391,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
 {
     auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
     if (!spdlog::should_log(lvl)) {
-        return VK_FALSE;
+        return vk::False;
     }
     static const size_t messageSeverityMaxLength = getFlagBitsMaxNameLength<vk::DebugUtilsMessageSeverityFlagBitsEXT>();
     // auto objects = fmt::join(callbackData.pObjects, callbackData.pObjects + callbackData.objectCount, "; ");
@@ -424,7 +425,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");
     }
-    return VK_FALSE;
+    return vk::False;
 }
 
 vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
@@ -432,10 +433,10 @@ vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverity
     static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {};
     const uint32_t messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
     if (kMutedMessageIdNumbers.contains(messageIdNumber)) {
-        return VK_FALSE;
+        return vk::False;
     }
     if (shouldMuteDebugUtilsMessage(messageIdNumber)) {
-        return VK_FALSE;
+        return vk::False;
     }
     return userDebugUtilsCallback(messageSeverity, messageTypes, callbackData);
 }

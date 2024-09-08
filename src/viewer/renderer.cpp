@@ -160,7 +160,7 @@ inline void waitFence(const engine::Context & context, const Fence & fence)
     ASSERT(fence);
     ASSERT(*fence);
     auto device = context.getDevice().getDevice();
-    auto result = device.waitForFences(**fence, VK_TRUE, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+    auto result = device.waitForFences(**fence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
     INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
     device.resetFences(**fence, context.getDispatcher());
 }
@@ -203,9 +203,9 @@ private:
 
 struct UniformBuffer
 {
-    vk::Bool32 useOffscreenTexture = VK_FALSE;
-    vk::Bool32 discardInvisible = VK_FALSE;
-    vk::Bool32 wireFrame = VK_FALSE;
+    vk::Bool32 useOffscreenTexture = vk::False;
+    vk::Bool32 discardInvisible = vk::False;
+    vk::Bool32 wireFrame = vk::False;
     glm::vec3 position{0.0f};
     float width = 0.0f;
     float height = 0.0f;
@@ -504,7 +504,7 @@ public:
         if (waitIdle) {
             if (completionFence) {
                 ASSERT(*completionFence);
-                auto result = context.getDevice().getDevice().waitForFences(**completionFence, VK_TRUE, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+                auto result = context.getDevice().getDevice().waitForFences(**completionFence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
                 INVARIANT(result == vk::Result::eSuccess, "{}: {}", name, result);
             } else {
                 queue.waitIdle();
@@ -814,14 +814,14 @@ std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
         .addressModeV = vk::SamplerAddressMode::eRepeat,
         .addressModeW = vk::SamplerAddressMode::eRepeat,
         .mipLodBias = 0.0f,
-        .anisotropyEnable = VK_FALSE,
+        .anisotropyEnable = vk::False,
         .maxAnisotropy = maxSamplerAnisotropy,
-        .compareEnable = VK_FALSE,
+        .compareEnable = vk::False,
         .compareOp = vk::CompareOp::eNever,
         .minLod = 0.0f,
         .maxLod = 0.0f,
         .borderColor = vk::BorderColor::eFloatTransparentBlack,
-        .unnormalizedCoordinates = VK_FALSE,
+        .unnormalizedCoordinates = vk::False,
     };
     return std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
 }
@@ -1001,8 +1001,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             if (wrapper) {
                 return wrapper.value();
             } else {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == vk::True);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True);
                 return VK_NULL_HANDLE;
             }
         };
@@ -1016,8 +1016,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     if (sceneResources.indexBuffer) {
         indexBuffer = sceneResources.indexBuffer.value();
     } else {
-        ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
-        ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == VK_TRUE);
+        ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True);
+        ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == vk::True);
         // TODO: or draw non-indexed
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;

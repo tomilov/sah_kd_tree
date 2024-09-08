@@ -51,7 +51,7 @@ private:
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE);  // NOLINT: google-explicit-constructor
+    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize);  // NOLINT: google-explicit-constructor
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -112,7 +112,7 @@ private:
     MappedMemory<void> mappedMemory;
     const vk::DeviceSize count;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE)
+    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize)
         : mappedMemory{buffer, offset, size}
         , count{count}  // NOLINT: google-explicit-constructor
     {
@@ -151,12 +151,12 @@ public:
     [[nodiscard]] MappedMemory<void> map() const &;
 
     template<typename T>
-    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize count = 1, vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const &
+    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize count = 1, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize) const &
     {
         return {this, count, offset, size};
     }
 
-    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, vk::DependencyFlags dependencyFlags = {});
+    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
 
     void copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize dstAllocationOffset);
     void copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::DeviceSize size) const;
@@ -174,7 +174,7 @@ private:
 
     [[nodiscard]] void * getMappedData() const &;
 
-    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority);
+    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

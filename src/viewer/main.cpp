@@ -259,8 +259,8 @@ int main(int argc, char * argv[])
     if (kUseEngine) {
         vulkanInstance.setFlags(QVulkanInstance::Flag::NoDebugOutputRedirect);
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
-        requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XCB_SURFACE_EXTENSION_NAME});
-        constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+        requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {vk::KHRSurfaceExtensionName, vk::KHRXcbSurfaceExtensionName});
+        constexpr auto kApplicationVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
         engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt, nullptr, engine.getMutedMessageIdNumbers());
         vulkanInstance.setVkInstance(engine.getContext().getInstance().getInstance());
     } else {
@@ -340,7 +340,7 @@ int main(int argc, char * argv[])
         if (kUseEngine) {
             auto & context = engine.getContext();
             auto & requiredDeviceExtensions = context.requiredDeviceExtensions;
-            requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+            requiredDeviceExtensions.insert(std::cend(requiredDeviceExtensions), {vk::KHRSwapchainExtensionName});
             context.createDevice(QVulkanInstance::surfaceForWindow(applicationWindow));
             vk::PhysicalDevice physicalDevice = context.getPhysicalDevice();
             vk::Device device = context.getDevice();

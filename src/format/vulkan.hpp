@@ -117,12 +117,12 @@ struct fmt::formatter<vk::PushConstantRange> : fmt::formatter<fmt::string_view>
 };
 
 template<>
-struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_UUID_SIZE>> : fmt::formatter<fmt::string_view>
+struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, vk::UuidSize>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::ArrayWrapper1D<uint8_t, VK_UUID_SIZE> & uuid, FormatContext & ctx) const
+    auto format(const vk::ArrayWrapper1D<uint8_t, vk::UuidSize> & uuid, FormatContext & ctx) const
     {
-        static_assert(VK_UUID_SIZE == 16);
+        static_assert(vk::UuidSize == 16);
         auto data = uuid.data();
         return fmt::format_to(ctx.out(), "{:02x}-{:02x}-{:02x}-{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 6, ""), fmt::join(data + 6, data + 8, ""), fmt::join(data + 8, data + 10, ""),
                               fmt::join(data + 10, data + 16, ""));
@@ -130,12 +130,12 @@ struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_UUID_SIZE>> : fmt::formatte
 };
 
 template<>
-struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, VK_LUID_SIZE>> : fmt::formatter<fmt::string_view>
+struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, vk::LuidSize>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::ArrayWrapper1D<uint8_t, VK_LUID_SIZE> & luid, FormatContext & ctx) const
+    auto format(const vk::ArrayWrapper1D<uint8_t, vk::LuidSize> & luid, FormatContext & ctx) const
     {
-        static_assert(VK_LUID_SIZE == 8);
+        static_assert(vk::LuidSize == 8);
         auto data = luid.data();
         return fmt::format_to(ctx.out(), "{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 8, ""));
     }

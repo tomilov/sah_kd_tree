@@ -113,7 +113,7 @@ int main(int /*argc*/, char * /*argv*/[])
 {
     auto fileIo = std::make_unique<FileIo>();
     engine::Context context;
-    constexpr auto kApplicationVersion = VK_MAKE_VERSION(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+    constexpr auto kApplicationVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     engine::AllocationCallbacks allocationCallbacks;
     {
         using A = engine::Allocator<int, vk::SystemAllocationScope::eInstance>;

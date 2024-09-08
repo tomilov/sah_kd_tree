@@ -112,37 +112,37 @@ void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
     vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
 }
 
-auto MemoryAllocator::createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority) const & -> Buffer<void>
+auto MemoryAllocator::createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority) const & -> Buffer<void>
 {
-    return {name, *this, bufferCreateInfo, allocationType, minAlignment, priority};
+    return {name, *this, bufferCreateInfo, allocationType, minAlignment, queueFamilyIndex, priority};
 }
 
-auto MemoryAllocator::createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, float priority) const & -> Buffer<void>
+auto MemoryAllocator::createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority) const & -> Buffer<void>
 {
-    return createBuffer(name, bufferCreateInfo, AllocationType::kStaging, minAlignment, priority);
+    return createBuffer(name, bufferCreateInfo, AllocationType::kStaging, minAlignment, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, float priority) const & -> Buffer<void>
+auto MemoryAllocator::createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority) const & -> Buffer<void>
 {
-    return createBuffer(name, bufferCreateInfo, AllocationType::kReadback, minAlignment, priority);
+    return createBuffer(name, bufferCreateInfo, AllocationType::kReadback, minAlignment, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority) const & -> Image
+auto MemoryAllocator::createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const & -> Image
 {
-    return {name, *this, imageCreateInfo, allocationType, imageAspectMask, priority};
+    return {name, *this, imageCreateInfo, allocationType, imageAspectMask, queueFamilyIndex, priority};
 }
 
-auto MemoryAllocator::createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, float priority) const & -> Image
+auto MemoryAllocator::createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kStaging, imageAspectMask, priority);
+    return createImage(name, imageCreateInfo, AllocationType::kStaging, imageAspectMask, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, float priority) const & -> Image
+auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kReadback, imageAspectMask, priority);
+    return createImage(name, imageCreateInfo, AllocationType::kReadback, imageAspectMask, queueFamilyIndex, priority);
 }
 
-Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask, float priority) const &
+Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const &
 {
     vk::ImageCreateInfo imageCreateInfo = {
         .flags = {},
@@ -161,7 +161,8 @@ Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, c
         .sharingMode = vk::SharingMode::eExclusive,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
-    return createImage(name, imageCreateInfo, AllocationType::kAuto, imageAspectMask, priority);
+    imageCreateInfo.setQueueFamilyIndices(queueFamilyIndex);
+    return createImage(name, imageCreateInfo, AllocationType::kAuto, imageAspectMask, queueFamilyIndex, priority);
 }
 
 MemoryAllocator::Impl::Impl(const Context & context)
@@ -182,16 +183,16 @@ MemoryAllocator::Impl::Impl(const Context & context)
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT;
     allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    if (physicalDevice.isExtensionEnabled(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+    if (physicalDevice.isExtensionEnabled(vk::EXTMemoryBudgetExtensionName)) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
-    if (physicalDevice.isExtensionEnabled(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME)) {
+    if (physicalDevice.isExtensionEnabled(vk::EXTMemoryPriorityExtensionName)) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
     }
-    if (physicalDevice.isExtensionEnabled(VK_KHR_MAINTENANCE_4_EXTENSION_NAME)) {
+    if (vk::apiVersionMinor(physicalDevice.apiVersion) < 3) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE4_BIT;
     }
-    if (physicalDevice.isExtensionEnabled(VK_KHR_MAINTENANCE_5_EXTENSION_NAME)) {
+    if (physicalDevice.isExtensionEnabled(vk::KHRMaintenance5ExtensionName)) {
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT;
     }
 
@@ -280,7 +281,7 @@ void * MappedMemory<void>::data() const &
 
 vk::DeviceSize MappedMemory<void>::getSize() const
 {
-    if (impl_->size == VK_WHOLE_SIZE) {
+    if (impl_->size == vk::WholeSize) {
         return impl_->buffer->getSize() - impl_->offset;
     } else {
         return impl_->size;
@@ -336,13 +337,13 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
     std::unique_ptr<BufferResource> resource;
     VmaAllocationInfo2 allocationInfo = {};
     vk::MemoryPropertyFlags memoryPropertyFlags;
-    uint32_t memoryTypeIndex = VK_MAX_MEMORY_TYPES;
+    uint32_t memoryTypeIndex = vk::MaxMemoryTypes;
 
     vk::PipelineStageFlags2 stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
     vk::AccessFlags2 accessMask = vk::AccessFlagBits2::eNone;
-    uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
-    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority);
+    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -360,7 +361,7 @@ const vk::BufferCreateInfo & Buffer<void>::getBufferCreateInfo() const
 
 bool Buffer<void>::isDedicatedAllocation() const
 {
-    return impl_->allocationInfo.dedicatedMemory == VK_TRUE;
+    return impl_->allocationInfo.dedicatedMemory == vk::True;
 }
 
 vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
@@ -370,7 +371,7 @@ vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
 
 uint32_t Buffer<void>::getMemoryTypeIndex() const
 {
-    ASSERT(impl_->memoryTypeIndex != VK_MAX_MEMORY_TYPES);
+    ASSERT(impl_->memoryTypeIndex != vk::MaxMemoryTypes);
     return impl_->memoryTypeIndex;
 }
 
@@ -477,8 +478,8 @@ void * Buffer<void>::getMappedData() const &
     return impl_->allocationInfo.allocationInfo.pMappedData;
 }
 
-Buffer<void>::Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority)
-    : impl_{name, memoryAllocator, createInfo, allocationType, minAlignment, priority}
+Buffer<void>::Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority)
+    : impl_{name, memoryAllocator, createInfo, allocationType, minAlignment, queueFamilyIndex, priority}
 {}
 
 MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size)
@@ -489,7 +490,7 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offse
     ASSERT(buffer);
 
     INVARIANT(offset < buffer->getSize(), "{} ^ {}", offset, buffer->getSize());
-    if (size != VK_WHOLE_SIZE) {
+    if (size != vk::WholeSize) {
         INVARIANT(size + offset < buffer->getSize(), "{} + {} ^ {}", size, offset, buffer->getSize());
     }
 
@@ -498,7 +499,7 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offse
     vk::MemoryPropertyFlags memoryPropertyFlags = buffer->getMemoryPropertyFlags();
     INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        auto result = vk::Result{vmaInvalidateAllocation(allocator, allocation, 0, VK_WHOLE_SIZE)};
+        auto result = vk::Result{vmaInvalidateAllocation(allocator, allocation, 0, vk::WholeSize)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot invalidate memory: {}", result);
     }
     if (!buffer->impl_->allocationInfo.allocationInfo.pMappedData) {
@@ -526,17 +527,25 @@ MappedMemory<void>::Impl::~Impl()
     }
     vk::MemoryPropertyFlags memoryPropertyFlags = buffer->getMemoryPropertyFlags();
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
-        auto result = vk::Result{vmaFlushAllocation(allocator, allocation, 0, VK_WHOLE_SIZE)};
+        auto result = vk::Result{vmaFlushAllocation(allocator, allocation, 0, vk::WholeSize)};
         INVARIANT(result == vk::Result::eSuccess, "Cannot flush memory: {}", result);
     }
 }
 
-Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, float priority)
+Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority)
     : memoryAllocator{memoryAllocator}
     , createInfo{createInfo}
     , allocationType{allocationType}
     , minAlignment{minAlignment}
+    , queueFamilyIndex{queueFamilyIndex}
 {
+    const auto & context = memoryAllocator.impl_->context;
+    if (queueFamilyIndex < std::size(context.getPhysicalDevice().queueFamilyProperties2Chains)) {
+        if (createInfo.pQueueFamilyIndices) {
+            INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
+        }
+    }
+
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
     auto allocator = memoryAllocator.impl_->allocator;
@@ -547,7 +556,6 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
     INVARIANT(result == vk::Result::eSuccess, "{}", result);
     resource = std::make_unique<BufferResource>(name, allocator, buffer, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
-    const auto & context = memoryAllocator.impl_->context;
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
         context.getDevice().getDevice().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
@@ -624,14 +632,14 @@ struct Image::Impl final : utils::OneTime<Impl>
     std::unique_ptr<ImageResource> resource;
     VmaAllocationInfo2 allocationInfo = {};
     vk::MemoryPropertyFlags memoryPropertyFlags;
-    uint32_t memoryTypeIndex = VK_MAX_MEMORY_TYPES;
+    uint32_t memoryTypeIndex = vk::MaxMemoryTypes;
 
     mutable vk::PipelineStageFlags2 stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
     mutable vk::AccessFlags2 accessMask = vk::AccessFlagBits2::eNone;
     mutable vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-    mutable uint32_t queueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    mutable uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
-    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority);
+    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -649,7 +657,7 @@ const vk::ImageCreateInfo & Image::getImageCreateInfo() const
 
 bool Image::isDedicatedAllocation() const
 {
-    return impl_->allocationInfo.dedicatedMemory == VK_TRUE;
+    return impl_->allocationInfo.dedicatedMemory == vk::True;
 }
 
 vk::ImageAspectFlags Image::getImageAspectMask() const
@@ -719,10 +727,10 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
         return false;
     }
     if (impl_->queueFamilyIndex != queueFamilyIndex) {  // QFOT
-        if (stageMask == vk::PipelineStageFlagBits2::eBottomOfPipe) {
-            // release
-        } else {
-            // acquire
+        const size_t queueFamilyCount = std::size(impl_->memoryAllocator.impl_->context.getPhysicalDevice().queueFamilyProperties2Chains);
+        ASSERT(impl_->queueFamilyIndex < queueFamilyCount);
+        ASSERT(queueFamilyIndex < queueFamilyCount);
+        if (stageMask != vk::PipelineStageFlagBits2::eBottomOfPipe) {
             INVARIANT(impl_->stageMask == vk::PipelineStageFlagBits2::eBottomOfPipe, "{}", stageMask);
             impl_->stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
         }
@@ -740,9 +748,9 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
         .subresourceRange = {
             .aspectMask = impl_->imageAspectMask,
             .baseMipLevel = 0,
-            .levelCount = VK_REMAINING_MIP_LEVELS,
+            .levelCount = vk::RemainingMipLevels,
             .baseArrayLayer = 0,
-            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+            .layerCount = vk::RemainingArrayLayers,
         },
     };
     vk::DependencyInfo dependencyInfo = {
@@ -770,26 +778,34 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
         .subresourceRange = {
             .aspectMask = imageAspectMask,
             .baseMipLevel = 0,
-            .levelCount = VK_REMAINING_MIP_LEVELS,
+            .levelCount = vk::RemainingMipLevels,
             .baseArrayLayer = 0,
-            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+            .layerCount = vk::RemainingArrayLayers,
         },
     };
     const auto & context = impl_->memoryAllocator.impl_->context;
     return context.getDevice().getDevice().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 }
 
-Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority)
-    : impl_{name, memoryAllocator, createInfo, allocationType, imageAspectMask, priority}
+Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority)
+    : impl_{name, memoryAllocator, createInfo, allocationType, imageAspectMask, queueFamilyIndex, priority}
 {}
 
-Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, float priority)
+Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority)
     : memoryAllocator{memoryAllocator}
     , createInfo{createInfo}
     , allocationType{allocationType}
     , imageAspectMask{imageAspectMask}
     , layout{createInfo.initialLayout}
+    , queueFamilyIndex{queueFamilyIndex}
 {
+    const auto & context = memoryAllocator.impl_->context;
+    if (queueFamilyIndex < std::size(context.getPhysicalDevice().queueFamilyProperties2Chains)) {
+        if (createInfo.pQueueFamilyIndices) {
+            INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
+        }
+    }
+
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
     auto allocator = memoryAllocator.impl_->allocator;
@@ -800,7 +816,6 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
     INVARIANT(result == vk::Result::eSuccess, "{}", result);
     resource = std::make_unique<ImageResource>(name, allocator, image, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
-    const auto & context = memoryAllocator.impl_->context;
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
         context.getDevice().getDevice().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);

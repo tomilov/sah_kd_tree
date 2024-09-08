@@ -58,7 +58,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     vk::Format depthFormat = context.getPhysicalDevice().findDepthImageFormat(vk::ImageTiling::eOptimal);
     INVARIANT(depthFormat != vk::Format::eUndefined, "");
     vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
-    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == vk::False) {
         depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     } else {
         depthImageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
@@ -113,7 +113,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
         {
             {
-                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .srcSubpass = vk::SubpassExternal,
                 .dstSubpass = 0,
                 .dependencyFlags = vk::DependencyFlagBits::eByRegion,
                 .viewOffset = 0,
@@ -128,7 +128,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
         {
             {
                 .srcSubpass = 0,
-                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = vk::SubpassExternal,
                 .dependencyFlags = vk::DependencyFlagBits::eByRegion,
                 .viewOffset = 0,
             },
@@ -141,7 +141,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
         },
         {
             {
-                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .srcSubpass = vk::SubpassExternal,
                 .dstSubpass = 0,
                 .dependencyFlags = vk::DependencyFlagBits::eByRegion,
                 .viewOffset = 0,
@@ -156,7 +156,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
         {
             {
                 .srcSubpass = 0,
-                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass = vk::SubpassExternal,
                 .dependencyFlags = vk::DependencyFlagBits::eByRegion,
                 .viewOffset = 0,
             },
@@ -190,7 +190,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass)
 {
     vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
-    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == VK_FALSE) {
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == vk::False) {
         depthImageAspectMask |= vk::ImageAspectFlagBits::eStencil;
     }
 
@@ -266,7 +266,8 @@ TraceFrameResources::TraceFrameResources(const engine::Context & context, const 
 engine::Image TraceFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
 {
     constexpr auto imageName = "tree render target"sv;
-    return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask);
+    const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
+    return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask, queueFamilyIndex);
 }
 
 engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool target)
@@ -305,22 +306,22 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
 {
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesKHR>().indexTypeUint8 == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesKHR>().indexTypeUint8 == vk::False) {
             INVARIANT(false, "");
         }
     }
     if (settings.descriptorBufferEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == vk::False) {
             INVARIANT(false, "");
         }
     }
     if (settings.multiDrawIndirectEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == vk::False) {
             INVARIANT(false, "");
         }
     }
     if (settings.drawIndirectCountEnabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == VK_FALSE) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == vk::False) {
             INVARIANT(false, "");
         }
     }

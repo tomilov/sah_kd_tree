@@ -23,7 +23,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     ASSERT(renderPass);
 
     pipelineInputAssemblyStateCreateInfo.flags = {};
-    pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(VK_FALSE);
+    pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(vk::False);
     pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleList);
 
     pipelineViewportStateCreateInfo.flags = {};
@@ -32,12 +32,12 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
 
     pipelineRasterizationStateCreateInfo = {
         .flags = {},
-        .depthClampEnable = VK_FALSE,
-        .rasterizerDiscardEnable = VK_FALSE,
+        .depthClampEnable = vk::False,
+        .rasterizerDiscardEnable = vk::False,
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eNone,
         .frontFace = vk::FrontFace::eCounterClockwise,
-        .depthBiasEnable = VK_FALSE,
+        .depthBiasEnable = vk::False,
         .depthBiasConstantFactor = 0.0f,
         .depthBiasClamp = 0.0f,
         .depthBiasSlopeFactor = 0.0f,
@@ -45,7 +45,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     };
 
     pipelineColorBlendAttachmentState = {
-        .blendEnable = VK_TRUE,
+        .blendEnable = vk::True,
         .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
         .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
         .colorBlendOp = vk::BlendOp::eAdd,
@@ -58,20 +58,20 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     pipelineMultisampleStateCreateInfo = {
         .flags = {},
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
-        .sampleShadingEnable = VK_FALSE,
+        .sampleShadingEnable = vk::False,
         .minSampleShading = 0.0f,
         .pSampleMask = nullptr,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE,
+        .alphaToCoverageEnable = vk::False,
+        .alphaToOneEnable = vk::False,
     };
 
     pipelineDepthStencilStateCreateInfo = {
         .flags = {},
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
+        .depthTestEnable = vk::True,
+        .depthWriteEnable = vk::True,
         .depthCompareOp = vk::CompareOp::eLess,
-        .depthBoundsTestEnable = VK_FALSE,
-        .stencilTestEnable = VK_FALSE,
+        .depthBoundsTestEnable = vk::False,
+        .stencilTestEnable = vk::False,
         .front = {},
         .back = {},
         .minDepthBounds = engine::kMinDepth,
@@ -80,7 +80,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
 
     pipelineColorBlendStateCreateInfo = {
         .flags = {},
-        .logicOpEnable = VK_FALSE,
+        .logicOpEnable = vk::False,
         .logicOp = vk::LogicOp::eCopy,
         .blendConstants = {{0.0f, 0.0f, 0.0f, 0.0f}},
     };

@@ -120,7 +120,7 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
         case vk::DescriptorType::eStorageTexelBuffer: {
             const vk::BufferView & bufferView = std::get<vk::BufferView>(descriptorSetData);
             if (!bufferView) {
-                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True, "");
             }
             writeDescriptorSet.setTexelBufferView(bufferView);
             break;
@@ -150,7 +150,7 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
                 case vk::DescriptorType::eCombinedImageSampler:
                 case vk::DescriptorType::eSampledImage:
                 case vk::DescriptorType::eStorageImage: {
-                    INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE, "");
+                    INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True, "");
                     break;
                 }
                 default: {
@@ -204,7 +204,7 @@ void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer
         const auto setDescriptorInfo = [this, descriptorType, &data]<typename T>(const T & descriptorBufferData)
         {
             if constexpr (std::is_same_v<T, std::monostate>) {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == VK_TRUE);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True);
                 switch (descriptorType) {
                 case vk::DescriptorType::eSampledImage:
                 case vk::DescriptorType::eStorageImage:

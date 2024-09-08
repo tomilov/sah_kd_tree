@@ -37,12 +37,12 @@ Fences::Fences(std::string_view name, const Context & context, size_t count, vk:
 
 vk::Result Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
 {
-    return context.getDevice().getDevice().waitForFences(fences, waitAll ? VK_TRUE : VK_FALSE, duration.count(), context.getDispatcher());
+    return context.getDevice().getDevice().waitForFences(fences, waitAll ? vk::True : vk::False, duration.count(), context.getDispatcher());
 }
 
 vk::Result Fences::wait(size_t fenceIndex, std::chrono::nanoseconds duration)
 {
-    return context.getDevice().getDevice().waitForFences(fences.at(fenceIndex), VK_TRUE, duration.count(), context.getDispatcher());
+    return context.getDevice().getDevice().waitForFences(fences.at(fenceIndex), vk::True, duration.count(), context.getDispatcher());
 }
 
 void Fences::resetAll()

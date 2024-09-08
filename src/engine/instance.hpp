@@ -104,7 +104,7 @@ private:
 
     const DebugUtilsMessageMuteGuard debugUtilsMessageMuteGuard;
 
-    uint32_t apiVersion = VK_API_VERSION_1_0;
+    uint32_t apiVersion = vk::ApiVersion10;
 
     std::vector<vk::LayerProperties> layerProperties;
     StringUnorderedSet layers;

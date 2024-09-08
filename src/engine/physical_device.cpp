@@ -55,8 +55,8 @@ PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physi
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
 
     auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
-    SPDLOG_DEBUG("apiVersion {}.{}", VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion));
-    SPDLOG_DEBUG("driverVersion {}.{}", VK_VERSION_MAJOR(physicalDeviceProperties.driverVersion), VK_VERSION_MINOR(physicalDeviceProperties.driverVersion), VK_VERSION_PATCH(physicalDeviceProperties.driverVersion));
+    SPDLOG_DEBUG("apiVersion {}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion));
+    SPDLOG_DEBUG("driverVersion {}.{}", vk::apiVersionMajor(physicalDeviceProperties.driverVersion), vk::apiVersionMinor(physicalDeviceProperties.driverVersion), vk::apiVersionPatch(physicalDeviceProperties.driverVersion));
     SPDLOG_DEBUG("vendorID {:04x}", physicalDeviceProperties.vendorID);
     SPDLOG_DEBUG("deviceID {:04x}", physicalDeviceProperties.deviceID);
     SPDLOG_DEBUG("deviceType {}", physicalDeviceProperties.deviceType);
@@ -130,7 +130,7 @@ auto PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *
 
 uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface) const
 {
-    uint32_t bestMatchQueueFamily = VK_QUEUE_FAMILY_IGNORED;
+    uint32_t bestMatchQueueFamily = vk::QueueFamilyIgnored;
     vk::QueueFlags bestMatchQueueFalgs;
     vk::QueueFlags bestMatchExtraQueueFlags;
     size_t queueFamilyCount = std::size(queueFamilyProperties2Chains);
@@ -143,7 +143,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
             continue;
         }
         if (surface && (desiredQueueFlags & vk::QueueFlagBits::eGraphics)) {
-            if (VK_FALSE == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, context.getDispatcher())) {
+            if (vk::False == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, context.getDispatcher())) {
                 continue;
             }
         }
@@ -155,7 +155,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
             break;
         }
         using Bitset = std::bitset<std::numeric_limits<MaskType>::digits>;
-        if ((bestMatchQueueFamily == VK_QUEUE_FAMILY_IGNORED) || (Bitset(utils::safeCast<MaskType>(currentExtraQueueFlags)).count() < Bitset(utils::safeCast<MaskType>(bestMatchExtraQueueFlags)).count())) {
+        if ((bestMatchQueueFamily == vk::QueueFamilyIgnored) || (Bitset(utils::safeCast<MaskType>(currentExtraQueueFlags)).count() < Bitset(utils::safeCast<MaskType>(bestMatchExtraQueueFlags)).count())) {
             bestMatchExtraQueueFlags = currentExtraQueueFlags;
 
             bestMatchQueueFamily = queueFamilyIndex;
@@ -176,8 +176,8 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     }
 
     uint32_t apiVersion = properties.apiVersion;
-    if ((VK_VERSION_MAJOR(apiVersion) != 1) || (VK_VERSION_MINOR(apiVersion) != 3)) {
-        SPDLOG_DEBUG("{}: expected Vulkan device version 1.3, got {}.{}.{}", deviceName, VK_VERSION_MAJOR(apiVersion), VK_VERSION_MINOR(apiVersion), VK_VERSION_PATCH(apiVersion));
+    if ((vk::apiVersionMajor(apiVersion) != 1) || (vk::apiVersionMinor(apiVersion) != 3)) {
+        SPDLOG_DEBUG("{}: expected Vulkan device version 1.3, got {}.{}.{}", deviceName, vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion));
         return false;
     }
 
@@ -188,11 +188,11 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         ++i;
         bool isFeatureAvailable = true;
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
-            if (features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature == VK_FALSE) {
+            if (features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature == vk::False) {
                 isFeatureAvailable = false;
             }
         } else {
-            if (features2Chain.get<Features>().*feature == VK_FALSE) {
+            if (features2Chain.get<Features>().*feature == vk::False) {
                 isFeatureAvailable = false;
             }
         }
@@ -257,7 +257,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 
     const auto calculateQueueIndex = [this, deviceName](QueueCreateInfo & queueCreateInfo) -> bool
     {
-        if (queueCreateInfo.familyIndex == VK_QUEUE_FAMILY_IGNORED) {
+        if (queueCreateInfo.familyIndex == vk::QueueFamilyIgnored) {
             SPDLOG_DEBUG("{}", deviceName);
             return false;
         }
@@ -428,28 +428,28 @@ size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) cons
         return physicalDeviceDescriptorBufferProperties.storageImageDescriptorSize;
     }
     case vk::DescriptorType::eUniformTexelBuffer: {
-        if (robustBufferAccess == VK_FALSE) {
+        if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.uniformTexelBufferDescriptorSize;
         } else {
             return physicalDeviceDescriptorBufferProperties.robustUniformTexelBufferDescriptorSize;
         }
     }
     case vk::DescriptorType::eStorageTexelBuffer: {
-        if (robustBufferAccess == VK_FALSE) {
+        if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.storageTexelBufferDescriptorSize;
         } else {
             return physicalDeviceDescriptorBufferProperties.robustStorageTexelBufferDescriptorSize;
         }
     }
     case vk::DescriptorType::eUniformBuffer: {
-        if (robustBufferAccess == VK_FALSE) {
+        if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.uniformBufferDescriptorSize;
         } else {
             return physicalDeviceDescriptorBufferProperties.robustUniformBufferDescriptorSize;
         }
     }
     case vk::DescriptorType::eStorageBuffer: {
-        if (robustBufferAccess == VK_FALSE) {
+        if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.storageBufferDescriptorSize;
         } else {
             return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
@@ -510,7 +510,7 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
         }
         return memoryTypeIndex;
     }
-    return VK_MAX_MEMORY_TYPES;
+    return vk::MaxMemoryTypes;
 }
 
 PhysicalDevices::PhysicalDevices(const Context & context)

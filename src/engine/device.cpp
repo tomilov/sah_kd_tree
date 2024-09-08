@@ -23,11 +23,11 @@ Device::Device(std::string_view name, Library & library, std::span<const char * 
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
             vk::Bool32 value = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature;
             createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.*feature = value;
-            return value != VK_FALSE;
+            return value != vk::False;
         } else {
             vk::Bool32 value = features2Chain.get<Features>().*feature;
             createInfoChain.get<Features>().*feature = value;
-            return value != VK_FALSE;
+            return value != vk::False;
         }
     };
     const auto setFeatures = [&setFeature]<auto... features>(const PhysicalDevice::FeatureList<features...> *) -> bool

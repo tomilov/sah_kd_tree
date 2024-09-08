@@ -139,7 +139,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
     , nodeParentOffset{utils::autoCast(builderTree->getNodeParentOffset())}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
-    INVARIANT(physicalDevice.isExtensionEnabled(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME), VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME " is not enabled");
+    INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalFenceFdExtensionName), "{} is not enabled", vk::KHRExternalFenceFdExtensionName);
     utils::Fd fd = builderTree->cloneFd();
 
     const vk::Device device = context.getDevice().getDevice();
@@ -200,8 +200,8 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
         memoryAllocateFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
     }
     {
-        const bool requiresDedicatedAllocation = memoryDedicatedRequirements.requiresDedicatedAllocation != VK_FALSE;
-        const bool prefersDedicatedAllocation = memoryDedicatedRequirements.prefersDedicatedAllocation != VK_FALSE;
+        const bool requiresDedicatedAllocation = memoryDedicatedRequirements.requiresDedicatedAllocation != vk::False;
+        const bool prefersDedicatedAllocation = memoryDedicatedRequirements.prefersDedicatedAllocation != vk::False;
         const bool dedicatedOnly = (externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly) == vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly;
         SPDLOG_INFO("{}requiresDedicatedAllocation, {}prefersDedicatedAllocation, {}dedicatedOnly", requiresDedicatedAllocation ? "" : "not ", prefersDedicatedAllocation ? "" : "not ", dedicatedOnly ? "" : "not ");
         if (requiresDedicatedAllocation || prefersDedicatedAllocation || dedicatedOnly) {

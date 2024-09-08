@@ -487,7 +487,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
-                const auto dst = Traits::Allocator<NodeType>::pointer(utils::safeCast<NodeType *>(devPtr + nodeOffset));
+                const Traits::Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
                 thrust::uninitialized_copy_n(node, nodeCount, dst);
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);

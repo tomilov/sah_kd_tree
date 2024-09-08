@@ -25,7 +25,7 @@ namespace engine
 struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 {
     const std::string name;
-    uint32_t familyIndex = VK_QUEUE_FAMILY_IGNORED;
+    uint32_t familyIndex = vk::QueueFamilyIgnored;
     uint32_t index = std::numeric_limits<uint32_t>::max();
 
     explicit QueueCreateInfo(const std::string & name)
@@ -39,7 +39,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
                        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
                        vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceMaintenance5PropertiesKHR, vk::PhysicalDeviceMaintenance6PropertiesKHR>
         properties2Chain;
-    uint32_t apiVersion = VK_API_VERSION_1_0;
+    uint32_t apiVersion = vk::ApiVersion10;
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceDescriptorIndexingFeatures,
                        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
                        vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesKHR, vk::PhysicalDeviceMaintenance5FeaturesKHR,
@@ -57,7 +57,6 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceRobustness2FeaturesEXT::robustBufferAccess2,
         &vk::PhysicalDeviceRobustness2FeaturesEXT::robustImageAccess2
     >;
-
     using RequiredFeatures = FeatureList<
         //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
         &vk::PhysicalDeviceFeatures::multiDrawIndirect,
@@ -77,37 +76,36 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceDescriptorBufferFeaturesEXT::descriptorBuffer,
         &vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR::fragmentShaderBarycentric,
         &vk::PhysicalDeviceRobustness2FeaturesEXT::nullDescriptor,
-        //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // VK_KHR_SHADER_CLOCK_EXTENSION_NAME, shaderInt64
+        //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // vk::KHRShaderClockExtensionName, shaderInt64
         &vk::PhysicalDeviceIndexTypeUint8FeaturesKHR::indexTypeUint8,
         &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory,
         &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation
     >;
-
     using OptionalFeatures = FeatureList<
         &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,  // not supported by Renderdoc 1.6
         &vk::PhysicalDeviceMaintenance6FeaturesKHR::maintenance6   // not supported by Renderdoc 1.6
     >;
-    // clang-format on
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
-        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-        VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
-        VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
-        VK_KHR_SHADER_CLOCK_EXTENSION_NAME,
+        vk::KHRPipelineLibraryExtensionName,
+        vk::KHRFragmentShaderBarycentricExtensionName,
+        vk::EXTRobustness2ExtensionName,
+        // vk::KHRShaderClockExtensionName,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,          //
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,        //
-        VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,     //
-        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,      //
-        VK_EXT_MESH_SHADER_EXTENSION_NAME,                   //
-        VK_KHR_INDEX_TYPE_UINT8_EXTENSION_NAME,              //
-        VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,             //
-        VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,  //
-        VK_KHR_MAINTENANCE_5_EXTENSION_NAME,                 // not supported by Renderdoc 1.6
-        VK_KHR_MAINTENANCE_6_EXTENSION_NAME,                 // not supported by Renderdoc 1.6
-        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,            //
+        vk::KHRRayTracingPipelineExtensionName,
+        vk::KHRAccelerationStructureExtensionName,
+        vk::KHRRayTracingMaintenance1ExtensionName,
+        vk::KHRDeferredHostOperationsExtensionName,
+        vk::EXTMeshShaderExtensionName,
+        vk::KHRIndexTypeUint8ExtensionName,
+        vk::EXTDescriptorBufferExtensionName,
+        vk::EXTPageableDeviceLocalMemoryExtensionName,
+        vk::KHRMaintenance5ExtensionName,               // not supported by Renderdoc 1.6
+        vk::KHRMaintenance6ExtensionName,               // not supported by Renderdoc 1.6
+        vk::KHRExternalFenceFdExtensionName,
     };
+    // clang-format on
 
     QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics"};
     QueueCreateInfo graphicsQueueCreateInfo{"Graphics"};
