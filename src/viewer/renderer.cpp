@@ -207,11 +207,11 @@ struct UniformBuffer
     vk::Bool32 discardInvisible = vk::False;
     vk::Bool32 wireFrame = vk::False;
     glm::vec3 position{0.0f};
-    float width = 0.0f;
-    float height = 0.0f;
-    float zNear = 0.0f;
-    float zFar = 0.0f;
-    float alpha = 0.0f;
+    glm::float32 width = 0.0f;
+    glm::float32 height = 0.0f;
+    glm::float32 zNear = 0.0f;
+    glm::float32 zFar = 0.0f;
+    glm::float32 alpha = 0.0f;
     glm::mat4 windowMvp{1.0f};
 };
 static_assert(std::is_standard_layout_v<UniformBuffer>);
@@ -230,7 +230,10 @@ static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
 struct TraceUniformBuffer
 {
+    glm::uint triangleCount;
     glm::uint treeDepthMax;
+    glm::uint polygonCount;
+    glm::uint nodeCount;
     vk::DeviceAddress triangles;
     vk::DeviceAddress polygons;
     vk::DeviceAddress nodes;
@@ -240,7 +243,10 @@ static_assert(std::is_standard_layout_v<TraceUniformBuffer>);
 
 struct Frustum
 {
-    glm::vec3 leftTop, rightTop, leftBottom, rightBottom;
+    glm::vec3 leftTop;
+    glm::vec3 rightTop;
+    glm::vec3 leftBottom;
+    glm::vec3 rightBottom;
 };
 static_assert(std::is_standard_layout_v<Frustum>);
 
@@ -566,12 +572,12 @@ constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
     0xc714b932,
 };
 
-void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & uniformBuffer)
+UniformBuffer getUniformBuffer(const FrameSettings & frameSettings)
 {
-    uniformBuffer = {
-        .useOffscreenTexture = frameSettings.useOffscreenTexture,
-        .discardInvisible = frameSettings.discardInvisible,
-        .wireFrame = frameSettings.wireFrame,
+    return {
+        .useOffscreenTexture = frameSettings.useOffscreenTexture ? vk::True : vk::False,
+        .discardInvisible = frameSettings.discardInvisible ? vk::True : vk::False,
+        .wireFrame = frameSettings.wireFrame ? vk::True : vk::False,
         .position = frameSettings.position,
         .width = frameSettings.width,
         .height = frameSettings.height,
@@ -582,10 +588,13 @@ void fillUniformBuffer(const FrameSettings & frameSettings, UniformBuffer & unif
     };
 }
 
-void fillTraceUniformBuffer(const Tree & tree, TraceUniformBuffer & uniformBuffer)
+TraceUniformBuffer getTraceUniformBuffer(const Tree & tree)
 {
-    uniformBuffer = {
+    return {
+        .triangleCount = utils::autoCast(tree.getTriangleCount()),
         .treeDepthMax = utils::autoCast(std::size(tree.getLayerSizes())),
+        .polygonCount = utils::autoCast(tree.getPolygonCount()),
+        .nodeCount = utils::autoCast(tree.getNodeCount()),
         .triangles = tree.getTriangleAddress(),
         .polygons = tree.getPolygonAddress(),
         .nodes = tree.getNodeAddress(),
@@ -697,13 +706,13 @@ struct Renderer::Impl : utils::NonCopyable
 
     [[nodiscard]] ComputePipeline makeTraceComputePipeline(std::shared_ptr<const Shaders> shaders) const;
 
-    void bindPipeline(vk::CommandBuffer commandBuffer, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const;
+    void bindPipeline(vk::CommandBuffer commandBuffer, vk::PipelineBindPoint pipelineBindPoint, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const;
 
     template<typename Pipeline>
     void bindPipeline(vk::CommandBuffer commandBuffer, const Pipeline & pipeline, DescriptorRefs descriptors, const std::byte * pushConstants) const
     {
         commandBuffer.bindPipeline(Pipeline::kPipelineBindPoint, pipeline.pipeline.value(), context.getDispatcher());
-        bindPipeline(commandBuffer, *pipeline.shaders, descriptors, pushConstants);
+        bindPipeline(commandBuffer, Pipeline::kPipelineBindPoint, *pipeline.shaders, descriptors, pushConstants);
     }
 
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
@@ -862,7 +871,7 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
     Tree tree{name, context, builderTree};
 
     engine::Buffer<TraceUniformBuffer> uniformBuffer{engine.createUniformBuffer(sizeof(TraceUniformBuffer))};
-    fillTraceUniformBuffer(tree, uniformBuffer.map().at(0));
+    uniformBuffer.map().at(0) = getTraceUniformBuffer(tree);
 
     auto shaders = engine.getPipelines().getTraceSahKdTreeShaders();
 
@@ -913,7 +922,7 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     return computePipeline;
 }
 
-void Renderer::Impl::bindPipeline(vk::CommandBuffer commandBuffer, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const
+void Renderer::Impl::bindPipeline(vk::CommandBuffer commandBuffer, vk::PipelineBindPoint pipelineBindPoint, const Shaders & shaders, DescriptorRefs descriptors, const std::byte * pushConstants) const
 {
     constexpr uint32_t kFirstSet = 0;
     vk::PipelineLayout pipelineLayout = shaders.getPipelineLayout();
@@ -931,7 +940,7 @@ void Renderer::Impl::bindPipeline(vk::CommandBuffer commandBuffer, const Shaders
         std::vector<vk::DeviceSize> offsets(std::size(descriptorBufferBindingInfos));
         std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize{0});
 
-        commandBuffer.setDescriptorBufferOffsetsEXT(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
+        commandBuffer.setDescriptorBufferOffsetsEXT(pipelineBindPoint, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
     } else {
         std::vector<vk::DescriptorSet> descriptorSets;
         descriptorSets.reserve(std::size(descriptors));
@@ -939,7 +948,7 @@ void Renderer::Impl::bindPipeline(vk::CommandBuffer commandBuffer, const Shaders
             descriptorSets.push_back(d.getDescriptorSet());
         }
         constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
+        commandBuffer.bindDescriptorSets(pipelineBindPoint, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
     }
 
     for (const auto & pushConstantRange : shaders.getShaderStages().pushConstantRanges) {
@@ -1151,7 +1160,7 @@ void Renderer::Impl::traceScene(vk::CommandBuffer commandBuffer, const ComputePi
     width = utils::divUp(width, kSubgroupSizeX) * kSubgroupSizeX;
     height = utils::divUp(height, kSubgroupSizeY) * kSubgroupSizeY;
     constexpr uint32_t kDepth = 1;
-    commandBuffer.dispatch(width, height, kDepth, context.getDispatcher());
+    commandBuffer.dispatch(width, height, kDepth, context.getDispatcher());  // TODO:
 }
 
 void Renderer::Impl::advance(uint32_t currentFrameSlot)
@@ -1212,7 +1221,7 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
         }
         if (sceneData) {
             frameResourcesAndDescriptors = getFrameDescriptors();
-            fillUniformBuffer(frameSettings, frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0));
+            frameResourcesAndDescriptors->resources.uniformBuffer.map().at(0) = getUniformBuffer(frameSettings);
         }
     }
     if (sceneData) {

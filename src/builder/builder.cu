@@ -471,14 +471,15 @@ struct Tree::Impl : utils::OneTime<Impl>
         {
             const auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
-            const auto gatherDeviceData = [devPtr]<typename Vector>(size_t offset, const Vector & v)
+            const auto gatherDeviceData = [devPtr]<typename T>(size_t offset, const typename Traits::template Vector<T> & v)
             {
-                const ::CUdeviceptr src = utils::autoCast(thrust::raw_pointer_cast(std::data(v)));
-                const size_t size = std::size(v) * sizeof(typename Vector::value_type);
+                const T * const srcPtr = thrust::raw_pointer_cast(std::data(v));
+                const size_t size = std::size(v) * sizeof(T);
 #if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
+                const ::CUdeviceptr src = utils::autoCast(srcPtr);
                 CU_CHECK_ERROR(::cuMemcpyDtoD(devPtr + offset, src, size));
 #else
-                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + offset, src, size));
+                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + offset, srcPtr, size));
 #endif
             };
             {

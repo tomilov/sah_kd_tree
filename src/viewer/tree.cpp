@@ -9,6 +9,8 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
+#include <bit>
+
 namespace viewer
 {
 
@@ -104,22 +106,30 @@ vk::DeviceAddress Tree::getDeviceAddress() const &
 
 vk::DeviceAddress Tree::getTriangleAddress() const &
 {
-    return getDeviceAddress() + impl_->triangleOffset;
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->triangleOffset;
+    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getPolygonAddress() const &
 {
-    return getDeviceAddress() + impl_->polygonOffset;
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->polygonOffset;
+    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getNodeAddress() const &
 {
-    return getDeviceAddress() + impl_->nodeOffset;
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->nodeOffset;
+    INVARIANT((deviceAddress % 64) == 0, "{}", std::countr_zero(deviceAddress));
+    return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getNodeParentAddress() const &
 {
-    return getDeviceAddress() + impl_->nodeParentOffset;
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->nodeParentOffset;
+    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    return deviceAddress;
 }
 
 Tree::Impl::Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
@@ -139,7 +149,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
     , nodeParentOffset{utils::autoCast(builderTree->getNodeParentOffset())}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
-    INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalFenceFdExtensionName), "{} is not enabled", vk::KHRExternalFenceFdExtensionName);
+    INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
     utils::Fd fd = builderTree->cloneFd();
 
     const vk::Device device = context.getDevice().getDevice();

@@ -107,7 +107,7 @@ private:
     uint32_t apiVersion = vk::ApiVersion10;
 
     std::vector<vk::LayerProperties> layerProperties;
-    StringUnorderedSet layers;
+    StringUnorderedSet layerSet;
     std::vector<std::vector<vk::ExtensionProperties>> layerExtensionPropertyLists;
     StringUnorderedSet enabledLayerSet;
     std::vector<const char *> enabledLayers;

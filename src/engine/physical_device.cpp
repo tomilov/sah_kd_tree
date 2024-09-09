@@ -310,8 +310,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 
 bool PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
 {
-    auto extension = extensions.find(extensionName);
-    if (extension != std::end(extensions)) {
+    if (extensions.contains(extensionName)) {
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);
         } else {

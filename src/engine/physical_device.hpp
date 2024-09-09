@@ -60,6 +60,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     using RequiredFeatures = FeatureList<
         //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
         &vk::PhysicalDeviceFeatures::multiDrawIndirect,
+        //&vk::PhysicalDeviceFeatures::shaderInt64,
         &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray,
         &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
         //&vk::PhysicalDeviceVulkan12Features::timelineSemaphore,
@@ -103,7 +104,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::KHRMaintenance5ExtensionName,               // not supported by Renderdoc 1.6
         vk::KHRMaintenance6ExtensionName,               // not supported by Renderdoc 1.6
-        vk::KHRExternalFenceFdExtensionName,
+        vk::KHRExternalMemoryFdExtensionName,
     };
     // clang-format on
 

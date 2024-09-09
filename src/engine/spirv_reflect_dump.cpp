@@ -829,7 +829,7 @@ void dump(const spv_reflect::ShaderModule & shaderModule)
     if ((false)) {
         SPDLOG_INFO("ShaderModule: {}", ReflectionStreamedFmt{shaderModule});
     }
-    if ((false)) {
+    if ((true)) {
         SpvReflectToYaml spvReflectToYaml{shaderModule.GetShaderModule(), 0};
         // SPDLOG_INFO("ShaderModule: {}", fmt::streamed(spvReflectToYaml)); // sadly operator << expect non-const ref
         std::ostringstream oss;

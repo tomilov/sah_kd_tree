@@ -169,7 +169,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     layerProperties = vk::enumerateInstanceLayerProperties(library.getDispatcher());
     layerExtensionPropertyLists.reserve(std::size(layerProperties));
     for (const vk::LayerProperties & layer : layerProperties) {
-        layers.insert(layer.layerName);
+        layerSet.insert(layer.layerName);
         layerExtensionPropertyLists.push_back(vk::enumerateInstanceExtensionProperties({layer.layerName}, library.getDispatcher()));
         for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
             extensionLayers.emplace(layerExtensionProperties.extensionName, layer.layerName);
@@ -182,8 +182,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
     if ((false)) {
         const auto enableLayerIfAvailable = [this](const char * layerName) -> bool
         {
-            auto layer = layers.find(layerName);
-            if (layer == std::end(layers)) {
+            if (!layerSet.contains(layerName)) {
                 return false;
             }
             if (enabledLayerSet.insert(layerName).second) {
@@ -204,8 +203,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 
     const auto enableExtensionIfAvailable = [this](const char * extensionName) -> bool
     {
-        auto extension = extensions.find(extensionName);
-        if (extension != std::end(extensions)) {
+        if (extensions.contains(extensionName)) {
             if (enabledExtensionSet.insert(extensionName).second) {
                 enabledExtensions.push_back(extensionName);
             } else {
@@ -338,7 +336,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 
 const StringUnorderedSet & Instance::getLayers() const &
 {
-    return layers;
+    return layerSet;
 }
 
 const StringUnorderedSet & Instance::getEnabledLayers() const &
@@ -398,9 +396,21 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
     auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
-    spdlog::log(lvl, FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"), callbackData.pMessageIdName, messageTypes, messageSeverity, messageSeverityMaxLength, /*std::move(objects),
-                std::move(queues), std::move(buffers), */
-                messageIdNumber, callbackData.pMessage);
+    spdlog::log(  //
+        lvl,      //
+        // FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"),  //
+        FMT_STRING("[ {} ] {} {:<{}} | MessageID = {:#x} | {}"),  //
+        callbackData.pMessageIdName,                              //
+        messageTypes,                                             //
+        messageSeverity,                                          //
+        messageSeverityMaxLength,
+        // std::move(objects),
+        // std::move(queues),
+        // std::move(buffers),
+        messageIdNumber,       //
+        callbackData.pMessage  //
+    );
+    // clang-format off
     static const std::unordered_set<uint32_t> kMessageIdNumbers = {
         // 0x215f02cd,
         // 0xe1b89b63,
@@ -421,7 +431,9 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
         0x5d296248,
         0x6bdce5fd,
         0x6758fa93,
+        0x7ba9978e,
     };
+    // clang-format on
     if (kMessageIdNumbers.contains(messageIdNumber)) {
         asm volatile("nop;");
     }

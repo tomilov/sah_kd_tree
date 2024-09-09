@@ -47,12 +47,18 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Nod
 
 struct Frustum
 {
-    vec3 leftTop, rightTop, leftBottom, rightBottom;
+    vec3 leftTop;
+    vec3 rightTop;
+    vec3 leftBottom;
+    vec3 rightBottom;
 };
 
 layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
+    uint triangleCount;
     uint treeDepthMax;
+    uint polygonCount;
+    uint nodeCount;
     Triangles triangles;
     Polygons polygons;
     Nodes nodes;
@@ -129,6 +135,7 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
 
 bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
 {
+    return triangleCount == 0;  // TODO:
     if (nodeIndex == 0) {
         for (;;) {
             const int splitDimension = nodes.node[nodeIndex].splitDimension;
