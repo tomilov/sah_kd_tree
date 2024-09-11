@@ -41,7 +41,9 @@ public:
     vk::AccessFlags2 getAccessMask() const;
     vk::ImageLayout getLayout() const;
     uint32_t getQueueFamilyIndex() const;
-    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {}) const;
+
+    void barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
+    void queueFamilyOwnershipTransfer();
 
     [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const;
 

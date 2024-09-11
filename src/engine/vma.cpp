@@ -42,6 +42,12 @@ namespace engine
 namespace
 {
 
+constexpr vk::AccessFlags2 kAccessMaskWrite = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eShaderWrite | vk::AccessFlagBits2::eShaderStorageWrite | vk::AccessFlagBits2::eTransferWrite | vk::AccessFlagBits2::eHostWrite
+                                              | vk::AccessFlagBits2::eVideoDecodeWriteKHR | vk::AccessFlagBits2::eVideoEncodeWriteKHR | vk::AccessFlagBits2::eOpticalFlowWriteNV;
+constexpr vk::AccessFlags2 kAccessMaskBufferWrite = kAccessMaskWrite | vk::AccessFlagBits2::eTransformFeedbackWriteEXT | vk::AccessFlagBits2::eTransformFeedbackCounterWriteEXT | vk::AccessFlagBits2::eCommandPreprocessWriteNV
+                                                    | vk::AccessFlagBits2::eAccelerationStructureWriteKHR | vk::AccessFlagBits2::eMicromapWriteEXT;
+constexpr vk::AccessFlags2 kAccessMaskImageWrite = kAccessMaskWrite | vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+
 [[nodiscard]] VmaAllocationCreateInfo makeAllocationCreateInfo(AllocationType allocationType)
 {
     VmaAllocationCreateInfo allocationCreateInfo = {
@@ -436,7 +442,9 @@ MappedMemory<void> Buffer<void>::map() const &
 bool Buffer<void>::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, queueFamilyIndex)) {
-        return false;
+        if (!((impl_->accessMask & kAccessMaskBufferWrite) || (accessMask & kAccessMaskBufferWrite))) {
+            return false;
+        }
     }
     vk::BufferMemoryBarrier2 bufferMemoryBarrier = {
         .srcStageMask = std::exchange(impl_->stageMask, stageMask),
@@ -721,10 +729,12 @@ uint32_t Image::getQueueFamilyIndex() const
     return impl_->queueFamilyIndex;
 }
 
-bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags) const
+void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->layout, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, layout, queueFamilyIndex)) {
-        return false;
+        if (!((impl_->accessMask & kAccessMaskImageWrite) || (accessMask & kAccessMaskImageWrite))) {
+            return;
+        }
     }
     if (impl_->queueFamilyIndex != queueFamilyIndex) {  // QFOT
         const size_t queueFamilyCount = std::size(impl_->memoryAllocator.impl_->context.getPhysicalDevice().queueFamilyProperties2Chains);
@@ -758,7 +768,11 @@ bool Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     };
     dependencyInfo.setImageMemoryBarriers(imageMemoryBarrier);
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
-    return true;
+}
+
+void Image::queueFamilyOwnershipTransfer()
+{
+    // TODO:
 }
 
 vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const

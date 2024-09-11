@@ -81,7 +81,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 768;
+    static constexpr size_t kSize = 800;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
