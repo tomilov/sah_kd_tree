@@ -729,6 +729,11 @@ uint32_t Image::getQueueFamilyIndex() const
     return impl_->queueFamilyIndex;
 }
 
+void Image::setLayout(vk::ImageLayout layout)
+{
+    impl_->layout = layout;
+}
+
 void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->layout, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, layout, queueFamilyIndex)) {
@@ -740,10 +745,6 @@ void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
         const size_t queueFamilyCount = std::size(impl_->memoryAllocator.impl_->context.getPhysicalDevice().queueFamilyProperties2Chains);
         ASSERT(impl_->queueFamilyIndex < queueFamilyCount);
         ASSERT(queueFamilyIndex < queueFamilyCount);
-        if (stageMask != vk::PipelineStageFlagBits2::eBottomOfPipe) {
-            INVARIANT(impl_->stageMask == vk::PipelineStageFlagBits2::eBottomOfPipe, "{}", stageMask);
-            impl_->stageMask = vk::PipelineStageFlagBits2::eTopOfPipe;
-        }
     }
     vk::ImageMemoryBarrier2 imageMemoryBarrier = {
         .srcStageMask = std::exchange(impl_->stageMask, stageMask),
@@ -770,9 +771,58 @@ void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
 }
 
-void Image::queueFamilyOwnershipTransfer()
+void Image::release(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
 {
-    // TODO:
+    vk::ImageMemoryBarrier2 imageMemoryBarrier = {
+        .srcStageMask = std::exchange(impl_->stageMask, stageMask),
+        .srcAccessMask = std::exchange(impl_->accessMask, accessMask),
+        .dstStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
+        .dstAccessMask = vk::AccessFlagBits2::eNone,
+        .oldLayout = impl_->layout,
+        .newLayout = layout,
+        .srcQueueFamilyIndex = impl_->queueFamilyIndex,
+        .dstQueueFamilyIndex = queueFamilyIndex,
+        .image = impl_->resource->image,
+        .subresourceRange = {
+            .aspectMask = impl_->imageAspectMask,
+            .baseMipLevel = 0,
+            .levelCount = vk::RemainingMipLevels,
+            .baseArrayLayer = 0,
+            .layerCount = vk::RemainingArrayLayers,
+        },
+    };
+    vk::DependencyInfo dependencyInfo = {
+        .dependencyFlags = dependencyFlags,
+    };
+    dependencyInfo.setImageMemoryBarriers(imageMemoryBarrier);
+    cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
+}
+
+void Image::acquire(vk::CommandBuffer cb, [[maybe_unused]] vk::PipelineStageFlags2 stageMask, [[maybe_unused]] vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+{
+    vk::ImageMemoryBarrier2 imageMemoryBarrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
+        .srcAccessMask = vk::AccessFlagBits2::eNone,
+        .dstStageMask = impl_->stageMask,
+        .dstAccessMask = impl_->accessMask,
+        .oldLayout = std::exchange(impl_->layout, layout),
+        .newLayout = layout,
+        .srcQueueFamilyIndex = std::exchange(impl_->queueFamilyIndex, queueFamilyIndex),
+        .dstQueueFamilyIndex = queueFamilyIndex,
+        .image = impl_->resource->image,
+        .subresourceRange = {
+            .aspectMask = impl_->imageAspectMask,
+            .baseMipLevel = 0,
+            .levelCount = vk::RemainingMipLevels,
+            .baseArrayLayer = 0,
+            .layerCount = vk::RemainingArrayLayers,
+        },
+    };
+    vk::DependencyInfo dependencyInfo = {
+        .dependencyFlags = dependencyFlags,
+    };
+    dependencyInfo.setImageMemoryBarriers(imageMemoryBarrier);
+    cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
 }
 
 vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const

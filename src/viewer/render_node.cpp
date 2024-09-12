@@ -236,7 +236,7 @@ struct RenderNode::Impl
         return {x, y, w, h};
     }
 
-    void advance()
+    void advance(vk::CommandBuffer commandBuffer)
     {
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
         uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
@@ -263,10 +263,10 @@ struct RenderNode::Impl
             ++renderdocCaptureFrameCount;
             frameCapture.emplace(debug_utils::Renderdoc::makeFrameCapture(context.getInstance().getInstance(), utils::autoCast(window->winId())));
         }
-        renderer.value().advance(utils::autoCast(graphicsStateInfo.currentFrameSlot));
+        renderer.value().advance(commandBuffer, utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }
 
-    void prepare(float alpha, const QSize & renderTargetSize, const QMatrix4x4 & mvp, bool isAxisAligned)
+    void prepare(vk::CommandBuffer commandBuffer, float alpha, const QSize & renderTargetSize, const QMatrix4x4 & mvp, bool isAxisAligned)
     {
         if (!rect.isValid()) {
             return;
@@ -306,7 +306,7 @@ struct RenderNode::Impl
             frameSettings.useOffscreenTexture = false;
         }
 
-        advance();
+        advance(commandBuffer);
     }
 
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
@@ -429,7 +429,11 @@ void RenderNode::prepare()
             isAxisAligned = true;
         }
     }
-    return impl_->prepare(alpha, renderTargetSize, mvp, isAxisAligned);
+
+    auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
+    Q_CHECK_PTR(commandBufferNativeHandles);
+    vk::CommandBuffer commandBuffer = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
+    return impl_->prepare(commandBuffer, alpha, renderTargetSize, mvp, isAxisAligned);
 }
 
 void RenderNode::render(const RenderState * renderState)

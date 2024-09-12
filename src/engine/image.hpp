@@ -37,13 +37,15 @@ public:
     [[nodiscard]] vk::Image getImage() const &;
     [[nodiscard]] operator vk::Image() const &;  // NOLINT: google-explicit-constructor
 
-    vk::PipelineStageFlags2 getStageMask() const;
-    vk::AccessFlags2 getAccessMask() const;
-    vk::ImageLayout getLayout() const;
-    uint32_t getQueueFamilyIndex() const;
+    [[nodiscard]] vk::PipelineStageFlags2 getStageMask() const;
+    [[nodiscard]] vk::AccessFlags2 getAccessMask() const;
+    [[nodiscard]] vk::ImageLayout getLayout() const;
+    [[nodiscard]] uint32_t getQueueFamilyIndex() const;
 
+    void setLayout(vk::ImageLayout layout);
     void barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
-    void queueFamilyOwnershipTransfer();
+    void release(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
+    void acquire(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
 
     [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const;
 

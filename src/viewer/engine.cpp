@@ -266,7 +266,7 @@ TraceFrameResources::TraceFrameResources(const engine::Context & context, const 
 engine::Image TraceFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
 {
     constexpr auto imageName = "tree render target"sv;
-    const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
+    const uint32_t queueFamilyIndex = context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex;
     return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask, queueFamilyIndex);
 }
 

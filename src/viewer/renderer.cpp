@@ -721,9 +721,9 @@ struct Renderer::Impl : utils::NonCopyable
     void drawScene(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
     void offscreenPass(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass);
     void drawDisplay(vk::CommandBuffer commandBuffer, const GraphicsPipeline & pipeline) const;
-    void traceScene(vk::CommandBuffer commandBuffer, const ComputePipeline & pipeline) const;
+    void traceScene(vk::CommandBuffer graphicsCommandBuffer, vk::CommandBuffer computeCommandBuffer, const ComputePipeline & pipeline) const;
 
-    void advance(uint32_t currentFrameSlot);
+    void advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
 
     void updateRenderPass(vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
 
@@ -794,9 +794,9 @@ builder::TreePtr Renderer::getTree() const
     return impl_->traceSceneResourcesAndDescriptors ? impl_->traceSceneResourcesAndDescriptors->resources.tree.getBuilderTree() : nullptr;
 }
 
-void Renderer::advance(uint32_t currentFrameSlot)
+void Renderer::advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)
 {
-    return impl_->advance(currentFrameSlot);
+    return impl_->advance(commandBuffer, currentFrameSlot);
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot)
@@ -1113,12 +1113,6 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
 {
     ASSERT(frameResourcesAndDescriptors->displayDescriptors);
     ASSERT(!offscreenResourcesAndDescriptors != !traceFrameResourcesAndDescriptors);
-    if (traceFrameResourcesAndDescriptors) {
-        auto & image = traceFrameResourcesAndDescriptors->resources.image;
-        const uint32_t queueFamilyIndex = context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex;
-        image.queueFamilyOwnershipTransfer();
-        // image.barrier(commandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eReadOnlyOptimal, queueFamilyIndex);
-    }
     {
         const Descriptors * secondBinding = nullptr;
         if (traceFrameResourcesAndDescriptors) {
@@ -1151,16 +1145,9 @@ void Renderer::Impl::drawDisplay(vk::CommandBuffer commandBuffer, const Graphics
     }
 
     commandBuffer.draw(4, 1, 0, 0, context.getDispatcher());
-
-    if (traceFrameResourcesAndDescriptors) {
-        auto & image = traceFrameResourcesAndDescriptors->resources.image;
-        const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
-        image.queueFamilyOwnershipTransfer();  // vk::ImageLayout::eUndefined
-        // image.barrier(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eUndefined, queueFamilyIndex);
-    }
 }
 
-void Renderer::Impl::traceScene(vk::CommandBuffer commandBuffer, const ComputePipeline & pipeline) const
+void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, vk::CommandBuffer computeCommandBuffer, const ComputePipeline & pipeline) const
 {
     ASSERT(traceSceneResourcesAndDescriptors);
     ASSERT(traceFrameResourcesAndDescriptors);
@@ -1169,27 +1156,25 @@ void Renderer::Impl::traceScene(vk::CommandBuffer commandBuffer, const ComputePi
         std::cref(traceFrameResourcesAndDescriptors->writeDescriptors),
     };
     TracePushConstants pushConstants = getTracePushConstants(frameSettings);
-    bindPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
+    bindPipeline(computeCommandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
 
     auto & image = traceFrameResourcesAndDescriptors->resources.image;
+    const uint32_t graphicsQueueFamilyIndex = context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex;
+    const uint32_t computeQueueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
+    image.release(graphicsCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eGeneral, computeQueueFamilyIndex);  // TODO: submit
+    image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eGeneral, computeQueueFamilyIndex);   // TODO:
     {
-        const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
-        image.queueFamilyOwnershipTransfer();
-        // image.barrier(commandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eUndefined, queueFamilyIndex);
+        auto [width, height] = image.getExtent2D();
+        width = utils::divUp(width, kSubgroupSizeX) * kSubgroupSizeX;
+        height = utils::divUp(height, kSubgroupSizeY) * kSubgroupSizeY;
+        constexpr uint32_t kDepth = 1;
+        computeCommandBuffer.dispatch(width, height, kDepth, context.getDispatcher());
     }
-    auto [width, height] = image.getExtent2D();
-    width = utils::divUp(width, kSubgroupSizeX) * kSubgroupSizeX;
-    height = utils::divUp(height, kSubgroupSizeY) * kSubgroupSizeY;
-    constexpr uint32_t kDepth = 1;
-    commandBuffer.dispatch(width, height, kDepth, context.getDispatcher());
-    {
-        const uint32_t queueFamilyIndex = context.getPhysicalDevice().graphicsQueueCreateInfo.familyIndex;
-        image.queueFamilyOwnershipTransfer();  // vk::ImageLayout::eGeneral
-        // image.barrier(commandBuffer, vk::PipelineStageFlagBits2::eBottomOfPipe, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eReadOnlyOptimal, queueFamilyIndex);
-    }
+    image.release(computeCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eGeneral, graphicsQueueFamilyIndex);   // TODO: submit
+    image.acquire(graphicsCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eGeneral, graphicsQueueFamilyIndex);  // TODO:
 }
 
-void Renderer::Impl::advance(uint32_t currentFrameSlot)
+void Renderer::Impl::advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)
 {
     ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
 
@@ -1266,12 +1251,12 @@ void Renderer::Impl::advance(uint32_t currentFrameSlot)
         if (traceSceneResourcesAndDescriptors) {
             traceFrameResourcesAndDescriptors = getTraceFrameDescriptors();
             {
-                ScopedCommandBuffer commandBuffer{"Offscreen scene trace"sv, context, computeQueue};
-                traceScene(commandBuffer.getCommandBuffer(), *traceComputePipeline);
+                ScopedCommandBuffer computeCommandBuffer{"Offscreen scene trace"sv, context, computeQueue};
+                traceScene(commandBuffer, computeCommandBuffer.getCommandBuffer(), *traceComputePipeline);
                 INVARIANT(!drawTraceOffscreenFinishedFence, "");
                 drawTraceOffscreenFinishedFence = fencePool.get();
-                commandBuffer.setCompletionFence(drawTraceOffscreenFinishedFence);
-                offscreenTraceCommandBuffers = commandBuffer.getCommandBuffers();
+                computeCommandBuffer.setCompletionFence(drawTraceOffscreenFinishedFence);
+                offscreenTraceCommandBuffers = computeCommandBuffer.getCommandBuffers();
             }
         } else if (sceneData) {
             offscreenResourcesAndDescriptors = drawOffscreenPool->get(frameSettings.getFramebufferSize(), displayGraphicsPipeline->shaders->getShaderStagesPtr());

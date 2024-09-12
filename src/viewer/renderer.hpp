@@ -75,7 +75,7 @@ public:
     void unsetTree();
     [[nodiscard]] builder::TreePtr getTree() const;
 
-    void advance(uint32_t currentFrameSlot);
+    void advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
 
 private:
