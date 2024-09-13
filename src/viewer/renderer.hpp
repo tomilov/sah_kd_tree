@@ -6,7 +6,6 @@
 #include <format/vulkan.hpp>
 #include <scene_data/fwd.hpp>
 #include <utils/assert.hpp>
-#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/scenes.hpp>
 
@@ -20,6 +19,7 @@
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
+#include <memory>
 #include <string_view>
 
 #include <cstdint>
@@ -81,9 +81,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 800;
-    static constexpr size_t kAlignment = 8;
-    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+    std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace viewer
