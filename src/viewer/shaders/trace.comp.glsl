@@ -135,7 +135,6 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
 
 bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
 {
-    return triangleCount == 0;  // TODO:
     if (nodeIndex == 0) {
         for (;;) {
             const int splitDimension = nodes.node[nodeIndex].splitDimension;
@@ -149,6 +148,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
             }
         }
     }
+    return triangleCount == 0;  // TODO:
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
