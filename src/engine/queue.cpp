@@ -15,10 +15,16 @@ namespace engine
 Queue::Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo)
     : name{fmt::format("{} {}", queueCreateInfo.name, name)}
     , context{context}
+    , queueCreateInfo{queueCreateInfo}
     , commandPool{name, context, queueCreateInfo.familyIndex}
     , queue{context.getDevice().getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
 {
     context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);
+}
+
+const QueueCreateInfo & Queue::getQueueCreateInfo() const &
+{
+    return queueCreateInfo;
 }
 
 void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const

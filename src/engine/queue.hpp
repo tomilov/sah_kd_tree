@@ -21,6 +21,8 @@ struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
 {
     Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo);
 
+    [[nodiscard]] const QueueCreateInfo & getQueueCreateInfo() const &;
+
     void submit(vk::CommandBuffer commandBuffer, vk::Fence fence = {}) const;
     void submit(const vk::SubmitInfo & submitInfo, vk::Fence fence = {}) const;
     void submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence = {}) const;
@@ -32,6 +34,7 @@ struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
 private:
     std::string name;
     const Context & context;
+    const QueueCreateInfo & queueCreateInfo;
 
     CommandPool commandPool;
     vk::Queue queue;
