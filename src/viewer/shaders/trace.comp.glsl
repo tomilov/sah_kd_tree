@@ -90,6 +90,18 @@ vec3 clearZeroSign(const in vec3 v)
     return vec3(clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z));
 }
 
+// https://iquilezles.org/articles/intersectors/
+bool intersectSphere(const in Ray ray, const in vec3 center, const in float radius)
+{
+    const vec3 oc = center - ray.src;
+    const float l = dot(ray.dir, oc);
+    if (l < 0.0f) {
+        return false;
+    }
+    const vec3 ll = ray.dir * l;
+    return radius * radius > dot(oc, oc) - dot(ll, ll);
+}
+
 bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
 {
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
@@ -209,7 +221,11 @@ void main()
     if ((imageSize.x <= pixelCoords.x) || (imageSize.y <= pixelCoords.y)) {
         return;
     }
-    const vec2 loc = (pixelCoords + 0.5f) / (gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+    if ((imageSize.x == pixelCoords.x + 1) || (imageSize.y == pixelCoords.y + 1) || (pixelCoords.x == 0) || (pixelCoords.y == 0)) {
+        imageStore(target, ivec2(pixelCoords), vec4(0.0f, 1.0f, 0.0f, 1.0f));
+        return;
+    }
+    const vec2 loc = (pixelCoords + 0.5f) / imageSize;
     const vec3 dir = mix(
         mix(
             frustum.leftBottom,
@@ -229,8 +245,13 @@ void main()
     Hit hit;
     hit.t = 0.0f;
     vec4 color;
+#if 0
     if (traceRay(nodeIndex, ray, hit)) {
         color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f / (1.0f + hit.t));
+#else
+    if (intersectSphere(ray, vec3(0.0f), 1.0f) && ((nodeCount != 0) || (nodeCount == 0))) {
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+#endif
     } else {
         color = clearColor;
     }

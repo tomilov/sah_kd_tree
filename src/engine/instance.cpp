@@ -446,7 +446,10 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
 
 vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
-    static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {};
+    static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {
+        0x79de34d4,  // vkCreateDevice(): pCreateInfo->ppEnabledExtensionNames[9] VK_KHR_index_type_uint8 is not supported by this layer.  Using this extension may adversely affect validation results and/or produce undefined behavior.
+        0xaa56ad16,  // vkCmdBindIndexBuffer(): indexType (1000265000) does not fall within the begin..end range of the core VkIndexType enumeration tokens and is not an extension added token.
+    };
     const uint32_t messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
     if (kMutedMessageIdNumbers.contains(messageIdNumber)) {
         return vk::False;
