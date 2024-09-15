@@ -23,6 +23,7 @@
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
+#include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 
 #include <QtCore/QFileInfo>

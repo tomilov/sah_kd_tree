@@ -274,8 +274,8 @@ struct TracePushConstants
 {
     glm::vec4 clearColor;
     glm::vec3 pos;
-    Frustum frustum;
     glm::uint nodeIndex;
+    Frustum frustum;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
 
@@ -553,7 +553,7 @@ public:
         return commandBuffers->getCommandBuffer();
     }
 
-    [[nodiscard]] operator vk::CommandBuffer() const &
+    [[nodiscard]] operator vk::CommandBuffer() const &  // NOLINT: google-explicit-constructor
     {
         return getCommandBuffer();
     }
@@ -664,13 +664,13 @@ TraceUniformBuffer getTraceUniformBuffer(const Tree & tree)
     return {
         .clearColor = frameSettings.clearColor,
         .pos = frameSettings.position,
+        .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
         .frustum = {
             .leftTop = leftTop,
             .rightTop = rightTop,
             .leftBottom = leftBottom,
             .rightBottom = rightBottom,
         },
-        .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
     };
 }
 
@@ -992,11 +992,11 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     {
         ASSERT(frameResourcesAndDescriptors);
         ASSERT(sceneResourcesAndDescriptors);
-        DescriptorRefs descriptors = {
+        const DescriptorRefs descriptors = {
             std::cref(frameResourcesAndDescriptors->directDescriptors),
             std::cref(sceneResourcesAndDescriptors->descriptors),
         };
-        ScenePushConstants pushConstants = getScenePushConstants(frameSettings);
+        const ScenePushConstants pushConstants = getScenePushConstants(frameSettings);
         bindPipeline(commandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
     }
 
@@ -1041,8 +1041,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             if (wrapper) {
                 return wrapper.value();
             } else {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == vk::True);
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 != vk::False);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
                 return VK_NULL_HANDLE;
             }
         };
@@ -1056,8 +1056,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     if (sceneResources.indexBuffer) {
         indexBuffer = sceneResources.indexBuffer.value();
     } else {
-        ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor == vk::True);
-        ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 == vk::True);
+        ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
+        ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 != vk::False);
         // TODO: or draw non-indexed
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
@@ -1188,7 +1188,7 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
         {
             ScopedCommandBuffer graphicsReleaseCommandBuffer{"Graphics release"sv, context, graphicsQueue};
             graphicsReleaseCommandBuffer.setWaitCompletion(fenceGraphics);
-            image.release(graphicsReleaseCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eGeneral, computeQueueFamilyIndex);
+            image.release(graphicsReleaseCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
         }
         fencePool.put(std::move(fenceGraphics));
     }
@@ -1199,14 +1199,14 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
             computeCommandBuffer.setWaitCompletion(fenceCompute);
 
             ASSERT(traceSceneResourcesAndDescriptors);
-            DescriptorRefs descriptors = {
+            const DescriptorRefs descriptors = {
                 std::cref(traceSceneResourcesAndDescriptors->descriptors),
                 std::cref(traceFrameResourcesAndDescriptors->writeDescriptors),
             };
-            TracePushConstants pushConstants = getTracePushConstants(frameSettings);
+            const TracePushConstants pushConstants = getTracePushConstants(frameSettings);
             bindPipeline(computeCommandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
 
-            image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, vk::ImageLayout::eGeneral, computeQueueFamilyIndex);
+            image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
             {
                 auto [width, height] = image.getExtent2D();
                 width = utils::divUp(width, kSubgroupSizeX) * kSubgroupSizeX;
@@ -1214,11 +1214,11 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
                 constexpr uint32_t kDepth = 1;
                 computeCommandBuffer.getCommandBuffer().dispatch(width, height, kDepth, context.getDispatcher());
             }
-            image.release(computeCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eGeneral, graphicsQueueFamilyIndex);
+            image.release(computeCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, TraceFrameResources::kExternalImageLayout, graphicsQueueFamilyIndex);
         }
         fencePool.put(std::move(fenceCompute));
     }
-    image.acquire(graphicsCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, vk::ImageLayout::eGeneral, graphicsQueueFamilyIndex);
+    image.acquire(graphicsCommandBuffer, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead, TraceFrameResources::kExternalImageLayout, graphicsQueueFamilyIndex);
 }
 
 void Renderer::Impl::advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)

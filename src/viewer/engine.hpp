@@ -129,6 +129,7 @@ struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
     static constexpr vk::ImageUsageFlags kImageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled;
     static constexpr vk::ImageAspectFlags kImageAspectMask = vk::ImageAspectFlagBits::eColor;
     static constexpr vk::Format kFormat = vk::Format::eR8G8B8A8Unorm;
+    static constexpr vk::ImageLayout kInternalImageLayout = vk::ImageLayout::eGeneral;
     static constexpr vk::ImageLayout kExternalImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     engine::Image image;
@@ -154,7 +155,7 @@ public:
     struct Settings
     {
         bool indexTypeUint8Enabled = true;
-        bool descriptorBufferEnabled = true;
+        bool descriptorBufferEnabled = false;
         bool multiDrawIndirectEnabled = true;
         bool drawIndirectCountEnabled = true;
     };

@@ -284,9 +284,9 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
     ASSERT(sampler);
     ASSERT(*sampler);
     vk::DescriptorImageInfo descriptorImageInfo = {
-        .sampler = **sampler,
+        .sampler = !target ? **sampler : VK_NULL_HANDLE,
         .imageView = *imageView,
-        .imageLayout = kExternalImageLayout,
+        .imageLayout = target ? kInternalImageLayout : kExternalImageLayout,
     };
     const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]() -> DescriptorData
     {

@@ -76,7 +76,7 @@ struct Ray
 struct Hit
 {
     uint triangle;
-    float dist;
+    float t;
     vec2 uv;
 };
 
@@ -102,8 +102,8 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
     }
     float invNormal = 1.0f / length(normal);
     normal *= invNormal;
-    hit.dist = dot(normal, triangle.a - ray.src);
-    if ((tNear - kEps >= hit.dist) || (hit.dist >= tFar + kEps)) {
+    hit.t = dot(normal, triangle.a - ray.src);
+    if ((tNear - kEps >= hit.t) || (hit.t >= tFar + kEps)) {
         return false;
     }
     const float xx = dot(edge1, edge1);
@@ -114,7 +114,7 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
         return false;
     }
     denominator = 1.0f / denominator;
-    const vec3 intersection = ray.src + ray.dir * hit.dist;
+    const vec3 intersection = ray.src + ray.dir * hit.t;
     const vec3 e = intersection - triangle.a;
     const float ex = dot(e, edge1);
     const float ey = dot(e, edge2);
@@ -148,12 +148,11 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
             }
         }
     }
-    return triangleCount == 0;  // TODO:
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    vec3 aabbHitDist = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.src) * invDir;
-    float tMin = min(aabbHitDist.x, min(aabbHitDist.y, aabbHitDist.z));
+    vec3 aabbHitT = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.src) * invDir;
+    float tMin = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
     do {
         const float tNear = min(0.0f, tMin);  // adjust for the case if we are not outside
         for (;;) {
@@ -167,28 +166,28 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit)
                 nodeIndex = nodes.node[nodeIndex].rightChild;
             }
         }
-        aabbHitDist = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
-        const float tMax = min(aabbHitDist.x, min(aabbHitDist.y, aabbHitDist.z));
+        aabbHitT = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
+        const float tMax = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
         if (tMin > tMax) {
             break;
         }
         const uint polygonStart = nodes.node[nodeIndex].leftChild;
         const uint polygonEnd = polygonStart + nodes.node[nodeIndex].rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
-            const float tFar = min(hit.dist, tMax);
+            const float tFar = min(hit.t, tMax);
             Hit closerHit;
             closerHit.triangle = polygons.triangle[polygon];
             if (rayTriangleIntersect(ray, closerHit, triangles.triangle[closerHit.triangle], tNear, tFar)) {
-                if (closerHit.dist < hit.dist) {
+                if (closerHit.t < hit.t) {
                     hit = closerHit;
                 }
             }
         }
-        if (hit.dist <= tMax) {
+        if (hit.t <= tMax) {
             return true;
         }
         tMin = tMax;
-        const uvec3 indices = mix(uvec3(0), uvec3(0, 1, 2), equal(aabbHitDist, vec3(tMax)));
+        const uvec3 indices = mix(uvec3(0), uvec3(0, 1, 2), equal(aabbHitT, vec3(tMax)));
         const uint ropeDirection = max(indices.x, max(indices.y, indices.z));
         nodeIndex = corner[ropeDirection] ? nodes.node[nodeIndex].leftRope[ropeDirection] : nodes.node[nodeIndex].rightRope[ropeDirection];
     } while (nodeIndex != 0);
@@ -199,8 +198,8 @@ layout(push_constant, scalar) uniform PushConstants
 {
     vec4 clearColor;
     vec3 pos;
-    Frustum frustum;
     uint nodeIndex;
+    Frustum frustum;
 };
 
 void main()
@@ -228,10 +227,10 @@ void main()
     ray.src = pos;
     ray.dir = normalize(dir);
     Hit hit;
-    hit.dist = 0.0f;
+    hit.t = 0.0f;
     vec4 color;
     if (traceRay(nodeIndex, ray, hit)) {
-        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f / (1.0f + hit.dist));
+        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f / (1.0f + hit.t));
     } else {
         color = clearColor;
     }

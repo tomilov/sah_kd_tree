@@ -367,7 +367,7 @@ const vk::BufferCreateInfo & Buffer<void>::getBufferCreateInfo() const
 
 bool Buffer<void>::isDedicatedAllocation() const
 {
-    return impl_->allocationInfo.dedicatedMemory == vk::True;
+    return impl_->allocationInfo.dedicatedMemory != vk::False;
 }
 
 vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
@@ -665,7 +665,7 @@ const vk::ImageCreateInfo & Image::getImageCreateInfo() const
 
 bool Image::isDedicatedAllocation() const
 {
-    return impl_->allocationInfo.dedicatedMemory == vk::True;
+    return impl_->allocationInfo.dedicatedMemory != vk::False;
 }
 
 vk::ImageAspectFlags Image::getImageAspectMask() const

@@ -435,6 +435,7 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
         0x2c8c6e7d,
         0x4acfa767,
         0xf95f5378,
+        0xa46cfc69,
     };
     // clang-format on
     if (kMessageIdNumbers.contains(messageIdNumber)) {
