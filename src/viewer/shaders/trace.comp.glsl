@@ -105,41 +105,19 @@ bool intersectSphere(const in Ray ray, const in vec3 center, const in float radi
 bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
 {
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-    const vec3 edge1 = triangle.b - triangle.a;
-    const vec3 edge2 = triangle.c - triangle.a;
-    vec3 normal = cross(edge1, edge2);
-    const float denominator2 = dot(normal, ray.dir);
-    if (abs(denominator2) < kEps) {
+    const vec3 v1v0 = triangle.b - triangle.a;
+    const vec3 v2v0 = triangle.c - triangle.a;
+    const vec3 rov0 = ray.src - triangle.a;
+    const vec3 n = cross(v1v0, v2v0);
+    const float d = 1.0f / dot(ray.dir, n);
+    hit.t = d * dot(-n, rov0);
+    if ((hit.t < tNear) || (tFar < hit.t)) {
         return false;
     }
-    float invNormal = 1.0f / length(normal);
-    normal *= invNormal;
-    hit.t = dot(normal, triangle.a - ray.src);
-    if ((tNear - kEps >= hit.t) || (hit.t >= tFar + kEps)) {
-        return false;
-    }
-    const float xx = dot(edge1, edge1);
-    const float yy = dot(edge2, edge2);
-    const float xy = dot(edge1, edge2);
-    float denominator = xy * xy - xx * yy;
-    if (abs(denominator) <= kEps) {
-        return false;
-    }
-    denominator = 1.0f / denominator;
-    const vec3 intersection = ray.src + ray.dir * hit.t;
-    const vec3 e = intersection - triangle.a;
-    const float ex = dot(e, edge1);
-    const float ey = dot(e, edge2);
-    invNormal *= -kEps;
-    hit.uv.x = (xy * ey - yy * ex) * denominator;
-    if (hit.uv.x < invNormal * sqrt(xx)) {
-        return false;
-    }
-    hit.uv.y = (xy * ex - xx * ey) * denominator;
-    if (hit.uv.y < invNormal * sqrt(yy)) {
-        return false;
-    }
-    if (1.0f - (hit.uv.x + hit.uv.y) < invNormal * length(edge1 - edge2)) {
+    const vec3 q = cross(rov0, ray.dir);
+    hit.uv.x = d * dot(-q, v2v0);
+    hit.uv.y = d * dot(q, v1v0);
+    if ((hit.uv.x < 0.0f) || (hit.uv.y < 0.0f) || (hit.uv.x + hit.uv.y > 1.0f)) {
         return false;
     }
     return true;
@@ -248,6 +226,13 @@ void main()
 #if 0
     if (traceRay(nodeIndex, ray, hit)) {
         color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f / (1.0f + hit.t));
+#elif 1
+    Triangle triangle;
+    triangle.a = vec3(0.0f, 0.0f, 0.0f);
+    triangle.b = vec3(1.0f, 1.0f, 0.0f);
+    triangle.c = vec3(-1.0f, 1.0f, 0.0f);
+    if (rayTriangleIntersect(ray, hit, triangle, 0.0f, 2.0f) && ((nodeCount != 0) || (nodeCount == 0))) {
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 #else
     if (intersectSphere(ray, vec3(0.0f), 1.0f) && ((nodeCount != 0) || (nodeCount == 0))) {
         color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
