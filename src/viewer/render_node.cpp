@@ -129,6 +129,8 @@ struct RenderNode::Impl
 
     QVector<quint32> renderPassFormat;
 
+    bool update = false;
+
     Impl(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
         : name{name}
         , window{window}
@@ -215,6 +217,7 @@ struct RenderNode::Impl
             return false;
         }
         isDirty = false;
+        update = true;
         return true;
     }
 
@@ -419,6 +422,10 @@ void RenderNode::updateDirty()
 
 void RenderNode::prepare()
 {
+    if (!impl_->update) {
+        return;
+    }
+    impl_->update = false;
     float alpha = utils::autoCast(inheritedOpacity());
     const QSize renderTargetSize = renderTarget()->pixelSize();
     const QMatrix4x4 mvp = *projectionMatrix() * *matrix();

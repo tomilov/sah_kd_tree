@@ -154,7 +154,7 @@ class Engine final : utils::NonCopyable
 public:
     struct Settings
     {
-        bool indexTypeUint8Enabled = true;
+        bool indexTypeUint8Enabled = false;
         bool descriptorBufferEnabled = false;
         bool multiDrawIndirectEnabled = true;
         bool drawIndirectCountEnabled = true;

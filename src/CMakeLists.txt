@@ -89,5 +89,6 @@ add_subdirectory("fuzzer")
 add_subdirectory("format")
 add_subdirectory("codegen")
 add_subdirectory("engine")
+add_subdirectory("softrenderer")
 add_subdirectory("viewer")
 

@@ -1,4 +1,4 @@
-project("builder")
+project("softrenderer")
 
 add_library("lib${PROJECT_NAME}")
 set_target_properties(
@@ -20,29 +20,18 @@ target_sources(
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
-        "${PROJECT_NAME}.cu")
+        "${PROJECT_NAME}.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
+        "libscene_data"
         "libscene_loader"
-        Thrust
         CUDA::cuda_driver
     PUBLIC
-        "libscene_data"
+        "libbuilder"
         "libutils"
         "gli")
-if(BUILD_SHARED_LIBS)
-    target_link_libraries(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            CUDA::cudart)
-else()
-    target_link_libraries(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            CUDA::cudart_static)
-endif()
 
 add_executable("${PROJECT_NAME}")
 target_sources(

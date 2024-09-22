@@ -68,7 +68,8 @@ function(target_shaders target)
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
-                    -gVS $<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-g,-g0>
+                    -gVS
+                    $<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-g,-g0>
                     --target-env vulkan1.3
                     --spirv-val
                     "${shader_file}"
