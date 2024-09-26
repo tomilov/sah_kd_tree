@@ -1,17 +1,13 @@
 #pragma once
 
 #include <builder/fwd.hpp>
+#include <compute/fwd.hpp>
 #include <scene_data/fwd.hpp>
-#include <utils/fast_pimpl.hpp>
 #include <utils/fd.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <glm/fwd.hpp>
-
-#include <array>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include <cstddef>
@@ -21,8 +17,6 @@
 
 namespace builder
 {
-class CudaDevice;
-using DeviceUuidType = std::array<std::byte, 16>;
 
 class BUILDER_EXPORT Tree : utils::OneTime<Tree>
 {
@@ -37,10 +31,12 @@ public:
         auto operator<=>(const Settings &) const = default;
     };
 
+    Tree(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
     Tree(Tree &&) noexcept;
     ~Tree();
 
     [[nodiscard]] const Settings & getSettings() const &;
+    [[nodiscard]] const compute::CudaDevice & getCudaDevice() const &;
     [[nodiscard]] scene_data::SceneDataPtr getSceneData() const;
 
     [[nodiscard]] size_t getTriangleCount() const;
@@ -60,29 +56,6 @@ public:
     [[nodiscard]] bool isEmpty() const;
     [[nodiscard]] utils::Fd getFd() &&;
     [[nodiscard]] utils::Fd cloneFd() const &;
-
-private:
-    friend Builder;
-    struct Impl;
-
-    std::unique_ptr<Impl> impl_;
-
-    Tree(const Settings & settings, const CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
-
-class BUILDER_EXPORT Builder : utils::OneTime<Builder>
-{
-public:
-    Builder(const std::optional<DeviceUuidType> & deviceUuid);
-    Builder(Builder &&) noexcept;
-    ~Builder();
-
-    std::optional<Tree> build(const Tree::Settings & treeSettings, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) const;
 
 private:
     struct Impl;

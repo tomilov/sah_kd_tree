@@ -1,4 +1,5 @@
-﻿#include <utils/assert.hpp>
+﻿#include <builder/builder.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
@@ -321,8 +322,11 @@ void SceneSettings::onTreeSettingsChanged()
         };
         progress(0);
         try {
-            if (auto t = engineWrapper->getEngine().getBuilder().build(builderTreeSettings, sceneData, progress)) {
-                promise.addResult(std::make_shared<builder::Tree>(std::move(t).value()));
+            if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
+                auto tree = std::make_shared<builder::Tree>(builderTreeSettings, *cudaDevice, sceneData, progress);
+                if (!tree->isEmpty()) {
+                    promise.addResult(std::move(tree));
+                }
             }
         } catch (const std::exception & e) {
             qCCritical(viewerCategory).noquote() << QString::fromStdString(fmt::to_string(e));

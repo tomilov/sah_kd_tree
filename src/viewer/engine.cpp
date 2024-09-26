@@ -1,3 +1,4 @@
+#include <compute/make.hpp>
 #include <engine/device.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
@@ -328,10 +329,10 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
     {
         const auto & properties2Chain = context.getPhysicalDevice().properties2Chain;
         const auto & vkDeviceUuid = properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
-        builder::DeviceUuidType deviceUuid;
+        compute::DeviceUuidType deviceUuid;
         ASSERT(std::size(vkDeviceUuid) == std::size(deviceUuid));
         std::memcpy(std::data(deviceUuid), std::data(vkDeviceUuid), std::size(vkDeviceUuid));
-        builder.emplace(deviceUuid);
+        cudaDevice = compute::makeCudaDevice(deviceUuid);
     }
 }
 

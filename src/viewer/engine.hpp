@@ -1,6 +1,6 @@
 #pragma once
 
-#include <builder/builder.hpp>
+#include <compute/fwd.hpp>
 #include <engine/buffer.hpp>
 #include <engine/context.hpp>
 #include <engine/image.hpp>
@@ -177,9 +177,10 @@ public:
         return pipelines;
     }
 
-    [[nodiscard]] const builder::Builder & getBuilder() const &
+    [[nodiscard]] const compute::CudaDevicePtr & getCudaDevice() const &
     {
-        return builder.value();
+        ASSERT(cudaDevice);
+        return cudaDevice;
     }
 
     [[nodiscard]] auto createUniformBuffer(size_t uniformBufferSize) const -> engine::Buffer<void>;
@@ -200,7 +201,7 @@ private:
 
     Scenes scenes;
     Pipelines pipelines;
-    std::optional<builder::Builder> builder;
+    compute::CudaDevicePtr cudaDevice;
 
     [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
 };

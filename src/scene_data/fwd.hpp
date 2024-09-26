@@ -4,6 +4,7 @@
 
 namespace scene_data
 {
+struct Triangle;
 struct SceneData;
 
 using SceneDataPtr = std::shared_ptr<const SceneData>;

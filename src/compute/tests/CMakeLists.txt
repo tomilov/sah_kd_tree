@@ -12,11 +12,7 @@ target_link_libraries(
     PRIVATE
         "lib${PROJECT_NAME}"
         GTest::GTest
-        GTest::Main
-        "libscene_data"
-        "libscene_loader"
-        "libcompute"
-        Qt::Core)
+        GTest::Main)
 
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"

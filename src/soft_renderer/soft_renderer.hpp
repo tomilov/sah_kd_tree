@@ -1,20 +1,21 @@
 #pragma once
 
 #include <builder/fwd.hpp>
-#include <softrenderer/fwd.hpp>
+#include <soft_renderer/fwd.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <gli/texture2d.hpp>
 #include <glm/ext/quaternion_float.hpp>
+#include <glm/fwd.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 #include <string_view>
 
-#include <softrenderer/softrenderer_export.h>
+#include <soft_renderer/soft_renderer_export.h>
 
-namespace softrenderer
+namespace soft_renderer
 {
 
 struct FrameSettings
@@ -29,13 +30,15 @@ struct FrameSettings
     bool operator!=(const FrameSettings &) const = default;
 };
 
-class SOFTRENDERER_EXPORT SoftRenderer : utils::OneTime<SoftRenderer>
+class SOFT_RENDERER_EXPORT SoftRenderer : utils::OneTime<SoftRenderer>
 {
 public:
-    explicit SoftRenderer(std::string_view name, glm::vec4 clearColor);
+    SoftRenderer(std::string_view name, const glm::vec4 & clearColor);
+    SoftRenderer(SoftRenderer &&) noexcept;
+    ~SoftRenderer();
 
     void unsetTree();
-    void updateTree(const builder::TreePtr & tree);
+    void updateTree(const builder::TreePtr & builderTree);
     [[nodiscard]] const builder::TreePtr & getTree() const &;
 
     void render(const FrameSettings & frameSettings, gli::texture2d & target) const;
@@ -46,4 +49,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace softrenderer
+}  // namespace soft_renderer

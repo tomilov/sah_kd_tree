@@ -4,7 +4,6 @@
 
 namespace builder
 {
-class Builder;
 class Tree;
 
 using TreePtr = std::shared_ptr<const Tree>;

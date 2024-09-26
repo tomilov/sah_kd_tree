@@ -2,7 +2,6 @@
 
 #include <builder/fwd.hpp>
 #include <scene_data/fwd.hpp>
-#include <utils/fast_pimpl.hpp>
 
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QRectF>

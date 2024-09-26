@@ -80,6 +80,7 @@ target_link_libraries(
         "libscene_data"
         "libscene_loader"
         "libdebug_utils"
+        "libcompute"
         "libbuilder"
         "gli"
     PUBLIC

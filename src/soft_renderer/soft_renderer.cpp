@@ -1,59 +1,32 @@
-#include <softrenderer/softrenderer.hpp>
+#include <builder/builder.hpp>
+#include <scene_data/scene_data.hpp>
+#include <soft_renderer/soft_renderer.hpp>
+#include <soft_renderer/tree.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 
+#include <gli/type.hpp>
+#include <glm/common.hpp>
 #include <glm/ext/vector_bool3.hpp>
+#include <glm/geometric.hpp>
 #include <glm/vec2.hpp>
-#include <vulkan/vulkan.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 #include <limits>
+#include <memory>
 #include <string>
+#include <string_view>
+#include <vector>
 
-namespace softrenderer
+#include <cuda.h>
+
+namespace soft_renderer
 {
 namespace
 {
-constexpr glm::uint kRootNodeIndex = 0;
 
-struct Ray
-{
-    glm::vec3 src;
-    glm::vec3 dir;
-};
-
-struct Hit
-{
-    glm::uint triangle;
-    glm::float32 t;
-    glm::vec2 uv;
-};
-
-#pragma pack(push, 1)
-
-struct Triangle
-{
-    glm::vec3 a, b, c;
-};
-static_assert(std::is_standard_layout_v<Triangle>);
-static_assert(sizeof(Triangle) == 36);
-
-struct Node
-{
-    glm::vec3 aabbMin;
-    glm::vec3 aabbMax;
-    glm::uvec3 leftRope;
-    glm::uvec3 rightRope;
-    glm::int32 splitDimension;
-    glm::float32 splitPos;
-    glm::uint leftChild;
-    glm::uint rightChild;
-};
-static_assert(std::is_standard_layout_v<Triangle>);
-static_assert(sizeof(Node) == 64);
-
-#pragma pack(pop)
-
-bool rayTriangleIntersect(const Ray & ray, Hit & hit, const Triangle & triangle, glm::float32 tNear, glm::float32 tFar)
+bool rayTriangleIntersect(const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar)
 {
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
     const glm::vec3 v1v0 = triangle.b - triangle.a;
@@ -78,18 +51,19 @@ struct SoftRenderer::Impl
     const std::string name;
     const glm::vec4 clearColor;
 
-    builder::TreePtr tree;
+    builder::TreePtr builderTree;
 
-    std::vector<Triangle> triangles;
+    std::vector<scene_data::Triangle> triangles;
     std::vector<glm::uint> polygons;
     std::vector<Node> nodes;
+    std::vector<glm::uint> nodeParents;
 
-    explicit Impl(std::string_view name, glm::vec4 clearColor)
+    Impl(std::string_view name, const glm::vec4 & clearColor)
         : name{name}
         , clearColor{clearColor}
     {}
 
-    [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const Ray & ray)
+    [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const Ray & ray) const
     {
         for (;;) {
             const Node & node = nodes.at(nodeIndex);
@@ -105,7 +79,7 @@ struct SoftRenderer::Impl
         }
     }
 
-    [[nodiscard]] bool traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit)
+    [[nodiscard]] bool traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit) const
     {
         const glm::vec3 invDir = 1.0f / ray.dir;
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3(0.0f));
@@ -155,25 +129,31 @@ struct SoftRenderer::Impl
     }
 };
 
-SoftRenderer::SoftRenderer(std::string_view name, glm::vec4 clearColor)
+SoftRenderer::SoftRenderer(std::string_view name, const glm::vec4 & clearColor)
     : impl_{std::make_unique<Impl>(name, clearColor)}
 {}
 
+SoftRenderer::~SoftRenderer() = default;
+
+SoftRenderer::SoftRenderer(SoftRenderer &&) noexcept = default;
+
 void SoftRenderer::unsetTree()
 {
-    ASSERT(impl_->tree);
-    impl_->tree.reset();
+    ASSERT(impl_->builderTree);
+    impl_->builderTree.reset();
 }
 
-void SoftRenderer::updateTree(const builder::TreePtr & tree)
+void SoftRenderer::updateTree(const builder::TreePtr & builderTree)
 {
-    ASSERT(!impl_->tree);
-    impl_->tree = tree;
+    ASSERT(builderTree);
+    ASSERT(!impl_->builderTree);
+    impl_->builderTree = builderTree;
+    importTree(*impl_->builderTree, impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
 }
 
 const builder::TreePtr & SoftRenderer::getTree() const &
 {
-    return impl_->tree;
+    return impl_->builderTree;
 }
 
 void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const
@@ -213,4 +193,4 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     }
 }
 
-}  // namespace softrenderer
+}  // namespace soft_renderer

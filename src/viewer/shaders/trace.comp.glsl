@@ -183,7 +183,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool 
         //debugPrintfEXT("%i %u %u %u\n", __LINE__, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, nodes.node[nodeIndex].rightChild);
         if (tMin > tMax) {
             //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-            return false;
+            break;
         }
         //return true;
         //if (debug) {

@@ -1,4 +1,6 @@
 #include <builder/builder.hpp>
+#include <compute/compute.hpp>
+#include <compute/make.hpp>
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/auto_cast.hpp>
@@ -69,12 +71,12 @@ protected:
             }
             return false;
         };
-        auto tree = builder.build(treeSettings, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress);
-        return tree.has_value();
+        builder::Tree tree{treeSettings, cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress};
+        return !tree.isEmpty();
     }
 
 private:
-    const builder::Builder builder{std::nullopt};
+    const compute::CudaDevice cudaDevice{std::nullopt};
 };
 
 TEST_F(Builder, DISABLED_AllScenes)
