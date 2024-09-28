@@ -33,6 +33,17 @@ target_link_libraries(
         "libscene_data"
         "libcompute"
         "libutils")
+if(BUILD_SHARED_LIBS)
+    target_link_libraries(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            CUDA::cudart)
+else()
+    target_link_libraries(
+        "lib${PROJECT_NAME}"
+        PUBLIC
+            CUDA::cudart_static)
+endif()
 
 add_executable("${PROJECT_NAME}")
 target_sources(

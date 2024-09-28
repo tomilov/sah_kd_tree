@@ -36,7 +36,7 @@ Fd Fd::dup(int fd)
     return Fd{fd};
 }
 
-int Fd::getFd() const
+const int & Fd::getFd() const &
 {
     return fd;
 }

@@ -37,9 +37,7 @@ public:
     SoftRenderer(SoftRenderer &&) noexcept;
     ~SoftRenderer();
 
-    void unsetTree();
-    void updateTree(const builder::TreePtr & builderTree);
-    [[nodiscard]] const builder::TreePtr & getTree() const &;
+    void setTree(builder::TreePtr && builderTree);
 
     void render(const FrameSettings & frameSettings, gli::texture2d & target) const;
 

@@ -4,6 +4,10 @@
 #include <soft_renderer/tree.hpp>
 #include <utils/auto_cast.hpp>
 
+#include <iterator>
+#include <utility>
+#include <vector>
+
 #include <cstddef>
 #include <cstring>
 
@@ -13,7 +17,7 @@
 namespace soft_renderer
 {
 
-void importTree(const builder::Tree & tree, std::vector<scene_data::Triangle> & triangles, std::vector<glm::uint> & polygons, std::vector<Node> & nodes, std::vector<glm::uint> & nodeParents)
+void importTree(builder::Tree && tree, std::vector<scene_data::Triangle> & triangles, std::vector<glm::uint> & polygons, std::vector<Node> & nodes, std::vector<glm::uint> & nodeParents)
 {
     triangles.resize(tree.getTriangleCount());
     // std::vector<size_t> layerSizes = tree.getLayerSizes();
@@ -22,7 +26,7 @@ void importTree(const builder::Tree & tree, std::vector<scene_data::Triangle> & 
     nodeParents.resize(tree.getNodeCount());
 
     const compute::CudaDevice & cudaDevice = tree.getCudaDevice();
-    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), tree.cloneFd(), tree.getAllocationSize(), tree.getDataAlignment()};
+    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).getFd(), tree.getAllocationSize(), tree.getDataAlignment()};
 
     // const vk::DeviceSize dataSize = utils::autoCast(tree.getDataSize());
 

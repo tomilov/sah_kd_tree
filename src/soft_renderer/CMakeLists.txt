@@ -27,6 +27,7 @@ target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
+        "libbuilder"
         "libscene_data"
         "libscene_loader"
         CUDA::cuda_driver
@@ -54,7 +55,14 @@ target_sources(
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
-        "lib${PROJECT_NAME}")
+        "lib${PROJECT_NAME}"
+        "libscene_data"
+        "libscene_loader"
+        "libbuilder"
+        "libcompute"
+        "libutils"
+        "gli"
+        Qt::Core)
 target_compile_definitions(
     "${PROJECT_NAME}"
     PRIVATE

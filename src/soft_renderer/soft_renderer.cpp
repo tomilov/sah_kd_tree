@@ -137,23 +137,12 @@ SoftRenderer::~SoftRenderer() = default;
 
 SoftRenderer::SoftRenderer(SoftRenderer &&) noexcept = default;
 
-void SoftRenderer::unsetTree()
-{
-    ASSERT(impl_->builderTree);
-    impl_->builderTree.reset();
-}
-
-void SoftRenderer::updateTree(const builder::TreePtr & builderTree)
+void SoftRenderer::setTree(builder::TreePtr && builderTree)
 {
     ASSERT(builderTree);
     ASSERT(!impl_->builderTree);
-    impl_->builderTree = builderTree;
-    importTree(*impl_->builderTree, impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
-}
-
-const builder::TreePtr & SoftRenderer::getTree() const &
-{
-    return impl_->builderTree;
+    importTree(std::move(*builderTree), impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
+    builderTree.reset();
 }
 
 void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const
@@ -169,7 +158,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec3 rightTop = glm::rotate(frameSettings.orientation, glm::vec3{dx, dy, 1.0f});
     const glm::vec3 leftBottom = glm::rotate(frameSettings.orientation, glm::vec3{-dx, -dy, 1.0f});
     const glm::vec3 rightBottom = glm::rotate(frameSettings.orientation, glm::vec3{dx, -dy, 1.0f});
-    const glm::vec2 invExtent = 1.0f / glm::vec2(extent);
+    const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     Ray ray;
     ray.src = frameSettings.position;
     Hit hit;
