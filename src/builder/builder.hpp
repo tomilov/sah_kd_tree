@@ -39,6 +39,8 @@ public:
     [[nodiscard]] const compute::CudaDevice & getCudaDevice() const &;
     [[nodiscard]] scene_data::SceneDataPtr getSceneData() const;
 
+    [[nodiscard]] bool operator==(const Tree & rhs) const noexcept;
+
     [[nodiscard]] size_t getTriangleCount() const;
     [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
     [[nodiscard]] size_t getPolygonCount() const;
@@ -54,8 +56,8 @@ public:
     [[nodiscard]] size_t getNodeParentOffset() const;
 
     [[nodiscard]] bool isEmpty() const;
-    [[nodiscard]] utils::Fd getFd() &&;
-    [[nodiscard]] utils::Fd cloneFd() const &;
+    [[nodiscard]] utils::Fd stealFd() &&;
+    [[nodiscard]] utils::Fd cloneFd() const;
 
 private:
     struct Impl;

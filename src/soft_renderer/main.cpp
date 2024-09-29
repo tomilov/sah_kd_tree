@@ -71,7 +71,7 @@ builder::TreePtr makeTree(QString sceneFileName)
     if (tree.isEmpty()) {
         return nullptr;
     }
-    return std::make_shared<builder::Tree>(std::move(tree));
+    return builder::makeTreePtr(std::move(tree));
 }
 
 }  // namespace
@@ -85,11 +85,13 @@ int main(int argc, char * argv[])
     }
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
-    softRenderer.updateTree(tree);
+    softRenderer.setTree(std::move(*tree));
+    tree.reset();
     soft_renderer::FrameSettings frameSettings = {
         .position = glm::vec3{0.0f, 0.0f, -1.0f},
     };
-    gli::texture2d target;
+    gli::extent2d extent{1024, 1024};
+    gli::texture2d target{gli::format::FORMAT_RGB32_SFLOAT_PACK32, extent};
     softRenderer.render(frameSettings, target);
     return EXIT_SUCCESS;
 }

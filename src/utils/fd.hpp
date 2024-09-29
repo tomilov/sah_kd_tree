@@ -17,7 +17,7 @@ public:
     [[nodiscard]] static Fd dup(int fd);
 
     [[nodiscard]] const int & getFd() const &;
-    [[nodiscard]] int releaseFd() &&;
+    [[nodiscard]] int release() &&;
     [[nodiscard]] Fd clone() const;
 
 private:

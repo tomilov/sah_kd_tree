@@ -732,8 +732,8 @@ struct Renderer::Impl : utils::NonCopyable
     void unsetScene();
     void setScene(scene_data::SceneDataPtr sceneData);
 
+    void setTree(builder::Tree && builderTree);
     void unsetTree();
-    void setTree(builder::TreePtr builderTree);
 
     [[nodiscard]] ComputePipeline makeTraceComputePipeline(std::shared_ptr<const Shaders> shaders) const;
 
@@ -809,17 +809,11 @@ const scene_data::SceneDataPtr & Renderer::getScene() const &
 
 void Renderer::setTree(builder::TreePtr builderTree)
 {
-    return impl_->setTree(std::move(builderTree));
-}
-
-void Renderer::unsetTree()
-{
-    impl_->unsetTree();
-}
-
-builder::TreePtr Renderer::getTree() const
-{
-    return impl_->traceSceneResourcesAndDescriptors ? impl_->traceSceneResourcesAndDescriptors->resources.tree.getBuilderTree() : nullptr;
+    if (builderTree) {
+        return impl_->setTree(std::move(*builderTree));
+    } else {
+        return impl_->unsetTree();
+    }
 }
 
 void Renderer::advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot)
@@ -883,23 +877,13 @@ void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
     sceneData = std::move(newSceneData);
 }
 
-void Renderer::Impl::unsetTree()
+void Renderer::Impl::setTree(builder::Tree && builderTree)
 {
-    if (!traceSceneResourcesAndDescriptors) {
-        return;
-    }
-    traceSceneResourcesAndDescriptors.reset();
-    SPDLOG_INFO("{}: Tree is unset", name);
-}
-
-void Renderer::Impl::setTree(builder::TreePtr builderTree)
-{
-    ASSERT(builderTree);
-    if (traceSceneResourcesAndDescriptors && (traceSceneResourcesAndDescriptors->resources.tree.getBuilderTree() == builderTree)) {
-        return;
+    if (traceSceneResourcesAndDescriptors) {
+        traceSceneResourcesAndDescriptors.reset();
     }
 
-    Tree tree{name, context, builderTree};
+    Tree tree{name, context, std::move(builderTree)};
 
     engine::Buffer<TraceUniformBuffer> uniformBuffer{engine.createUniformBuffer(sizeof(TraceUniformBuffer))};
     uniformBuffer.map().at(0) = getTraceUniformBuffer(tree);
@@ -914,6 +898,15 @@ void Renderer::Impl::setTree(builder::TreePtr builderTree)
     traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
 
     SPDLOG_INFO("{}: Tree is set", name);
+}
+
+void Renderer::Impl::unsetTree()
+{
+    if (!traceSceneResourcesAndDescriptors) {
+        return;
+    }
+    traceSceneResourcesAndDescriptors.reset();
+    SPDLOG_INFO("{}: Tree is unset", name);
 }
 
 ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const Shaders> shaders) const

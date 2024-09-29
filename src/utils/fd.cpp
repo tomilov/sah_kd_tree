@@ -12,6 +12,9 @@ Fd::Fd(int fd)
     : fd{fd}
 {
     INVARIANT(fd >= 0, "{}", fd);
+    if (fd == 0) {
+        asm volatile("nop;");
+    }
 }
 
 Fd::Fd(Fd && file) noexcept
@@ -41,7 +44,7 @@ const int & Fd::getFd() const &
     return fd;
 }
 
-int Fd::releaseFd() &&
+int Fd::release() &&
 {
     return std::exchange(fd, -1);
 }

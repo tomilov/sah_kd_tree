@@ -814,12 +814,12 @@ C.ApplicationWindow {
                             readonly property int animationDuration: 1000
                             function getRenderModeDescription(verbose) {
                                 let description = []
-                                let renderMode = viewer.renderer.renderMode
-                                if (renderMode & SKT.RendererSettings.TraceSahKdTree) {
+                                if (sceneSettings.traceTree) {
                                     description.push(Utils.coloredText(verbose ? "Trace SAH kd-tree" : "T", "red"))
                                 } else {
                                     description.push(Utils.coloredText(verbose ? "Rasterize" : "R", "springgreen"))
                                 }
+                                let renderMode = viewer.renderer.renderMode
                                 if (renderMode & SKT.RendererSettings.UseOffscreenTexture) {
                                     description.push(Utils.coloredText(verbose ? "Use offscreen texture" : "O", "fuchsia"))
                                 }
@@ -848,13 +848,11 @@ C.ApplicationWindow {
                                 engine: SKT.SahKdTreeEngine
                                 taskQueue: taskQueue
                                 url: fileUrl
+                                traceTree: actionTraceSahKdTree.checked
                             }
                             renderer {
                                 renderMode: {
                                     let value = 0
-                                    if (actionTraceSahKdTree.checked) {
-                                        value |= SKT.RendererSettings.TraceSahKdTree
-                                    }
                                     if (actionUseOffscreenTexture.checked) {
                                         value |= SKT.RendererSettings.UseOffscreenTexture
                                     }

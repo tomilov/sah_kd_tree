@@ -72,8 +72,6 @@ public:
     [[nodiscard]] const scene_data::SceneDataPtr & getScene() const &;
 
     void setTree(builder::TreePtr builderTree);
-    void unsetTree();
-    [[nodiscard]] builder::TreePtr getTree() const;
 
     void advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
     void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);

@@ -117,6 +117,7 @@ struct RenderNode::Impl
     scene_data::SceneDataPtr sceneData;
     std::optional<Renderer> renderer;
     builder::TreePtr builderTree;
+    bool treeIsDirty = false;
 
     bool isDirty = false;
 
@@ -141,14 +142,15 @@ struct RenderNode::Impl
         checkContext(window, context);
     }
 
-    template<typename T>
-    void updateState(T & lhs, const T & rhs, [[maybe_unused]] const char * name)
+    template<typename Dst, typename Src>
+    [[maybe_unused]] bool updateState(Dst & lhs, Src && rhs, [[maybe_unused]] const char * name)
     {
         if (lhs == rhs) {
-            return;
+            return false;
         }
-        lhs = rhs;
+        lhs = std::forward<Src>(rhs);
         isDirty = true;
+        return true;
     }
 
 #define UPDATE_STATE(lhs, rhs) updateState(lhs, rhs, #rhs)
@@ -165,17 +167,11 @@ struct RenderNode::Impl
         UPDATE_STATE(this->sceneData, sceneData);
     }
 
-    void unsetTree()
+    void setTree(builder::TreePtr builderTree)
     {
-        if (builderTree) {
-            builderTree.reset();
-            isDirty = true;
-        }
-    }
-
-    void updateTree(const builder::TreePtr & tree)
-    {
-        UPDATE_STATE(this->builderTree, tree);
+        this->builderTree = std::move(builderTree);
+        treeIsDirty = true;
+        isDirty = true;
     }
 
     void updateRect(const QRectF & rect)
@@ -258,10 +254,9 @@ struct RenderNode::Impl
                 renderer.value().setScene(sceneData);
             }
         }
-        if (builderTree) {
-            renderer.value().setTree(builderTree);
-        } else {
-            renderer.value().unsetTree();
+        if (treeIsDirty) {
+            treeIsDirty = false;
+            renderer.value().setTree(std::move(builderTree));
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;
@@ -349,7 +344,7 @@ struct RenderNode::Impl
 };
 
 RenderNode::RenderNode(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
-    : impl_{name, window, engineWrapper}
+    : impl_{std::make_unique<Impl>(name, window, engineWrapper)}
 {}
 
 void RenderNode::unsetScene()
@@ -367,19 +362,9 @@ auto RenderNode::getScene() const & -> const scene_data::SceneDataPtr &
     return impl_->sceneData;
 }
 
-void RenderNode::unsetTree()
+void RenderNode::setTree(builder::TreePtr && tree)
 {
-    return impl_->unsetTree();
-}
-
-void RenderNode::updateTree(const builder::TreePtr & tree)
-{
-    return impl_->updateTree(tree);
-}
-
-auto RenderNode::getTree() const & -> const builder::TreePtr &
-{
-    return impl_->builderTree;
+    return impl_->setTree(std::move(tree));
 }
 
 void RenderNode::updateRect(const QRectF & rect)

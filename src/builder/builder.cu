@@ -27,6 +27,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -81,6 +82,11 @@ struct Tree::Impl : utils::OneTime<Impl>
     size_t nodeParentOffset = 0;
 
     std::optional<utils::Fd> fd;
+
+    [[nodiscard]] bool operator==(const Impl & rhs) const noexcept
+    {
+        return std::forward_as_tuple(settings, cudaDevice, sceneData.lock()) == std::forward_as_tuple(rhs.settings, rhs.cudaDevice, rhs.sceneData.lock());
+    }
 
     [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<Traits> & tree)
     {
@@ -270,6 +276,11 @@ scene_data::SceneDataPtr Tree::getSceneData() const
     return impl_->sceneData.lock();
 }
 
+bool Tree::operator==(const Tree & rhs) const noexcept
+{
+    return *impl_ == *rhs.impl_;
+}
+
 size_t Tree::getTriangleCount() const
 {
     ASSERT(impl_->triangleCount > 0);
@@ -337,7 +348,7 @@ bool Tree::isEmpty() const
     return !impl_->fd;
 }
 
-utils::Fd Tree::getFd() &&
+utils::Fd Tree::stealFd() &&
 {
     ASSERT(!isEmpty());
     utils::Fd fd = std::move(impl_->fd).value();
@@ -345,10 +356,20 @@ utils::Fd Tree::getFd() &&
     return fd;
 }
 
-utils::Fd Tree::cloneFd() const &
+utils::Fd Tree::cloneFd() const
 {
     ASSERT(!isEmpty());
     return impl_->fd.value().clone();
+}
+
+void TreeDeleter::operator()(Tree * tree) const noexcept
+{
+    return std::default_delete<Tree>{}(tree);
+}
+
+TreePtr makeTreePtr(Tree && tree)
+{
+    return {new Tree{std::move(tree)}, TreeDeleter{}};
 }
 
 }  // namespace builder

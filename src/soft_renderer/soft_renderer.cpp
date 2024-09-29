@@ -51,8 +51,6 @@ struct SoftRenderer::Impl
     const std::string name;
     const glm::vec4 clearColor;
 
-    builder::TreePtr builderTree;
-
     std::vector<scene_data::Triangle> triangles;
     std::vector<glm::uint> polygons;
     std::vector<Node> nodes;
@@ -137,18 +135,15 @@ SoftRenderer::~SoftRenderer() = default;
 
 SoftRenderer::SoftRenderer(SoftRenderer &&) noexcept = default;
 
-void SoftRenderer::setTree(builder::TreePtr && builderTree)
+void SoftRenderer::setTree(builder::Tree && builderTree)
 {
-    ASSERT(builderTree);
-    ASSERT(!impl_->builderTree);
-    importTree(std::move(*builderTree), impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
-    builderTree.reset();
+    importTree(std::move(builderTree), impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
 }
 
 void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const
 {
     INVARIANT(!target.empty(), "");
-    INVARIANT(target.format() == gli::FORMAT_RGB32_SFLOAT_PACK32, "{}", fmt::underlying(target.format()));
+    INVARIANT(target.format() == gli::format::FORMAT_RGB32_SFLOAT_PACK32, "{}", fmt::underlying(target.format()));
     constexpr size_t kLevel = 0;
     target.clear(impl_->clearColor);
     const gli::extent2d extent = target.extent();

@@ -13,7 +13,7 @@
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGRenderNode>
 
-#include <cstddef>
+#include <memory>
 
 namespace viewer
 {
@@ -29,9 +29,7 @@ public:
     void updateScene(const scene_data::SceneDataPtr & sceneData);
     [[nodiscard]] const scene_data::SceneDataPtr & getScene() const &;
 
-    void unsetTree();
-    void updateTree(const builder::TreePtr & tree);
-    [[nodiscard]] const builder::TreePtr & getTree() const &;
+    void setTree(builder::TreePtr && tree);
 
     void updateRect(const QRectF & rect);
     void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame);
@@ -43,9 +41,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 400;
-    static constexpr size_t kAlignment = 8;
-    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+    std::unique_ptr<Impl> impl_;
 
     void prepare() override;
     void render(const RenderState * renderState) override;

@@ -41,12 +41,14 @@ class SceneSettings : public QObject
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneChanged STORED false)
     Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
 
-    Q_PROPERTY(int depth READ getDepth NOTIFY treeChanged STORED false)
-    Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
+    Q_PROPERTY(bool traceTree MEMBER traceTree NOTIFY treeSettingsChanged)
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY treeSettingsChanged)
+
+    Q_PROPERTY(int depth READ getDepth NOTIFY treeChanged STORED false)
+    Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
 
 public:
     EngineWrapper * engineWrapper = nullptr;
@@ -54,6 +56,7 @@ public:
 
     QUrl url;
 
+    bool traceTree = false;
     float emptinessFactor = 0.8f;
     float traversalCost = 2.0f;
     float intersectionCost = 1.0f;
@@ -83,13 +86,12 @@ Q_SIGNALS:
     void taskQueueChanged();
 
     void urlChanged();
-
     void sceneChanged();
     void sceneStatusChanged();
 
+    void treeSettingsChanged();
     void treeChanged();
     void treeStatusChanged();
-    void treeSettingsChanged();
 
 public Q_SLOTS:
     void resetUrl();
@@ -114,6 +116,7 @@ private:
     QString treeStatus;
     QSharedPointer<TreeFutureWatcher> treeFutureWatcher;
     builder::TreePtr tree;
+    bool isTreeChanged = false;
 };
 
 class RendererSettings : public QObject
@@ -130,9 +133,8 @@ public:
     enum class RenderModeFlag
     {
         Default = 0x0000,
-        TraceSahKdTree = 0x0001,
-        UseOffscreenTexture = 0x0002,  // TODO: QQuickRhiItem instead?
-        DiscardInvisibleFragments = 0x0004,
+        UseOffscreenTexture = 0x0001,  // TODO: QQuickRhiItem instead?
+        DiscardInvisibleFragments = 0x0002,
     };
     Q_DECLARE_FLAGS(RenderModeFlags, RenderModeFlag)
     Q_FLAG(RenderModeFlags)

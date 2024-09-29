@@ -497,7 +497,7 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
         const vk::MemoryType & memoryType = physicalDeviceMemoryProperties.memoryTypes[memoryTypeIndex];
         SPDLOG_INFO("heapIndex {}, propertyFlags {}", memoryType.heapIndex, memoryType.propertyFlags);
         const vk::MemoryHeap & memoryHeap = physicalDeviceMemoryProperties.memoryHeaps[memoryType.heapIndex];
-        SPDLOG_INFO("size {}, flags {}", memoryHeap.size, memoryHeap.flags);
+        SPDLOG_INFO("heap size {}, heap flags {}", memoryHeap.size, memoryHeap.flags);
         if ((memoryType.propertyFlags & requiredMemoryPropertyFlags) != requiredMemoryPropertyFlags) {
             continue;
         }

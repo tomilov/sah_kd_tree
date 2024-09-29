@@ -6,6 +6,13 @@ namespace builder
 {
 class Tree;
 
-using TreePtr = std::shared_ptr<Tree>;
-using TreeWeakPtr = std::weak_ptr<Tree>;
+struct TreeDeleter
+{
+    void operator()(Tree * tree) const noexcept;
+};
+
+using TreePtr = std::unique_ptr<Tree, TreeDeleter>;
+
+TreePtr makeTreePtr(Tree && tree);
+
 }  // namespace builder

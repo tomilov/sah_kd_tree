@@ -17,31 +17,21 @@
 namespace soft_renderer
 {
 
-void importTree(builder::Tree && tree, std::vector<scene_data::Triangle> & triangles, std::vector<glm::uint> & polygons, std::vector<Node> & nodes, std::vector<glm::uint> & nodeParents)
+void importTree(builder::Tree tree, std::vector<scene_data::Triangle> & triangles, std::vector<glm::uint> & polygons, std::vector<Node> & nodes, std::vector<glm::uint> & nodeParents)
 {
-    triangles.resize(tree.getTriangleCount());
-    // std::vector<size_t> layerSizes = tree.getLayerSizes();
-    polygons.resize(tree.getPolygonCount());
-    nodes.resize(tree.getNodeCount());
-    nodeParents.resize(tree.getNodeCount());
-
     const compute::CudaDevice & cudaDevice = tree.getCudaDevice();
-    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).getFd(), tree.getAllocationSize(), tree.getDataAlignment()};
-
-    // const vk::DeviceSize dataSize = utils::autoCast(tree.getDataSize());
-
+    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).stealFd(), tree.getAllocationSize(), tree.getDataAlignment()};
     const auto mappedDeviceMemory = deviceMemory.map();
     const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
-
-    const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, std::vector<T> & v)
+    const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, std::vector<T> & v)
     {
-        CU_CHECK_ERROR(::cuMemcpyDtoH(std::data(v), devPtr + offset, std::size(v) * sizeof(T)));
+        v.resize(count);
+        CU_CHECK_ERROR(::cuMemcpyDtoH(std::data(v), devPtr + offset, count * sizeof(T)));
     };
-    scatterDeviceData(tree.getTriangleOffset(), triangles);
-    scatterDeviceData(tree.getPolygonOffset(), polygons);
-    scatterDeviceData(tree.getNodeOffset(), nodes);
-    scatterDeviceData(tree.getNodeParentOffset(), nodeParents);
-
+    scatterDeviceData(tree.getTriangleOffset(), tree.getTriangleCount(), triangles);
+    scatterDeviceData(tree.getPolygonOffset(), tree.getPolygonCount(), polygons);
+    scatterDeviceData(tree.getNodeOffset(), tree.getNodeCount(), nodes);
+    scatterDeviceData(tree.getNodeParentOffset(), tree.getNodeCount(), nodeParents);
     CUDA_CHECK_ERROR(cudaDeviceSynchronize());
 }
 

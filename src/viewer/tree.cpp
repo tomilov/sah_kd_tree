@@ -18,7 +18,6 @@ struct Tree::Impl
 {
     std::string name;
     const engine::Context & context;
-    builder::TreeWeakPtr builderTree;
 
     const uint32_t triangleCount;
     std::vector<size_t> layerSizes;
@@ -34,27 +33,22 @@ struct Tree::Impl
     const vk::DeviceSize nodeOffset;
     const vk::DeviceSize nodeParentOffset;
 
+    utils::Fd fd;
+
     vk::UniqueDeviceMemory deviceMemory;
     vk::UniqueBuffer buffer;  // buffer should be destructed first
     vk::DeviceAddress deviceAddress = 0;
 
-    Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree);
+    Impl(std::string_view name, const engine::Context & context, builder::Tree builderTree);
 };
 
-Tree::Tree(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
-    : impl_{std::make_unique<Impl>(name, context, builderTree)}
-{
-    ASSERT(builderTree);
-}
+Tree::Tree(std::string_view name, const engine::Context & context, builder::Tree && builderTree)
+    : impl_{std::make_unique<Impl>(name, context, std::move(builderTree))}
+{}
 
 Tree::Tree(Tree &&) noexcept = default;
 
 Tree::~Tree() = default;
-
-builder::TreePtr Tree::getBuilderTree() const
-{
-    return impl_->builderTree.lock();
-}
 
 uint32_t Tree::getTriangleCount() const
 {
@@ -132,25 +126,24 @@ vk::DeviceAddress Tree::getNodeParentAddress() const &
     return deviceAddress;
 }
 
-Tree::Impl::Impl(std::string_view name, const engine::Context & context, const builder::TreePtr & builderTree)
+Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder::Tree builderTree)
     : name{name}
     , context{context}
-    , builderTree{builderTree}
-    , triangleCount{utils::autoCast(builderTree->getTriangleCount())}
-    , layerSizes{builderTree->getLayerSizes()}
-    , polygonCount{utils::autoCast(builderTree->getPolygonCount())}
-    , nodeCount{utils::autoCast(builderTree->getNodeCount())}
-    , dataSize{utils::autoCast(builderTree->getDataSize())}
-    , dataAlignment{utils::autoCast(builderTree->getDataAlignment())}
-    , allocationSize{utils::autoCast(builderTree->getAllocationSize())}
-    , triangleOffset{utils::autoCast(builderTree->getTriangleOffset())}
-    , polygonOffset{utils::autoCast(builderTree->getPolygonOffset())}
-    , nodeOffset{utils::autoCast(builderTree->getNodeOffset())}
-    , nodeParentOffset{utils::autoCast(builderTree->getNodeParentOffset())}
+    , triangleCount{utils::autoCast(builderTree.getTriangleCount())}
+    , layerSizes{builderTree.getLayerSizes()}
+    , polygonCount{utils::autoCast(builderTree.getPolygonCount())}
+    , nodeCount{utils::autoCast(builderTree.getNodeCount())}
+    , dataSize{utils::autoCast(builderTree.getDataSize())}
+    , dataAlignment{utils::autoCast(builderTree.getDataAlignment())}
+    , allocationSize{utils::autoCast(builderTree.getAllocationSize())}
+    , triangleOffset{utils::autoCast(builderTree.getTriangleOffset())}
+    , polygonOffset{utils::autoCast(builderTree.getPolygonOffset())}
+    , nodeOffset{utils::autoCast(builderTree.getNodeOffset())}
+    , nodeParentOffset{utils::autoCast(builderTree.getNodeParentOffset())}
+    , fd{std::move(builderTree).stealFd()}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
-    utils::Fd fd = builderTree->cloneFd();
 
     const vk::Device device = context.getDevice().getDevice();
 
@@ -229,7 +222,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, const b
     // transfers ownership of the file descriptor
     // from the application to the Vulkan implementation.
     // So release it
-    std::ignore = std::move(fd).releaseFd();
+    std::ignore = std::move(fd).release();
     context.getDevice().setDebugUtilsObjectName(*deviceMemory, name);
 
     vk::BindBufferMemoryInfo bindBufferMemoryInfo = {

@@ -137,6 +137,11 @@ public:
         return deviceUuid;
     }
 
+    [[nodiscard]] bool operator==(const CudaDevice & rhs) const noexcept
+    {
+        return deviceUuid == rhs.deviceUuid;
+    }
+
     [[nodiscard]] int getCudaRuntimeDev() const &
     {
         return cudaDev;

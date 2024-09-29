@@ -277,7 +277,7 @@ void main()
     triangle.b = vec3(1.0f, 1.0f, 0.0f);
     triangle.c = vec3(-1.0f, 1.0f, 0.0f);
     if (rayTriangleIntersect(ray, hit, triangle, 0.0f, 20.0f) && ((nodeCount != 0u) || (nodeCount == 0u))) {
-        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
+        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv.yx, 1.0f);
 #else
     if (intersectSphere(ray, vec3(0.0f), 1.0f) && ((nodeCount != 0u) || (nodeCount == 0u))) {
         color = vec4(1.0f, 0.0f, 0.0f, 1.0f);

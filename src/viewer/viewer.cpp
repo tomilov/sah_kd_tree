@@ -1,4 +1,5 @@
 ﻿#include <builder/builder.hpp>
+#include <compute/compute.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine.hpp>
@@ -187,7 +188,7 @@ void SceneSettings::updateScene()
     } else {
         INVARIANT(future.isFinished(), "");
         if (future.isResultReadyAt(0)) {
-            scene_data::SceneDataPtr newSceneData = future.result();
+            scene_data::SceneDataPtr newSceneData = future.takeResult();
             if (sceneData != newSceneData) {
                 sceneData = std::move(newSceneData);
                 Q_EMIT sceneChanged();
@@ -255,24 +256,21 @@ void SceneSettings::updateTree()
     auto future = treeFutureWatcher->future();
     Q_ASSERT(future.isValid());
     if (future.isCanceled()) {
-        {
-            tree.reset();
-            Q_EMIT treeChanged();
-        }
         treeStatus = u"Cancelled"_s;
     } else {
         INVARIANT(future.isFinished(), "");
-        if (future.isResultReadyAt(0)) {
-            builder::TreePtr newTree = future.result();
-            if (tree != newTree) {
-                tree = std::move(newTree);
-                Q_EMIT treeChanged();
-            }
-        } else {
+        if (tree) {
             tree.reset();
-            Q_EMIT treeChanged();
+            isTreeChanged = true;
         }
-        treeStatus.clear();
+        if (future.isResultReadyAt(0)) {
+            tree = future.takeResult();
+            isTreeChanged = true;
+            treeStatus.clear();
+        } else {
+            treeStatus = u"Reset"_s;
+        }
+        Q_EMIT treeChanged();
     }
     Q_EMIT treeStatusChanged();
 }
@@ -286,9 +284,16 @@ void SceneSettings::onTreeSettingsChanged()
         treeFutureWatcher->cancel();
         treeFutureWatcher.clear();
     }
+    if (!traceTree) {
+        tree.reset();
+        isTreeChanged = true;
+        Q_EMIT treeChanged();
+        return;
+    }
     if (!sceneData) {
         if (tree) {
             tree.reset();
+            isTreeChanged = true;
             Q_EMIT treeChanged();
         }
         if (!treeStatus.isEmpty()) {
@@ -303,7 +308,7 @@ void SceneSettings::onTreeSettingsChanged()
         .intersectionCost = intersectionCost,
         .maxDepth = utils::autoCast(maxDepth),
     };
-    if (tree && (tree->getSettings() == builderTreeSettings) && (tree->getSceneData() == sceneData)) {
+    if (tree && (tree->getSettings() == builderTreeSettings) && (tree->getCudaDevice() == *engineWrapper->getEngine().getCudaDevice()) && (tree->getSceneData() == sceneData)) {
         return;
     }
     auto scenePath = QString::fromStdString(sceneData->name);
@@ -323,9 +328,9 @@ void SceneSettings::onTreeSettingsChanged()
         progress(0);
         try {
             if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
-                auto tree = std::make_shared<builder::Tree>(builderTreeSettings, *cudaDevice, sceneData, progress);
-                if (!tree->isEmpty()) {
-                    promise.addResult(std::move(tree));
+                builder::Tree tree{builderTreeSettings, *cudaDevice, sceneData, progress};
+                if (!tree.isEmpty()) {
+                    promise.addResult(builder::makeTreePtr(std::move(tree)));
                 }
             }
         } catch (const std::exception & e) {
@@ -587,9 +592,9 @@ Viewer::Viewer(QQuickItem * parent)
         sceneUrlChangedConnection = connect(sceneSettings, &SceneSettings::urlChanged, this, &QQuickItem::update);
         sceneChangedConnection = connect(sceneSettings, &SceneSettings::sceneChanged, this, &QQuickItem::update);
         sceneStatusChangedConnection = connect(sceneSettings, &SceneSettings::sceneStatusChanged, this, &QQuickItem::update);
+        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
         sceneSettingsTreeChangedConnection = connect(sceneSettings, &SceneSettings::treeChanged, this, &QQuickItem::update);
         sceneSettingsTreeStatusChangedConnection = connect(sceneSettings, &SceneSettings::treeStatusChanged, this, &QQuickItem::update);
-        sceneSettingsBuildSettingsChangedConnection = connect(sceneSettings, &SceneSettings::treeSettingsChanged, this, &QQuickItem::update);
     };
     connect(this, &Viewer::sceneSettingsChanged, onSceneSettingsChanged);
     connect(cameraView, &CameraView::viewChanged, this, &QQuickItem::update);
@@ -928,13 +933,12 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
         renderNode = new RenderNode{sceneSettings->url.toString(), window(), *engineWrapper};
     }
     renderNode->updateScene(sceneSettings->sceneData);
-    if (rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree) {
-        renderNode->updateTree(sceneSettings->tree);
-    } else {
-        renderNode->unsetTree();
+    if (sceneSettings->isTreeChanged) {
+        sceneSettings->isTreeChanged = false;
+        renderNode->setTree(std::move(sceneSettings->tree));
     }
     renderNode->updateRect(boundingRect());
-    const bool traceSahKdTree = rendererSettings->renderMode & RendererSettings::RenderModeFlag::TraceSahKdTree;
+    const bool traceSahKdTree = sceneSettings->traceTree;
     const bool useOffscreenTexture = rendererSettings->renderMode & RendererSettings::RenderModeFlag::UseOffscreenTexture;
     const bool discardInvisible = rendererSettings->renderMode & RendererSettings::RenderModeFlag::DiscardInvisibleFragments;
     const bool wireFrame = rendererSettings->texturingMode == RendererSettings::TexturingMode::WireFrame;
