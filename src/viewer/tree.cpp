@@ -33,8 +33,6 @@ struct Tree::Impl
     const vk::DeviceSize nodeOffset;
     const vk::DeviceSize nodeParentOffset;
 
-    utils::Fd fd;
-
     vk::UniqueDeviceMemory deviceMemory;
     vk::UniqueBuffer buffer;  // buffer should be destructed first
     vk::DeviceAddress deviceAddress = 0;
@@ -140,7 +138,6 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
     , polygonOffset{utils::autoCast(builderTree.getPolygonOffset())}
     , nodeOffset{utils::autoCast(builderTree.getNodeOffset())}
     , nodeParentOffset{utils::autoCast(builderTree.getNodeParentOffset())}
-    , fd{std::move(builderTree).stealFd()}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
@@ -186,6 +183,8 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
     const auto & memoryDedicatedRequirements = memoryRequirementsChain.get<vk::MemoryDedicatedRequirements>();
 
     const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
+
+    utils::Fd fd = builderTree.cloneFd();
 
     vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
     auto & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
