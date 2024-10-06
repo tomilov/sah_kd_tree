@@ -7,6 +7,7 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 
+#include <gli/save.hpp>
 #include <gli/texture2d.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -19,6 +20,8 @@
 #include <QtCore/QString>
 #include <QtCore/QtLogging>
 
+#include <cstdio>
+#include <memory>
 #include <string_view>
 
 #include <cstdlib>
@@ -74,11 +77,22 @@ builder::TreePtr makeTree(QString sceneFileName)
     return builder::makeTreePtr(std::move(tree));
 }
 
+std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
+{
+    if (filepath == "-"sv) {
+        return {stream, [](std::FILE *)
+                {
+                    return 0;
+                }};
+    }
+    return {std::fopen(filepath, "wb"), std::fclose};
+}
+
 }  // namespace
 
 int main(int argc, char * argv[])
 {
-    INVARIANT(argc == 2, "{}", argc);
+    INVARIANT(argc == 3, "{}", argc);
     builder::TreePtr tree = makeTree(QString::fromUtf8(argv[1]));
     if (!tree) {
         return EXIT_FAILURE;
@@ -87,11 +101,31 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
+    glm::vec3 position{-0.25f, -0.75f, -2.1f};
+    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f})));
     soft_renderer::FrameSettings frameSettings = {
-        .position = glm::vec3{0.0f, 0.0f, -1.0f},
+        .position = position,
+        .orientation = orientation,
     };
-    gli::extent2d extent{1024, 1024};
-    gli::texture2d target{gli::format::FORMAT_RGB32_SFLOAT_PACK32, extent};
+    gli::extent2d extent{1024, 768};
+    gli::texture2d target{soft_renderer::SoftRenderer::kTargetFormat, extent};
     softRenderer.render(frameSettings, target);
+    const std::string_view outputFilepath{argv[2]};
+    if ((outputFilepath == "-"sv) || outputFilepath.ends_with(".ppm"sv)) {
+        auto outputFile = openFile(argv[2], stdout);
+        if (!outputFile) {
+            return EXIT_FAILURE;
+        }
+        fmt::println(outputFile.get(), "P6\n{} {}\n255", target.extent().x, target.extent().y);
+        const size_t writeSize = target.size();
+        const size_t writtenSize = std::fwrite(target.data(), 1, writeSize, outputFile.get());
+        if (writtenSize != writeSize) {
+            return EXIT_FAILURE;
+        }
+    } else {
+        if (!gli::save(target, argv[2])) {
+            return EXIT_FAILURE;
+        }
+    }
     return EXIT_SUCCESS;
 }

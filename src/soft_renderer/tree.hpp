@@ -18,7 +18,7 @@ inline constexpr glm::uint kRootNodeIndex = 0;
 
 struct Ray
 {
-    glm::vec3 src;
+    glm::vec3 pos;
     glm::vec3 dir;
 };
 

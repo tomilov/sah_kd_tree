@@ -33,6 +33,10 @@ struct FrameSettings
 class SOFT_RENDERER_EXPORT SoftRenderer : utils::OneTime<SoftRenderer>
 {
 public:
+    static inline gli::format kTargetFormat = gli::format::FORMAT_RGB8_SNORM_PACK8;
+
+    using PixelType = glm::u8vec3;
+
     SoftRenderer(std::string_view name, const glm::vec4 & clearColor);
     SoftRenderer(SoftRenderer &&) noexcept;
     ~SoftRenderer();

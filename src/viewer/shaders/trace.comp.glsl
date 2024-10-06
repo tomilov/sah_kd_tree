@@ -70,7 +70,7 @@ layout(set = 1, binding = 0, rgba8) uniform image2D target;
 
 struct Ray
 {
-    vec3 src;
+    vec3 pos;
     vec3 dir;
 };
 
@@ -94,7 +94,7 @@ vec3 clearZeroSign(const in vec3 v)
 // https://iquilezles.org/articles/intersectors/
 bool intersectSphere(const in Ray ray, const in vec3 center, const in float radius)
 {
-    const vec3 oc = center - ray.src;
+    const vec3 oc = center - ray.pos;
     const float l = dot(ray.dir, oc);
     if (l < 0.0f) {
         return false;
@@ -108,7 +108,7 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
     // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
     const vec3 v1v0 = triangle.b - triangle.a;
     const vec3 v2v0 = triangle.c - triangle.a;
-    const vec3 rov0 = ray.src - triangle.a;
+    const vec3 rov0 = ray.pos - triangle.a;
     const vec3 n = cross(v1v0, v2v0);
     const float d = 1.0f / dot(ray.dir, n);
     hit.t = d * dot(-n, rov0);
@@ -134,7 +134,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool 
             if (splitDimension < 0) {
                 break;
             }
-            if (ray.src[splitDimension] < nodes.node[nodeIndex].splitPos) {
+            if (ray.pos[splitDimension] < nodes.node[nodeIndex].splitPos) {
                 nodeIndex = nodes.node[nodeIndex].leftChild;
             } else {
                 nodeIndex = nodes.node[nodeIndex].rightChild;
@@ -145,7 +145,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool 
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    vec3 aabbHitT = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.src) * invDir;
+    vec3 aabbHitT = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.pos) * invDir;
     float tMin = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
     if (debug) {
         //vec3 a = nodes.node[nodeIndex].aabbMin;
@@ -166,7 +166,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool 
             if (splitDimension < 0) {
                 break;
             }
-            if (corner[splitDimension] == ((nodes.node[nodeIndex].splitPos - ray.src[splitDimension]) * invDir[splitDimension] < tNear)) {
+            if (corner[splitDimension] == ((nodes.node[nodeIndex].splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
                 nodeIndex = nodes.node[nodeIndex].leftChild;
             } else {
                 nodeIndex = nodes.node[nodeIndex].rightChild;
@@ -174,7 +174,7 @@ bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool 
             //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
         }
         //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-        aabbHitT = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.src) * invDir;
+        aabbHitT = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.pos) * invDir;
         const float tMax = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
         //hit.uv = vec2(aabbHitT.y, aabbHitT.z) / max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
         //if (debug) {
@@ -259,7 +259,7 @@ void main()
         loc.y
     );
     Ray ray;
-    ray.src = pos;
+    ray.pos = pos;
     ray.dir = normalize(dir);
     Hit hit;
     hit.t = +1.0f / +0.0f;
