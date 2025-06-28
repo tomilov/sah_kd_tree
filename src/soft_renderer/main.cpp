@@ -80,10 +80,11 @@ builder::TreePtr makeTree(QString sceneFileName)
 std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
 {
     if (filepath == "-"sv) {
-        return {stream, [](std::FILE *)
-                {
-                    return 0;
-                }};
+        static constexpr decltype(&std::fclose) kNoop = [](std::FILE *) -> int
+        {
+            return 0;
+        };
+        return {stream, kNoop};
     }
     return {std::fopen(filepath, "wb"), std::fclose};
 }
@@ -101,7 +102,7 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
-    glm::vec3 position{-0.25f, -0.75f, -2.1f};
+    glm::vec3 position{0.0f, 0.0f, -1.1f};
     glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f})));
     soft_renderer::FrameSettings frameSettings = {
         .position = position,

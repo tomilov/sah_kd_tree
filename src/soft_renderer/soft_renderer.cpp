@@ -155,7 +155,7 @@ struct SoftRenderer::Impl
                 const glm::float32 tFar = glm::min(hit.t, tMax);
                 Hit closerHit;
                 closerHit.triangle = polygons.at(polygon);
-                if (rayTriangleIntersect(ray, hit, triangles.at(closerHit.triangle), tNear, tFar)) {
+                if (rayTriangleIntersect(ray, closerHit, triangles.at(closerHit.triangle), tNear, tFar)) {
                     if (closerHit.t < hit.t) {
                         hit = closerHit;
                     }
@@ -207,31 +207,31 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
     for (gli::int32 y = 0; y < extent.y; ++y) {
         if (y + y != extent.y) {
-            // continue;
+            //continue;
         }
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
         const glm::vec3 right = glm::mix(rightBottom, rightTop, locY);
         for (gli::int32 x = 0; x < extent.x; ++x) {
             if (x + x != extent.x) {
-                // continue;
+                //continue;
             }
             const glm::float32 locX = (utils::safeCast<glm::float32>(x) + 0.5f) * invExtent.x;
             ray.dir = glm::normalize(glm::mix(left, right, locX));
             glm::vec4 texel;
-#if 1
-            if (impl_->traceRay(nodeIndex, ray, hit)) {
-                texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
+            if ((true)) {
+                if (impl_->traceRay(nodeIndex, ray, hit)) {
+                    texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
+                } else {
+                    texel = impl_->clearColor;
+                }
             } else {
-                texel = impl_->clearColor;
+                if (intersectSphere(ray, glm::vec3{}, 0.5f)) {
+                    texel = glm::vec4{1.0f, 0.0f, 0.0f, 1.0f};
+                } else {
+                    texel = impl_->clearColor;
+                }
             }
-#else
-            if (intersectSphere(ray, glm::vec3{}, 0.5f)) {
-                texel = glm::vec4{1.0f, 0.0f, 0.0f, 1.0f};
-            } else {
-                texel = impl_->clearColor;
-            }
-#endif
             constexpr auto kScale = static_cast<glm::vec4::value_type>(std::numeric_limits<PixelType::value_type>::max());
             target.store(gli::extent2d{x, y}, kLevel, PixelType(glm::clamp(texel, glm::vec4{0.0f}, glm::vec4{1.0f}) * kScale));
         }
