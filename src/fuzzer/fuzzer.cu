@@ -2,6 +2,7 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 #include <iterator>
+#include <functional>
 
 namespace fuzzer
 {
@@ -22,10 +23,11 @@ void testOneInput(const Params & p, const std::vector<Triangle> & t)
     params.intersectionCost = p.intersectionCost;
     params.maxDepth = p.maxDepth;
 
-    const typename Traits::Cancel cancel = []
+    const std::function<bool(size_t progressValue)> cancel = []([[maybe_unused]] size_t progress)
     {
         return false;
     };
-    sah_kd_tree::Tree<Traits> tree = builder(cancel, params, x, y, z).value();
+    sah_kd_tree::Tree<Traits> tree;
+    builder.build(cancel, params, x, y, z, tree);
 }
 }  // namespace fuzzer

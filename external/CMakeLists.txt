@@ -13,7 +13,8 @@ target_compile_definitions(
         VULKAN_HPP_STORAGE_SHARED
         VULKAN_HPP_NO_CONSTRUCTORS
         VULKAN_HPP_TYPESAFE_CONVERSION
-        VULKAN_HPP_ASSERT=ASSERT)
+        VULKAN_HPP_ASSERT=ASSERT
+        VULKAN_HEADERS_ENABLE_MODULE_STD)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
         Vulkan-Headers
@@ -50,7 +51,12 @@ target_compile_definitions(
 
 set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
 set(FMT_SYSTEM_HEADERS ON CACHE BOOL "" FORCE)
+set(FMT_USE_BITINT OFF CACHE BOOL "" FORCE)
 add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
+target_compile_definitions(
+    "fmt"
+    INTERFACE
+        FMT_USE_BITINT=0)
 
 
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)

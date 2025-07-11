@@ -1,5 +1,5 @@
 find_package(
-    assimp 5
+    assimp 6
     REQUIRED)
 set_target_properties(
     assimp::assimp

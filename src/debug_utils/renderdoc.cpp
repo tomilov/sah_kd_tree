@@ -29,7 +29,7 @@ struct Renderdoc::Impl
     static constexpr const char * kLibraryName = "librenderdoc.so";
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
-    std::unique_ptr<void, decltype((::dlclose))> library{::dlopen(kLibraryName, RTLD_NOW | RTLD_NOLOAD), ::dlclose};
+    std::unique_ptr<void, decltype(&::dlclose)> library{::dlopen(kLibraryName, RTLD_NOW | RTLD_NOLOAD), &::dlclose};
 #pragma GCC diagnostic pop
     pRENDERDOC_GetAPI getApi = nullptr;
     RENDERDOC_API_1_6_0 * api = nullptr;

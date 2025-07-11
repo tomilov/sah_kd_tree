@@ -65,7 +65,7 @@ VK_FORMAT
         (?:_PACK(?P<depth_pack>32))?
     |
         # all image formats including multiplane
-        _(?P<component0>[ERGBA])(?P<component0bits>[1245689]|10|12|16|32|64)(?:X(?P<component0padding>[46]))?
+        _(?P<component0>[ERGBA])(?P<component0bits>[1245689]|10|12|14|16|32|64)(?:X(?P<component0padding>[246]))?
         (?:(?P<plane1>_)?(?P<component1>[RGB])(?P<component1bits>[45689]|10|11|12|16|32|64)(?:X(?P<component1padding>[46]))?)?
         (?:(?P<plane2>_)?(?P<component2>[RGB])(?P<component2bits>[45689]|10|11|12|16|32|64)(?:X(?P<component2padding>[46]))?)?
         (?:(?P<component3>[RGBA])(?P<component3bits>[145689]|10|12|16|32|64)(?:X(?P<component3padding>[46]))?)?
@@ -73,7 +73,7 @@ VK_FORMAT
         (?:_(?P<chroma>420|422|444))?
         _(?P<numeric_format>USCALED|UINT|UFLOAT|SINT|SFLOAT|SSCALED|SRGB|SNORM|UNORM)
         (?:_(?P<batch>[234])?PACK(?P<pack>8|16|32))?
-        (?:_KHR)?
+        (?:_(?P<vendor>KHR|ARM))?
 )
 """,
     re.VERBOSE,

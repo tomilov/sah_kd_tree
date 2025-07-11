@@ -28,8 +28,6 @@
 #include <cstdlib>
 #include <cstring>
 
-using namespace std::rel_ops;
-
 namespace fuzzer
 {
 namespace
