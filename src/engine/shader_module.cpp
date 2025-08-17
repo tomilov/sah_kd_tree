@@ -280,6 +280,12 @@ namespace
         return SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     case vk::DescriptorType::eAccelerationStructureKHR:
         return SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    case vk::DescriptorType::eTensorARM: {
+        INVARIANT(false, "Not implemented");  // TODO:
+    }
+    case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
+        INVARIANT(false, "Not implemented");  // TODO:
+    }
     case vk::DescriptorType::eInlineUniformBlock:
     case vk::DescriptorType::eAccelerationStructureNV:
     case vk::DescriptorType::eMutableEXT:

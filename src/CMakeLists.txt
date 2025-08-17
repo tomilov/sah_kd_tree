@@ -33,7 +33,8 @@ include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}")
 add_compile_options(
     "-Wall"
-    "-Wextra")
+    "-Wextra"
+    "$<$<COMPILE_LANGUAGE:C,CXX>:-Werror>")
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     add_compile_options(
         -Wold-style-cast

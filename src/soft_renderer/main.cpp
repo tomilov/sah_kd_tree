@@ -77,8 +77,11 @@ builder::TreePtr makeTree(QString sceneFileName)
     return builder::makeTreePtr(std::move(tree));
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
 std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
 {
+#pragma GCC diagnostic pop
     if (filepath == "-"sv) {
         static constexpr decltype(&std::fclose) kNoop = [](std::FILE *) -> int
         {

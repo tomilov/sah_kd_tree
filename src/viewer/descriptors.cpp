@@ -166,6 +166,14 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
             writeDescriptorSet.descriptorCount = writeDescriptorSetAccelerationStructure.accelerationStructureCount;
             break;
         }
+        case vk::DescriptorType::eTensorARM: {
+            INVARIANT(false, "Not implemented");  // TODO:
+            break;
+        }
+        case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
+            INVARIANT(false, "Not implemented");  // TODO:
+            break;
+        }
         case vk::DescriptorType::eMutableEXT:
         case vk::DescriptorType::eAccelerationStructureNV:
         case vk::DescriptorType::eSampleWeightImageQCOM:

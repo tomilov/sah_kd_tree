@@ -235,6 +235,11 @@ MemoryAllocator::Impl::Impl(const Context & context)
         FUNCTION_KHR(vkGetPhysicalDeviceMemoryProperties2),
         FUNCTION(vkGetDeviceBufferMemoryRequirements),
         FUNCTION(vkGetDeviceImageMemoryRequirements),
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        FUNCTION(vkGetMemoryWin32HandleKHR),
+#else
+        .vkGetMemoryWin32HandleKHR = nullptr,
+#endif
     };
 #undef FUNCTION_KHR
 #undef FUNCTION

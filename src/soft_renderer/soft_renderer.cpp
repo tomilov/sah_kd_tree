@@ -44,7 +44,7 @@ bool rayTriangleIntersect(const Ray & ray, Hit & hit, const scene_data::Triangle
     return !((hit.uv.x < 0.0f) || (hit.uv.y < 0.0f) || (hit.uv.x + hit.uv.y > 1.0f));
 }
 
-bool intersectTriangle(const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar /*, glm::vec3 & outNormal*/)
+bool intersectTriangle [[maybe_unused]] (const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar /*, glm::vec3 & outNormal*/)
 {
     // Can be shared between all triangles
     glm::vec3 centerU = ray.dir;
@@ -63,7 +63,7 @@ bool intersectTriangle(const Ray & ray, Hit & hit, const scene_data::Triangle & 
         if (t < hit.t) {
             // outNormal = normal;
             hit.t = t;
-            return true;
+            return !(hit.t < tNear) && !(tFar < hit.t);
         }
     }
     return false;

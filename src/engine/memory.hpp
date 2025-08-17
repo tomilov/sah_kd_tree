@@ -23,22 +23,22 @@ struct ENGINE_EXPORT AllocationCallbacks
 
         allocationCallbacks.pUserData = this;
 
-        allocationCallbacks.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) -> void *
+        allocationCallbacks.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, vk::SystemAllocationScope allocationScope) -> void *
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, utils::autoCast(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, allocationScope);
         };
         allocationCallbacks.pfnReallocation = nullptr;
         allocationCallbacks.pfnFree = [](void * pUserData, void * pMemory)
         {
             return static_cast<AllocationCallbacks *>(pUserData)->free(pMemory);
         };
-        allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+        allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, utils::autoCast(allocationType), utils::autoCast(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, allocationType, allocationScope);
         };
-        allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
+        allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
         {
-            return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, utils::autoCast(allocationType), utils::autoCast(allocationScope));
+            return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, allocationType, allocationScope);
         };
 
         return allocationCallbacks;
@@ -82,7 +82,7 @@ public:
         if (!allocationCallbacks) {
             return static_cast<T *>(::operator new(sizeof(T) * n, static_cast<std::align_val_t>(alignof(T))));
         }
-        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), static_cast<VkSystemAllocationScope>(systemAllocationScope));
+        auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), systemAllocationScope);
         if (!p) {
             throw std::bad_alloc{};
         }

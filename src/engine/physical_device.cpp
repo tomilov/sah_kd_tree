@@ -478,8 +478,14 @@ size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) cons
     case vk::DescriptorType::eBlockMatchImageQCOM: {
         INVARIANT(false, "Block match image descriptor cannot be stored in descriptor buffer");
     }
+    case vk::DescriptorType::eTensorARM: {
+        INVARIANT(false, "Not implemented");  // TODO:
+    }
     case vk::DescriptorType::eMutableEXT: {
         INVARIANT(false, "Mutable type descriptor cannot be stored in descriptor buffer");
+    }
+    case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
+        INVARIANT(false, "Not implemented");  // TODO:
     }
     }
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));

@@ -155,8 +155,12 @@ public:
 private:
     const std::optional<DeviceUuidType> deviceUuid;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wuseless-cast"
     int cudaDev = cudaInvalidDeviceId;
     ::CUdevice cuDev = CU_DEVICE_INVALID;
+#pragma GCC diagnostic pop
 };
 
 }  // namespace compute

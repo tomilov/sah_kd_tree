@@ -26,7 +26,7 @@ private:
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 
 #if defined(VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL)
-    std::optional<vk::DynamicLoader> dl;
+    std::optional<vk::detail::DynamicLoader> dl;
 #endif
 
 #if defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)

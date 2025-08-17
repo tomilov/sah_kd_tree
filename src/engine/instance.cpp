@@ -289,12 +289,10 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 
     auto & debugUtilsMessengerCreateInfo = instanceCreateInfoChain.get<vk::DebugUtilsMessengerCreateInfoEXT>();
     if (enabledExtensionSet.contains(vk::EXTDebugUtilsExtensionName)) {
-        static constexpr PFN_vkDebugUtilsMessengerCallbackEXT kUserCallback
-            = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT::MaskType messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT::NativeType * pCallbackData, void * pUserData) -> VkBool32
+        static constexpr vk::PFN_DebugUtilsMessengerCallbackEXT kUserCallback
+            = [](vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData, void * pUserData) -> vk::Bool32
         {
-            vk::DebugUtilsMessengerCallbackDataEXT debugUtilsMessengerCallbackData;
-            debugUtilsMessengerCallbackData = *pCallbackData;
-            return static_cast<Instance *>(pUserData)->userDebugUtilsCallbackWrapper(utils::autoCast(messageSeverity), utils::autoCast(messageTypes), debugUtilsMessengerCallbackData);
+            return static_cast<Instance *>(pUserData)->userDebugUtilsCallbackWrapper(messageSeverity, messageTypes, *pCallbackData);
         };
         using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
         debugUtilsMessengerCreateInfo.messageSeverity = Severity::eVerbose | Severity::eInfo | Severity::eWarning | Severity::eError;

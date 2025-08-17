@@ -1,3 +1,5 @@
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 add_subdirectory("Vulkan-Headers" EXCLUDE_FROM_ALL SYSTEM)
 set_target_properties(
     "Vulkan-Headers"
