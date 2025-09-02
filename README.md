@@ -1,6 +1,6 @@
 # UNDER CONSTRUCTION
 
-#### SAH kd-tree parallel build algorithm.
+#### SAH kd-tree for triangles parallel build algorithm.
 
 Based on:
 
