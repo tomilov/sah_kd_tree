@@ -156,7 +156,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
 #else
     apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
 #endif
-    INVARIANT((vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 3), "Expected Vulkan version 1.3, got version {}.{}.{}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion),
+    INVARIANT((vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 4), "Expected Vulkan version 1.3, got version {}.{}.{}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion),
               vk::apiVersionVariant(apiVersion));
 
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.getDispatcher());

@@ -7,6 +7,8 @@
 #include <thrust/transform.h>
 #include <thrust/zip_function.h>
 
+#include <cuda/std/iterator>
+
 template<typename Traits>
 void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
 {
@@ -15,7 +17,7 @@ void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
 
     auto triangleBegin = thrust::make_zip_iterator(triangle.a, triangle.b, triangle.c);
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.begin(), polygon.max.begin());
-    using PolygonBboxType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;
+    using PolygonBboxType = cuda::std::iter_value_t<decltype(polygonBboxBegin)>;
     auto toTriangleBbox = [] __host__ __device__(F a, F b, F c) -> PolygonBboxType { return {thrust::min(a, thrust::min(b, c)), thrust::max(a, thrust::max(b, c))}; };
     thrust::transform(triangleBegin, thrust::next(triangleBegin, triangle.count), polygonBboxBegin, thrust::make_zip_function(toTriangleBbox));
 }

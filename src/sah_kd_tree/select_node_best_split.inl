@@ -38,7 +38,7 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
     auto nodeZSplitPositions = thrust::raw_pointer_cast(z.layer.splitPos.data());
 
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
-    using NodeBestSplitType = thrust::iterator_value_t<decltype(nodeBestSplitBegin)>;
+    using NodeBestSplitType = cuda::std::iter_value_t<decltype(nodeBestSplitBegin)>;
     const auto toNodeBestSplit = [sah, nodeXSplitCosts, nodeYSplitCosts, nodeZSplitCosts, nodeXLeftChildPolygonCounts, nodeYLeftChildPolygonCounts, nodeZLeftChildPolygonCounts, nodeXRightChildPolygonCounts, nodeYRightChildPolygonCounts,
                                   nodeZRightChildPolygonCounts, nodePolygonCounts, nodeXSplitPositions, nodeYSplitPositions, nodeZSplitPositions] __host__
                                  __device__(U layerNode) -> NodeBestSplitType {

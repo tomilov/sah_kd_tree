@@ -206,7 +206,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         triangleOffset = gatherSize<scene_data::Triangle>(triangleCount);
         polygonOffset = gatherSize(tree.polygonTriangle);
         auto node = getNode(tree);
-        using NodeType = thrust::iterator_value_t<decltype(node)>;
+        using NodeType = cuda::std::iter_value_t<decltype(node)>;
         static_assert(sizeof(NodeType) == 64, "Keep in sync with Node in 'trace.comp'");
         nodeOffset = gatherSize<NodeType>(nodeCount);
         nodeParentOffset = gatherSize(tree.node.parent);

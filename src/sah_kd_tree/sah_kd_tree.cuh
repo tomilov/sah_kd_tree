@@ -440,7 +440,7 @@ struct Triangle
     template<typename TriangleIterator>
     void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
     {
-        using TriangleType = std::remove_const_t<thrust::iterator_value_t<TriangleIterator>>;
+        using TriangleType = std::remove_const_t<cuda::std::iter_value_t<TriangleIterator>>;
         thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
         t.assign(triangleBegin, triangleEnd);
         count = safeConvert<U>(t.size());
@@ -452,7 +452,7 @@ struct Triangle
             return thrust::make_zip_iterator(component.a.begin(), component.b.begin(), component.c.begin());
         };
         auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
-        using TransposedTriangleType = thrust::iterator_value_t<decltype(transposedTriangleBegin)>;
+        using TransposedTriangleType = cuda::std::iter_value_t<decltype(transposedTriangleBegin)>;
         thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangle<TriangleType, TransposedTriangleType>{});
     }
 };

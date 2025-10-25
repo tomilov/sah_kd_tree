@@ -36,7 +36,7 @@ void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
     auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
     auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
-    using SplittedPolygonType = thrust::iterator_value_t<decltype(splittedPolygonOutputBegin)>;
+    using SplittedPolygonType = cuda::std::iter_value_t<decltype(splittedPolygonOutputBegin)>;
     const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType { return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}}; };
     auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
     auto splittedPolygonInputEnd = thrust::next(splittedPolygonInputBegin, polygon.count);

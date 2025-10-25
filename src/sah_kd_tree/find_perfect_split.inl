@@ -52,7 +52,7 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
 
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splittedPolygonCount.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin(), layer.splitEvent.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
-    using PerfectSplitType = thrust::iterator_value_t<decltype(perfectSplitOutputBegin)>;
+    using PerfectSplitType = cuda::std::iter_value_t<decltype(perfectSplitOutputBegin)>;
     const auto toPerfectSplit
         = [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U event) -> PerfectSplitType {
         U eventNode = eventNodes[event];

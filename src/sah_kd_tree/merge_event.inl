@@ -126,7 +126,7 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
     assert(eventPosBegin == event.pos.end());
 #else
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, eventLeftPolygonLeftBegin);
-    // using BboxType = thrust::iterator_value_t<decltype(polygonBboxBegin)>;
+    // using BboxType = cuda::std::iter_value_t<decltype(polygonBboxBegin)>;
     thrust::transform(eventLeftKindLeftBegin, event.kind.end(), eventPolygonBboxBegin, thrust::next(event.pos.begin(), splittedEventOffset), toEventPos);
 #endif
 

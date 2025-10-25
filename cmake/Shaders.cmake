@@ -70,7 +70,7 @@ function(target_shaders target)
                 ARGS
                     -gVS
                     $<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-g,-g0>
-                    --target-env vulkan1.3
+                    --target-env vulkan1.4
                     --spirv-val
                     "${shader_file}"
                     --depfile "${output_file}.d"
@@ -78,7 +78,7 @@ function(target_shaders target)
             COMMAND
                 spirv-val
                 ARGS
-                    --target-env vulkan1.3
+                    --target-env vulkan1.4
                     --scalar-block-layout
                     "${output_file}"
             COMMAND
