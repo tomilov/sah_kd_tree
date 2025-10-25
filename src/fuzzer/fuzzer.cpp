@@ -389,7 +389,7 @@ struct TestInput
             std::rotate(std::begin(vertices), std::next(std::begin(vertices), utils::safeCast<ptrdiff_t>(selector % 3)), std::end(vertices));
             selector /= 3;
 
-            F Vertex::*components[] = {&Vertex::x, &Vertex::y, &Vertex::z};
+            F Vertex::* components[] = {&Vertex::x, &Vertex::y, &Vertex::z};
             std::rotate(std::begin(components), std::next(std::begin(components), utils::safeCast<ptrdiff_t>(selector % 3)), std::end(components));
             // selector /= 3;
 
@@ -438,7 +438,7 @@ struct TestInput
             const auto d = selector % 3;
             selector /= 3;
 
-            constexpr Vertex Triangle::*vertices[] = {&Triangle::a, &Triangle::b, &Triangle::c};
+            constexpr Vertex Triangle::* vertices[] = {&Triangle::a, &Triangle::b, &Triangle::c};
 
             auto srcTriangle = &*src;
             auto triangle = std::move(*dst);

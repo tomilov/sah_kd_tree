@@ -18,7 +18,7 @@ Device::Device(std::string_view name, Library & library, std::span<const char * 
     , library{library}
     , physicalDevice{physicalDevice}
 {
-    const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::*feature) -> bool
+    const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::* feature) -> bool
     {
         if constexpr (std::is_same_v<Features, vk::PhysicalDeviceFeatures>) {
             vk::Bool32 value = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.*feature;

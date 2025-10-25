@@ -1,8 +1,8 @@
 #include <fuzzer/fuzzer.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
-#include <iterator>
 #include <functional>
+#include <iterator>
 
 namespace fuzzer
 {

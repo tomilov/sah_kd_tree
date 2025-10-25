@@ -1,6 +1,6 @@
+ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 NPROC ?= $(shell nproc)
 FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
-ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 BUILD_DIR ?= /tmp/build-sah_kd_tree
 BUILD_TYPE ?= Debug
 BUILD_SHARED_LIBS ?= ON
@@ -147,11 +147,14 @@ plan 3d: $(CRASH_FILE)
 		$(CRASH_FILE) \
 		$(SCREEN_SIZE)
 
-venv:
+$(ROOT_DIR)/venv:
 	cd $(ROOT_DIR)
 	$(PYTHON) -m venv venv/
 	. venv/bin/activate
 	pip install -r requirements.txt
+
+.PHONY: venv
+venv: $(ROOT_DIR)/venv
 
 .PHONY: format
 format: venv

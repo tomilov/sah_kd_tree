@@ -207,14 +207,14 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
     for (gli::int32 y = 0; y < extent.y; ++y) {
         if (y + y != extent.y) {
-            //continue;
+            // continue;
         }
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
         const glm::vec3 right = glm::mix(rightBottom, rightTop, locY);
         for (gli::int32 x = 0; x < extent.x; ++x) {
             if (x + x != extent.x) {
-                //continue;
+                // continue;
             }
             const glm::float32 locX = (utils::safeCast<glm::float32>(x) + 0.5f) * invExtent.x;
             ray.dir = glm::normalize(glm::mix(left, right, locX));

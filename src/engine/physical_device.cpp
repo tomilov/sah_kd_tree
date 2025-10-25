@@ -183,7 +183,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 
     bool areAllFeaturesAvailable = true;
     size_t i = 0;
-    auto checkFeature = [this, deviceName, &i, &areAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::*feature) mutable
+    auto checkFeature = [this, deviceName, &i, &areAllFeaturesAvailable]<typename Features>(vk::Bool32 Features::* feature) mutable
     {
         ++i;
         bool isFeatureAvailable = true;
@@ -357,7 +357,7 @@ bool PhysicalDevice::isExtensionEnabled(const char * extension) const
 
 vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) const
 {
-    const vk::FormatFeatureFlags2 vk::FormatProperties3::*p = nullptr;
+    const vk::FormatFeatureFlags2 vk::FormatProperties3::* p = nullptr;
     if (imageTiling == vk::ImageTiling::eLinear) {
         p = &vk::FormatProperties3::linearTilingFeatures;
     } else if (imageTiling == vk::ImageTiling::eOptimal) {

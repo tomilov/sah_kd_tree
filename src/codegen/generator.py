@@ -218,7 +218,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
     output_formats = []
     for image_format in formats[0]:
         assert image_format.tag == "format", image_format.tag
-        output_format = {}
+        output_format: dict[str, Any] = {}
 
         assert len(image_format) > 0, len(image_format)
         for key, value in image_format.attrib.items():
@@ -276,7 +276,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
         max_component_count = max(max_component_count, len(components))
         output_components = []
         for component in components:
-            output_component = {}
+            output_component: dict[str, Any] = {}
             for key, value in component.attrib.items():
                 if key == "name":
                     assert len(value) == 1, "Identifiers should be reformatted"
