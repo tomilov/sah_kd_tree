@@ -4,6 +4,7 @@ find_package(
     COMPONENTS
         Core
         Gui
+        GuiPrivate
         Widgets
         Qml
         Quick
