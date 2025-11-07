@@ -105,13 +105,13 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
-    glm::vec3 position{-2.0f, 2.0f, 2.0f};
-    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f})));
+    glm::vec3 position{0.25f, 0.75f, 4.0f};
+    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f})));
     soft_renderer::FrameSettings frameSettings = {
         .position = position,
         .orientation = orientation,
     };
-    gli::extent2d extent{1024, 768};
+    gli::extent2d extent{1024, 1024};
     gli::texture2d target{soft_renderer::SoftRenderer::kTargetFormat, extent};
     softRenderer.render(frameSettings, target);
     const std::string_view outputFilepath{argv[2]};

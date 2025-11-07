@@ -129,14 +129,20 @@ struct SoftRenderer::Impl
     [[nodiscard]] bool traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit) const
     {
         if ((false)) {
-            const scene_data::Triangle triangle = {
-                .a = glm::vec3{0.0f, 0.0f, 0.0f},
-                .b = glm::vec3{0.0f, 1.0f, 0.0f},
-                .c = glm::vec3{1.0f, 1.0f, 1.0f},
-            };
             constexpr glm::float32 kNear = 0.0f;
             constexpr glm::float32 kFar = 100.0f;
-            return rayTriangleIntersect(ray, hit, triangle, kNear, kFar);
+            bool isHit = false;
+            for (const scene_data::Triangle & triangle : triangles) {
+                Hit closerHit;
+                closerHit.triangle = utils::autoCast(std::distance(&triangles.front(), &triangle));
+                if (rayTriangleIntersect(ray, closerHit, triangle, kNear, kFar)) {
+                    if (closerHit.t < hit.t) {
+                        hit = closerHit;
+                    }
+                    isHit = true;
+                }
+            }
+            return isHit;
         }
         const glm::vec3 invDir = glm::sign(ray.dir) / glm::max(glm::abs(ray.dir), glm::vec3(kEps));
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
@@ -215,24 +221,24 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     Ray ray;
     ray.pos = frameSettings.position;
-    Hit hit;
-    hit.t = std::numeric_limits<glm::float32>::infinity();
     const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
     for (gli::int32 y = 0; y < extent.y; ++y) {
-        if (y + y != extent.y) {
-            // continue;
-        }
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
         const glm::vec3 right = glm::mix(rightBottom, rightTop, locY);
         for (gli::int32 x = 0; x < extent.x; ++x) {
-            if (x + x != extent.x) {
-                // continue;
-            }
             const glm::float32 locX = (utils::safeCast<glm::float32>(x) + 0.5f) * invExtent.x;
             ray.dir = glm::normalize(glm::mix(left, right, locX));
             glm::vec4 texel;
             if ((true)) {
+                if (std::fabs(x + x - extent.x) < 10.0 && std::fabs(y + y - extent.y) < 10.0) {
+                    asm volatile("nop;");
+                    // continue;
+                } else {
+                    // continue;
+                }
+                Hit hit;
+                hit.t = std::numeric_limits<glm::float32>::infinity();
                 if (impl_->traceRay(nodeIndex, ray, hit)) {
                     texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
                 } else {
