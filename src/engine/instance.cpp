@@ -143,10 +143,10 @@ bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-Instance::Instance(std::string_view applicationName, uint32_t applicationVersion, std::span<const char * const> requiredInstanceExtensions, Library & library, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
-    : applicationName{applicationName}
-    , applicationVersion{applicationVersion}
-    , library{library}
+Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersionIn, std::span<const char * const> requiredInstanceExtensions, Library & libraryIn, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
+    : applicationName{applicationNameIn}
+    , applicationVersion{applicationVersionIn}
+    , library{libraryIn}
     , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
 {
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
@@ -305,7 +305,7 @@ Instance::Instance(std::string_view applicationName, uint32_t applicationVersion
         debugUtilsMessengerCreateInfo.pUserData = this;
     }
 
-    applicationInfo.pApplicationName = this->applicationName.c_str();
+    applicationInfo.pApplicationName = applicationName.c_str();
     applicationInfo.applicationVersion = applicationVersion;
     applicationInfo.pEngineName = sah_kd_tree::kProjectName;
     applicationInfo.engineVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);

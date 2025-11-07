@@ -10,7 +10,7 @@ C_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls
 CXX_COMPILER ?= $(shell which clang++)
 CXX_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls -stdlib=libc++
 CUDA_FLAGS ?= #-stdlib=libc++ -D_ALLOW_UNSUPPORTED_LIBCPP
-CUDA_ARCH ?= native
+CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | awk '/__CUDA_ARCH__/ { print $$3 / 10 }')
 THRUST_DEVICE_SYSTEM ?= CPP
 FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0

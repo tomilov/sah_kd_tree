@@ -31,8 +31,8 @@ using namespace std::string_view_literals;
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice)
-    : context{context}
+PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice physicalDevice)
+    : context{contextIn}
     , physicalDevice{physicalDevice}
 {
     extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, context.getDispatcher());
@@ -518,8 +518,8 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
     return vk::MaxMemoryTypes;
 }
 
-PhysicalDevices::PhysicalDevices(const Context & context)
-    : context{context}
+PhysicalDevices::PhysicalDevices(const Context & contextIn)
+    : context{contextIn}
 {
     size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {

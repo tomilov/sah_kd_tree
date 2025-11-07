@@ -103,22 +103,26 @@ bool intersectSphere(const in Ray ray, const in vec3 center, const in float radi
     return radius * radius > dot(oc, oc) - dot(ll, ll);
 }
 
+// TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
 {
-    // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
     const vec3 v1v0 = triangle.b - triangle.a;
     const vec3 v2v0 = triangle.c - triangle.a;
-    const vec3 rov0 = ray.pos - triangle.a;
+    const vec3 tVec = ray.pos - triangle.a;
     const vec3 n = cross(v1v0, v2v0);
-    const float d = 1.0f / dot(ray.dir, n);
-    hit.t = d * dot(-n, rov0);
+    const float denom = dot(ray.dir, n);
+    if (abs(denom) < kEps) {
+        return false;
+    }
+    const float invDenom = 1.0f / denom;
+    hit.t = invDenom * dot(-n, tVec);
     if ((hit.t < tNear) || (tFar < hit.t)) {
         return false;
     }
-    const vec3 q = cross(rov0, ray.dir);
-    hit.uv.x = d * dot(-q, v2v0);
-    hit.uv.y = d * dot(q, v1v0);
-    return !((hit.uv.x < 0.0f) || (hit.uv.y < 0.0f) || (hit.uv.x + hit.uv.y > 1.0f));
+    const vec3 q = cross(tVec, ray.dir);
+    hit.uv.x = invDenom * dot(-q, v2v0);
+    hit.uv.y = invDenom * dot(q, v1v0);
+    return !((hit.uv.x < -kEps) || (hit.uv.y < -kEps) || (hit.uv.x + hit.uv.y > 1.0f + kEps));
 }
 
 bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool debug)

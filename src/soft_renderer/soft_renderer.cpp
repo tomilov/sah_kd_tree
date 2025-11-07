@@ -26,42 +26,55 @@ namespace soft_renderer
 namespace
 {
 
+constexpr glm::float32 kEps = 1E-8f;
+
+// TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersect(const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar)
 {
-    // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
     const glm::vec3 v1v0 = triangle.b - triangle.a;
     const glm::vec3 v2v0 = triangle.c - triangle.a;
-    const glm::vec3 rov0 = ray.pos - triangle.a;
+    const glm::vec3 tVec = ray.pos - triangle.a;
     const glm::vec3 n = glm::cross(v1v0, v2v0);
-    const float d = 1.0f / glm::dot(ray.dir, n);
-    hit.t = d * glm::dot(-n, rov0);
+    const glm::float32 denom = glm::dot(ray.dir, n);
+    if (glm::abs(denom) < kEps) {
+        return false;
+    }
+    const glm::float32 invDenom = 1.0f / denom;
+    hit.t = invDenom * glm::dot(-n, tVec);
     if ((hit.t < tNear) || (tFar < hit.t)) {
         return false;
     }
-    const glm::vec3 q = glm::cross(rov0, ray.dir);
-    hit.uv.x = d * glm::dot(-q, v2v0);
-    hit.uv.y = d * glm::dot(q, v1v0);
-    return !((hit.uv.x < 0.0f) || (hit.uv.y < 0.0f) || (hit.uv.x + hit.uv.y > 1.0f));
+    const glm::vec3 q = glm::cross(tVec, ray.dir);
+    hit.uv.x = invDenom * glm::dot(-q, v2v0);
+    hit.uv.y = invDenom * glm::dot(q, v1v0);
+    return !((hit.uv.x < -kEps) || (hit.uv.y < -kEps) || (hit.uv.x + hit.uv.y > 1.0f + kEps));
 }
 
 bool intersectTriangle [[maybe_unused]] (const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar /*, glm::vec3 & outNormal*/)
 {
     // Can be shared between all triangles
     glm::vec3 centerU = ray.dir;
-    glm::vec3 centerV = cross(ray.dir, ray.pos);
+    glm::vec3 centerV = glm::cross(ray.dir, ray.pos);
     // Constant
     glm::vec3 v0U = (triangle.b - triangle.a);
-    glm::vec3 v0V = cross(triangle.b, triangle.a);
+    glm::vec3 v0V = glm::cross(triangle.b, triangle.a);
     glm::vec3 v1U = (triangle.c - triangle.b);
-    glm::vec3 v1V = cross(triangle.c, triangle.b);
+    glm::vec3 v1V = glm::cross(triangle.c, triangle.b);
     glm::vec3 v2U = (triangle.a - triangle.c);
-    glm::vec3 v2V = cross(triangle.a, triangle.c);
+    glm::vec3 v2V = glm::cross(triangle.a, triangle.c);
     // 6 dot intersection test
-    if ((glm::dot(v0U, centerV) + glm::dot(v0V, centerU) > 0.0f) && (glm::dot(v1U, centerV) + glm::dot(v1V, centerU) > 0.0f) && (glm::dot(v2U, centerV) + glm::dot(v2V, centerU) > 0.0f)) {
-        glm::vec3 normal = glm::normalize(glm::cross(triangle.b - triangle.a, triangle.c - triangle.a));
-        glm::float32 t = glm::dot(ray.pos - triangle.a, normal) / glm::dot(ray.dir, normal);
+    const glm::float32 s0 = glm::dot(v0U, centerV) + glm::dot(v0V, centerU);
+    const glm::float32 s1 = glm::dot(v1U, centerV) + glm::dot(v1V, centerU);
+    const glm::float32 s2 = glm::dot(v2U, centerV) + glm::dot(v2V, centerU);
+    if (((s0 >= 0.0f) && (s1 >= 0.0f) && (s2 >= 0.0f)) || ((s0 <= 0.0f) && (s1 <= 0.0f) && (s2 <= 0.0f))) {
+        glm::vec3 normal = glm::cross(triangle.b - triangle.a, triangle.c - triangle.a);
+        glm::float32 d = glm::dot(ray.dir, normal);
+        if (glm::abs(d) < kEps) {
+            return false;
+        }
+        glm::float32 t = glm::dot(triangle.a - ray.pos, normal) / d;
         if (t < hit.t) {
-            // outNormal = normal;
+            // outNormal = glm::normalize(normal);
             hit.t = t;
             return !(hit.t < tNear) && !(tFar < hit.t);
         }
@@ -119,13 +132,13 @@ struct SoftRenderer::Impl
             const scene_data::Triangle triangle = {
                 .a = glm::vec3{0.0f, 0.0f, 0.0f},
                 .b = glm::vec3{0.0f, 1.0f, 0.0f},
-                .c = glm::vec3{1.0f, 0.0f, 0.0f},
+                .c = glm::vec3{1.0f, 1.0f, 1.0f},
             };
             constexpr glm::float32 kNear = 0.0f;
             constexpr glm::float32 kFar = 100.0f;
             return rayTriangleIntersect(ray, hit, triangle, kNear, kFar);
         }
-        const glm::vec3 invDir = 1.0f / ray.dir;
+        const glm::vec3 invDir = glm::sign(ray.dir) / glm::max(glm::abs(ray.dir), glm::vec3(kEps));
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
         glm::vec3 aabbHitT = (glm::mix(nodes.at(nodeIndex).aabbMin, nodes.at(nodeIndex).aabbMax, corner) - ray.pos) * invDir;
         glm::float32 tMin = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));

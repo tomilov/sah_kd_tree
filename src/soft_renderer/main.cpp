@@ -105,8 +105,8 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
-    glm::vec3 position{0.0f, 0.0f, -1.1f};
-    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f})));
+    glm::vec3 position{-2.0f, 2.0f, 2.0f};
+    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 1.0f, 0.0f})));
     soft_renderer::FrameSettings frameSettings = {
         .position = position,
         .orientation = orientation,

@@ -157,7 +157,9 @@ private:
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
+#ifndef __clang__
 #pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
     int cudaDev = cudaInvalidDeviceId;
     ::CUdevice cuDev = CU_DEVICE_INVALID;
 #pragma GCC diagnostic pop

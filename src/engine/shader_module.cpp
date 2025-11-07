@@ -335,10 +335,10 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(const Context & context, const FileIo & fileIo, std::string_view shaderName)
-    : context{context}
-    , fileIo{fileIo}
-    , shaderName{shaderName}
+ShaderModule::ShaderModule(const Context & contextIn, const FileIo & fileIoIn, std::string_view shaderNameIn)
+    : context{contextIn}
+    , fileIo{fileIoIn}
+    , shaderName{shaderNameIn}
 {
     shaderStage = shaderNameToStage(shaderName);
     spirv = fileIo.loadShader(shaderName);
