@@ -98,13 +98,23 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
     auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
 
-    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U node) -> bool {
+    U polygonCount = polygon.count;
+    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U node) -> bool {
         I splitDimension = splitDimensions[node];
-        if (splitDimension < 0) {
-            return true;
-        }
         U leftChild = leftChildren[node];
         U rightChild = rightChildren[node];
+        if (splitDimension < 0) {
+            if (leftChild >= polygonCount) {
+                return false;
+            }
+            if (rightChild > polygonCount) {
+                return false;
+            }
+            if (rightChild >= polygonCount - leftChild) {
+                return false;
+            }
+            return true;
+        }
         if (parents[leftChild] != node) {
             return false;
         }

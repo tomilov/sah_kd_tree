@@ -126,7 +126,7 @@ struct SoftRenderer::Impl
         }
     }
 
-    [[nodiscard]] bool traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit) const
+    [[nodiscard]] bool traceRay(const glm::uint rootNodeIndex, const Ray & ray, Hit & hit) const
     {
         if ((false)) {
             constexpr glm::float32 kNear = 0.0f;
@@ -146,6 +146,7 @@ struct SoftRenderer::Impl
         }
         const glm::vec3 invDir = glm::sign(ray.dir) / glm::max(glm::abs(ray.dir), glm::vec3(kEps));
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
+        glm::uint nodeIndex = rootNodeIndex;
         glm::vec3 aabbHitT = (glm::mix(nodes.at(nodeIndex).aabbMin, nodes.at(nodeIndex).aabbMax, corner) - ray.pos) * invDir;
         glm::float32 tMin = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));
         do {
@@ -221,7 +222,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     Ray ray;
     ray.pos = frameSettings.position;
-    const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
+    const glm::uint rootNodeIndex = impl_->findNode(kRootNodeIndex, ray);
     for (gli::int32 y = 0; y < extent.y; ++y) {
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
@@ -231,7 +232,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
             ray.dir = glm::normalize(glm::mix(left, right, locX));
             glm::vec4 texel;
             if ((true)) {
-                if (std::fabs(x + x - extent.x) < 10.0 && std::fabs(y + y - extent.y) < 10.0) {
+                if (x == 429 && y == 414) {
                     asm volatile("nop;");
                     // continue;
                 } else {
@@ -239,7 +240,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
                 }
                 Hit hit;
                 hit.t = std::numeric_limits<glm::float32>::infinity();
-                if (impl_->traceRay(nodeIndex, ray, hit)) {
+                if (impl_->traceRay(rootNodeIndex, ray, hit)) {
                     texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
                 } else {
                     texel = impl_->clearColor;
