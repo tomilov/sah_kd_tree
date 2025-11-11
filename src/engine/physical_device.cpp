@@ -54,7 +54,7 @@ PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice phy
     physicalDevice.getProperties2(&physicalDeviceProperties2, context.getDispatcher());
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
 
-    auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
+    [[maybe_unused]] auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
     SPDLOG_DEBUG("apiVersion {}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion));
     SPDLOG_DEBUG("driverVersion {}.{}", vk::apiVersionMajor(physicalDeviceProperties.driverVersion), vk::apiVersionMinor(physicalDeviceProperties.driverVersion), vk::apiVersionPatch(physicalDeviceProperties.driverVersion));
     SPDLOG_DEBUG("vendorID {:04x}", physicalDeviceProperties.vendorID);
@@ -64,7 +64,7 @@ PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice phy
     SPDLOG_DEBUG("pipelineCacheUUID {}", physicalDeviceProperties.pipelineCacheUUID);
 
     {
-        auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
+        [[maybe_unused]] auto & physicalDeviceIDProperties = properties2Chain.get<vk::PhysicalDeviceIDProperties>();
         SPDLOG_DEBUG("deviceUUID {}", physicalDeviceIDProperties.deviceUUID);
         SPDLOG_DEBUG("driverUUID {}", physicalDeviceIDProperties.driverUUID);
         SPDLOG_DEBUG("deviceLUID {}", physicalDeviceIDProperties.deviceLUID);
@@ -197,6 +197,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
             }
         }
         if (!isFeatureAvailable) {
+            (void)deviceName;
             SPDLOG_DEBUG("{}: feature {}.#{} is not available", deviceName, typeid(Features).name(), i);
         }
         areAllFeaturesAvailable = isFeatureAvailable;
@@ -257,6 +258,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 
     const auto calculateQueueIndex = [this, deviceName](QueueCreateInfo & queueCreateInfo) -> bool
     {
+        (void)deviceName;
         if (queueCreateInfo.familyIndex == vk::QueueFamilyIgnored) {
             SPDLOG_DEBUG("{}", deviceName);
             return false;
@@ -521,7 +523,7 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
 PhysicalDevices::PhysicalDevices(const Context & contextIn)
     : context{contextIn}
 {
-    size_t i = 0;
+    [[maybe_unused]] size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {
         SPDLOG_DEBUG("Create physical device #{}", i++);
         physicalDevices.emplace_back(context, physicalDevice);
@@ -535,7 +537,7 @@ auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevi
     };
     PhysicalDevice * bestPhysicalDevice = nullptr;
     for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {
-        size_t i = 0;
+        [[maybe_unused]] size_t i = 0;
         for (auto & physicalDevice : physicalDevices) {
             if (physicalDevice.checkPhysicalDeviceRequirements(physicalDeviceType, surface)) {
                 SPDLOG_DEBUG("Physical device #{} of type {} is suitable", i, physicalDeviceType);

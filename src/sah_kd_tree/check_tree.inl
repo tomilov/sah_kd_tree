@@ -37,6 +37,9 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 template<typename Traits>
 bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
+    U triangleCount = x.triangle.count;
+    auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
+
     auto nodeXMins = thrust::raw_pointer_cast(x.node.min.data());
     auto nodeXMaxs = thrust::raw_pointer_cast(x.node.max.data());
     auto nodeYMins = thrust::raw_pointer_cast(y.node.min.data());
@@ -53,7 +56,11 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
     auto polygonZMins = thrust::raw_pointer_cast(z.polygon.min.data());
     auto polygonZMaxs = thrust::raw_pointer_cast(z.polygon.max.data());
 
-    const auto checkPolygon = [polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
+    const auto checkPolygonProjections = [triangleCount, polygonTriangles, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
+        if (polygonTriangles[polygon] >= triangleCount) {
+            return false;
+        }
+
         F polygonXMin = polygonXMins[polygon];
         F polygonXMax = polygonXMaxs[polygon];
         assert(!(polygonXMax < polygonXMin));
@@ -88,7 +95,7 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
 
         return true;
     };
-    if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygon)) {
+    if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygonProjections)) {
         return false;
     }
 
@@ -113,7 +120,6 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
             if (rightChild >= polygonCount - leftChild) {
                 return false;
             }
-            return true;
         }
         if (parents[leftChild] != node) {
             return false;

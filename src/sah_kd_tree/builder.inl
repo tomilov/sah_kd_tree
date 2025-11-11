@@ -145,9 +145,9 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
     populateNodeParent();
 
-    assert(checkTree(x, y, z));
-
     populateLeafNodeTriangleRange();
+
+    assert(checkTree(x, y, z));
 
     calculateRope<0, false>(x, y, z);
     calculateRope<0, true>(x, y, z);
