@@ -143,11 +143,13 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         resizeNode();
         tree.layerDepth.push_back(node.count);
         filterLayerNodeOffset();
+
+        assert(checkBoxes(x, y, z));
     }
 
     populateNodeParent();
 
-    populateLeafNodeTriangleRange();
+    populateLeafNodeTriangleRange();  // FIX(tomilov): Problem is inside this
 
     assert(checkTree(x, y, z));
 

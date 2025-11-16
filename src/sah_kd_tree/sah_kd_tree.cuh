@@ -373,6 +373,8 @@ struct Builder
     void populateNodeParent();
     void populateLeafNodeTriangleRange();
 
+    bool checkBoxes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
+    bool checkNodes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
     bool checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
     template<I dimension, bool forth>

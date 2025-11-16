@@ -73,7 +73,6 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
             return {/*bestSplitCost, */2, nodeZSplitPositions[layerNode], nodeZLeftChildPolygonCount, nodeZRightChildPolygonCount};
         } else {
             assert(!(bestNodeSplitCost < t));
-            assert(false);
             return NodeBestSplitType{/*bestSplitCost, */-1};  // leaf node
         }
     };

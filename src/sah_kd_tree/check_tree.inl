@@ -9,33 +9,8 @@
 
 namespace sah_kd_tree
 {
-template<typename F, typename U>
-__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
-{
-    if (nodeXMins[leftChild] != nodeXMins[node]) {
-        return false;
-    }
-    if (nodeXMaxs[leftChild] != splitPos) {
-        return false;
-    }
-    if (nodeXMins[rightChild] != splitPos) {
-        return false;
-    }
-    if (nodeXMaxs[rightChild] != nodeXMaxs[node]) {
-        return false;
-    }
-    cuda::std::tuple<F, F, F, F> yz{nodeYMins[node], nodeYMaxs[node], nodeZMins[node], nodeZMaxs[node]};
-    if (yz != thrust::tie(nodeYMins[leftChild], nodeYMaxs[leftChild], nodeZMins[leftChild], nodeZMaxs[leftChild])) {
-        return false;
-    }
-    if (yz != thrust::tie(nodeYMins[rightChild], nodeYMaxs[rightChild], nodeZMins[rightChild], nodeZMaxs[rightChild])) {
-        return false;
-    }
-    return true;
-}
-
 template<typename Traits>
-bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
 {
     U triangleCount = x.triangle.count;
     auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
@@ -98,12 +73,49 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
     if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygonProjections)) {
         return false;
     }
+    return true;
+}
 
+template<typename F, typename U>
+__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
+{
+    if (nodeXMins[leftChild] != nodeXMins[node]) {
+        return false;
+    }
+    if (nodeXMaxs[leftChild] != splitPos) {
+        return false;
+    }
+    if (nodeXMins[rightChild] != splitPos) {
+        return false;
+    }
+    if (nodeXMaxs[rightChild] != nodeXMaxs[node]) {
+        return false;
+    }
+    cuda::std::tuple<F, F, F, F> yz{nodeYMins[node], nodeYMaxs[node], nodeZMins[node], nodeZMaxs[node]};
+    if (yz != thrust::tie(nodeYMins[leftChild], nodeYMaxs[leftChild], nodeZMins[leftChild], nodeZMaxs[leftChild])) {
+        return false;
+    }
+    if (yz != thrust::tie(nodeYMins[rightChild], nodeYMaxs[rightChild], nodeZMins[rightChild], nodeZMaxs[rightChild])) {
+        return false;
+    }
+    return true;
+}
+
+template<typename Traits>
+bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+{
     auto parents = thrust::raw_pointer_cast(node.parent.data());
     auto leftChildren = thrust::raw_pointer_cast(node.leftChild.data());
     auto rightChildren = thrust::raw_pointer_cast(node.rightChild.data());
     auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
+
+    auto nodeXMins = thrust::raw_pointer_cast(x.node.min.data());
+    auto nodeXMaxs = thrust::raw_pointer_cast(x.node.max.data());
+    auto nodeYMins = thrust::raw_pointer_cast(y.node.min.data());
+    auto nodeYMaxs = thrust::raw_pointer_cast(y.node.max.data());
+    auto nodeZMins = thrust::raw_pointer_cast(z.node.min.data());
+    auto nodeZMaxs = thrust::raw_pointer_cast(z.node.max.data());
 
     U polygonCount = polygon.count;
     const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U node) -> bool {
@@ -146,6 +158,18 @@ bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<T
         return true;
     };
     if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), checkNode)) {
+        return false;
+    }
+    return true;
+}
+
+template<typename Traits>
+bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+{
+    if (!checkBoxes(x, y, z)) {
+        return false;
+    }
+    if (!checkNodes(x, y, z)) {
         return false;
     }
     return true;
