@@ -26,7 +26,7 @@ public:
         float emptinessFactor;
         float traversalCost;
         float intersectionCost;
-        uint32_t maxDepth;
+        uint32_t maxTreeDepth;
 
         auto operator<=>(const Settings &) const = default;
     };

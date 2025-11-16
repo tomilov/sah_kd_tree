@@ -204,7 +204,7 @@ struct TestInput
         params.emptinessFactor = genFloat();
         params.traversalCost = genFloat();
         params.intersectionCost = genFloat();
-        params.maxDepth = std::numeric_limits<U>::max();
+        params.maxTreeDepth = std::numeric_limits<U>::max();
 
         triangles.reserve(triangleCount);
         triangles.clear();
@@ -251,8 +251,8 @@ struct TestInput
         if (std::isnan(params.intersectionCost) || (params.intersectionCost < static_cast<F>(0))) {
             return false;
         }
-        assert(params.maxDepth == std::numeric_limits<U>::max());
-        if (params.maxDepth == 0) {
+        assert(params.maxTreeDepth == std::numeric_limits<U>::max());
+        if (params.maxTreeDepth == 0) {
             return false;
         }
 
@@ -560,8 +560,8 @@ struct TestInput
         if (selector[2]) {
             params.intersectionCost = testInput.params.intersectionCost;
         }
-        if (params.maxDepth < testInput.params.maxDepth) {
-            params.maxDepth = testInput.params.maxDepth;
+        if (params.maxTreeDepth < testInput.params.maxTreeDepth) {
+            params.maxTreeDepth = testInput.params.maxTreeDepth;
         }
 
         triangles.reserve(std::size(triangles) + std::size(testInput.triangles));

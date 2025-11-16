@@ -24,7 +24,7 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
     if (nodeXMaxs[rightChild] != nodeXMaxs[node]) {
         return false;
     }
-    thrust::tuple<F, F, F, F> yz{nodeYMins[node], nodeYMaxs[node], nodeZMins[node], nodeZMaxs[node]};
+    cuda::std::tuple<F, F, F, F> yz{nodeYMins[node], nodeYMaxs[node], nodeZMins[node], nodeZMaxs[node]};
     if (yz != thrust::tie(nodeYMins[leftChild], nodeYMaxs[leftChild], nodeZMins[leftChild], nodeZMaxs[leftChild])) {
         return false;
     }

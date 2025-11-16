@@ -927,7 +927,7 @@ C.ApplicationWindow {
                             property alias emptinessFactor: sceneSettings.emptinessFactor
                             property alias traversalCost: sceneSettings.traversalCost
                             property alias intersectionCost: sceneSettings.intersectionCost
-                            property alias maxDepth: sceneSettings.maxDepth
+                            property alias maxTreeDepth: sceneSettings.maxTreeDepth
                             property alias sensitivity: sensetivitySpinBox.value
                             property alias crossSceneAabbTime: crossSceneAabbTimeSpinBox.value
                             property color clearColor
@@ -1020,7 +1020,7 @@ C.ApplicationWindow {
                             emptinessFactorSpinBox.updateValue(sceneSettings.emptinessFactor)
                             traversalCostSpinBox.updateValue(sceneSettings.traversalCost)
                             intersectionCostSpinBox.updateValue(sceneSettings.intersectionCost)
-                            maxDepthSpinBox.value = sceneSettings.maxDepth
+                            maxTreeDepthSpinBox.value = sceneSettings.maxTreeDepth
                         }
                         contentItem: C.Page {
                             header: CenteredText {
@@ -1032,7 +1032,7 @@ C.ApplicationWindow {
                                     sceneSettings.emptinessFactor = emptinessFactorSpinBox.realValue
                                     sceneSettings.traversalCost = traversalCostSpinBox.realValue
                                     sceneSettings.intersectionCost = intersectionCostSpinBox.realValue
-                                    sceneSettings.maxDepth = maxDepthSpinBox.value
+                                    sceneSettings.maxTreeDepth = maxTreeDepthSpinBox.value
                                 }
                                 onDiscarded: {
                                     treeSettingsDrawer.close()
@@ -1071,10 +1071,10 @@ C.ApplicationWindow {
                                     to: decimalToInt(10)
                                 }
                                 CenteredText {
-                                    text: "maxDepth"
+                                    text: "maxTreeDepth"
                                 }
                                 WheelSpinBox {
-                                    id: maxDepthSpinBox
+                                    id: maxTreeDepthSpinBox
                                     editable: true
                                     from: 1
                                     to: 1000

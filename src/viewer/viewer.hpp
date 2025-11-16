@@ -45,7 +45,7 @@ class SceneSettings : public QObject
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
-    Q_PROPERTY(int maxDepth MEMBER maxDepth NOTIFY treeSettingsChanged)
+    Q_PROPERTY(int maxTreeDepth MEMBER maxTreeDepth NOTIFY treeSettingsChanged)
 
     Q_PROPERTY(int depth READ getDepth NOTIFY treeChanged STORED false)
     Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
@@ -60,7 +60,7 @@ public:
     float emptinessFactor = 0.8f;
     float traversalCost = 2.0f;
     float intersectionCost = 1.0f;
-    int maxDepth = 1000;
+    int maxTreeDepth = 1000;
 
     QList<QSharedPointer<QFutureWatcher<int>>> tasks;
 

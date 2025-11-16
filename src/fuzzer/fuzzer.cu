@@ -21,7 +21,7 @@ void testOneInput(const Params & p, const std::vector<Triangle> & t)
     params.emptinessFactor = p.emptinessFactor;
     params.traversalCost = p.traversalCost;
     params.intersectionCost = p.intersectionCost;
-    params.maxDepth = p.maxDepth;
+    params.maxTreeDepth = p.maxTreeDepth;
 
     const std::function<bool(size_t progressValue)> cancel = []([[maybe_unused]] size_t progress)
     {

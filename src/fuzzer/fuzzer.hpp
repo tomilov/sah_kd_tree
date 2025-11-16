@@ -13,7 +13,7 @@ struct Params
     F emptinessFactor;
     F traversalCost;
     F intersectionCost;
-    U maxDepth;
+    U maxTreeDepth;
 };
 
 struct Vertex

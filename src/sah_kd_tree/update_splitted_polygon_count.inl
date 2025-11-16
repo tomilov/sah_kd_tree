@@ -25,5 +25,5 @@ void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
     };
     auto layerNodeBegin = thrust::make_counting_iterator<U>(layer.base);
     auto layerNodeEnd = thrust::next(layerNodeBegin, layer.size);
-    polygon.splittedCount = thrust::transform_reduce(layerNodeBegin, layerNodeEnd, toSplittedPolygonCount, static_cast<U>(0), thrust::plus<U>{});
+    polygon.splittedCount = thrust::transform_reduce(layerNodeBegin, layerNodeEnd, toSplittedPolygonCount, static_cast<U>(0), cuda::std::plus<U>{});
 }

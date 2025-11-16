@@ -69,7 +69,7 @@ struct Params
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
     F intersectionCost = 1.0f;  // (0, inf)
-    U maxDepth = std::numeric_limits<U>::max();
+    U maxTreeDepth = std::numeric_limits<U>::max();
 };
 
 template<typename Traits = DefaultTraits>
@@ -160,7 +160,7 @@ struct Projection
 
     struct ToPair
     {
-        __host__ __device__ thrust::pair<U, U> operator()(U value) const
+        __host__ __device__ cuda::std::pair<U, U> operator()(U value) const
         {
             return {value, value};
         }
@@ -168,7 +168,7 @@ struct Projection
 
     struct ToEventPos
     {
-        __host__ __device__ F operator()(I eventKind, thrust::tuple<F, F> bbox) const
+        __host__ __device__ F operator()(I eventKind, cuda::std::tuple<F, F> bbox) const
         {
             return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox);
         }
@@ -266,7 +266,7 @@ struct Builder
     using Vector = typename Traits::template Vector<T>;
     using Progress = typename Traits::Progress;
 
-    static inline constexpr I kNoSplitDimension = -1;
+    static inline constexpr I kNoSplitDimension = -1;  // leaf node
 
     struct IsNotLeaf
     {
@@ -299,6 +299,7 @@ struct Builder
     {
         U count = 1;  // always equal layer.base + layer.size
 
+        // Vector<F> splitCost;  // TODO(tomilov): remove (needed for debug)
         Vector<I> splitDimension;
         Vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
         Vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise

@@ -306,7 +306,7 @@ void SceneSettings::onTreeSettingsChanged()
         .emptinessFactor = emptinessFactor,
         .traversalCost = traversalCost,
         .intersectionCost = intersectionCost,
-        .maxDepth = utils::autoCast(maxDepth),
+        .maxTreeDepth = utils::autoCast(maxTreeDepth),
     };
     if (tree && (tree->getSettings() == builderTreeSettings) && (tree->getCudaDevice() == *engineWrapper->getEngine().getCudaDevice()) && (tree->getSceneData() == sceneData)) {
         return;
@@ -316,7 +316,7 @@ void SceneSettings::onTreeSettingsChanged()
     const auto buildTree = [this, scenePath, sceneData = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
-        const int progressRange = utils::autoCast(builderTreeSettings.maxDepth);
+        const int progressRange = utils::autoCast(builderTreeSettings.maxTreeDepth);
         promise.setProgressRange(0, progressRange);
         const auto progress = [&promise, progressRange](size_t p)
         {
@@ -340,12 +340,12 @@ void SceneSettings::onTreeSettingsChanged()
     };
     QFileInfo sceneFileInfo{scenePath};
     auto name = u"%1 tree"_s.arg(sceneFileInfo.fileName());
-    auto description = u"%1:\n\temptinessFactor %2,\n\ttraversalCost: %3,\n\tintersectionCost: %4,\n\tmaxDepth: %5"_s  //
-                           .arg(sceneFileInfo.filePath())                                                              //
-                           .arg(utils::safeCast<double>(builderTreeSettings.emptinessFactor))                          //
-                           .arg(utils::safeCast<double>(builderTreeSettings.traversalCost))                            //
-                           .arg(utils::safeCast<double>(builderTreeSettings.intersectionCost))                         //
-                           .arg(builderTreeSettings.maxDepth);                                                         //
+    auto description = u"%1:\n\temptinessFactor %2,\n\ttraversalCost: %3,\n\tintersectionCost: %4,\n\tmaxTreeDepth: %5"_s  //
+                           .arg(sceneFileInfo.filePath())                                                                  //
+                           .arg(utils::safeCast<double>(builderTreeSettings.emptinessFactor))                              //
+                           .arg(utils::safeCast<double>(builderTreeSettings.traversalCost))                                //
+                           .arg(utils::safeCast<double>(builderTreeSettings.intersectionCost))                             //
+                           .arg(builderTreeSettings.maxTreeDepth);                                                         //
     Q_ASSERT(taskQueue);
     treeFutureWatcher = taskQueue->runTask(qMove(name), qMove(description), std::move(buildTree));
     if (!connect(treeFutureWatcher.get(), &QFutureWatcherBase::finished, this, &SceneSettings::updateTree)) {

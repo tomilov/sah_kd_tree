@@ -7,8 +7,6 @@
 #include <thrust/transform.h>
 #include <thrust/zip_function.h>
 
-#include <cuda/std/iterator>
-
 template<typename Traits>
 void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
 {

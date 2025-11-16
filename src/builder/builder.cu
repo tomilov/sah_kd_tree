@@ -182,7 +182,7 @@ struct Tree::Impl : utils::OneTime<Impl>
                 .emptinessFactor = settings.emptinessFactor,
                 .traversalCost = settings.traversalCost,
                 .intersectionCost = settings.intersectionCost,
-                .maxDepth = settings.maxDepth,
+                .maxTreeDepth = settings.maxTreeDepth,
             };
             if (!builder.build(progress, params, x, y, z, tree)) {
                 return;

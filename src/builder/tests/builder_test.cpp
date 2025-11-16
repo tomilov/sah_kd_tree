@@ -35,13 +35,13 @@ Q_LOGGING_CATEGORY(builderTest, "builder.test")
 constexpr float kEmptinessFactor = 0.8f;
 constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
-constexpr int kMaxdepth = 1000;
+constexpr int kMaxTreeDepth = 1000;
 }  // namespace
 
 class Builder : public testing::Test
 {
 protected:
-    [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxDepth = kMaxdepth) const
+    [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxTreeDepth = kMaxTreeDepth) const
     {
         scene_data::SceneData sceneData;
         QFileInfo sceneFileInfo{sceneFileName};
@@ -61,7 +61,7 @@ protected:
             .emptinessFactor = emptinessFactor,
             .traversalCost = traversalCost,
             .intersectionCost = intersectionCost,
-            .maxDepth = utils::autoCast(maxDepth),
+            .maxTreeDepth = utils::autoCast(maxTreeDepth),
         };
         const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
         {
@@ -140,11 +140,11 @@ struct SceneFileWithParams
     float emptinessFactor = kEmptinessFactor;
     float traversalCost = kTraversalCost;
     float intersectionCost = kIntersectionCost;
-    int maxDepth = kMaxdepth;
+    int maxTreeDepth = kMaxTreeDepth;
 
     friend void PrintTo [[maybe_unused]] (const SceneFileWithParams & sceneFileWithParams, std::ostream * os)
     {
-        *os << sceneFileWithParams.sceneFileName.toStdString() << " " << sceneFileWithParams.emptinessFactor << " " << sceneFileWithParams.traversalCost << " " << sceneFileWithParams.intersectionCost << " " << sceneFileWithParams.maxDepth;
+        *os << sceneFileWithParams.sceneFileName.toStdString() << " " << sceneFileWithParams.emptinessFactor << " " << sceneFileWithParams.traversalCost << " " << sceneFileWithParams.intersectionCost << " " << sceneFileWithParams.maxTreeDepth;
     }
 };
 
@@ -155,7 +155,7 @@ class BuilderSceneFileWithParams
 protected:
     [[nodiscard]] bool buildSceneFromFile(const SceneFileWithParams & param)
     {
-        return Builder::buildSceneFromFile(param.sceneFileName, param.emptinessFactor, param.traversalCost, param.intersectionCost, param.maxDepth);
+        return Builder::buildSceneFromFile(param.sceneFileName, param.emptinessFactor, param.traversalCost, param.intersectionCost, param.maxTreeDepth);
     }
 };
 

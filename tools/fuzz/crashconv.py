@@ -96,7 +96,7 @@ def main():
     fuzz2obj.set_defaults(handler=_fuzz2obj)
 
     obj2fuzz = subparsers.add_parser('obj2fuzz')
-    obj2fuzz.add_argument('--params', type=_parse_params, help="Params in form 'emptinessFactor,traversalCost,intersectionCos,maxDepth', maxDepth currently should be 0xFFFFFFFF or 4294967295")
+    obj2fuzz.add_argument('--params', type=_parse_params, help="Params in form 'emptinessFactor,traversalCost,intersectionCos,maxTreeDepth', maxTreeDepth currently should be 0xFFFFFFFF or 4294967295")
     obj2fuzz.add_argument('infile', help="input OBJ file file or '-' for stdin")
     obj2fuzz.add_argument('outfile', type=lambda outfile: _file_or_stream(outfile, mode='wb'), help="output fuzzer input file or '-' for stdout")
     obj2fuzz.set_defaults(handler=_obj2fuzz)

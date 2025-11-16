@@ -58,15 +58,19 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         U eventNode = eventNodes[event];
         F min = nodeXMins[eventNode], max = nodeXMaxs[eventNode];
         F splitPos = eventPositions[event];
+        U polygonCountLeft = polygonCountLefts[event];
+        U polygonCountRight = polygonCountRights[event];
+        U polygonCount = nodePolygonCounts[eventNode];
+        assert(polygonCountLeft <= polygonCount);
+        assert(polygonCountRight <= polygonCount);
+        U splittedPolygonCount = polygonCountLeft + polygonCountRight - polygonCount;
+        U splitEvent = event;
         assert(!(splitPos < min));
         assert(!(max < splitPos));
         if (!(min < max)) {
-            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
+            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
         F l = splitPos - min, r = max - splitPos;
-        U polygonCountLeft = polygonCountLefts[event];
-        U polygonCountRight = polygonCountRights[event];
-        U splitEvent = event;
         I eventKind = eventKinds[event];
         if (eventKind < 0) {
             assert(0 != polygonCountLeft);
@@ -81,27 +85,28 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         } else {
             assert(0 != polygonCountRight);
         }
-        U polygonCount = nodePolygonCounts[eventNode];
         F emptinessFactor(1);
         if (polygonCountLeft == 0) {
             assert(polygonCountRight != 0);
             if (!(min < splitPos)) {
-                return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
+                return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountRight == polygonCount) {
-            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
+            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         } else if (polygonCountRight == 0) {
             if (!(splitPos < max)) {
-                return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
+                return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountLeft == polygonCount) {
-            return PerfectSplitType{std::numeric_limits<F>::infinity(), 0};
+            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
         F x = max - min;
         F y = nodeYMaxs[eventNode] - nodeYMins[eventNode];
+        assert(static_cast<F>(0) <= y);
         F z = nodeZMaxs[eventNode] - nodeZMins[eventNode];
+        assert(static_cast<F>(0) <= z);
         F area = y * z;  // half area
         F splitCost;
         if (static_cast<F>(0) < area) {
@@ -114,10 +119,9 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
         splitCost *= emptinessFactor;
-        U splittedPolygonCount = polygonCountLeft + polygonCountRight - polygonCount;
         return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(thrust::make_counting_iterator<U>(0), toPerfectSplit);
-    [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, thrust::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
+    [[maybe_unused]] auto ends = thrust::reduce_by_key(event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, cuda::std::equal_to<U>{}, thrust::minimum<PerfectSplitType>{});
     assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
 }

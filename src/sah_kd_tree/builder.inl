@@ -10,6 +10,7 @@
 #include <thrust/transform_scan.h>
 
 #include <utility>
+//#include <limits>
 
 #include <cassert>
 
@@ -30,9 +31,10 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
     z.generateInitialEvent();
 
     polygon.triangle.resize(polygon.count);
-    thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());
+    thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());  // TODO(tomilov): do not waste space
     polygon.node.resize(polygon.count, static_cast<U>(0));
 
+    //node.splitCost.resize(1, std::numeric_limits<F>::quiet_NaN());
     node.splitDimension.resize(1);
     node.splitPos.resize(1);
     node.leftChild.resize(1);
@@ -51,7 +53,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
             return false;
         }
 
-        if (tree.layerDepth.size() == sah.maxDepth) {
+        if (tree.layerDepth.size() == sah.maxTreeDepth) {
             leaf.count += layer.size;
             break;
         }
@@ -67,7 +69,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         U layerLeafNodeCount = safeConvert<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
-            assert(tree.layerDepth.size() < sah.maxDepth);
+            assert(tree.layerDepth.size() < sah.maxTreeDepth);
             break;
         }
 
@@ -83,7 +85,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         {  // generate index for child node pair
             auto nodeLeftChildBegin = thrust::next(node.leftChild.begin(), layer.base);
             const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U { return (layerSplitDimension < 0) ? 0 : 2; };
-            auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, thrust::plus<U>{});
+            auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, cuda::std::plus<U>{});
 
             auto nodeRightChildBegin = thrust::next(node.rightChild.begin(), layer.base);
             const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild) -> U { return nodeLeftChild + 1; };

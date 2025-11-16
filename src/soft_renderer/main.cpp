@@ -37,7 +37,7 @@ Q_LOGGING_CATEGORY(softRendererMain, "soft_renderer.main")
 constexpr float kEmptinessFactor = 0.8f;
 constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
-constexpr uint32_t kMaxdepth = 100;
+constexpr uint32_t kMaxTreeDepth = 100;
 
 builder::TreePtr makeTree(QString sceneFileName)
 {
@@ -60,12 +60,12 @@ builder::TreePtr makeTree(QString sceneFileName)
         .emptinessFactor = kEmptinessFactor,
         .traversalCost = kTraversalCost,
         .intersectionCost = kIntersectionCost,
-        .maxDepth = kMaxdepth,
+        .maxTreeDepth = kMaxTreeDepth,
     };
     const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
     {
         using namespace std::chrono_literals;
-        if (start + 10s < std::chrono::steady_clock::now()) {
+        if (start + 10000s < std::chrono::steady_clock::now()) {
             INVARIANT(false, "{}", progressValue);
         }
         return false;
