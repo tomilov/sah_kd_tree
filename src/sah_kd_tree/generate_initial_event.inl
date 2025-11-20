@@ -38,7 +38,7 @@ void sah_kd_tree::Projection<Traits>::generateInitialEvent()
     auto planarEventBegin = thrust::next(event.polygon.begin(), triangle.count - planarEventCount);
     auto eventPairBegin = thrust::make_zip_iterator(event.polygon.begin(), event.polygon.rbegin());
     auto solidEventBegin = thrust::make_transform_output_iterator(eventPairBegin, toPair);
-    [[maybe_unused]] auto[planarEventEnd, solidEventEnd] = thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangle.count), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
+    [[maybe_unused]] auto [planarEventEnd, solidEventEnd] = thrust::partition_copy(triangleBegin, thrust::next(triangleBegin, triangle.count), triangleBboxBegin, planarEventBegin, solidEventBegin, isPlanarEvent);
     assert(thrust::next(event.polygon.begin(), triangle.count) == planarEventEnd);
 
     auto eventPolygonBboxBegin = thrust::make_permutation_iterator(triangleBboxBegin, event.polygon.cbegin());

@@ -6,9 +6,9 @@
 #else
 #include <thrust/iterator/transform_output_iterator.h>
 #endif
+#include <thrust/memory.h>
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
-#include <thrust/memory.h>
 
 #include <cassert>
 
@@ -25,7 +25,8 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
     auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto eventKinds = thrust::raw_pointer_cast(projection.event.kind.data());
 
-    const auto isNotLeftEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool {
+    const auto isNotLeftEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] != dimension) {
             return false;
         }
@@ -37,7 +38,8 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
     auto eventPolygons = thrust::raw_pointer_cast(projection.event.polygon.data());
     auto layerSplitEvents = thrust::raw_pointer_cast(projection.layer.splitEvent.data());
     U layerBase = layer.base;
-    const auto toPolygonSide = [polygonRightEvents, eventPolygons, eventNodes, layerBase, layerSplitEvents, eventKinds] __host__ __device__(U eventLeft) -> I {
+    const auto toPolygonSide = [polygonRightEvents, eventPolygons, eventNodes, layerBase, layerSplitEvents, eventKinds] __host__ __device__(U eventLeft) -> I
+    {
         U eventRight = polygonRightEvents[eventPolygons[eventLeft]];
         assert(!(eventRight < eventLeft));
         U eventNode = eventNodes[eventLeft];
@@ -53,7 +55,8 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
             return +1;  // goes to right child node
         }
     };
-    const auto isNotRightEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool {
+    const auto isNotRightEvent = [eventNodes, nodeSplitDimensions, eventKinds] __host__ __device__(U event) -> bool
+    {
         if (nodeSplitDimensions[eventNodes[event]] != dimension) {
             return false;
         }

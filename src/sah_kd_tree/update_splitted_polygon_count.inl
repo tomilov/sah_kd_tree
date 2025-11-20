@@ -3,8 +3,8 @@
 #include <thrust/advance.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/transform_reduce.h>
 #include <thrust/memory.h>
+#include <thrust/transform_reduce.h>
 
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
@@ -13,7 +13,8 @@ void sah_kd_tree::Builder<Traits>::updateSplittedPolygonCount()
     auto nodePolygonCountLefts = thrust::raw_pointer_cast(node.polygonCountLeft.data());
     auto nodePolygonCountRights = thrust::raw_pointer_cast(node.polygonCountRight.data());
     auto nodePolygonCounts = thrust::raw_pointer_cast(node.polygonCount.data());
-    const auto toSplittedPolygonCount = [nodeSplitDimensions, nodePolygonCountLefts, nodePolygonCountRights, nodePolygonCounts] __host__ __device__(U layerNode) -> U {
+    const auto toSplittedPolygonCount = [nodeSplitDimensions, nodePolygonCountLefts, nodePolygonCountRights, nodePolygonCounts] __host__ __device__(U layerNode) -> U
+    {
         if (nodeSplitDimensions[layerNode] < 0) {
             return 0;
         }

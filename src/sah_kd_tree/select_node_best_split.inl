@@ -4,16 +4,16 @@
 #include <thrust/extrema.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/iterator_traits.h>
-#include <thrust/iterator/zip_iterator.h>
 #include <thrust/iterator/tabulate_output_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/memory.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
-#include <thrust/memory.h>
 
 #include <cassert>
 
-//#include <spdlog/spdlog.h>
-//#include <fmt/ranges.h>
+// #include <spdlog/spdlog.h>
+// #include <fmt/ranges.h>
 
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z)
@@ -41,13 +41,14 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
     auto nodeYSplitPositions = thrust::raw_pointer_cast(y.layer.splitPos.data());
     auto nodeZSplitPositions = thrust::raw_pointer_cast(z.layer.splitPos.data());
 
-    auto nodeBestSplitBegin = thrust::make_zip_iterator(/*node.splitCost.begin(), */node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
+    auto nodeBestSplitBegin = thrust::make_zip_iterator(/*node.splitCost.begin(), */ node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     using NodeBestSplitType = cuda::std::iter_value_t<decltype(nodeBestSplitBegin)>;
     const auto toNodeBestSplit = [sah, nodeXSplitCosts, nodeYSplitCosts, nodeZSplitCosts, nodeXLeftChildPolygonCounts, nodeYLeftChildPolygonCounts, nodeZLeftChildPolygonCounts, nodeXRightChildPolygonCounts, nodeYRightChildPolygonCounts,
                                   nodeZRightChildPolygonCounts, nodePolygonCounts, nodeXSplitPositions, nodeYSplitPositions, nodeZSplitPositions] __host__
-                                 __device__(U layerNode) -> NodeBestSplitType {
+                                 __device__(U layerNode) -> NodeBestSplitType
+    {
         U nodePolygonCount = nodePolygonCounts[layerNode];
-        //assert(nodePolygonCount != 0);
+        // assert(nodePolygonCount != 0);
 
         auto nodeXLeftChildPolygonCount = nodeXLeftChildPolygonCounts[layerNode];
         auto nodeYLeftChildPolygonCount = nodeYLeftChildPolygonCounts[layerNode];
@@ -64,23 +65,23 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
         cuda::std::tuple<F, U> t{sah.intersectionCost * static_cast<F>(nodePolygonCount), 0};
 
         cuda::std::tuple<F, U> bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
-        //F bestSplitCost = thrust::get<0>(bestNodeSplitCost);
+        // F bestSplitCost = thrust::get<0>(bestNodeSplitCost);
         if (!(bestNodeSplitCost < x)) {
-            return {/*bestSplitCost, */0, nodeXSplitPositions[layerNode], nodeXLeftChildPolygonCount, nodeXRightChildPolygonCount};
+            return {/*bestSplitCost, */ 0, nodeXSplitPositions[layerNode], nodeXLeftChildPolygonCount, nodeXRightChildPolygonCount};
         } else if (!(bestNodeSplitCost < y)) {
-            return {/*bestSplitCost, */1, nodeYSplitPositions[layerNode], nodeYLeftChildPolygonCount, nodeYRightChildPolygonCount};
+            return {/*bestSplitCost, */ 1, nodeYSplitPositions[layerNode], nodeYLeftChildPolygonCount, nodeYRightChildPolygonCount};
         } else if (!(bestNodeSplitCost < z)) {
-            return {/*bestSplitCost, */2, nodeZSplitPositions[layerNode], nodeZLeftChildPolygonCount, nodeZRightChildPolygonCount};
+            return {/*bestSplitCost, */ 2, nodeZSplitPositions[layerNode], nodeZLeftChildPolygonCount, nodeZRightChildPolygonCount};
         } else {
             assert(!(bestNodeSplitCost < t));
-            return NodeBestSplitType{/*bestSplitCost, */-1};  // leaf node
+            return NodeBestSplitType{/*bestSplitCost, */ -1};  // leaf node
         }
     };
     thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
-    //thrust::transform(layerNodeBegin, layerNodeEnd, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit);
-    //auto splitCostBegin = thrust::next(node.splitCost.begin(), layer.base);
-    //SPDLOG_INFO("splitCost      {}", fmt::join(splitCostBegin, thrust::next(splitCostBegin, layer.size), " "));
-    //auto splitDimensionBegin = thrust::next(node.splitDimension.begin(), layer.base);
-    //SPDLOG_INFO("splitDimension {}", fmt::join(splitDimensionBegin, thrust::next(splitDimensionBegin, layer.size), " "));
-    //asm volatile ("nop;");
+    // thrust::transform(layerNodeBegin, layerNodeEnd, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit);
+    // auto splitCostBegin = thrust::next(node.splitCost.begin(), layer.base);
+    // SPDLOG_INFO("splitCost      {}", fmt::join(splitCostBegin, thrust::next(splitCostBegin, layer.size), " "));
+    // auto splitDimensionBegin = thrust::next(node.splitDimension.begin(), layer.base);
+    // SPDLOG_INFO("splitDimension {}", fmt::join(splitDimensionBegin, thrust::next(splitDimensionBegin, layer.size), " "));
+    // asm volatile ("nop;");
 }

@@ -10,7 +10,10 @@
 #include <thrust/transform_scan.h>
 
 #include <utility>
-//#include <limits>
+// #include <limits>
+
+#include <fmt/ranges.h>
+#include <spdlog/spdlog.h>
 
 #include <cassert>
 
@@ -34,16 +37,19 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
     thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());  // TODO(tomilov): do not waste space
     polygon.node.resize(polygon.count, static_cast<U>(0));
 
-    //node.splitCost.resize(1, std::numeric_limits<F>::quiet_NaN());
-    node.splitDimension.resize(1);
-    node.splitPos.resize(1);
-    node.leftChild.resize(1);
-    node.rightChild.resize(1);
+    // node.splitCost.resize(1, std::numeric_limits<F>::quiet_NaN());
     node.polygonCount.resize(1, polygon.count);
-    node.polygonCountLeft.resize(1);
-    node.polygonCountRight.resize(1);
+    resizeNode();
 
     layer.nodeOffset.resize(1, static_cast<U>(0));
+
+    auto fff = [this]
+    {
+        if (node.leftChild.size() > 4552) {
+            SPDLOG_INFO("{} {}", U(node.leftChild[4552]), U(node.rightChild[4552]));
+            asm volatile("nop;");
+        }
+    };
 
     tree.layerDepth.push_back(node.count);
     for (;;) {
@@ -63,6 +69,8 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         z.findPerfectSplit(sah, layer.size, layer.nodeOffset, node.polygonCount, x, y);
         selectNodeBestSplit(sah, x, y, z);
 
+        fff();
+
         auto layerSplitDimensionBegin = thrust::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = thrust::next(layerSplitDimensionBegin, layer.size);
         assert(layerSplitDimensionEnd == node.splitDimension.cend());
@@ -72,44 +80,75 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
             assert(tree.layerDepth.size() < sah.maxTreeDepth);
             break;
         }
+        assert(layerLeafNodeCount < layer.size);
+
+        fff();
 
         polygon.side.resize(polygon.count);
         polygon.eventRight.resize(polygon.count);
+
+        fff();
 
         determinePolygonSide<0>(x);
         determinePolygonSide<1>(y);
         determinePolygonSide<2>(z);
 
+        fff();
+
         updateSplittedPolygonCount();
+
+        fff();
 
         {  // generate index for child node pair
             auto nodeLeftChildBegin = thrust::next(node.leftChild.begin(), layer.base);
-            const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U { return (layerSplitDimension < 0) ? 0 : 2; };
+            const auto toNodeCount = [] __host__ __device__(I layerSplitDimension) -> U
+            {
+                return (layerSplitDimension < 0) ? 0 : 2;
+            };
             auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, cuda::std::plus<U>{});
 
+            fff();
+
             auto nodeRightChildBegin = thrust::next(node.rightChild.begin(), layer.base);
-            const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild) -> U { return nodeLeftChild + 1; };
-            thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, nodeRightChildBegin, toNodeRightChild);
+            const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild, I layerSplitDimension) -> U
+            {
+                return (layerSplitDimension < 0) ? 0 : (nodeLeftChild + 1);
+            };
+            thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, layerSplitDimensionBegin, nodeRightChildBegin, toNodeRightChild);
         }
 
+        fff();
+
         separateSplittedPolygon();
+
+        fff();
 
         x.decoupleEventBoth(node.splitDimension, polygon.side);
         y.decoupleEventBoth(node.splitDimension, polygon.side);
         z.decoupleEventBoth(node.splitDimension, polygon.side);
 
+        fff();
+
         assert(polygon.side.size() == polygon.count);
         updatePolygonNode();
+
+        fff();
 
         splitPolygon<0>(x, y, z);
         splitPolygon<1>(y, z, x);
         splitPolygon<2>(z, x, y);
 
+        fff();
+
         updateSplittedPolygonNode();
+
+        fff();
 
         x.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
         y.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
         z.mergeEvent(polygon.count, polygon.splittedCount, polygon.node, splittedPolygon);
+
+        fff();
 
         U layerBasePrev = layer.base;
         layer.base += layer.size;
@@ -129,29 +168,41 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
         setNodeCount(x, y, z);
 
+        fff();
+
         auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = thrust::next(nodeBboxBegin, layerBasePrev);
         auto layerBboxEnd = thrust::next(nodeBboxBegin, layer.base);
         thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
         thrust::scatter_if(layerBboxBegin, layerBboxEnd, thrust::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
 
+        fff();
+
         splitNode<0>(layerBasePrev, x);
         splitNode<1>(layerBasePrev, y);
         splitNode<2>(layerBasePrev, z);
         polygon.count += polygon.splittedCount;
 
+        fff();
+
         resizeNode();
         tree.layerDepth.push_back(node.count);
         filterLayerNodeOffset();
 
+        fff();
+
         assert(checkBoxes(x, y, z));
+        fff();
     }
 
+    fff();
     populateNodeParent();
-
-    populateLeafNodeTriangleRange();  // FIX(tomilov): Problem is inside this
-
-    assert(checkTree(x, y, z));
+    fff();
+    assert(checkBoxes(x, y, z));
+    fff();
+    populateLeafNodeTriangleRange();
+    fff();
+    assert(checkNodes(x, y, z));
 
     calculateRope<0, false>(x, y, z);
     calculateRope<0, true>(x, y, z);

@@ -25,7 +25,7 @@ SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' '
 
 .ONESHELL:
 SHELL = bash
-.SHELLFLAGS = -xeu -o pipefail -c
+.SHELLFLAGS = -eu -o pipefail -c
 
 .PHONY: print-cuda-arch
 print-cuda-arch:
@@ -160,8 +160,8 @@ venv: $(ROOT_DIR)/venv
 .PHONY: format
 format: venv
 	cd $(ROOT_DIR)
-	git add .
-	git clang-format $(shell git rev-list --max-parents=0 HEAD) || true
+	git add --update
+	git clang-format --extensions=cpp,hpp,cu,cuh,inl,js $(shell git rev-list --max-parents=0 HEAD) || true
 	. venv/bin/activate
 	black src/
 	isort --profile black src/

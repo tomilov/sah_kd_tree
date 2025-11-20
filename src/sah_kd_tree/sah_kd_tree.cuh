@@ -375,7 +375,6 @@ struct Builder
 
     bool checkBoxes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
     bool checkNodes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
-    bool checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
     template<I dimension, bool forth>
     void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;

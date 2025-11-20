@@ -23,7 +23,8 @@ void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
     auto nodeSplitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto polygonSides = thrust::raw_pointer_cast(polygon.side.data());
     U layerBase = layer.base;
-    const auto isSplittedPolygon = [layerBase, polygonNodes, nodeSplitDimensions, polygonSides] __host__ __device__(U polygon) -> bool {
+    const auto isSplittedPolygon = [layerBase, polygonNodes, nodeSplitDimensions, polygonSides] __host__ __device__(U polygon) -> bool
+    {
         U polygonNode = polygonNodes[polygon];
         if (polygonNode < layerBase) {
             return false;
@@ -37,7 +38,10 @@ void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
     auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
     using SplittedPolygonType = cuda::std::iter_value_t<decltype(splittedPolygonOutputBegin)>;
-    const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType { return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}}; };
+    const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType
+    {
+        return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}};
+    };
     auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
     auto splittedPolygonInputEnd = thrust::next(splittedPolygonInputBegin, polygon.count);
     [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(splittedPolygonInputBegin, splittedPolygonInputEnd, polygonBegin, splittedPolygonOutputBegin, isSplittedPolygon);

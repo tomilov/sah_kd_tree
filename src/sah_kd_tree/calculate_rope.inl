@@ -1,8 +1,8 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/transform.h>
 #include <thrust/memory.h>
+#include <thrust/transform.h>
 
 #include <cassert>
 
@@ -24,7 +24,8 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
     auto rightChildren = thrust::raw_pointer_cast(node.rightChild.data());
     auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
-    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U {
+    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U
+    {
         U siblingNode = node;
         for (;;) {
             if (siblingNode == 0) {

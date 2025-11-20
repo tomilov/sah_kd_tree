@@ -1,8 +1,8 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/transform.h>
 #include <thrust/memory.h>
+#include <thrust/transform.h>
 
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::updatePolygonNode()
@@ -20,12 +20,14 @@ void sah_kd_tree::Builder<Traits>::updatePolygonNode()
 
     U layerBase = layer.base;
 
-    const auto toPolygonNode = [polygonSides, polygonNodes, nodeLeftChilds, nodeRightChilds] __host__ __device__(U polygon) -> U {
+    const auto toPolygonNode = [polygonSides, polygonNodes, nodeLeftChilds, nodeRightChilds] __host__ __device__(U polygon) -> U
+    {
         I polygonSide = polygonSides[polygon];
         U polygonNode = polygonNodes[polygon];
         return ((0 < polygonSide) ? nodeRightChilds : nodeLeftChilds)[polygonNode];  // splitted polygon assigned to left node
     };
-    const auto isCurrentLayer = [polygonNodes, layerBase, nodeSplitDimensions] __host__ __device__(U polygon) -> bool {
+    const auto isCurrentLayer = [polygonNodes, layerBase, nodeSplitDimensions] __host__ __device__(U polygon) -> bool
+    {
         U polygonNode = polygonNodes[polygon];
         if (polygonNode < layerBase) {
             return false;

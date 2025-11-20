@@ -6,9 +6,9 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/memory.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
-#include <thrust/memory.h>
 
 #include <limits>
 
@@ -53,11 +53,13 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splittedPolygonCount.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin(), layer.splitEvent.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
     using PerfectSplitType = cuda::std::iter_value_t<decltype(perfectSplitOutputBegin)>;
-    const auto toPerfectSplit
-        = [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U event) -> PerfectSplitType {
+    const auto toPerfectSplit = [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U event) -> PerfectSplitType
+    {
         U eventNode = eventNodes[event];
         F min = nodeXMins[eventNode], max = nodeXMaxs[eventNode];
         F splitPos = eventPositions[event];
+        assert(!(splitPos < min));
+        assert(!(max < splitPos));
         U polygonCountLeft = polygonCountLefts[event];
         U polygonCountRight = polygonCountRights[event];
         U polygonCount = nodePolygonCounts[eventNode];
@@ -65,10 +67,9 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         assert(polygonCountRight <= polygonCount);
         U splittedPolygonCount = polygonCountLeft + polygonCountRight - polygonCount;
         U splitEvent = event;
-        assert(!(splitPos < min));
-        assert(!(max < splitPos));
+        F splitCost = std::numeric_limits<F>::infinity();
         if (!(min < max)) {
-            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+            return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
         F l = splitPos - min, r = max - splitPos;
         I eventKind = eventKinds[event];
@@ -89,30 +90,29 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         if (polygonCountLeft == 0) {
             assert(polygonCountRight != 0);
             if (!(min < splitPos)) {
-                return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+                return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountRight == polygonCount) {
-            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+            return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         } else if (polygonCountRight == 0) {
             if (!(splitPos < max)) {
-                return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+                return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
             }
             emptinessFactor = sah.emptinessFactor;
         } else if (polygonCountLeft == polygonCount) {
-            return {std::numeric_limits<F>::infinity(), splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
+            return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
         F x = max - min;
         F y = nodeYMaxs[eventNode] - nodeYMins[eventNode];
         assert(static_cast<F>(0) <= y);
         F z = nodeZMaxs[eventNode] - nodeZMins[eventNode];
         assert(static_cast<F>(0) <= z);
-        F area = y * z;  // half area
-        F splitCost;
-        if (static_cast<F>(0) < area) {
-            F perimeter = y + z;  // half perimeter
-            assert(static_cast<F>(0) < perimeter);
-            splitCost = (static_cast<F>(polygonCountLeft) * (area + perimeter * l) + static_cast<F>(polygonCountRight) * (area + perimeter * r)) / (area + perimeter * x);
+        F halfArea = y * z;
+        if (static_cast<F>(0) < halfArea) {
+            F halfPerimeter = y + z;
+            assert(static_cast<F>(0) < halfPerimeter);
+            splitCost = (static_cast<F>(polygonCountLeft) * (halfArea + halfPerimeter * l) + static_cast<F>(polygonCountRight) * (halfArea + halfPerimeter * r)) / (halfArea + halfPerimeter * x);
         } else {
             splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / x;
         }

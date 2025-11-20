@@ -2,8 +2,8 @@
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
-#include <thrust/tuple.h>
 #include <thrust/memory.h>
+#include <thrust/tuple.h>
 
 #include <cassert>
 
@@ -31,7 +31,9 @@ bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<
     auto polygonZMins = thrust::raw_pointer_cast(z.polygon.min.data());
     auto polygonZMaxs = thrust::raw_pointer_cast(z.polygon.max.data());
 
-    const auto checkPolygonProjections = [triangleCount, polygonTriangles, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool {
+    const auto checkPolygonProjections
+        = [triangleCount, polygonTriangles, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool
+    {
         if (polygonTriangles[polygon] >= triangleCount) {
             return false;
         }
@@ -118,20 +120,24 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
     auto nodeZMaxs = thrust::raw_pointer_cast(z.node.max.data());
 
     U polygonCount = polygon.count;
-    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U node) -> bool {
+    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U node) -> bool
+    {
         I splitDimension = splitDimensions[node];
         U leftChild = leftChildren[node];
         U rightChild = rightChildren[node];
         if (splitDimension < 0) {
-            if (leftChild >= polygonCount) {
-                return false;
+            if (rightChild > 0) {
+                if (leftChild >= polygonCount) {
+                    return false;
+                }
+                if (rightChild > polygonCount) {
+                    return false;
+                }
+                if (rightChild >= polygonCount - leftChild) {
+                    return false;
+                }
             }
-            if (rightChild > polygonCount) {
-                return false;
-            }
-            if (rightChild >= polygonCount - leftChild) {
-                return false;
-            }
+            return true;
         }
         if (parents[leftChild] != node) {
             return false;
@@ -158,18 +164,6 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
         return true;
     };
     if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), checkNode)) {
-        return false;
-    }
-    return true;
-}
-
-template<typename Traits>
-bool Builder<Traits>::checkTree(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
-{
-    if (!checkBoxes(x, y, z)) {
-        return false;
-    }
-    if (!checkNodes(x, y, z)) {
         return false;
     }
     return true;
