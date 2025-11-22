@@ -742,6 +742,18 @@ C.ApplicationWindow {
                                     CenteredText {
                                         readonly property vector3d position: viewer.cameraView.position
                                         text: qsTr("xyz: %1 %2 %3").arg(position.x.toExponential(3)).arg(position.y.toExponential(3)).arg(position.z.toExponential(3))
+                                        HoverHandler {
+                                            id: cameraPositionHoverHandler
+                                        }
+                                        C.ToolTip.visible: cameraPositionHoverHandler.hovered
+                                        C.ToolTip.text: {
+                                            qsTr("%1 %2 %3")
+                                            .arg(app.toHexFloat(position.x))
+                                            .arg(app.toHexFloat(position.y))
+                                            .arg(app.toHexFloat(position.z))
+                                        }
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: settings.toolTipTimeout
                                     }
                                     C.ToolSeparator {
                                         Layout.fillHeight: true
@@ -749,12 +761,33 @@ C.ApplicationWindow {
                                     CenteredText {
                                         readonly property vector3d orientation: viewer.cameraView.orientation.toEulerAngles()
                                         text: qsTr("\u03C6\u03B8\u03C8: %1 %2 %3").arg(orientation.x.toFixed(1)).arg(orientation.y.toFixed(1)).arg(orientation.z.toFixed(1))
+                                        HoverHandler {
+                                            id: cameraOrientationHoverHandler
+                                        }
+                                        C.ToolTip.visible: cameraOrientationHoverHandler.hovered
+                                        C.ToolTip.text: {
+                                            var orientation = viewer.cameraView.orientation
+                                            qsTr("wxyz: %1 %2 %3 %4")
+                                            .arg(app.toHexFloat(orientation.scalar))
+                                            .arg(app.toHexFloat(orientation.x))
+                                            .arg(app.toHexFloat(orientation.y))
+                                            .arg(app.toHexFloat(orientation.z))
+                                        }
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: settings.toolTipTimeout
                                     }
                                     C.ToolSeparator {
                                         Layout.fillHeight: true
                                     }
                                     CenteredText {
-                                        text: qsTr("fov: %1").arg(viewer.cameraView.fov.toFixed(0))
+                                        text: qsTr("fov(deg): %1").arg(viewer.cameraView.fov.toFixed(0))
+                                        HoverHandler {
+                                            id: cameraFovHoverHandler
+                                        }
+                                        C.ToolTip.visible: cameraFovHoverHandler.hovered
+                                        C.ToolTip.text: qsTr("fov(rad): %1").arg(app.toHexFloat(viewer.cameraView.fov))
+                                        C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                        C.ToolTip.timeout: settings.toolTipTimeout
                                     }
                                 }
                                 MouseArea {

@@ -29,7 +29,7 @@ MappedDeviceMemory::MappedDeviceMemory(const ::CUmemLocation & location, size_t 
 
 MappedDeviceMemory::MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
     : alignedAllocationSize{rhs.alignedAllocationSize}
-    , devPtr{std::exchange(rhs.devPtr, devPtr)}
+    , devPtr{std::exchange(rhs.devPtr, ::CUdeviceptr{})}
 {}
 
 MappedDeviceMemory::~MappedDeviceMemory()
@@ -59,7 +59,7 @@ DeviceMemory::DeviceMemory(DeviceMemory && rhs) noexcept
     : memAllocationProp{rhs.memAllocationProp}
     , allocGranularity{rhs.allocGranularity}
     , alignedAllocationSize{rhs.alignedAllocationSize}
-    , allocationHandle{std::exchange(rhs.allocationHandle, allocationHandle)}
+    , allocationHandle{std::exchange(rhs.allocationHandle, ::CUmemGenericAllocationHandle{})}
 {}
 
 DeviceMemory::~DeviceMemory()

@@ -125,111 +125,82 @@ bool rayTriangleIntersect(const in Ray ray, inout Hit hit, const in Triangle tri
     return !((hit.uv.x < -kEps) || (hit.uv.y < -kEps) || (hit.uv.x + hit.uv.y > 1.0f + kEps));
 }
 
-bool traceRay(in uint nodeIndex, const in Ray ray, inout Hit hit, const in bool debug)
+uint findNode(uint nodeIndex, const in Ray ray)
 {
-    int i = 0;
-    if (nodeIndex == 0u) {
-        for (;;) {
-            if (++i == 200) {
-                //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-                return false;
-            }
-            const int splitDimension = nodes.node[nodeIndex].splitDimension;
-            if (splitDimension < 0) {
-                break;
-            }
-            if (ray.pos[splitDimension] < nodes.node[nodeIndex].splitPos) {
-                nodeIndex = nodes.node[nodeIndex].leftChild;
-            } else {
-                nodeIndex = nodes.node[nodeIndex].rightChild;
-            }
-            //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
+    Node node = nodes.node[nodeIndex];
+    while (any(lessThan(ray.pos, node.aabbMin)) || any(lessThan(node.aabbMax, ray.pos))) {
+        if (nodeIndex == 0u) {
+            return 0u;
         }
+        nodeIndex = nodeParents.parent[nodeIndex];
+        node = nodes.node[nodeIndex];
     }
+    for (;;) {
+        const int splitDimension = node.splitDimension;
+        if (splitDimension < 0) {
+            return nodeIndex;
+        }
+        if (ray.pos[splitDimension] < node.splitPos) {
+            nodeIndex = node.leftChild;
+        } else {
+            nodeIndex = node.rightChild;
+        }
+        node = nodes.node[nodeIndex];
+    }
+}
+
+bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
+{
     // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    vec3 aabbHitT = (mix(nodes.node[nodeIndex].aabbMin, nodes.node[nodeIndex].aabbMax, corner) - ray.pos) * invDir;
+    Node node = nodes.node[nodeIndex];
+    vec3 aabbHitT = (mix(node.aabbMin, node.aabbMax, corner) - ray.pos) * invDir;
     float tMin = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
-    if (debug) {
-        //vec3 a = nodes.node[nodeIndex].aabbMin;
-        //vec3 b = nodes.node[nodeIndex].aabbMax;
-        //debugPrintfEXT("%f %f %f %f %f %f\n", a.x, a.y, a.z, b.x, b.y, b.z);
-        //vec3 aaa = aabbHitT;
-        //debugPrintfEXT("%f %f %f\n", aaa.x, aaa.y, aaa.z);
-    }
-    //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-    do {
+    for (;;) {
         const float tNear = max(0.0f, tMin);  // adjust for the case if we are not outside
         for (;;) {
-            if (++i == 200) {
-                //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-                return false;
-            }
-            const int splitDimension = nodes.node[nodeIndex].splitDimension;
+            const int splitDimension = node.splitDimension;
             if (splitDimension < 0) {
                 break;
             }
-            if (corner[splitDimension] == ((nodes.node[nodeIndex].splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
-                nodeIndex = nodes.node[nodeIndex].leftChild;
+            if (corner[splitDimension] == ((node.splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
+                nodeIndex = node.leftChild;
             } else {
-                nodeIndex = nodes.node[nodeIndex].rightChild;
+                nodeIndex = node.rightChild;
             }
-            //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
+            node = nodes.node[nodeIndex];
         }
-        //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-        aabbHitT = (mix(nodes.node[nodeIndex].aabbMax, nodes.node[nodeIndex].aabbMin, corner) - ray.pos) * invDir;
+        aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
         const float tMax = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
-        //hit.uv = vec2(aabbHitT.y, aabbHitT.z) / max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
-        //if (debug) {
-        //    debugPrintfEXT("%f %f\n", tMin, tMax);
-        //}
-        //debugPrintfEXT("%i %u %u %u\n", __LINE__, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, nodes.node[nodeIndex].rightChild);
         if (tMin > tMax) {
-            //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
             break;
         }
-        //return true;
-        //if (debug) {
-        //    debugPrintfEXT("START\n");
-        //}
-        const uint polygonStart = nodes.node[nodeIndex].leftChild;
-        const uint polygonEnd = polygonStart + nodes.node[nodeIndex].rightChild;
+        const uint polygonStart = node.leftChild;
+        const uint polygonEnd = polygonStart + node.rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
-            if (++i == 200) {
-                //debugPrintfEXT("%i %u %u %u\n", __LINE__, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, nodes.node[nodeIndex].rightChild);
-                return true;
-            }
             const float tFar = min(hit.t, tMax);
             Hit closerHit;
             closerHit.triangle = polygons.triangle[polygon];
             if (rayTriangleIntersect(ray, closerHit, triangles.triangle[closerHit.triangle], tNear, tFar)) {
-                //if (debug) {
-                //    debugPrintfEXT("%i %u %f %f %f %f\n", __LINE__, polygon, tNear, tFar, closerHit.t, hit.t);
-                //}
                 if (closerHit.t < hit.t) {
                     hit = closerHit;
                 }
-            } else {
-                //if (debug) {
-                //    debugPrintfEXT("%i %u\n", __LINE__, polygon);
-                //}
             }
         }
         if (hit.t <= tMax) {
-            //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
             return true;
         }
         tMin = tMax;
         const ivec3 indices = mix(ivec3(0), ivec3(0, 1, 2), equal(aabbHitT, vec3(tMax)));
         const int ropeDirection = max(indices.x, max(indices.y, indices.z));
-        nodeIndex = corner[ropeDirection] ? nodes.node[nodeIndex].leftRope[ropeDirection] : nodes.node[nodeIndex].rightRope[ropeDirection];
-        //if (debug) {
-        //    debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-        //}
-        debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-    } while (nodeIndex != 0u);
-    //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
+        nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
+        //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
+        if (nodeIndex == 0u) {
+            break;
+        }
+        node = nodes.node[nodeIndex];
+    }
     return false;
 }
 
@@ -252,15 +223,15 @@ void main()
     const vec3 dir = mix(
         mix(
             frustum.leftBottom,
-            frustum.rightBottom,
-            loc.x
+            frustum.leftTop,
+            loc.y
         ),
         mix(
-            frustum.leftTop,
+            frustum.rightBottom,
             frustum.rightTop,
-            loc.x
+            loc.y
         ),
-        loc.y
+        loc.x
     );
     Ray ray;
     ray.pos = pos;
@@ -269,12 +240,8 @@ void main()
     hit.t = +1.0f / +0.0f;
     vec4 color;
 #if 1
-    bool debug = (2u * pixelCoords == uvec2(imageSize));
-    if (!debug) {
-        //return;
-    }
-    if (traceRay(nodeIndex, ray, hit, debug)) {
-        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv.yx, 1.0f);
+    if (traceRay(findNode(nodeIndex, ray), ray, hit)) {
+        color = vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
 #elif 0
     Triangle triangle;
     triangle.a = vec3(0.0f, 0.0f, 0.0f);

@@ -133,7 +133,7 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
                 if (rightChild > polygonCount) {
                     return false;
                 }
-                if (rightChild >= polygonCount - leftChild) {
+                if (rightChild > polygonCount - leftChild) {
                     return false;
                 }
             }

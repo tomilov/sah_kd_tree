@@ -13,13 +13,14 @@
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::populateLeafNodeTriangleRange()
 {
-    thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
     if (sah_kd_tree::kIsDebugBuild) {
         auto polygonBegin = thrust::make_zip_iterator(polygon.node.begin(), polygon.triangle.begin());
         auto polygonEnd = thrust::make_zip_iterator(polygon.node.end(), polygon.triangle.end());
         thrust::sort(polygonBegin, polygonEnd);
         // uniqueness should be guaranteed in natural way by correct intersection of convex polyhedra (boxes) and convex polygones (tris)
         assert(thrust::unique(polygonBegin, polygonEnd) == polygonEnd);
+    } else {
+        thrust::sort_by_key(polygon.node.begin(), polygon.node.end(), polygon.triangle.begin());
     }
 
     leaf.node.resize(leaf.count);

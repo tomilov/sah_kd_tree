@@ -65,7 +65,7 @@ builder::TreePtr makeTree(QString sceneFileName)
     const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
     {
         using namespace std::chrono_literals;
-        if (start + 10000s < std::chrono::steady_clock::now()) {
+        if (start + 10s < std::chrono::steady_clock::now()) {
             INVARIANT(false, "{}", progressValue);
         }
         return false;
@@ -105,8 +105,9 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
-    glm::vec3 position{0.0f, 0.0f, -1.0f};
-    glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f})));
+    glm::vec3 position{-26.0, 267.0f, -332.0f};
+    // glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f})));
+    glm::quat orientation = glm::conjugate(glm::quat(glm::vec3{glm::radians(0.0f), glm::radians(0.0f), glm::radians(0.0f)}));
     soft_renderer::FrameSettings frameSettings = {
         .position = position,
         .orientation = orientation,

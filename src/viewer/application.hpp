@@ -25,6 +25,8 @@ public:
     [[nodiscard]] static Q_INVOKABLE QUrl getQtLogoUrl();
     [[nodiscard]] Q_INVOKABLE int getIndexOfClosestNamedColor(QColor color) const;
     [[nodiscard]] static Q_INVOKABLE QString toLocalFile(QUrl url);
+    [[nodiscard]] static Q_INVOKABLE QString toHexFloat(float x);
+    [[nodiscard]] static Q_INVOKABLE QString toHexFloat(double x);
 
 public Q_SLOTS:
     void setClipboardImage(QVariant image) const;
@@ -48,6 +50,8 @@ public:
     [[nodiscard]] static Q_INVOKABLE QUrl getQtLogoUrl();
     [[nodiscard]] Q_INVOKABLE int getIndexOfClosestNamedColor(QColor color) const;
     [[nodiscard]] static Q_INVOKABLE QString toLocalFile(QUrl url);
+    [[nodiscard]] static Q_INVOKABLE QString toHexFloat(float x);
+    [[nodiscard]] static Q_INVOKABLE QString toHexFloat(double x);
 
 public Q_SLOTS:
     void setClipboardImage(QVariant image) const;

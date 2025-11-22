@@ -108,8 +108,8 @@ struct Tree
 
     Tree() = default;
 
-    Tree(const Allocator<void> & allocator)
-        : allocator{allocator}
+    Tree(const Allocator<void> & allocatorIn)
+        : allocator{allocatorIn}
         , x{
               .node{
                   .min{allocator},
@@ -214,8 +214,8 @@ struct Projection
 
     Projection() = default;
 
-    Projection(const Allocator<void> & allocator)
-        : allocator{allocator}
+    Projection(const Allocator<void> & allocatorIn)
+        : allocator{allocatorIn}
         , polygon{
               .min{allocator},
               .max{allocator},
@@ -284,6 +284,8 @@ struct Builder
         }
     } isNodeNotEmpty;
 
+    Allocator<void> allocator;
+
     struct Polygon
     {
         U count = 0;
@@ -299,7 +301,6 @@ struct Builder
     {
         U count = 1;  // always equal layer.base + layer.size
 
-        // Vector<F> splitCost;  // TODO(tomilov): remove (needed for debug)
         Vector<I> splitDimension;
         Vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
         Vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
@@ -328,8 +329,9 @@ struct Builder
 
     Builder() = default;
 
-    Builder(const Allocator<void> & allocator)
-        : polygon{
+    Builder(const Allocator<void> & allocatorIn)
+        : allocator{allocatorIn}
+        , polygon{
               .triangle{allocator},
               .node{allocator},
               .side{allocator},
@@ -394,8 +396,6 @@ struct Triangle
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
 
-    Allocator<void> allocator;
-
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
     {
@@ -404,6 +404,8 @@ struct Triangle
             return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
         }
     };
+
+    Allocator<void> allocator;
 
     U count = 0;
 
@@ -414,8 +416,8 @@ struct Triangle
 
     Triangle() = default;
 
-    Triangle(const Allocator<void> & allocator)
-        : allocator{allocator}
+    Triangle(const Allocator<void> & allocatorIn)
+        : allocator{allocatorIn}
         , x{
               .a{allocator},
               .b{allocator},

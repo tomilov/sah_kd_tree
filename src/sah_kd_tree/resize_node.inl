@@ -5,7 +5,6 @@
 template<typename Traits>
 void sah_kd_tree::Builder<Traits>::resizeNode()
 {
-    // node.splitCost.resize(node.count, std::numeric_limits<F>::quiet_NaN());
     node.splitDimension.resize(node.count, kNoSplitDimension);
     node.splitPos.resize(node.count, std::numeric_limits<F>::quiet_NaN());
     node.leftChild.resize(node.count, std::numeric_limits<U>::max());

@@ -28,6 +28,27 @@ namespace
 
 constexpr glm::float32 kEps = 1E-8f;
 
+glm::float32 clearZeroSign(glm::float32 x)
+{
+    return glm::floatBitsToUint(x) == 0x80000000u ? 0.0f : x;
+}
+
+glm::vec3 clearZeroSign(const glm::vec3 & v)
+{
+    return {clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z)};
+}
+
+bool intersectSphere(const Ray & ray, const glm::vec3 & center, glm::float32 radius)
+{
+    glm::vec3 oc = center - ray.pos;
+    glm::float32 l = glm::dot(ray.dir, oc);
+    if (l < 0.0f) {
+        return false;
+    }
+    glm::vec3 ll = ray.dir * l;
+    return radius * radius > glm::dot(oc, oc) - glm::dot(ll, ll);
+}
+
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersect(const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar)
 {
@@ -82,17 +103,6 @@ bool intersectTriangle [[maybe_unused]] (const Ray & ray, Hit & hit, const scene
     return false;
 }
 
-bool intersectSphere(const Ray & ray, const glm::vec3 & center, glm::float32 radius)
-{
-    glm::vec3 oc = center - ray.pos;
-    glm::float32 l = glm::dot(ray.dir, oc);
-    if (l < 0.0f) {
-        return false;
-    }
-    glm::vec3 ll = ray.dir * l;
-    return radius * radius > glm::dot(oc, oc) - glm::dot(ll, ll);
-}
-
 }  // namespace
 
 struct SoftRenderer::Impl
@@ -112,65 +122,74 @@ struct SoftRenderer::Impl
 
     [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const Ray & ray) const
     {
+        const Node * node = &nodes.at(nodeIndex);
+        while (glm::any(glm::lessThan(ray.pos, node->aabbMin)) || glm::any(glm::lessThan(node->aabbMax, ray.pos))) {
+            if (nodeIndex == 0u) {
+                return 0u;
+            }
+            nodeIndex = nodeParents[nodeIndex];
+            node = &nodes.at(nodeIndex);
+        }
         for (;;) {
-            const Node & node = nodes.at(nodeIndex);
-            const glm::int32 splitDimension = node.splitDimension;
+            const int splitDimension = node->splitDimension;
             if (splitDimension < 0) {
                 return nodeIndex;
             }
-            if (ray.pos[splitDimension] < node.splitPos) {
-                nodeIndex = node.leftChild;
+            if (ray.pos[splitDimension] < node->splitPos) {
+                nodeIndex = node->leftChild;
             } else {
-                nodeIndex = node.rightChild;
+                nodeIndex = node->rightChild;
             }
+            node = &nodes.at(nodeIndex);
         }
     }
 
-    [[nodiscard]] bool traceRay(const glm::uint rootNodeIndex, const Ray & ray, Hit & hit) const
+    [[nodiscard]] bool bruteForceRay(const Ray & ray, Hit & hit) const
     {
-        if ((false)) {
-            constexpr glm::float32 kNear = 0.0f;
-            constexpr glm::float32 kFar = 100.0f;
-            bool isHit = false;
-            for (const scene_data::Triangle & triangle : triangles) {
-                Hit closerHit;
-                closerHit.triangle = utils::autoCast(std::distance(&triangles.front(), &triangle));
-                if (rayTriangleIntersect(ray, closerHit, triangle, kNear, kFar)) {
-                    if (closerHit.t < hit.t) {
-                        hit = closerHit;
-                    }
-                    isHit = true;
+        constexpr glm::float32 kNear = 0.0f;
+        constexpr glm::float32 kFar = std::numeric_limits<glm::float32>::infinity();
+        bool isHit = false;
+        for (const scene_data::Triangle & triangle : triangles) {
+            Hit closerHit;
+            closerHit.triangle = utils::autoCast(std::distance(&triangles.front(), &triangle));
+            if (rayTriangleIntersect(ray, closerHit, triangle, kNear, kFar)) {
+                if (closerHit.t < hit.t) {
+                    hit = closerHit;
                 }
+                isHit = true;
             }
-            return isHit;
         }
-        const glm::vec3 invDir = glm::sign(ray.dir) / glm::max(glm::abs(ray.dir), glm::vec3(kEps));
+        return isHit;
+    }
+
+    [[nodiscard]] bool traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit) const
+    {
+        const glm::vec3 invDir = 1.0f / clearZeroSign(ray.dir);
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
-        glm::uint nodeIndex = rootNodeIndex;
-        glm::vec3 aabbHitT = (glm::mix(nodes.at(nodeIndex).aabbMin, nodes.at(nodeIndex).aabbMax, corner) - ray.pos) * invDir;
+        const Node * node = &nodes.at(nodeIndex);
+        glm::vec3 aabbHitT = (glm::mix(node->aabbMin, node->aabbMax, corner) - ray.pos) * invDir;
         glm::float32 tMin = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));
-        do {
+        for (;;) {
             const glm::float32 tNear = glm::max(0.0f, tMin);
             for (;;) {
-                const Node & node = nodes.at(nodeIndex);
-                const glm::int32 splitDimension = node.splitDimension;
+                const glm::int32 splitDimension = node->splitDimension;
                 if (splitDimension < 0) {
                     break;
                 }
-                if (corner[splitDimension] == ((node.splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
-                    nodeIndex = node.leftChild;
+                if (corner[splitDimension] == ((node->splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
+                    nodeIndex = node->leftChild;
                 } else {
-                    nodeIndex = node.rightChild;
+                    nodeIndex = node->rightChild;
                 }
+                node = &nodes.at(nodeIndex);
             }
-            const Node & node = nodes.at(nodeIndex);
-            aabbHitT = (glm::mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
+            aabbHitT = (glm::mix(node->aabbMax, node->aabbMin, corner) - ray.pos) * invDir;
             const glm::float32 tMax = glm::min(aabbHitT.x, glm::min(aabbHitT.y, aabbHitT.z));
             if (tMin > tMax) {
-                return false;
+                break;
             }
-            const glm::uint polygonStart = node.leftChild;
-            const glm::uint polygonEnd = polygonStart + node.rightChild;
+            const glm::uint polygonStart = node->leftChild;
+            const glm::uint polygonEnd = polygonStart + node->rightChild;
             for (glm::uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
                 const glm::float32 tFar = glm::min(hit.t, tMax);
                 Hit closerHit;
@@ -187,8 +206,13 @@ struct SoftRenderer::Impl
             tMin = tMax;
             const glm::ivec3 indices = glm::mix(glm::ivec3(0), glm::ivec3(0, 1, 2), glm::equal(aabbHitT, glm::vec3(tMax)));
             const glm::int32 ropeDirection = glm::max(indices.x, glm::max(indices.y, indices.z));
-            nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
-        } while (nodeIndex != 0u);
+            nodeIndex = corner[ropeDirection] ? node->leftRope[ropeDirection] : node->rightRope[ropeDirection];
+            // SPDLOG_INFO("{} {}", __LINE__, nodeIndex);
+            if (nodeIndex == 0u) {
+                break;
+            }
+            node = &nodes.at(nodeIndex);
+        }
         return false;
     }
 };
@@ -222,7 +246,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     Ray ray;
     ray.pos = frameSettings.position;
-    const glm::uint rootNodeIndex = impl_->findNode(kRootNodeIndex, ray);
+    const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
     for (gli::int32 y = 0; y < extent.y; ++y) {
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
@@ -232,15 +256,9 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
             ray.dir = glm::normalize(glm::mix(left, right, locX));
             glm::vec4 texel;
             if ((true)) {
-                if (x == 429 && y == 414) {
-                    asm volatile("nop;");
-                    // continue;
-                } else {
-                    // continue;
-                }
                 Hit hit;
                 hit.t = std::numeric_limits<glm::float32>::infinity();
-                if (impl_->traceRay(rootNodeIndex, ray, hit)) {
+                if (impl_->traceRay(nodeIndex, ray, hit)) {
                     texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
                 } else {
                     texel = impl_->clearColor;
@@ -253,7 +271,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
                 }
             }
             constexpr auto kScale = static_cast<glm::vec4::value_type>(std::numeric_limits<PixelType::value_type>::max());
-            target.store(gli::extent2d{x, y}, kLevel, PixelType(glm::clamp(texel, glm::vec4{0.0f}, glm::vec4{1.0f}) * kScale));
+            target.store(gli::extent2d{x, extent.y - y - 1}, kLevel, PixelType(glm::clamp(texel, glm::vec4{0.0f}, glm::vec4{1.0f}) * kScale));
         }
     }
 }

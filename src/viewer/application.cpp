@@ -1,5 +1,7 @@
 #include <viewer/application.hpp>
 
+#include <fmt/format.h>
+
 #include <QtCore/QDirIterator>
 #include <QtGui/QClipboard>
 #include <QtGui/QColor>
@@ -92,6 +94,16 @@ QString GuiApplication::toLocalFile(QUrl url)
     return url.toLocalFile();
 }
 
+QString GuiApplication::toHexFloat(float x)
+{
+    return QString::fromStdString(fmt::format("{:a}", x));
+}
+
+QString GuiApplication::toHexFloat(double x)
+{
+    return QString::fromStdString(fmt::format("{:a}", x));
+}
+
 void GuiApplication::setClipboardImage(QVariant image) const
 {
     clipboard()->setImage(image.value<QImage>());
@@ -126,6 +138,16 @@ int Application::getIndexOfClosestNamedColor(QColor color) const
 QString Application::toLocalFile(QUrl url)
 {
     return GuiApplication::toLocalFile(url);
+}
+
+QString Application::toHexFloat(float x)
+{
+    return GuiApplication::toHexFloat(x);
+}
+
+QString Application::toHexFloat(double x)
+{
+    return GuiApplication::toHexFloat(x);
 }
 
 void Application::setClipboardImage(QVariant image) const
