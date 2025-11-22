@@ -13,6 +13,7 @@
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/device_memory_resource.h>
 #include <thrust/mr/memory_resource.h>
+#include <thrust/system/cuda/execution_policy.h>
 #include <thrust/system/cuda/pointer.h>
 #include <thrust/uninitialized_copy.h>
 
@@ -207,7 +208,8 @@ struct Tree::Impl : utils::OneTime<Impl>
         polygonOffset = gatherSize(tree.polygonTriangle);
         auto node = getNode(tree);
         using NodeType = cuda::std::iter_value_t<decltype(node)>;
-        static_assert(sizeof(NodeType) == 64, "Keep in sync with Node in 'trace.comp'");
+        constexpr size_t kNodeSize = sizeof(NodeType);
+        static_assert(kNodeSize == 64, "Keep in sync with Node in 'trace.comp'");
         nodeOffset = gatherSize<NodeType>(nodeCount);
         nodeParentOffset = gatherSize(tree.node.parent);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
@@ -236,8 +238,15 @@ struct Tree::Impl : utils::OneTime<Impl>
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
+#if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
                 const Traits::Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
                 thrust::uninitialized_copy_n(node, nodeCount, dst);
+#else
+                typename Traits::Vector<NodeType> nodes{tree.allocator};
+                nodes.assign(node, thrust::next(node, nodeCount));
+                auto srcPtr = thrust::raw_pointer_cast(nodes.data());
+                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize));
+#endif
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);
             CUDA_CHECK_ERROR(cudaDeviceSynchronize());
