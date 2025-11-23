@@ -225,7 +225,7 @@ struct UniformBuffer
 {
     vk::Bool32 useOffscreenTexture = vk::False;
     vk::Bool32 discardInvisible = vk::False;
-    vk::Bool32 wireFrame = vk::False;
+    glm::float32 wireFrameThickness = 0.0f;
     glm::vec3 position{0.0f};
     glm::float32 width = 0.0f;
     glm::float32 height = 0.0f;
@@ -248,7 +248,7 @@ struct DisplayPushConstants
 };
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
 
-struct TraceUniformBuffer
+struct TreeUniformBuffer
 {
     glm::uint triangleCount;
     glm::uint treeDepthMax;
@@ -259,7 +259,7 @@ struct TraceUniformBuffer
     vk::DeviceAddress nodes;
     vk::DeviceAddress nodeParents;
 };
-static_assert(std::is_standard_layout_v<TraceUniformBuffer>);
+static_assert(std::is_standard_layout_v<TreeUniformBuffer>);
 
 struct Frustum
 {
@@ -276,6 +276,7 @@ struct TracePushConstants
     glm::vec3 pos;
     glm::uint nodeIndex;
     Frustum frustum;
+    glm::float32 wireFrameThickness;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
 
@@ -312,7 +313,7 @@ struct UniformBufferResource final
 struct TraceSceneResources final
 {
     Tree tree;
-    engine::Buffer<TraceUniformBuffer> uniformBuffer;
+    engine::Buffer<TreeUniformBuffer> treeUniformBuffer;
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName()
     {
@@ -324,9 +325,9 @@ struct TraceSceneResources final
         const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
         {
             if (descriptorBufferEnabled) {
-                return DescriptorBufferData{uniformBuffer.getDescriptorAddressInfo()};
+                return DescriptorBufferData{treeUniformBuffer.getDescriptorAddressInfo()};
             } else {
-                return viewer::DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
+                return viewer::DescriptorSetData{treeUniformBuffer.getDescriptorBufferInfo()};
             }
         };
         return {getBindingName(), getDescriptorData()};
@@ -334,7 +335,7 @@ struct TraceSceneResources final
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
-        utils::OneTime<UniformBufferResource>::checkTraits();
+        utils::OneTime<TraceSceneResources>::checkTraits();
     }
 };
 
@@ -607,7 +608,7 @@ UniformBuffer getUniformBuffer(const FrameSettings & frameSettings)
     return {
         .useOffscreenTexture = frameSettings.useOffscreenTexture ? vk::True : vk::False,
         .discardInvisible = frameSettings.discardInvisible ? vk::True : vk::False,
-        .wireFrame = frameSettings.wireFrame ? vk::True : vk::False,
+        .wireFrameThickness = frameSettings.wireFrame ? 1.0f : 0.0f,
         .position = frameSettings.position,
         .width = frameSettings.width,
         .height = frameSettings.height,
@@ -618,7 +619,7 @@ UniformBuffer getUniformBuffer(const FrameSettings & frameSettings)
     };
 }
 
-TraceUniformBuffer getTraceUniformBuffer(const Tree & tree)
+TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
 {
     return {
         .triangleCount = utils::autoCast(tree.getTriangleCount()),
@@ -671,6 +672,7 @@ TraceUniformBuffer getTraceUniformBuffer(const Tree & tree)
             .leftBottom = leftBottom,
             .rightBottom = rightBottom,
         },
+        .wireFrameThickness = frameSettings.wireFrame ? 1.0f : 0.0f,
     };
 }
 
@@ -885,14 +887,14 @@ void Renderer::Impl::setTree(builder::Tree && builderTree)
 
     Tree tree{name, context, std::move(builderTree)};
 
-    engine::Buffer<TraceUniformBuffer> uniformBuffer{engine.createUniformBuffer(sizeof(TraceUniformBuffer))};
-    uniformBuffer.map().at(0) = getTraceUniformBuffer(tree);
+    engine::Buffer<TreeUniformBuffer> treeUniformBuffer{engine.createUniformBuffer(sizeof(TreeUniformBuffer))};
+    treeUniformBuffer.map().at(0) = getTreeUniformBuffer(tree);
 
     auto shaders = engine.getPipelines().getTraceSahKdTreeShaders();
 
     TraceSceneResources traceSceneResources = {
         .tree = std::move(tree),
-        .uniformBuffer = std::move(uniformBuffer),
+        .treeUniformBuffer = std::move(treeUniformBuffer),
     };
     auto descriptors = engine.makeDescriptors("trace"sv, shaders->getShaderStagesPtr(), traceSceneResources);
     traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
@@ -918,6 +920,7 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
         const glm::uint kSubgroupSizeX;
         const glm::uint kSubgroupSizeY;
         const glm::float32 kEps = 1E-7f;
+        const glm::float32 kInf = std::numeric_limits<glm::float32>::infinity();
     };
     const SpecializationData specializationData = {
         .kSubgroupSizeX = kSubgroupSizeX,
@@ -939,6 +942,11 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
             .constantID = 2,
             .offset = offsetof(SpecializationData, kEps),
             .size = sizeof(SpecializationData::kEps),
+        },
+        {
+            .constantID = 3,
+            .offset = offsetof(SpecializationData, kInf),
+            .size = sizeof(SpecializationData::kInf),
         },
     };
     pipeline.specializationInfo.setMapEntries(specializationMapEntries);
@@ -1034,8 +1042,8 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
             if (wrapper) {
                 return wrapper.value();
             } else {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 != vk::False);
                 ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
+                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
                 return VK_NULL_HANDLE;
             }
         };
@@ -1050,7 +1058,7 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
         indexBuffer = sceneResources.indexBuffer.value();
     } else {
         ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
-        ASSERT(features2Chain.get<vk::PhysicalDeviceMaintenance6FeaturesKHR>().maintenance6 != vk::False);
+        ASSERT(features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
         // TODO: or draw non-indexed
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;

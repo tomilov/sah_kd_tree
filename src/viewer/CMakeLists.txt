@@ -95,6 +95,7 @@ target_shaders(
         "shaders/identity.vert.glsl"
         "shaders/offscreen.frag.glsl"
         "shaders/trace.comp.glsl"
+        "shaders/utils.glsl"
     OUTPUT_VARIABLE
         compiled_shaders)
 

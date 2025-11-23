@@ -254,7 +254,6 @@ void SceneSettings::updateTree()
     Q_CHECK_PTR(treeFutureWatcher);
     Q_ASSERT(treeFutureWatcher->isFinished());
     auto future = treeFutureWatcher->future();
-    Q_ASSERT(future.isValid());
     if (future.isCanceled()) {
         treeStatus = u"Cancelled"_s;
     } else {
@@ -264,6 +263,7 @@ void SceneSettings::updateTree()
             isTreeChanged = true;
         }
         if (future.isResultReadyAt(0)) {
+            Q_ASSERT(future.isValid());
             tree = future.takeResult();
             isTreeChanged = true;
             treeStatus.clear();

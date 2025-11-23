@@ -4,7 +4,7 @@ layout(set = 0, binding = 0, scalar) uniform UniformBuffer
 {
     bool useOffscreenTexture;
     bool discardInvisible;
-    bool wireFrame;
+    float wireFrameThickness;
     vec3 position;
     float width;
     float height;

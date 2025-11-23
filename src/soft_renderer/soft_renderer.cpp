@@ -38,7 +38,8 @@ glm::vec3 clearZeroSign(const glm::vec3 & v)
     return {clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z)};
 }
 
-bool intersectSphere(const Ray & ray, const glm::vec3 & center, glm::float32 radius)
+// https://iquilezles.org/articles/intersectors/
+bool intersectSphere [[maybe_unused]] (const Ray & ray, const glm::vec3 & center, glm::float32 radius)
 {
     glm::vec3 oc = center - ray.pos;
     glm::float32 l = glm::dot(ray.dir, oc);
@@ -50,25 +51,25 @@ bool intersectSphere(const Ray & ray, const glm::vec3 & center, glm::float32 rad
 }
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersect(const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar)
+bool rayTriangleIntersect(const Ray & ray, const scene_data::Triangle & triangle, glm::vec2 & uv, glm::float32 & t)
 {
     const glm::vec3 v1v0 = triangle.b - triangle.a;
     const glm::vec3 v2v0 = triangle.c - triangle.a;
     const glm::vec3 tVec = ray.pos - triangle.a;
-    const glm::vec3 n = glm::cross(v1v0, v2v0);
-    const glm::float32 denom = glm::dot(ray.dir, n);
+    const glm::vec3 normal = glm::cross(v1v0, v2v0);
+    const glm::float32 denom = glm::dot(ray.dir, normal);
     if (glm::abs(denom) < kEps) {
         return false;
     }
     const glm::float32 invDenom = 1.0f / denom;
-    hit.t = invDenom * glm::dot(-n, tVec);
-    if ((hit.t < tNear) || (tFar < hit.t)) {
+    t = -glm::dot(normal, tVec) * invDenom;
+    if (t <= 0.0f) {
         return false;
     }
     const glm::vec3 q = glm::cross(tVec, ray.dir);
-    hit.uv.x = invDenom * glm::dot(-q, v2v0);
-    hit.uv.y = invDenom * glm::dot(q, v1v0);
-    return !((hit.uv.x < -kEps) || (hit.uv.y < -kEps) || (hit.uv.x + hit.uv.y > 1.0f + kEps));
+    uv.x = invDenom * glm::dot(-q, v2v0);
+    uv.y = invDenom * glm::dot(q, v1v0);
+    return !((uv.x < -kEps) || (uv.y < -kEps) || (uv.x + uv.y > 1.0f + kEps));
 }
 
 bool intersectTriangle [[maybe_unused]] (const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar /*, glm::vec3 & outNormal*/)
@@ -146,15 +147,15 @@ struct SoftRenderer::Impl
 
     [[nodiscard]] bool bruteForceRay(const Ray & ray, Hit & hit) const
     {
-        constexpr glm::float32 kNear = 0.0f;
-        constexpr glm::float32 kFar = std::numeric_limits<glm::float32>::infinity();
         bool isHit = false;
         for (const scene_data::Triangle & triangle : triangles) {
-            Hit closerHit;
-            closerHit.triangle = utils::autoCast(std::distance(&triangles.front(), &triangle));
-            if (rayTriangleIntersect(ray, closerHit, triangle, kNear, kFar)) {
-                if (closerHit.t < hit.t) {
-                    hit = closerHit;
+            glm::vec2 uv;
+            glm::float32 t;
+            if (rayTriangleIntersect(ray, triangle, uv, t)) {
+                if (t < hit.t) {
+                    hit.triangle = utils::autoCast(std::distance(std::data(triangles), &triangle));
+                    hit.t = t;
+                    hit.uv = uv;
                 }
                 isHit = true;
             }
@@ -170,13 +171,12 @@ struct SoftRenderer::Impl
         glm::vec3 aabbHitT = (glm::mix(node->aabbMin, node->aabbMax, corner) - ray.pos) * invDir;
         glm::float32 tMin = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));
         for (;;) {
-            const glm::float32 tNear = glm::max(0.0f, tMin);
             for (;;) {
                 const glm::int32 splitDimension = node->splitDimension;
                 if (splitDimension < 0) {
                     break;
                 }
-                if (corner[splitDimension] == ((node->splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tNear)) {
+                if (corner[splitDimension] == ((node->splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tMin)) {
                     nodeIndex = node->leftChild;
                 } else {
                     nodeIndex = node->rightChild;
@@ -191,12 +191,14 @@ struct SoftRenderer::Impl
             const glm::uint polygonStart = node->leftChild;
             const glm::uint polygonEnd = polygonStart + node->rightChild;
             for (glm::uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
-                const glm::float32 tFar = glm::min(hit.t, tMax);
-                Hit closerHit;
-                closerHit.triangle = polygons.at(polygon);
-                if (rayTriangleIntersect(ray, closerHit, triangles.at(closerHit.triangle), tNear, tFar)) {
-                    if (closerHit.t < hit.t) {
-                        hit = closerHit;
+                const glm::uint triangle = polygons.at(polygon);
+                glm::vec2 uv;
+                glm::float32 t;
+                if (rayTriangleIntersect(ray, triangles.at(triangle), uv, t)) {
+                    if (t < hit.t) {
+                        hit.triangle = triangle;
+                        hit.t = t;
+                        hit.uv = uv;
                     }
                 }
             }
@@ -213,7 +215,7 @@ struct SoftRenderer::Impl
             }
             node = &nodes.at(nodeIndex);
         }
-        return false;
+        return hit.triangle != std::numeric_limits<glm::uint>::max();
     }
 };
 
@@ -254,24 +256,17 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
         for (gli::int32 x = 0; x < extent.x; ++x) {
             const glm::float32 locX = (utils::safeCast<glm::float32>(x) + 0.5f) * invExtent.x;
             ray.dir = glm::normalize(glm::mix(left, right, locX));
-            glm::vec4 texel;
-            if ((true)) {
-                Hit hit;
-                hit.t = std::numeric_limits<glm::float32>::infinity();
-                if (impl_->traceRay(nodeIndex, ray, hit)) {
-                    texel = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
-                } else {
-                    texel = impl_->clearColor;
-                }
+            glm::vec4 color;
+            Hit hit;
+            hit.triangle = std::numeric_limits<glm::uint>::max();
+            hit.t = std::numeric_limits<glm::float32>::infinity();
+            if (impl_->traceRay(nodeIndex, ray, hit)) {
+                color = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
             } else {
-                if (intersectSphere(ray, glm::vec3{}, 0.5f)) {
-                    texel = glm::vec4{1.0f, 0.0f, 0.0f, 1.0f};
-                } else {
-                    texel = impl_->clearColor;
-                }
+                color = impl_->clearColor;
             }
             constexpr auto kScale = static_cast<glm::vec4::value_type>(std::numeric_limits<PixelType::value_type>::max());
-            target.store(gli::extent2d{x, extent.y - y - 1}, kLevel, PixelType(glm::clamp(texel, glm::vec4{0.0f}, glm::vec4{1.0f}) * kScale));
+            target.store(gli::extent2d{x, extent.y - y - 1}, kLevel, PixelType(glm::clamp(color, glm::vec4{0.0f}, glm::vec4{1.0f}) * kScale));
         }
     }
 }

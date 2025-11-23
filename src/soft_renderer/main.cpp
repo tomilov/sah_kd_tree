@@ -37,7 +37,7 @@ Q_LOGGING_CATEGORY(softRendererMain, "soft_renderer.main")
 constexpr float kEmptinessFactor = 0.8f;
 constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
-constexpr uint32_t kMaxTreeDepth = 100;
+constexpr uint32_t kMaxTreeDepth = 1000;
 
 builder::TreePtr makeTree(QString sceneFileName)
 {
@@ -105,9 +105,10 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
     softRenderer.setTree(std::move(*tree));
     tree.reset();
-    glm::vec3 position{-26.0, 267.0f, -332.0f};
+    glm::vec3 position{0.0f, 1.0f, 0.0f};
     // glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f})));
-    glm::quat orientation = glm::conjugate(glm::quat(glm::vec3{glm::radians(0.0f), glm::radians(0.0f), glm::radians(0.0f)}));
+    glm::vec3 eulerAngles{90.0f, 0.0f, 0.0f};
+    glm::quat orientation{glm::radians(eulerAngles)};
     soft_renderer::FrameSettings frameSettings = {
         .position = position,
         .orientation = orientation,

@@ -35,15 +35,16 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
-    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceDescriptorIndexingProperties,
-                       vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT, vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceMaintenance5PropertiesKHR, vk::PhysicalDeviceMaintenance6PropertiesKHR>
+    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceVulkan14Properties,
+                       vk::PhysicalDeviceDescriptorIndexingProperties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT,
+                       vk::PhysicalDeviceDescriptorBufferPropertiesEXT, vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceComputeShaderDerivativesPropertiesKHR,
+                       vk::PhysicalDeviceSubgroupProperties>
         properties2Chain;
     uint32_t apiVersion = vk::ApiVersion10;
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceDescriptorIndexingFeatures,
-                       vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesEXT, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDeviceIndexTypeUint8FeaturesKHR, vk::PhysicalDeviceMaintenance5FeaturesKHR,
-                       vk::PhysicalDeviceMaintenance6FeaturesKHR, vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT>
+    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
+                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
+                       vk::PhysicalDeviceRobustness2FeaturesKHR, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR,
+                       vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR>
         features2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -54,8 +55,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     // clang-format off
     using DebugFeatures = FeatureList<
         &vk::PhysicalDeviceFeatures::robustBufferAccess,
-        &vk::PhysicalDeviceRobustness2FeaturesEXT::robustBufferAccess2,
-        &vk::PhysicalDeviceRobustness2FeaturesEXT::robustImageAccess2
+        &vk::PhysicalDeviceRobustness2FeaturesKHR::robustBufferAccess2,
+        &vk::PhysicalDeviceRobustness2FeaturesKHR::robustImageAccess2
     >;
     using RequiredFeatures = FeatureList<
         //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
@@ -70,27 +71,28 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceVulkan12Features::separateDepthStencilLayouts,
         &vk::PhysicalDeviceVulkan13Features::synchronization2,
         &vk::PhysicalDeviceVulkan13Features::maintenance4,
+        &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation,
+        &vk::PhysicalDeviceVulkan14Features::indexTypeUint8,
+        &vk::PhysicalDeviceVulkan14Features::maintenance5,
+        &vk::PhysicalDeviceVulkan14Features::maintenance6,
         //&vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::rayTracingPipeline,
         //&vk::PhysicalDeviceAccelerationStructureFeaturesKHR::accelerationStructure,
         //&vk::PhysicalDeviceMeshShaderFeaturesEXT::meshShader,
         //&vk::PhysicalDeviceMeshShaderFeaturesEXT::taskShader,
         &vk::PhysicalDeviceDescriptorBufferFeaturesEXT::descriptorBuffer,
         &vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR::fragmentShaderBarycentric,
-        &vk::PhysicalDeviceRobustness2FeaturesEXT::nullDescriptor,
+        &vk::PhysicalDeviceRobustness2FeaturesKHR::nullDescriptor,
         //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // vk::KHRShaderClockExtensionName, shaderInt64
-        &vk::PhysicalDeviceIndexTypeUint8FeaturesKHR::indexTypeUint8,
         &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory,
-        &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation
+        &vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads,
+        &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence
     >;
-    using OptionalFeatures = FeatureList<
-        &vk::PhysicalDeviceMaintenance5FeaturesKHR::maintenance5,  // not supported by Renderdoc 1.6
-        &vk::PhysicalDeviceMaintenance6FeaturesKHR::maintenance6   // not supported by Renderdoc 1.6
-    >;
+    using OptionalFeatures = FeatureList<>;
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
         vk::KHRPipelineLibraryExtensionName,
         vk::KHRFragmentShaderBarycentricExtensionName,
-        vk::EXTRobustness2ExtensionName,
+        //vk::KHRRobustness2ExtensionName,
         // vk::KHRShaderClockExtensionName,
     };
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
@@ -99,12 +101,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::KHRRayTracingMaintenance1ExtensionName,
         vk::KHRDeferredHostOperationsExtensionName,
         vk::EXTMeshShaderExtensionName,
-        vk::KHRIndexTypeUint8ExtensionName,
         vk::EXTDescriptorBufferExtensionName,
         vk::EXTPageableDeviceLocalMemoryExtensionName,
-        vk::KHRMaintenance5ExtensionName,               // not supported by Renderdoc 1.6
-        vk::KHRMaintenance6ExtensionName,               // not supported by Renderdoc 1.6
         vk::KHRExternalMemoryFdExtensionName,
+        vk::KHRComputeShaderDerivativesExtensionName,
+        vk::KHRShaderMaximalReconvergenceExtensionName
     };
     // clang-format on
 

@@ -201,6 +201,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             nodeCount = std::size(tree.node.parent);
             SPDLOG_INFO("Tree depth: {}", std::size(layerSizes));
             SPDLOG_INFO("Layer sizes: {}", layerSizes);
+            SPDLOG_INFO("Triangle count: {}", triangleCount);
             SPDLOG_INFO("Polygon count: {}", polygonCount);
             SPDLOG_INFO("Node count: {}", nodeCount);
         }

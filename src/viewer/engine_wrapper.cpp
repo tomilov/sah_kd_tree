@@ -39,6 +39,7 @@ constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
     0xa96ad8,    // vkBindBufferMemory():  [NVIDIA] Use vkSetDeviceMemoryPriorityEXT to provide the OS with information on which allocations should stay in memory and which should be demoted first when video memory is limited. The highest priority should be given to GPU-written resources like color attachments, depth attachments, storage images, and buffers written from the GPU.
     0x675dc32e,  // vkCreateInstance():  Attempting to enable extension VK_EXT_debug_utils, but this extension is intended to support use by applications when debugging and it is strongly recommended that it be otherwise avoided.
     0xc714b932,  // vkAllocateMemory():  [NVIDIA] Reuse memory allocations instead of releasing and reallocating. A memory allocation has been released 0.024 seconds ago, and it could have been reused in place of this allocation.
+    0xfc68be96,  // vkCreateShaderModule(): SPIR-V Extension SPV_NV_compute_shader_derivatives was declared, but one of the following requirements is required (VK_NV_compute_shader_derivatives).
 };
 // clang-format on
 

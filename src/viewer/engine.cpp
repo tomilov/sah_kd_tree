@@ -307,7 +307,7 @@ Engine::Engine(const engine::Context & context, const Settings & settings)
 {
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
-        if (device.createInfoChain.get<vk::PhysicalDeviceIndexTypeUint8FeaturesKHR>().indexTypeUint8 == vk::False) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceVulkan14Features>().indexTypeUint8 == vk::False) {
             INVARIANT(false, "");
         }
     }
