@@ -54,6 +54,7 @@
 #include <tuple>
 #include <vector>
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -919,7 +920,8 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     {
         const glm::uint kSubgroupSizeX;
         const glm::uint kSubgroupSizeY;
-        const glm::float32 kEps = 1E-7f;
+        const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
+        const glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
         const glm::float32 kInf = std::numeric_limits<glm::float32>::infinity();
     };
     const SpecializationData specializationData = {
@@ -940,11 +942,16 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
         },
         {
             .constantID = 2,
+            .offset = offsetof(SpecializationData, kUlp),
+            .size = sizeof(SpecializationData::kUlp),
+        },
+        {
+            .constantID = 3,
             .offset = offsetof(SpecializationData, kEps),
             .size = sizeof(SpecializationData::kEps),
         },
         {
-            .constantID = 3,
+            .constantID = 4,
             .offset = offsetof(SpecializationData, kInf),
             .size = sizeof(SpecializationData::kInf),
         },

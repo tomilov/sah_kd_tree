@@ -1,6 +1,8 @@
 #pragma once
 
+#include <engine/device_features.hpp>
 #include <engine/fwd.hpp>
+#include <engine/utils.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -20,11 +22,7 @@ namespace engine
 
 struct ENGINE_EXPORT Device final : utils::OneTime<Device>
 {
-    vk::StructureChain<vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features,
-                       vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
-                       vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR, vk::PhysicalDeviceRobustness2FeaturesKHR, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT,
-                       vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR, vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR>
-        createInfoChain;
+    PrependTypeToStructureChainT<vk::DeviceCreateInfo, DeviceFeatures> createInfoChain;
 
     Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice);
 

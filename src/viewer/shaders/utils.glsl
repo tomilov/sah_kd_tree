@@ -1,3 +1,5 @@
+#pragma once
+
 float getWireFrameIntensity(in vec3 baryCoord, in float thickness)
 {
     vec3 dBaryCoordX = dFdxFine(baryCoord);

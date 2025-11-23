@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/device_features.hpp>
 #include <engine/fwd.hpp>
 #include <engine/types.hpp>
 #include <utils/assert.hpp>
@@ -35,17 +36,27 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 
 struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 {
-    vk::StructureChain<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties, vk::PhysicalDeviceVulkan11Properties, vk::PhysicalDeviceVulkan12Properties, vk::PhysicalDeviceVulkan13Properties, vk::PhysicalDeviceVulkan14Properties,
-                       vk::PhysicalDeviceDescriptorIndexingProperties, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceMeshShaderPropertiesEXT,
-                       vk::PhysicalDeviceDescriptorBufferPropertiesEXT, vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR, vk::PhysicalDeviceRobustness2PropertiesEXT, vk::PhysicalDeviceComputeShaderDerivativesPropertiesKHR,
-                       vk::PhysicalDeviceSubgroupProperties>
-        properties2Chain;
+    // clang-format off
+    vk::StructureChain<
+        vk::PhysicalDeviceProperties2,
+        vk::PhysicalDeviceIDProperties,
+        vk::PhysicalDeviceVulkan11Properties,
+        vk::PhysicalDeviceVulkan12Properties,
+        vk::PhysicalDeviceVulkan13Properties,
+        vk::PhysicalDeviceVulkan14Properties,
+        vk::PhysicalDeviceDescriptorIndexingProperties,
+        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+        vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
+        vk::PhysicalDeviceMeshShaderPropertiesEXT,
+        vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
+        vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR,
+        vk::PhysicalDeviceRobustness2PropertiesEXT,
+        vk::PhysicalDeviceComputeShaderDerivativesPropertiesKHR,
+        vk::PhysicalDeviceSubgroupProperties
+    > properties2Chain;
+    // clang-format on
     uint32_t apiVersion = vk::ApiVersion10;
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features, vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
-                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR, vk::PhysicalDeviceMeshShaderFeaturesEXT, vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
-                       vk::PhysicalDeviceRobustness2FeaturesKHR, vk::PhysicalDeviceShaderClockFeaturesKHR, vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR,
-                       vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR>
-        features2Chain;
+    DeviceFeatures features2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
 
@@ -85,7 +96,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         //&vk::PhysicalDeviceShaderClockFeaturesKHR::shaderDeviceClock,  // vk::KHRShaderClockExtensionName, shaderInt64
         &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory,
         &vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads,
-        &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence
+        &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence,
+        &vk::PhysicalDeviceShaderQuadControlFeaturesKHR::shaderQuadControl
     >;
     using OptionalFeatures = FeatureList<>;
 
@@ -105,7 +117,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::KHRExternalMemoryFdExtensionName,
         vk::KHRComputeShaderDerivativesExtensionName,
-        vk::KHRShaderMaximalReconvergenceExtensionName
+        vk::KHRShaderMaximalReconvergenceExtensionName,
+        vk::KHRShaderQuadControlExtensionName
     };
     // clang-format on
 

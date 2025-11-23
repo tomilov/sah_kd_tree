@@ -3,9 +3,10 @@
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_debug_printf : enable
+//#extension GL_EXT_debug_printf : enable
 #extension GL_NV_compute_shader_derivatives : enable
-#extension GL_KHR_shader_subgroup_vote : enable
+#extension GL_KHR_shader_subgroup_vote : enable  // subgroupAll, subgroupQuadAll
+#extension GL_EXT_shader_quad_control : enable  // subgroupQuadAll
 #extension GL_EXT_maximal_reconvergence : enable
 
 #include "utils.glsl"
@@ -13,8 +14,9 @@
 #define sizeof(Type) (uint64_t(Type(uint64_t(0))+1))
 
 layout(local_size_x_id = 0, local_size_y_id = 1, derivative_group_quadsNV) in;
-layout(constant_id = 2) const float kEps = 1E-7f;
-layout(constant_id = 3) const float kInf = +1.0f / +0.0f;
+layout(constant_id = 2) const float kUlp = 1.175494e-38f;
+layout(constant_id = 3) const float kEps = 1.192093e-7f;
+layout(constant_id = 4) const float kInf = +1.0f / +0.0f;
 
 struct Triangle  // sizeof == 36
 {
@@ -84,8 +86,9 @@ struct Ray
 struct Hit
 {
     uint triangle;
+    vec3 uvw;
+    vec3 normal;
     float t;
-    vec2 uv;
 };
 
 float clearZeroSign(const in float x)
@@ -99,60 +102,63 @@ vec3 clearZeroSign(const in vec3 v)
 }
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersect(const in Ray ray, const in Triangle triangle, out vec2 uv, out float t)
+bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
 {
     const vec3 v1v0 = triangle.b - triangle.a;
     const vec3 v2v0 = triangle.c - triangle.a;
     const vec3 tVec = ray.pos - triangle.a;
-    const vec3 normal = cross(v1v0, v2v0);
-    const float denom = dot(ray.dir, normal);
-    if (abs(denom) < kEps) {
-        return false;
-    }
-    const float invDenom = 1.0f / denom;
+    normal = cross(v1v0, v2v0);
+    const float invDenom = 1.0f / dot(ray.dir, normal);
     t = -dot(normal, tVec) * invDenom;
     if (t <= 0.0f) {
         return false;
     }
     const vec3 q = cross(tVec, ray.dir);
-    uv.x = invDenom * dot(-q, v2v0);
-    uv.y = invDenom * dot(q, v1v0);
-    return !((uv.x < -kEps) || (uv.y < -kEps) || (uv.x + uv.y > 1.0f + kEps));
+    uvw.y = invDenom * dot(-q, v2v0);
+    uvw.z = invDenom * dot(q, v1v0);
+    uvw.x = 1.0f - uvw.y - uvw.z;
+    return all(lessThanEqual(vec3(-kEps), uvw));
 }
 
-bool rayTriangleIntersect2(const in Node node, const in Ray ray, inout Hit hit, const in Triangle triangle, const in float tNear, const in float tFar)
+vec3 stableTriangleNormal(const in vec3 a, const in vec3 b, const in vec3 c)
 {
-    // Can be shared between all triangles
-    vec3 centerU = ray.dir;
-    vec3 centerV = cross(ray.dir, ray.pos);
-    // Constant
-    vec3 v0U = (triangle.b - triangle.a);
-    vec3 v0V = cross(triangle.b, triangle.a);
-    vec3 v1U = (triangle.c - triangle.b);
-    vec3 v1V = cross(triangle.c, triangle.b);
-    vec3 v2U = (triangle.a - triangle.c);
-    vec3 v2V = cross(triangle.a, triangle.c);
-    // 6 dot intersection test
-    const float s0 = dot(v0U, centerV) + dot(v0V, centerU);
-    const float s1 = dot(v1U, centerV) + dot(v1V, centerU);
-    const float s2 = dot(v2U, centerV) + dot(v2V, centerU);
-    if (((s0 >= 0.0f) && (s1 >= 0.0f) && (s2 >= 0.0f)) || ((s0 <= 0.0f) && (s1 <= 0.0f) && (s2 <= 0.0f))) {
-        vec3 normal = cross(triangle.b - triangle.a, triangle.c - triangle.a);
-        float d = dot(ray.dir, normal);
-        if (abs(d) < kEps) {
-            return false;
-        }
-        // normal = normalize(normal);
-        hit.t = dot(triangle.a - ray.pos, normal) / d;
-        return !(hit.t < tNear) && !(tFar < hit.t);
-    }
-    return false;
+    const vec3 ab = vec3(a.z * b.y, a.x * b.z, a.y * b.x);
+    const vec3 bc = vec3(b.z * c.y, b.x * c.z, b.y * c.x);
+    const vec3 AB = vec3(a.y * b.z - ab.x, a.z * b.x - ab.y, a.x * b.y - ab.z);
+    const vec3 BC = vec3(b.y * c.z - bc.x, b.z * c.x - bc.y, b.x * c.y - bc.z);
+    return mix(BC, AB, lessThan(abs(ab), abs(bc)));
 }
 
-uint findNode(uint nodeIndex, const in Ray ray)
+bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
+{
+    const vec3 a = triangle.a - ray.pos;
+    const vec3 b = triangle.b - ray.pos;
+    const vec3 c = triangle.c - ray.pos;
+
+    const vec3 x = c - b;
+    const vec3 y = a - c;
+    const vec3 z = b - a;
+
+    uvw = vec3(dot(cross(x, b + c), ray.dir), dot(cross(y, c + a), ray.dir), dot(cross(z, a + b), ray.dir));
+
+    const float sum = uvw.x + uvw.y + uvw.z;
+    const float eps = kUlp * abs(sum);
+    if (any(lessThan(vec3(eps), uvw)) && any(lessThan(uvw, vec3(eps)))) {
+        return false;
+    }
+    normal = stableTriangleNormal(x, y, z);
+    t = dot(normal, a) / dot(ray.dir, normal);
+    if (t <= 0.0f) {
+        return false;
+    }
+    uvw = min(uvw / sum, 1.0f);
+    return true;
+}
+
+uint findNode(uint nodeIndex, const in vec3 rayPos)
 {
     Node node = nodes.node[nodeIndex];
-    while (any(lessThan(ray.pos, node.aabbMin)) || any(lessThan(node.aabbMax, ray.pos))) {
+    while (any(lessThan(rayPos, node.aabbMin)) || any(lessThan(node.aabbMax, rayPos))) {
         if (nodeIndex == 0u) {
             return 0u;
         }
@@ -164,7 +170,7 @@ uint findNode(uint nodeIndex, const in Ray ray)
         if (splitDimension < 0) {
             return nodeIndex;
         }
-        if (ray.pos[splitDimension] < node.splitPos) {
+        if (rayPos[splitDimension] < node.splitPos) {
             nodeIndex = node.leftChild;
         } else {
             nodeIndex = node.rightChild;
@@ -173,21 +179,21 @@ uint findNode(uint nodeIndex, const in Ray ray)
     }
 }
 
+// https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
 bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
 {
-    // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
     const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
     Node node = nodes.node[nodeIndex];
     vec3 aabbHitT = (mix(node.aabbMin, node.aabbMax, corner) - ray.pos) * invDir;
-    float tMin = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
+    float t = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
     for (;;) {
         for (;;) {
             const int splitDimension = node.splitDimension;
             if (splitDimension < 0) {
                 break;
             }
-            if (corner[splitDimension] == ((node.splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tMin)) {
+            if (corner[splitDimension] == ((node.splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < t)) {
                 nodeIndex = node.leftChild;
             } else {
                 nodeIndex = node.rightChild;
@@ -195,29 +201,31 @@ bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
             node = nodes.node[nodeIndex];
         }
         aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
-        const float tMax = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
-        if (tMin > tMax) {
-            break;
-        }
         const uint polygonStart = node.leftChild;
         const uint polygonEnd = polygonStart + node.rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
             const uint triangle = polygons.triangle[polygon];
-            vec2 uv;
-            float t;
-            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uv, t)) {
+            vec3 uvw;
+            vec3 normal;
+#if 0
+#define rayTriangleIntersect rayTriangleIntersectPluecker
+#else
+#define rayTriangleIntersect rayTriangleIntersectMoeller
+#endif
+            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uvw, normal, t)) {
                 if (t < hit.t) {
                     hit.triangle = triangle;
+                    hit.uvw = uvw;
+                    hit.normal = normal;
                     hit.t = t;
-                    hit.uv = uv;
                 }
             }
         }
-        if (hit.t <= tMax) {
+        t = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
+        if (hit.t <= t) {
             return true;
         }
-        tMin = tMax;
-        const ivec3 indices = mix(ivec3(0), ivec3(0, 1, 2), equal(aabbHitT, vec3(tMax)));
+        const ivec3 indices = mix(ivec3(0), ivec3(0, 1, 2), equal(aabbHitT, vec3(t)));
         const int ropeDirection = max(indices.x, max(indices.y, indices.z));
         nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
         //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
@@ -265,22 +273,18 @@ void main() [[maximally_reconverges]]
     Hit hit;
     hit.triangle = ~0u;
     hit.t = kInf;
-    const bool isHit = traceRay(findNode(nodeIndex, ray), ray, hit);
-    if (wireFrameThickness > 0.0f) {
-        subgroupBarrier();
-    }
+    const bool isHit = traceRay(findNode(nodeIndex, pos), ray, hit);
     vec4 color;
     if (isHit) {
-        vec3 baryCoord = vec3(1.0f - (hit.uv.x + hit.uv.y), hit.uv);
         if (wireFrameThickness > 0.0f) {
-            if (subgroupAll(true)) {
-                color.rgb = getWireFrameIntensity(baryCoord, wireFrameThickness).sss;
+            if (subgroupQuadAll(true)) {
+                color.rgb = getWireFrameIntensity(hit.uvw, wireFrameThickness).sss;
             } else {
                 // TODO: analytical derivatives
                 color.rgb = vec3(1.0f, 0.0f, 0.0f);
             }
         } else {
-            color.rgb = baryCoord;
+            color.rgb = hit.uvw;
         }
         color.a = 1.0f;
     } else {

@@ -175,9 +175,9 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         return false;
     }
 
-    uint32_t apiVersion = properties.apiVersion;
+    apiVersion = properties.apiVersion;
     if ((vk::apiVersionMajor(apiVersion) != 1) || (vk::apiVersionMinor(apiVersion) != 4)) {
-        SPDLOG_DEBUG("{}: expected Vulkan device version 1.4, got {}.{}.{}", deviceName, vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion));
+        SPDLOG_DEBUG("{}: expected Vulkan device version 1.4, got {}.{}.{}.{}", deviceName, vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion), vk::apiVersionVariant(apiVersion));
         return false;
     }
 

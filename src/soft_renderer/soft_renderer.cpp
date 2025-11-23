@@ -19,6 +19,8 @@
 #include <string_view>
 #include <vector>
 
+#include <cmath>
+
 #include <cuda.h>
 
 namespace soft_renderer
@@ -26,7 +28,8 @@ namespace soft_renderer
 namespace
 {
 
-constexpr glm::float32 kEps = 1E-8f;
+const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
+constexpr glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
 
 glm::float32 clearZeroSign(glm::float32 x)
 {
@@ -51,57 +54,57 @@ bool intersectSphere [[maybe_unused]] (const Ray & ray, const glm::vec3 & center
 }
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersect(const Ray & ray, const scene_data::Triangle & triangle, glm::vec2 & uv, glm::float32 & t)
+bool rayTriangleIntersectMoeller [[maybe_unused]] (const Ray & ray, const scene_data::Triangle & triangle, glm::vec3 & normal, glm::vec3 & uvw, glm::float32 & t)
 {
     const glm::vec3 v1v0 = triangle.b - triangle.a;
     const glm::vec3 v2v0 = triangle.c - triangle.a;
     const glm::vec3 tVec = ray.pos - triangle.a;
-    const glm::vec3 normal = glm::cross(v1v0, v2v0);
-    const glm::float32 denom = glm::dot(ray.dir, normal);
-    if (glm::abs(denom) < kEps) {
-        return false;
-    }
-    const glm::float32 invDenom = 1.0f / denom;
+    normal = glm::cross(v1v0, v2v0);
+    const glm::float32 invDenom = 1.0f / glm::dot(ray.dir, normal);
     t = -glm::dot(normal, tVec) * invDenom;
     if (t <= 0.0f) {
         return false;
     }
     const glm::vec3 q = glm::cross(tVec, ray.dir);
-    uv.x = invDenom * glm::dot(-q, v2v0);
-    uv.y = invDenom * glm::dot(q, v1v0);
-    return !((uv.x < -kEps) || (uv.y < -kEps) || (uv.x + uv.y > 1.0f + kEps));
+    uvw.y = invDenom * glm::dot(-q, v2v0);
+    uvw.z = invDenom * glm::dot(q, v1v0);
+    uvw.x = 1.0f - uvw.y - uvw.z;
+    return glm::all(glm::lessThanEqual(glm::vec3(-kEps), uvw));
 }
 
-bool intersectTriangle [[maybe_unused]] (const Ray & ray, Hit & hit, const scene_data::Triangle & triangle, glm::float32 tNear, glm::float32 tFar /*, glm::vec3 & outNormal*/)
+glm::vec3 stableTriangleNormal(const glm::vec3 & a, const glm::vec3 & b, const glm::vec3 & c)
 {
-    // Can be shared between all triangles
-    glm::vec3 centerU = ray.dir;
-    glm::vec3 centerV = glm::cross(ray.dir, ray.pos);
-    // Constant
-    glm::vec3 v0U = (triangle.b - triangle.a);
-    glm::vec3 v0V = glm::cross(triangle.b, triangle.a);
-    glm::vec3 v1U = (triangle.c - triangle.b);
-    glm::vec3 v1V = glm::cross(triangle.c, triangle.b);
-    glm::vec3 v2U = (triangle.a - triangle.c);
-    glm::vec3 v2V = glm::cross(triangle.a, triangle.c);
-    // 6 dot intersection test
-    const glm::float32 s0 = glm::dot(v0U, centerV) + glm::dot(v0V, centerU);
-    const glm::float32 s1 = glm::dot(v1U, centerV) + glm::dot(v1V, centerU);
-    const glm::float32 s2 = glm::dot(v2U, centerV) + glm::dot(v2V, centerU);
-    if (((s0 >= 0.0f) && (s1 >= 0.0f) && (s2 >= 0.0f)) || ((s0 <= 0.0f) && (s1 <= 0.0f) && (s2 <= 0.0f))) {
-        glm::vec3 normal = glm::cross(triangle.b - triangle.a, triangle.c - triangle.a);
-        glm::float32 d = glm::dot(ray.dir, normal);
-        if (glm::abs(d) < kEps) {
-            return false;
-        }
-        glm::float32 t = glm::dot(triangle.a - ray.pos, normal) / d;
-        if (t < hit.t) {
-            // outNormal = glm::normalize(normal);
-            hit.t = t;
-            return !(hit.t < tNear) && !(tFar < hit.t);
-        }
+    const glm::vec3 ab{a.z * b.y, a.x * b.z, a.y * b.x};
+    const glm::vec3 bc{b.z * c.y, b.x * c.z, b.y * c.x};
+    const glm::vec3 AB{a.y * b.z - ab.x, a.z * b.x - ab.y, a.x * b.y - ab.z};
+    const glm::vec3 BC{b.y * c.z - bc.x, b.z * c.x - bc.y, b.x * c.y - bc.z};
+    return glm::mix(BC, AB, glm::lessThan(glm::abs(ab), glm::abs(bc)));
+}
+
+bool rayTriangleIntersectPluecker [[maybe_unused]] (const Ray & ray, const scene_data::Triangle triangle, glm::vec3 & uvw, glm::vec3 & normal, glm::float32 & t)
+{
+    const glm::vec3 a = triangle.a - ray.pos;
+    const glm::vec3 b = triangle.b - ray.pos;
+    const glm::vec3 c = triangle.c - ray.pos;
+
+    const glm::vec3 x = c - b;
+    const glm::vec3 y = a - c;
+    const glm::vec3 z = b - a;
+
+    uvw = glm::vec3(glm::dot(glm::cross(x, b + c), ray.dir), glm::dot(glm::cross(y, c + a), ray.dir), glm::dot(glm::cross(z, a + b), ray.dir));
+
+    const glm::float32 sum = uvw.x + uvw.y + uvw.z;
+    const glm::float32 eps = kUlp * glm::abs(sum);
+    if (glm::any(glm::lessThan(glm::vec3(eps), uvw)) && glm::any(glm::lessThan(uvw, glm::vec3(eps)))) {
+        return false;
     }
-    return false;
+    normal = stableTriangleNormal(x, y, z);
+    t = glm::dot(normal, a) / glm::dot(ray.dir, normal);
+    if (t <= 0.0f) {
+        return false;
+    }
+    uvw = glm::min(uvw / sum, 1.0f);
+    return true;
 }
 
 }  // namespace
@@ -121,10 +124,10 @@ struct SoftRenderer::Impl
         , clearColor{clearColor}
     {}
 
-    [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const Ray & ray) const
+    [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const glm::vec3 & rayPos) const
     {
         const Node * node = &nodes.at(nodeIndex);
-        while (glm::any(glm::lessThan(ray.pos, node->aabbMin)) || glm::any(glm::lessThan(node->aabbMax, ray.pos))) {
+        while (glm::any(glm::lessThan(rayPos, node->aabbMin)) || glm::any(glm::lessThan(node->aabbMax, rayPos))) {
             if (nodeIndex == 0u) {
                 return 0u;
             }
@@ -136,7 +139,7 @@ struct SoftRenderer::Impl
             if (splitDimension < 0) {
                 return nodeIndex;
             }
-            if (ray.pos[splitDimension] < node->splitPos) {
+            if (rayPos[splitDimension] < node->splitPos) {
                 nodeIndex = node->leftChild;
             } else {
                 nodeIndex = node->rightChild;
@@ -149,13 +152,15 @@ struct SoftRenderer::Impl
     {
         bool isHit = false;
         for (const scene_data::Triangle & triangle : triangles) {
-            glm::vec2 uv;
+            glm::vec3 uvw;
+            glm::vec3 normal;
             glm::float32 t;
-            if (rayTriangleIntersect(ray, triangle, uv, t)) {
+            if (rayTriangleIntersectMoeller(ray, triangle, uvw, normal, t)) {
                 if (t < hit.t) {
                     hit.triangle = utils::autoCast(std::distance(std::data(triangles), &triangle));
+                    hit.uvw = uvw;
+                    hit.normal = normal;
                     hit.t = t;
-                    hit.uv = uv;
                 }
                 isHit = true;
             }
@@ -169,14 +174,14 @@ struct SoftRenderer::Impl
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
         const Node * node = &nodes.at(nodeIndex);
         glm::vec3 aabbHitT = (glm::mix(node->aabbMin, node->aabbMax, corner) - ray.pos) * invDir;
-        glm::float32 tMin = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));
+        glm::float32 t = glm::max(aabbHitT.x, glm::max(aabbHitT.y, aabbHitT.z));
         for (;;) {
             for (;;) {
                 const glm::int32 splitDimension = node->splitDimension;
                 if (splitDimension < 0) {
                     break;
                 }
-                if (corner[splitDimension] == ((node->splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < tMin)) {
+                if (corner[splitDimension] == ((node->splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < t)) {
                     nodeIndex = node->leftChild;
                 } else {
                     nodeIndex = node->rightChild;
@@ -184,29 +189,31 @@ struct SoftRenderer::Impl
                 node = &nodes.at(nodeIndex);
             }
             aabbHitT = (glm::mix(node->aabbMax, node->aabbMin, corner) - ray.pos) * invDir;
-            const glm::float32 tMax = glm::min(aabbHitT.x, glm::min(aabbHitT.y, aabbHitT.z));
-            if (tMin > tMax) {
-                break;
-            }
             const glm::uint polygonStart = node->leftChild;
             const glm::uint polygonEnd = polygonStart + node->rightChild;
             for (glm::uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
                 const glm::uint triangle = polygons.at(polygon);
-                glm::vec2 uv;
-                glm::float32 t;
-                if (rayTriangleIntersect(ray, triangles.at(triangle), uv, t)) {
+                glm::vec3 uvw;
+                glm::vec3 normal;
+#if 0
+#define rayTriangleIntersect rayTriangleIntersectPluecker
+#else
+#define rayTriangleIntersect rayTriangleIntersectMoeller
+#endif
+                if (rayTriangleIntersect(ray, triangles.at(triangle), uvw, normal, t)) {
                     if (t < hit.t) {
                         hit.triangle = triangle;
+                        hit.uvw = uvw;
+                        hit.normal = normal;
                         hit.t = t;
-                        hit.uv = uv;
                     }
                 }
             }
-            if (hit.t <= tMax) {
+            t = glm::min(aabbHitT.x, glm::min(aabbHitT.y, aabbHitT.z));
+            if (hit.t <= t) {
                 return true;
             }
-            tMin = tMax;
-            const glm::ivec3 indices = glm::mix(glm::ivec3(0), glm::ivec3(0, 1, 2), glm::equal(aabbHitT, glm::vec3(tMax)));
+            const glm::ivec3 indices = glm::mix(glm::ivec3(0), glm::ivec3(0, 1, 2), glm::equal(aabbHitT, glm::vec3(t)));
             const glm::int32 ropeDirection = glm::max(indices.x, glm::max(indices.y, indices.z));
             nodeIndex = corner[ropeDirection] ? node->leftRope[ropeDirection] : node->rightRope[ropeDirection];
             // SPDLOG_INFO("{} {}", __LINE__, nodeIndex);
@@ -248,7 +255,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     Ray ray;
     ray.pos = frameSettings.position;
-    const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray);
+    const glm::uint nodeIndex = impl_->findNode(kRootNodeIndex, ray.pos);
     for (gli::int32 y = 0; y < extent.y; ++y) {
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;
         const glm::vec3 left = glm::mix(leftBottom, leftTop, locY);
@@ -261,7 +268,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
             hit.triangle = std::numeric_limits<glm::uint>::max();
             hit.t = std::numeric_limits<glm::float32>::infinity();
             if (impl_->traceRay(nodeIndex, ray, hit)) {
-                color = glm::vec4(1.0f - (hit.uv.x + hit.uv.y), hit.uv, 1.0f);
+                color = glm::vec4{hit.uvw, 1.0f};
             } else {
                 color = impl_->clearColor;
             }

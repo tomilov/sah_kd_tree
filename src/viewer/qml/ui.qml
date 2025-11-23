@@ -979,7 +979,7 @@ C.ApplicationWindow {
                                 let cameraView = viewer.cameraView
                                 let position = value(keyPrefix + "position", cameraView.position)
                                 let orientation = value(keyPrefix + "orientation", cameraView.orientation)
-                                let fov = value(keyPrefix + "fov", cameraView.fov)
+                                let fov = value(keyPrefix + "fov", cameraView.getDefaultFov())  // It is strange, but cameraView.fov is 5
                                 if (animate) {
                                     cameraView.position = position
                                     cameraView.orientation = orientation

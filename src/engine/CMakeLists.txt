@@ -21,6 +21,7 @@ target_sources(
         "context.hpp"
         "context.cpp"
         "fwd.hpp"
+        "device_features.hpp"
         "buffer.hpp"
         "image.hpp"
         "vma.hpp"

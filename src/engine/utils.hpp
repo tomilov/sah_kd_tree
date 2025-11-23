@@ -28,6 +28,18 @@ struct std::hash<vk::Flags<BitType>>
 namespace engine
 {
 
+template<typename T, typename StructureChain>
+struct PrependTypeToStructureChain;
+
+template<typename T, typename... Ts>
+struct PrependTypeToStructureChain<T, vk::StructureChain<Ts...>>
+{
+    using Type = vk::StructureChain<T, Ts...>;
+};
+
+template<typename T, typename StructureChain>
+using PrependTypeToStructureChainT = typename PrependTypeToStructureChain<T, StructureChain>::Type;
+
 template<typename BitType>
 class FlagBits
 {

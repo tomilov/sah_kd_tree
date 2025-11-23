@@ -453,6 +453,11 @@ void CameraView::widen(float angle)
     setFov(newFov);
 }
 
+float CameraView::getDefaultFov() const
+{
+    return kDefaultFov;
+}
+
 float CameraView::getFovRatio() const
 {
     return fov / kDefaultFov;
