@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 
 #extension GL_EXT_scalar_block_layout : enable
 

@@ -264,6 +264,7 @@ static_assert(std::is_standard_layout_v<TreeUniformBuffer>);
 
 struct Frustum
 {
+    glm::vec3 forward;
     glm::vec3 leftTop;
     glm::vec3 rightTop;
     glm::vec3 leftBottom;
@@ -659,6 +660,7 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
 {
     const glm::float32 dy = glm::tan(frameSettings.fov * 0.5f);
     const glm::float32 dx = dy * (frameSettings.width / frameSettings.height);
+    const glm::vec3 forward = glm::rotate(frameSettings.orientation, glm::vec3{0.0f, 0.0f, 1.0f});
     const glm::vec3 leftTop = glm::rotate(frameSettings.orientation, glm::vec3{-dx, dy, 1.0f});
     const glm::vec3 rightTop = glm::rotate(frameSettings.orientation, glm::vec3{dx, dy, 1.0f});
     const glm::vec3 leftBottom = glm::rotate(frameSettings.orientation, glm::vec3{-dx, -dy, 1.0f});
@@ -668,6 +670,7 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
         .pos = frameSettings.position,
         .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
         .frustum = {
+            .forward = forward,
             .leftTop = leftTop,
             .rightTop = rightTop,
             .leftBottom = leftBottom,

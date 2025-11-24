@@ -57,6 +57,7 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Nod
 
 struct Frustum
 {
+    vec3 forward;
     vec3 leftTop;
     vec3 rightTop;
     vec3 leftBottom;
@@ -90,16 +91,6 @@ struct Hit
     vec3 normal;
     float t;
 };
-
-float clearZeroSign(const in float x)
-{
-    return floatBitsToUint(x) == 0x80000000u ? 0.0f : x;
-}
-
-vec3 clearZeroSign(const in vec3 v)
-{
-    return vec3(clearZeroSign(v.x), clearZeroSign(v.y), clearZeroSign(v.z));
-}
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
@@ -155,63 +146,47 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     return true;
 }
 
+#if 0
+#define rayTriangleIntersect rayTriangleIntersectPluecker
+#else
+#define rayTriangleIntersect rayTriangleIntersectMoeller
+#endif
+
 uint findNode(uint nodeIndex, const in vec3 rayPos)
 {
-    Node node = nodes.node[nodeIndex];
-    while (any(lessThan(rayPos, node.aabbMin)) || any(lessThan(node.aabbMax, rayPos))) {
-        if (nodeIndex == 0u) {
-            return 0u;
+    while (nodeIndex != 0u) {
+        Node node = nodes.node[nodeIndex];
+        if (all(lessThanEqual(node.aabbMin, rayPos)) && all(lessThanEqual(rayPos, node.aabbMax))) {
+            break;
         }
         nodeIndex = nodeParents.parent[nodeIndex];
-        node = nodes.node[nodeIndex];
     }
-    for (;;) {
-        const int splitDimension = node.splitDimension;
-        if (splitDimension < 0) {
-            return nodeIndex;
-        }
-        if (rayPos[splitDimension] < node.splitPos) {
-            nodeIndex = node.leftChild;
-        } else {
-            nodeIndex = node.rightChild;
-        }
-        node = nodes.node[nodeIndex];
-    }
+    return nodeIndex;
 }
 
 // https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
 bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
 {
-    const vec3 invDir = 1.0f / clearZeroSign(ray.dir);
+    const vec3 invDir = 1.0f / ray.dir;
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
     Node node = nodes.node[nodeIndex];
     vec3 aabbHitT = (mix(node.aabbMin, node.aabbMax, corner) - ray.pos) * invDir;
     float t = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
     for (;;) {
-        for (;;) {
-            const int splitDimension = node.splitDimension;
-            if (splitDimension < 0) {
-                break;
-            }
-            if (corner[splitDimension] == ((node.splitPos - ray.pos[splitDimension]) * invDir[splitDimension] < t)) {
+        while (!(node.splitDimension < 0)) {
+            if (corner[node.splitDimension] == ((node.splitPos - ray.pos[node.splitDimension]) * invDir[node.splitDimension] < t)) {
                 nodeIndex = node.leftChild;
             } else {
                 nodeIndex = node.rightChild;
             }
             node = nodes.node[nodeIndex];
         }
-        aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
         const uint polygonStart = node.leftChild;
         const uint polygonEnd = polygonStart + node.rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
             const uint triangle = polygons.triangle[polygon];
             vec3 uvw;
             vec3 normal;
-#if 0
-#define rayTriangleIntersect rayTriangleIntersectPluecker
-#else
-#define rayTriangleIntersect rayTriangleIntersectMoeller
-#endif
             if (rayTriangleIntersect(ray, triangles.triangle[triangle], uvw, normal, t)) {
                 if (t < hit.t) {
                     hit.triangle = triangle;
@@ -221,6 +196,7 @@ bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
                 }
             }
         }
+        aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
         t = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
         if (hit.t <= t) {
             return true;
@@ -245,6 +221,84 @@ layout(push_constant, scalar) uniform PushConstants
     Frustum frustum;
     float wireFrameThickness;
 };
+
+#if 1
+void GetBaryAndDerivatives(
+    vec3 a,
+    vec3 b,
+    vec3 c,
+    vec2 pixelNdc,
+    const vec2 invImageSize,
+    out vec3 uvw,
+    out vec3 ddx,
+    out vec3 ddy
+)
+{
+    vec3 invW = 1.0f / vec3(a.z, b.z, c.z);
+    a.xy *= invW.x;
+    b.xy *= invW.y;
+    c.xy *= invW.z;
+
+    float invDet = 1.0f / ((c.x - b.x) * (a.y - b.y) - (c.y - b.y) * (a.x - b.x));//determinant(mat2(c.xy - b.xy, a.xy - b.xy));
+    ddx = vec3(b.y - c.y, c.y - a.y, a.y - b.y) * invDet * invW;
+    ddy = vec3(c.x - b.x, a.x - c.x, b.x - a.x) * invDet * invW;
+    float ddxSum = ddx.x + ddx.y + ddx.z;
+    float ddySum = ddy.x + ddy.y + ddy.z;
+
+    vec2 delta = pixelNdc - c.xy;
+    float interpInvW = invW.x + delta.x * ddxSum + delta.y * ddySum;
+    float interpW = 1.0f / interpInvW;
+
+    float u = interpW * (delta.x * ddx.x + delta.y * ddy.x + invW.x);
+    float v = interpW * (delta.x * ddx.y + delta.y * ddy.y);
+    float w = interpW * (delta.x * ddx.z + delta.y * ddy.z);
+
+    uvw = vec3(u, v, w);
+
+    ddx *= invImageSize.x;
+    ddy *= invImageSize.y;
+    ddxSum *= invImageSize.x;
+    ddySum *= invImageSize.y;
+
+    ddx = (uvw * interpInvW + ddx) / (interpInvW + ddxSum) - uvw;
+    ddy = (uvw * interpInvW + ddy) / (interpInvW + ddySum) - uvw;
+}
+
+// times 4 orts of NDC
+void getNDCOrts(out vec3 x, out vec3 y, out vec3 z)
+{
+    const vec3 topRight = frustum.rightTop - frustum.leftBottom;
+    const vec3 topLeft = frustum.leftTop - frustum.rightBottom;
+    x = topRight - topLeft;
+    x /= dot(x, x);
+    y = topRight + topLeft;
+    y /= dot(y, y);
+    z = frustum.rightTop + frustum.leftBottom + frustum.leftTop + frustum.rightBottom;
+}
+
+// get homogeneous xyw components of p in clip space
+vec3 pointToClipSpaceHomogeneous(vec3 p, const vec3 x, const vec3 y, const vec3 z)
+{
+    p -= pos;
+    const float w = dot(p, z);
+    p /= w;
+    p -= z;
+    return vec3(dot(p, x), dot(p, y), w);
+}
+
+void GetBaryAndDerivatives(const in Triangle triangle, vec2 loc, ivec2 imageSize, out vec3 uvw, out vec3 ddx, out vec3 ddy)
+{
+    vec3 x;
+    vec3 y;
+    vec3 z;
+    getNDCOrts(x, y, z);
+    vec3 a = pointToClipSpaceHomogeneous(triangle.a, x, y, z);
+    vec3 b = pointToClipSpaceHomogeneous(triangle.b, x, y, z);
+    vec3 c = pointToClipSpaceHomogeneous(triangle.c, x, y, z);
+    vec2 pixelNdc = 2.0f * loc - 1.0f;
+    GetBaryAndDerivatives(a, b, c, pixelNdc, 1.0f / imageSize, uvw, ddx, ddy);
+}
+#endif
 
 void main() [[maximally_reconverges]]
 {
@@ -273,16 +327,21 @@ void main() [[maximally_reconverges]]
     Hit hit;
     hit.triangle = ~0u;
     hit.t = kInf;
-    const bool isHit = traceRay(findNode(nodeIndex, pos), ray, hit);
+    const bool isHit = traceRay(nodeIndex, ray, hit);
     vec4 color;
     if (isHit) {
         if (wireFrameThickness > 0.0f) {
+            vec3 uvw;
+            vec3 ddx;
+            vec3 ddy;
             if (subgroupQuadAll(true)) {
-                color.rgb = getWireFrameIntensity(hit.uvw, wireFrameThickness).sss;
+                uvw = hit.uvw;
+                ddx = dFdx(uvw);
+                ddy = dFdy(uvw);
             } else {
-                // TODO: analytical derivatives
-                color.rgb = vec3(1.0f, 0.0f, 0.0f);
+                //GetBaryAndDerivatives(triangles.triangle[hit.triangle], loc, imageSize, uvw, ddx, ddy);
             }
+            color.rgb = getWireFrameIntensity(hit.uvw, ddx, ddy, wireFrameThickness).sss;
         } else {
             color.rgb = hit.uvw;
         }
@@ -295,3 +354,4 @@ void main() [[maximally_reconverges]]
     }
     imageStore(target, ivec2(pixelCoords), color);
 }
+

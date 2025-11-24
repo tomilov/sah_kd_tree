@@ -12,7 +12,7 @@ void main()
 {
     vec3 baryCoord = gl_BaryCoordEXT;
     if (uniformBuffer.wireFrameThickness > 0.0f) {
-        fragColor.rgb = getWireFrameIntensity(baryCoord, uniformBuffer.wireFrameThickness).sss;
+        fragColor.rgb = getWireFrameIntensity(baryCoord, dFdx(baryCoord), dFdy(baryCoord), uniformBuffer.wireFrameThickness).sss;
     } else {
         fragColor.rgb = baryCoord;
     }
