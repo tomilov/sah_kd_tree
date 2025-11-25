@@ -5,8 +5,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 //#extension GL_EXT_debug_printf : enable
 #extension GL_NV_compute_shader_derivatives : enable
-#extension GL_KHR_shader_subgroup_vote : enable  // subgroupAll, subgroupQuadAll
-#extension GL_EXT_shader_quad_control : enable  // subgroupQuadAll
+#extension GL_KHR_shader_subgroup_quad : enable  // subgroupQuadSwapHorizontal
 #extension GL_EXT_maximal_reconvergence : enable
 
 #include "utils.glsl"
@@ -57,7 +56,6 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Nod
 
 struct Frustum
 {
-    vec3 forward;
     vec3 leftTop;
     vec3 rightTop;
     vec3 leftBottom;
@@ -219,107 +217,86 @@ layout(push_constant, scalar) uniform PushConstants
     vec3 pos;
     uint nodeIndex;
     Frustum frustum;
+    uvec2 imageExtent_;  // TODO(tomilov): deal with viewport, scissor, width, height, actual image extent, etc correctly
     float wireFrameThickness;
 };
 
-#if 1
-void GetBaryAndDerivatives(
-    vec3 a,
-    vec3 b,
-    vec3 c,
-    vec2 pixelNdc,
-    const vec2 invImageSize,
-    out vec3 uvw,
-    out vec3 ddx,
-    out vec3 ddy
-)
-{
-    vec3 invW = 1.0f / vec3(a.z, b.z, c.z);
-    a.xy *= invW.x;
-    b.xy *= invW.y;
-    c.xy *= invW.z;
-
-    float invDet = 1.0f / ((c.x - b.x) * (a.y - b.y) - (c.y - b.y) * (a.x - b.x));//determinant(mat2(c.xy - b.xy, a.xy - b.xy));
-    ddx = vec3(b.y - c.y, c.y - a.y, a.y - b.y) * invDet * invW;
-    ddy = vec3(c.x - b.x, a.x - c.x, b.x - a.x) * invDet * invW;
-    float ddxSum = ddx.x + ddx.y + ddx.z;
-    float ddySum = ddy.x + ddy.y + ddy.z;
-
-    vec2 delta = pixelNdc - c.xy;
-    float interpInvW = invW.x + delta.x * ddxSum + delta.y * ddySum;
-    float interpW = 1.0f / interpInvW;
-
-    float u = interpW * (delta.x * ddx.x + delta.y * ddy.x + invW.x);
-    float v = interpW * (delta.x * ddx.y + delta.y * ddy.y);
-    float w = interpW * (delta.x * ddx.z + delta.y * ddy.z);
-
-    uvw = vec3(u, v, w);
-
-    ddx *= invImageSize.x;
-    ddy *= invImageSize.y;
-    ddxSum *= invImageSize.x;
-    ddySum *= invImageSize.y;
-
-    ddx = (uvw * interpInvW + ddx) / (interpInvW + ddxSum) - uvw;
-    ddy = (uvw * interpInvW + ddy) / (interpInvW + ddySum) - uvw;
-}
-
-// times 4 orts of NDC
-void getNDCOrts(out vec3 x, out vec3 y, out vec3 z)
+mat3 getViewMatrix()
 {
     const vec3 topRight = frustum.rightTop - frustum.leftBottom;
     const vec3 topLeft = frustum.leftTop - frustum.rightBottom;
-    x = topRight - topLeft;
-    x /= dot(x, x);
-    y = topRight + topLeft;
-    y /= dot(y, y);
-    z = frustum.rightTop + frustum.leftBottom + frustum.leftTop + frustum.rightBottom;
+    // times 4 orts of camera space: right, up and forward
+    return mat3(
+        topRight - topLeft,
+        topRight + topLeft,
+        frustum.rightTop + frustum.leftBottom + frustum.leftTop + frustum.rightBottom
+    );
 }
 
-// get homogeneous xyw components of p in clip space
-vec3 pointToClipSpaceHomogeneous(vec3 p, const vec3 x, const vec3 y, const vec3 z)
+// get xy components in clip space (z is not needed) and inverse of homogeneous w component of p
+vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
 {
     p -= pos;
-    const float w = dot(p, z);
-    p /= w;
-    p -= z;
-    return vec3(dot(p, x), dot(p, y), w);
+    p *= viewMatrix;
+    p.z = 1.0f / p.z;
+    p.xy *= p.z;
+    return p;
 }
 
-void GetBaryAndDerivatives(const in Triangle triangle, vec2 loc, ivec2 imageSize, out vec3 uvw, out vec3 ddx, out vec3 ddy)
+void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec3 uvw, out vec2 ddu, out vec2 ddv)
 {
-    vec3 x;
-    vec3 y;
-    vec3 z;
-    getNDCOrts(x, y, z);
-    vec3 a = pointToClipSpaceHomogeneous(triangle.a, x, y, z);
-    vec3 b = pointToClipSpaceHomogeneous(triangle.b, x, y, z);
-    vec3 c = pointToClipSpaceHomogeneous(triangle.c, x, y, z);
-    vec2 pixelNdc = 2.0f * loc - 1.0f;
-    GetBaryAndDerivatives(a, b, c, pixelNdc, 1.0f / imageSize, uvw, ddx, ddy);
+    const mat3 viewMatrix = getViewMatrix();
+    const vec3 a = projectToClip(triangle.a, viewMatrix);
+    const vec3 b = projectToClip(triangle.b, viewMatrix);
+    const vec3 c = projectToClip(triangle.c, viewMatrix);
+    const float invArea = 1.0f / ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+    ddu = vec2(b.y - c.y, c.x - b.x) * (invArea * a.z);
+    ddv = vec2(c.y - a.y, a.x - c.x) * (invArea * b.z);
+    const vec2 ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
+    const vec2 sum = ddu + ddv + ddw;
+    const float pw = 4.0f * dot(p, viewMatrix[2]);  // multiplier accounts x4 ort lengths
+    ddu = pw * (ddu - uvw.x * sum);
+    ddv = pw * (ddv - uvw.y * sum);
 }
-#endif
+
+void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invImageExtent, out vec3 ddx, out vec3 ddy)
+{
+    if ((hit.triangle == subgroupQuadSwapHorizontal(hit.triangle)) && (hit.triangle == subgroupQuadSwapVertical(hit.triangle))) {
+        ddx = dFdx(hit.uvw);
+        ddy = dFdy(hit.uvw);
+    } else {  // there are no counterparts in quad to correctly calculate derivatives as differences
+        vec2 ddu;
+        vec2 ddv;
+        getAnalyticBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uvw, ddu, ddv);
+        ddu *= invImageExtent.yx;
+        ddv *= invImageExtent.yx;
+        const vec2 ddw = -(ddu + ddv);
+        ddx = vec3(ddu.x, ddv.x, ddw.x);
+        ddy = vec3(ddu.y, ddv.y, ddw.y);
+    }
+}
 
 void main() [[maximally_reconverges]]
 {
     const uvec2 pixelCoords = gl_GlobalInvocationID.xy;
-    const ivec2 imageSize = imageSize(target);
-    if ((imageSize.x <= pixelCoords.x) || (imageSize.y <= pixelCoords.y)) {
+    const uvec2 imageExtent = uvec2(imageSize(target)); // wrong!
+    if ((imageExtent.x <= pixelCoords.x) || (imageExtent.y <= pixelCoords.y)) {
         return;
     }
-    const vec2 loc = (pixelCoords + 0.5f) / imageSize;
+    const vec2 invImageExtent = 1.0f / imageExtent;
+    const vec2 pixel = (pixelCoords + 0.5f) * invImageExtent;
     const vec3 dir = mix(
         mix(
             frustum.leftBottom,
             frustum.leftTop,
-            loc.y
+            pixel.y
         ),
         mix(
             frustum.rightBottom,
             frustum.rightTop,
-            loc.y
+            pixel.y
         ),
-        loc.x
+        pixel.x
     );
     Ray ray;
     ray.pos = pos;
@@ -331,16 +308,9 @@ void main() [[maximally_reconverges]]
     vec4 color;
     if (isHit) {
         if (wireFrameThickness > 0.0f) {
-            vec3 uvw;
             vec3 ddx;
             vec3 ddy;
-            if (subgroupQuadAll(true)) {
-                uvw = hit.uvw;
-                ddx = dFdx(uvw);
-                ddy = dFdy(uvw);
-            } else {
-                //GetBaryAndDerivatives(triangles.triangle[hit.triangle], loc, imageSize, uvw, ddx, ddy);
-            }
+            getBaryDeriv(ray.dir, hit, invImageExtent, ddx, ddy);
             color.rgb = getWireFrameIntensity(hit.uvw, ddx, ddy, wireFrameThickness).sss;
         } else {
             color.rgb = hit.uvw;

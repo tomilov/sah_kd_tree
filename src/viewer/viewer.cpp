@@ -511,7 +511,7 @@ void CameraView::alignOrientation()
     orientation.getEulerAngles(&pitch, &yaw, &roll);
     constexpr auto roundAngle = [](float angle) -> float
     {
-        return utils::safeCast<float>(qRound(angle / 90.0f)) * 90.0f;
+        return utils::safeCast<float>(qRound(angle / 45.0f)) * 45.0f;
     };
     setOrientation(QQuaternion::fromEulerAngles(roundAngle(pitch), roundAngle(yaw), roundAngle(roll)));
 }

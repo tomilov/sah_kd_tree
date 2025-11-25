@@ -69,6 +69,8 @@ namespace
 constexpr glm::uint kSubgroupSizeX = 32;
 constexpr glm::uint kSubgroupSizeY = 32;
 
+constexpr glm::float32 kWireFrameThickness = 16.0f;
+
 using Resource = std::shared_ptr<const void>;
 
 template<typename T>
@@ -264,7 +266,6 @@ static_assert(std::is_standard_layout_v<TreeUniformBuffer>);
 
 struct Frustum
 {
-    glm::vec3 forward;
     glm::vec3 leftTop;
     glm::vec3 rightTop;
     glm::vec3 leftBottom;
@@ -278,6 +279,7 @@ struct TracePushConstants
     glm::vec3 pos;
     glm::uint nodeIndex;
     Frustum frustum;
+    glm::uvec2 imageExtent;
     glm::float32 wireFrameThickness;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
@@ -610,7 +612,7 @@ UniformBuffer getUniformBuffer(const FrameSettings & frameSettings)
     return {
         .useOffscreenTexture = frameSettings.useOffscreenTexture ? vk::True : vk::False,
         .discardInvisible = frameSettings.discardInvisible ? vk::True : vk::False,
-        .wireFrameThickness = frameSettings.wireFrame ? 1.0f : 0.0f,
+        .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,
         .position = frameSettings.position,
         .width = frameSettings.width,
         .height = frameSettings.height,
@@ -660,23 +662,24 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
 {
     const glm::float32 dy = glm::tan(frameSettings.fov * 0.5f);
     const glm::float32 dx = dy * (frameSettings.width / frameSettings.height);
-    const glm::vec3 forward = glm::rotate(frameSettings.orientation, glm::vec3{0.0f, 0.0f, 1.0f});
     const glm::vec3 leftTop = glm::rotate(frameSettings.orientation, glm::vec3{-dx, dy, 1.0f});
     const glm::vec3 rightTop = glm::rotate(frameSettings.orientation, glm::vec3{dx, dy, 1.0f});
     const glm::vec3 leftBottom = glm::rotate(frameSettings.orientation, glm::vec3{-dx, -dy, 1.0f});
     const glm::vec3 rightBottom = glm::rotate(frameSettings.orientation, glm::vec3{dx, -dy, 1.0f});
+    const glm::uint width = utils::autoCast(frameSettings.viewport.width);
+    const glm::uint height = utils::autoCast(frameSettings.viewport.height);
     return {
         .clearColor = frameSettings.clearColor,
         .pos = frameSettings.position,
         .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
         .frustum = {
-            .forward = forward,
             .leftTop = leftTop,
             .rightTop = rightTop,
             .leftBottom = leftBottom,
             .rightBottom = rightBottom,
         },
-        .wireFrameThickness = frameSettings.wireFrame ? 1.0f : 0.0f,
+        .imageExtent = glm::uvec2{width, height},
+        .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,
     };
 }
 
@@ -1209,13 +1212,15 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
             ScopedCommandBuffer computeCommandBuffer{"Offscreen scene trace"sv, context, computeQueue};
             computeCommandBuffer.setWaitCompletion(fenceCompute);
 
-            ASSERT(traceSceneResourcesAndDescriptors);
-            const DescriptorRefs descriptors = {
-                std::cref(traceSceneResourcesAndDescriptors->descriptors),
-                std::cref(traceFrameResourcesAndDescriptors->writeDescriptors),
-            };
-            const TracePushConstants pushConstants = getTracePushConstants(frameSettings);
-            bindPipeline(computeCommandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
+            {
+                ASSERT(traceSceneResourcesAndDescriptors);
+                const DescriptorRefs descriptors = {
+                    std::cref(traceSceneResourcesAndDescriptors->descriptors),
+                    std::cref(traceFrameResourcesAndDescriptors->writeDescriptors),
+                };
+                const TracePushConstants pushConstants = getTracePushConstants(frameSettings);
+                bindPipeline(computeCommandBuffer, pipeline, descriptors, utils::autoCast(&pushConstants));
+            }
 
             image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
             {

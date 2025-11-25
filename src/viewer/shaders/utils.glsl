@@ -1,9 +1,9 @@
 //#pragma once
 
-float getWireFrameIntensity(vec3 baryCoord, vec3 dBaryCoordX, vec3 dBaryCoordY, float thickness)
+float getWireFrameIntensity(vec3 uvw, vec3 ddx, vec3 ddy, float thickness)
 {
-    vec3 dBaryCoord = sqrt(dBaryCoordX * dBaryCoordX + dBaryCoordY * dBaryCoordY);
-    vec3 dThickness = dBaryCoord * thickness;
-    vec3 remap = step(dThickness, baryCoord);
+    vec3 duvw = sqrt(ddx * ddx + ddy * ddy);
+    vec3 dThickness = duvw * thickness;
+    vec3 remap = step(dThickness, uvw);
     return min(min(remap.x, remap.y), remap.z);
 }
