@@ -69,7 +69,7 @@ namespace
 constexpr glm::uint kSubgroupSizeX = 32;
 constexpr glm::uint kSubgroupSizeY = 32;
 
-constexpr glm::float32 kWireFrameThickness = 16.0f;
+constexpr glm::float32 kWireFrameThickness = 1.0f;
 
 using Resource = std::shared_ptr<const void>;
 
@@ -266,10 +266,10 @@ static_assert(std::is_standard_layout_v<TreeUniformBuffer>);
 
 struct Frustum
 {
-    glm::vec3 leftTop;
-    glm::vec3 rightTop;
-    glm::vec3 leftBottom;
-    glm::vec3 rightBottom;
+    glm::vec3 lt;
+    glm::vec3 rt;
+    glm::vec3 lb;
+    glm::vec3 rb;
 };
 static_assert(std::is_standard_layout_v<Frustum>);
 
@@ -673,10 +673,10 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
         .pos = frameSettings.position,
         .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
         .frustum = {
-            .leftTop = leftTop,
-            .rightTop = rightTop,
-            .leftBottom = leftBottom,
-            .rightBottom = rightBottom,
+            .lt = leftTop,
+            .rt = rightTop,
+            .lb = leftBottom,
+            .rb = rightBottom,
         },
         .imageExtent = glm::uvec2{width, height},
         .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,

@@ -56,10 +56,10 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Nod
 
 struct Frustum
 {
-    vec3 leftTop;
-    vec3 rightTop;
-    vec3 leftBottom;
-    vec3 rightBottom;
+    vec3 lt;
+    vec3 rt;
+    vec3 lb;
+    vec3 rb;
 };
 
 layout(set = 0, binding = 0, scalar) uniform TreeUniformBuffer
@@ -85,28 +85,27 @@ struct Ray
 struct Hit
 {
     uint triangle;
-    vec3 uvw;
+    vec2 uv;
     vec3 normal;
     float t;
 };
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
+bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec2 uv, out vec3 normal, out float t)
 {
-    const vec3 v1v0 = triangle.b - triangle.a;
-    const vec3 v2v0 = triangle.c - triangle.a;
-    const vec3 tVec = ray.pos - triangle.a;
-    normal = cross(v1v0, v2v0);
-    const float invDenom = 1.0f / dot(ray.dir, normal);
-    t = -dot(normal, tVec) * invDenom;
+    const vec3 ca = triangle.a - triangle.c;
+    const vec3 bc = triangle.c - triangle.b;
+    const vec3 c = ray.pos - triangle.c;
+    normal = cross(bc, ca);
+    const float invPlaneDist = 1.0f / dot(ray.dir, normal);
+    t = -dot(normal, c) * invPlaneDist;
     if (t <= 0.0f) {
         return false;
     }
-    const vec3 q = cross(tVec, ray.dir);
-    uvw.y = invDenom * dot(-q, v2v0);
-    uvw.z = invDenom * dot(q, v1v0);
-    uvw.x = 1.0f - uvw.y - uvw.z;
-    return all(lessThanEqual(vec3(-kEps), uvw));
+    const vec3 q = cross(c, ray.dir);
+    uv.x = dot(q, bc) * invPlaneDist;
+    uv.y = dot(q, ca) * invPlaneDist;
+    return all(lessThanEqual(vec3(-kEps), vec3(uv, 1.0f - uv.x - uv.y)));
 }
 
 vec3 stableTriangleNormal(const in vec3 a, const in vec3 b, const in vec3 c)
@@ -118,7 +117,7 @@ vec3 stableTriangleNormal(const in vec3 a, const in vec3 b, const in vec3 c)
     return mix(BC, AB, lessThan(abs(ab), abs(bc)));
 }
 
-bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
+bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, out vec2 uv, out vec3 normal, out float t)
 {
     const vec3 a = triangle.a - ray.pos;
     const vec3 b = triangle.b - ray.pos;
@@ -128,11 +127,12 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     const vec3 y = a - c;
     const vec3 z = b - a;
 
-    uvw = vec3(dot(cross(x, b + c), ray.dir), dot(cross(y, c + a), ray.dir), dot(cross(z, a + b), ray.dir));
+    uv = vec2(dot(cross(x, b + c), ray.dir), dot(cross(y, c + a), ray.dir));
+    const float w = dot(cross(z, a + b), ray.dir);
 
-    const float sum = uvw.x + uvw.y + uvw.z;
+    const float sum = uv.x + uv.y + w;
     const float eps = kUlp * abs(sum);
-    if (any(lessThan(vec3(eps), uvw)) && any(lessThan(uvw, vec3(eps)))) {
+    if (any(lessThan(vec3(eps), vec3(uv, w))) && any(lessThan(vec3(uv, w), vec3(eps)))) {
         return false;
     }
     normal = stableTriangleNormal(x, y, z);
@@ -140,7 +140,7 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     if (t <= 0.0f) {
         return false;
     }
-    uvw = min(uvw / sum, 1.0f);
+    uv = min(uv / sum, 1.0f);
     return true;
 }
 
@@ -183,12 +183,12 @@ bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
         const uint polygonEnd = polygonStart + node.rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
             const uint triangle = polygons.triangle[polygon];
-            vec3 uvw;
+            vec2 uv;
             vec3 normal;
-            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uvw, normal, t)) {
+            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uv, normal, t)) {
                 if (t < hit.t) {
                     hit.triangle = triangle;
-                    hit.uvw = uvw;
+                    hit.uv = uv;
                     hit.normal = normal;
                     hit.t = t;
                 }
@@ -223,17 +223,17 @@ layout(push_constant, scalar) uniform PushConstants
 
 mat3 getViewMatrix()
 {
-    const vec3 topRight = frustum.rightTop - frustum.leftBottom;
-    const vec3 topLeft = frustum.leftTop - frustum.rightBottom;
+    const vec3 topRight = frustum.rt - frustum.lb;
+    const vec3 topLeft = frustum.lt - frustum.rb;
     // times 4 orts of camera space: right, up and forward
     return mat3(
         topRight - topLeft,
         topRight + topLeft,
-        frustum.rightTop + frustum.leftBottom + frustum.leftTop + frustum.rightBottom
+        frustum.rt + frustum.lb + frustum.lt + frustum.rb
     );
 }
 
-// get xy components in clip space (z is not needed) and inverse of homogeneous w component of p
+// get xy components in clip space (z is not needed) and inverse of homogeneous w component of p given in world coordinates
 vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
 {
     p -= pos;
@@ -243,7 +243,7 @@ vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
     return p;
 }
 
-void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec3 uvw, out vec2 ddu, out vec2 ddv)
+void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec2 uv, out vec2 ddu, out vec2 ddv)
 {
     const mat3 viewMatrix = getViewMatrix();
     const vec3 a = projectToClip(triangle.a, viewMatrix);
@@ -254,50 +254,62 @@ void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in 
     ddv = vec2(c.y - a.y, a.x - c.x) * (invArea * b.z);
     const vec2 ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
     const vec2 sum = ddu + ddv + ddw;
-    const float pw = 4.0f * dot(p, viewMatrix[2]);  // multiplier accounts x4 ort lengths
-    ddu = pw * (ddu - uvw.x * sum);
-    ddv = pw * (ddv - uvw.y * sum);
+    const float pw = 4.0f * dot(p, viewMatrix[2]);  // don't actually know why multiplying by 4 is needed
+    ddu = pw * (ddu - uv.x * sum);
+    ddv = pw * (ddv - uv.y * sum);
 }
 
-void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invImageExtent, out vec3 ddx, out vec3 ddy)
+void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invImageExtent, out vec2 ddx, out vec2 ddy)
 {
+    // there is no sense in branching for calculation of all combinations
+    // of these two conditions, because all these would be executed in the same subgroup eventually
     if ((hit.triangle == subgroupQuadSwapHorizontal(hit.triangle)) && (hit.triangle == subgroupQuadSwapVertical(hit.triangle))) {
-        ddx = dFdx(hit.uvw);
-        ddy = dFdy(hit.uvw);
-    } else {  // there are no counterparts in quad to correctly calculate derivatives as differences
+        ddx = dFdx(hit.uv);
+        ddy = dFdy(hit.uv);
+    } else {  // there are no counterparts in quad to correctly calculate perspective correct derivatives as differences
         vec2 ddu;
         vec2 ddv;
-        getAnalyticBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uvw, ddu, ddv);
+        getAnalyticBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uv, ddu, ddv);
         ddu *= invImageExtent.yx;
         ddv *= invImageExtent.yx;
-        const vec2 ddw = -(ddu + ddv);
-        ddx = vec3(ddu.x, ddv.x, ddw.x);
-        ddy = vec3(ddu.y, ddv.y, ddw.y);
+        ddx = vec2(ddu.x, ddv.x);
+        ddy = vec2(ddu.y, ddv.y);
     }
 }
 
 void main() [[maximally_reconverges]]
 {
-    const uvec2 pixelCoords = gl_GlobalInvocationID.xy;
     const uvec2 imageExtent = uvec2(imageSize(target)); // wrong!
-    if ((imageExtent.x <= pixelCoords.x) || (imageExtent.y <= pixelCoords.y)) {
+    if ((imageExtent.x <= gl_GlobalInvocationID.x) || (imageExtent.y <= gl_GlobalInvocationID.y)) {
         return;
     }
     const vec2 invImageExtent = 1.0f / imageExtent;
-    const vec2 pixel = (pixelCoords + 0.5f) * invImageExtent;
+    const vec2 pixel = (gl_GlobalInvocationID.xy + 0.5f) * invImageExtent;
+#if 1
+    // affine
     const vec3 dir = mix(
         mix(
-            frustum.leftBottom,
-            frustum.leftTop,
+            frustum.lb,
+            frustum.lt,
             pixel.y
         ),
         mix(
-            frustum.rightBottom,
-            frustum.rightTop,
+            frustum.rb,
+            frustum.rt,
             pixel.y
         ),
         pixel.x
     );
+#else
+    // equiangularly (just for fun, because current partial derivatives are irrelevant)
+    const float phi = acos(dot(normalize(frustum.lt), normalize(frustum.rt))) * pixel.x;
+    const float sinPhi = sin(phi);
+    const float cosPhi = cos(phi);
+    const vec3 top = cross(frustum.lt, normalize(cross(frustum.rt, frustum.lt))) * sinPhi + frustum.lt * cosPhi;
+    const vec3 bottom = cross(frustum.lb, normalize(cross(frustum.rb, frustum.lb))) * sinPhi + frustum.lb * cosPhi;
+    const float theta = acos(dot(normalize(top), normalize(bottom))) * pixel.y;
+    const vec3 dir = cross(bottom, normalize(cross(top, bottom))) * sin(theta) + bottom * cos(theta);
+#endif
     Ray ray;
     ray.pos = pos;
     ray.dir = normalize(dir);
@@ -307,13 +319,16 @@ void main() [[maximally_reconverges]]
     const bool isHit = traceRay(nodeIndex, ray, hit);
     vec4 color;
     if (isHit) {
+        const vec3 uvw = vec3(hit.uv, 1.0f - (hit.uv.x + hit.uv.y));
         if (wireFrameThickness > 0.0f) {
             vec3 ddx;
             vec3 ddy;
-            getBaryDeriv(ray.dir, hit, invImageExtent, ddx, ddy);
-            color.rgb = getWireFrameIntensity(hit.uvw, ddx, ddy, wireFrameThickness).sss;
+            getBaryDeriv(ray.dir, hit, invImageExtent, ddx.xy, ddy.xy);
+            ddx.z = -(ddx.x + ddx.y);
+            ddy.z = -(ddy.x + ddy.y);
+            color.rgb = getWireFrameIntensity(uvw, ddx, ddy, wireFrameThickness).sss;
         } else {
-            color.rgb = hit.uvw;
+            color.rgb = uvw;
         }
         color.a = 1.0f;
     } else {
@@ -322,6 +337,6 @@ void main() [[maximally_reconverges]]
     if (any(isnan(color))) {
         color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
     }
-    imageStore(target, ivec2(pixelCoords), color);
+    imageStore(target, ivec2(gl_GlobalInvocationID.xy), color);
 }
 
