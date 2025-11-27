@@ -217,7 +217,7 @@ layout(push_constant, scalar) uniform PushConstants
     vec3 pos;
     uint nodeIndex;
     Frustum frustum;
-    uvec2 imageExtent_;  // TODO(tomilov): deal with viewport, scissor, width, height, actual image extent, etc correctly
+    vec2 viewportSize;
     float wireFrameThickness;
 };
 
@@ -259,7 +259,7 @@ void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in 
     ddv = pw * (ddv - uv.y * sum);
 }
 
-void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invImageExtent, out vec2 ddx, out vec2 ddy)
+void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 viewportSize, out vec2 ddx, out vec2 ddy)
 {
     // there is no sense in branching for calculation of all combinations
     // of these two conditions, because all these would be executed in the same subgroup eventually
@@ -270,8 +270,8 @@ void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invImage
         vec2 ddu;
         vec2 ddv;
         getAnalyticBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uv, ddu, ddv);
-        ddu *= invImageExtent.yx;
-        ddv *= invImageExtent.yx;
+        ddu *= viewportSize.yx;
+        ddv *= viewportSize.yx;
         ddx = vec2(ddu.x, ddv.x);
         ddy = vec2(ddu.y, ddv.y);
     }
@@ -323,7 +323,7 @@ void main() [[maximally_reconverges]]
         if (wireFrameThickness > 0.0f) {
             vec3 ddx;
             vec3 ddy;
-            getBaryDeriv(ray.dir, hit, invImageExtent, ddx.xy, ddy.xy);
+            getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx.xy, ddy.xy);
             ddx.z = -(ddx.x + ddx.y);
             ddy.z = -(ddy.x + ddy.y);
             color.rgb = getWireFrameIntensity(uvw, ddx, ddy, wireFrameThickness).sss;

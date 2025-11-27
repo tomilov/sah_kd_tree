@@ -543,25 +543,49 @@ ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding
     , vertexBufferBinding{vertexBufferBinding}
 {}
 
-void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection)
+bool ShaderStages::checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagBits shaderStage) const
+{
+    const auto & subgroupSizeControlProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceVulkan13Properties>();
+    if (subgroupSize < subgroupSizeControlProperties.minSubgroupSize) {
+        return false;
+    }
+    if (subgroupSizeControlProperties.maxSubgroupSize < subgroupSize) {
+        return false;
+    }
+    if (!(subgroupSizeControlProperties.requiredSubgroupSizeStages & shaderStage)) {
+        return false;
+    }
+    return true;
+}
+
+void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::optional<uint32_t> subgroupSize)
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.emplace_back(std::cbegin(entryPointName), std::cend(entryPointName));
 
     names.emplace_back();
     fmt::format_to(std::back_inserter(names.back()), "{}:{}", shaderModule.getShaderName(), entryPointName);
-
-    auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
-    pipelineShaderStageCreateInfo = {
-        .flags = {},
-        .stage = shaderModule.getStage(),
-        .module = shaderModule,
-        .pName = std::data(entryPointNames.back()),
-        .pSpecializationInfo = nullptr,
-    };
+    auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo, requiredSubgroupSize] = pipelineShaderStageCreateInfoChains.emplace_back();
+    pipelineShaderStageCreateInfo.flags = vk::PipelineShaderStageCreateFlags{};
+    pipelineShaderStageCreateInfo.stage = shaderModule.getStage();
+    pipelineShaderStageCreateInfo.module = shaderModule;
+    pipelineShaderStageCreateInfo.pName = std::data(entryPointNames.back());
+    pipelineShaderStageCreateInfo.pSpecializationInfo = nullptr;
     debugUtilsObjectNameInfo.objectType = shaderModule.getShaderModule().objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getShaderModule()));
     debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
+    if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan13Features>().subgroupSizeControl != vk::False) {
+        if (subgroupSize) {
+            INVARIANT(checkSubgroupSize(subgroupSize.value(), shaderModule.getStage()), "");
+            requiredSubgroupSize.requiredSubgroupSize = subgroupSize.value();
+        } else {
+            pipelineShaderStageCreateInfoChains.back().unlink<vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo>();
+        }
+    } else {
+        if (subgroupSize) {
+            SPDLOG_WARN("subgroupSize is set, but v is not enabled");
+        }
+    }
 
     pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 
@@ -613,6 +637,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
 
     const auto & device = context.getDevice();
 
+    descriptorSetLayoutCreateInfoChains.reserve(std::size(setBindings));
     for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
         auto & descriptorSetLayoutCreateInfoChain = descriptorSetLayoutCreateInfoChains.emplace_back();
         auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutCreateInfo>();

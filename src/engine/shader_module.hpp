@@ -150,7 +150,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     std::deque<std::string> entryPointNames;
     std::deque<std::string> names;
-    std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT>> pipelineShaderStageCreateInfoChains;
+    std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT, vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo>> pipelineShaderStageCreateInfoChains;
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
     std::optional<VertexInputState> vertexInputState;
@@ -164,7 +164,9 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 
     ShaderStages(const Context & context, uint32_t vertexBufferBinding);
 
-    void add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection);
+    bool checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagBits shaderStage) const;
+
+    void add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::optional<uint32_t> subgroupSize);
     void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     size_t findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const;

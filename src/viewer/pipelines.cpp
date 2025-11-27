@@ -29,8 +29,10 @@ void Shaders::addShader(std::string_view shaderName, std::string_view entryPoint
 
 void Shaders::create()
 {
+    shaderStages.pipelineShaderStageCreateInfoChains.reserve(std::size(shaderModules));
     for (const auto & [shaderModule, shaderReflection] : shaderModules) {
-        shaderStages.add(shaderModule, shaderReflection);
+        auto subgroupSize = std::nullopt;  // TODO: give it from shader permutations
+        shaderStages.add(shaderModule, shaderReflection, subgroupSize);
     }
     vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags;
     if (descriptorBufferEnabled) {

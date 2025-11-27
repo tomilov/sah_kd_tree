@@ -66,8 +66,8 @@ namespace viewer
 namespace
 {
 
-constexpr glm::uint kSubgroupSizeX = 32;
-constexpr glm::uint kSubgroupSizeY = 32;
+constexpr glm::uint kGroupSizeX = 32;
+constexpr glm::uint kGroupSizeY = 32;
 
 constexpr glm::float32 kWireFrameThickness = 1.0f;
 
@@ -279,7 +279,7 @@ struct TracePushConstants
     glm::vec3 pos;
     glm::uint nodeIndex;
     Frustum frustum;
-    glm::uvec2 imageExtent;
+    glm::vec2 viewportSize;
     glm::float32 wireFrameThickness;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
@@ -666,8 +666,8 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
     const glm::vec3 rightTop = glm::rotate(frameSettings.orientation, glm::vec3{dx, dy, 1.0f});
     const glm::vec3 leftBottom = glm::rotate(frameSettings.orientation, glm::vec3{-dx, -dy, 1.0f});
     const glm::vec3 rightBottom = glm::rotate(frameSettings.orientation, glm::vec3{dx, -dy, 1.0f});
-    const glm::uint width = utils::autoCast(frameSettings.viewport.width);
-    const glm::uint height = utils::autoCast(frameSettings.viewport.height);
+    const glm::float32 width = utils::autoCast(frameSettings.width);
+    const glm::float32 height = utils::autoCast(frameSettings.height);
     return {
         .clearColor = frameSettings.clearColor,
         .pos = frameSettings.position,
@@ -678,7 +678,7 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
             .lb = leftBottom,
             .rb = rightBottom,
         },
-        .imageExtent = glm::uvec2{width, height},
+        .viewportSize = glm::vec2{width, height},
         .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,
     };
 }
@@ -924,27 +924,27 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled);
     struct SpecializationData
     {
-        const glm::uint kSubgroupSizeX;
-        const glm::uint kSubgroupSizeY;
+        const glm::uint kGroupSizeX;
+        const glm::uint kGroupSizeY;
         const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
         const glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
         const glm::float32 kInf = std::numeric_limits<glm::float32>::infinity();
     };
     const SpecializationData specializationData = {
-        .kSubgroupSizeX = kSubgroupSizeX,
-        .kSubgroupSizeY = kSubgroupSizeY,
+        .kGroupSizeX = kGroupSizeX,
+        .kGroupSizeY = kGroupSizeY,
     };
     pipeline.specializationInfo.setData<SpecializationData>(specializationData);
     const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
         {
             .constantID = 0,
-            .offset = offsetof(SpecializationData, kSubgroupSizeX),
-            .size = sizeof(SpecializationData::kSubgroupSizeX),
+            .offset = offsetof(SpecializationData, kGroupSizeX),
+            .size = sizeof(SpecializationData::kGroupSizeX),
         },
         {
             .constantID = 1,
-            .offset = offsetof(SpecializationData, kSubgroupSizeY),
-            .size = sizeof(SpecializationData::kSubgroupSizeY),
+            .offset = offsetof(SpecializationData, kGroupSizeY),
+            .size = sizeof(SpecializationData::kGroupSizeY),
         },
         {
             .constantID = 2,
@@ -1225,8 +1225,8 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
             image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
             {
                 auto [width, height] = image.getExtent2D();
-                width = utils::divUp(width, kSubgroupSizeX) * kSubgroupSizeX;
-                height = utils::divUp(height, kSubgroupSizeY) * kSubgroupSizeY;
+                width = utils::divUp(width, kGroupSizeX) * kGroupSizeX;
+                height = utils::divUp(height, kGroupSizeY) * kGroupSizeY;
                 constexpr uint32_t kDepth = 1;
                 computeCommandBuffer.getCommandBuffer().dispatch(width, height, kDepth, context.getDispatcher());
             }
@@ -1410,7 +1410,9 @@ auto Renderer::Impl::getTraceFrameDescriptors() -> std::shared_ptr<TraceFrameRes
     while (!std::empty(traceFrameResourcesAndDescriptorsPool)) {
         resourcesAndDescriptors = std::move(traceFrameResourcesAndDescriptorsPool.top());
         traceFrameResourcesAndDescriptorsPool.pop();
-        return resourcesAndDescriptors;
+        if (resourcesAndDescriptors->resources.image.getExtent2D() == frameSettings.getFramebufferSize()) {
+            return resourcesAndDescriptors;
+        }
     }
     TraceFrameResources resources{context, frameSettings.getFramebufferSize(), sampler};
     auto writeShaderStages = traceComputePipeline->shaders->getShaderStagesPtr();

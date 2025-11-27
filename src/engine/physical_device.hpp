@@ -97,7 +97,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT::pageableDeviceLocalMemory,
         &vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads,
         &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence,
-        &vk::PhysicalDeviceShaderQuadControlFeaturesKHR::shaderQuadControl
+        &vk::PhysicalDeviceShaderQuadControlFeaturesKHR::shaderQuadControl,
+        &vk::PhysicalDeviceVulkan13Features::subgroupSizeControl
     >;
     using OptionalFeatures = FeatureList<>;
 
