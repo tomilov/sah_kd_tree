@@ -103,12 +103,10 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
         const auto & descriptorSetData = std::get<DescriptorSetData>(descriptorData);
         auto & writeDescriptorSetChain = writeDescriptorSetChains.emplace_back();
         auto & writeDescriptorSet = writeDescriptorSetChain.get<vk::WriteDescriptorSet>();
-        writeDescriptorSet = {
-            .dstSet = descriptorSet,
-            .dstBinding = binding->binding,
-            .dstArrayElement = 0,  // not an array
-            .descriptorType = descriptorType,
-        };
+        writeDescriptorSet.dstSet = descriptorSet;
+        writeDescriptorSet.dstBinding = binding->binding;
+        writeDescriptorSet.dstArrayElement = 0;  // not an array
+        writeDescriptorSet.descriptorType = descriptorType;
         switch (descriptorType) {
         case vk::DescriptorType::eInlineUniformBlock: {
             auto & writeDescriptorSetInlineUniformBlock = writeDescriptorSetChain.get<vk::WriteDescriptorSetInlineUniformBlock>();
