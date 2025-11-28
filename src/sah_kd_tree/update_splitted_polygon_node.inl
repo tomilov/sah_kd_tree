@@ -10,8 +10,8 @@ template<typename Traits>
 void sah_kd_tree::Builder<Traits>::updateSplittedPolygonNode()
 {
     polygon.node.resize(polygon.count + polygon.splittedCount * 2);
-    auto splittedPolygonNodeBegin = thrust::next(polygon.node.begin(), polygon.count);
-    auto splittedPolygonNodeEnd = thrust::next(splittedPolygonNodeBegin, polygon.splittedCount);
+    auto splittedPolygonNodeBegin = cuda::std::next(polygon.node.begin(), polygon.count);
+    auto splittedPolygonNodeEnd = cuda::std::next(splittedPolygonNodeBegin, polygon.splittedCount);
     if (thrust::gather(splittedPolygonNodeBegin, splittedPolygonNodeEnd, node.rightChild.cbegin(), splittedPolygonNodeEnd) != polygon.node.end()) {
         assert(false);
     }

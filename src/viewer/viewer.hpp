@@ -142,7 +142,7 @@ public:
     enum class TexturingMode
     {
         BarycentricColor,
-        WireFrame,
+        Wireframe,
     };
     Q_ENUM(TexturingMode)
 

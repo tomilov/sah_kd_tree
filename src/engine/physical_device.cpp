@@ -170,6 +170,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
     auto deviceName = std::data(properties.deviceName);
+    SPDLOG_DEBUG("Consider physical device '{}'", deviceName);
     if (physicalDeviceType != requiredPhysicalDeviceType) {
         SPDLOG_DEBUG("{}: expected {} physical device type, got {}", deviceName, requiredPhysicalDeviceType, physicalDeviceType);
         return false;
@@ -525,8 +526,12 @@ PhysicalDevices::PhysicalDevices(const Context & contextIn)
 {
     [[maybe_unused]] size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {
-        SPDLOG_DEBUG("Create physical device #{}", i++);
-        physicalDevices.emplace_back(context, physicalDevice);
+        SPDLOG_DEBUG("Create physical device #{}", i);
+        const auto & pd = physicalDevices.emplace_back(context, physicalDevice);
+        const auto & properties = pd.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
+        auto deviceName = std::data(properties.deviceName);
+        SPDLOG_DEBUG("Physical device #{}: '{}'", i, deviceName);
+        ++i;
     }
 }
 

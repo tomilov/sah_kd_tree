@@ -14,6 +14,7 @@ struct QueueCreateInfo;
 struct CommandBuffers;
 struct CommandPool;
 struct PipelineLayout;
+struct SpecializationInfo;
 struct GraphicsPipeline;
 struct ComputePipeline;
 struct PipelineCache;

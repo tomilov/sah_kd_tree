@@ -1,7 +1,7 @@
 #version 460 core
 
-#extension GL_GOOGLE_include_directive : enable
-#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive: require
+#extension GL_EXT_scalar_block_layout: require
 
 layout(location = 0) in vec3 vertexPosition;
 

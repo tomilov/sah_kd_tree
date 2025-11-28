@@ -3,10 +3,12 @@
 #include <engine/compute_pipeline.hpp>
 #include <engine/context.hpp>
 #include <engine/file_io.hpp>
+#include <engine/fwd.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <engine/pipeline_layout.hpp>
 #include <engine/shader_module.hpp>
+#include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
 #include <utils/hash.hpp>
 #include <utils/noncopyable.hpp>
@@ -111,11 +113,12 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
     static constexpr vk::PipelineBindPoint kPipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 
     std::shared_ptr<const Shaders> shaders;
-    std::optional<engine::GraphicsPipeline> pipeline;
+    std::unique_ptr<engine::GraphicsPipeline> pipeline;
 
     explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders);
 
-    [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass);
+    [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass,
+                                                          engine::SpecializationInfos && specializationInfos);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -128,11 +131,11 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
     static constexpr vk::PipelineBindPoint kPipelineBindPoint = vk::PipelineBindPoint::eCompute;
 
     std::shared_ptr<const Shaders> shaders;
-    std::optional<engine::ComputePipeline> pipeline;
+    std::unique_ptr<engine::ComputePipeline> pipeline;
 
     explicit ComputePipeline(std::shared_ptr<const Shaders> shaders);
 
-    [[nodiscard]] engine::ComputePipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled);
+    [[nodiscard]] engine::ComputePipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, engine::SpecializationInfos && specializationInfos);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

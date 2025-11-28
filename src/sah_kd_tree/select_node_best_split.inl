@@ -18,7 +18,7 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);
 
-    auto nodePolygonCountBegin = thrust::next(node.polygonCount.cbegin(), layer.base);
+    auto nodePolygonCountBegin = cuda::std::next(node.polygonCount.cbegin(), layer.base);
 
     auto nodeXSplitCosts = thrust::raw_pointer_cast(x.layer.splitCost.data());
     auto nodeYSplitCosts = thrust::raw_pointer_cast(y.layer.splitCost.data());
@@ -32,7 +32,7 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
     auto nodeYRightChildPolygonCounts = thrust::raw_pointer_cast(y.layer.polygonCountRight.data());
     auto nodeZRightChildPolygonCounts = thrust::raw_pointer_cast(z.layer.polygonCountRight.data());
 
-    auto nodePolygonCounts = thrust::raw_pointer_cast(thrust::next(node.polygonCount.data(), layer.base));
+    auto nodePolygonCounts = thrust::raw_pointer_cast(cuda::std::next(node.polygonCount.data(), layer.base));
 
     auto nodeXSplitPositions = thrust::raw_pointer_cast(x.layer.splitPos.data());
     auto nodeYSplitPositions = thrust::raw_pointer_cast(y.layer.splitPos.data());
@@ -72,5 +72,5 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
             return NodeBestSplitType{-1};  // leaf node
         }
     };
-    thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, thrust::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
+    thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, cuda::std::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
 }

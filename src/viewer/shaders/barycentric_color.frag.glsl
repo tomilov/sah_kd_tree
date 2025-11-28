@@ -1,7 +1,7 @@
 #version 460 core
 
 #extension GL_GOOGLE_include_directive : enable
-#extension GL_EXT_fragment_shader_barycentric : enable
+#extension GL_EXT_fragment_shader_barycentric: require
 
 #include "uniform_buffer.glsl"
 #include "utils.glsl"
@@ -11,8 +11,8 @@ layout(location = 0) out vec4 fragColor;
 void main()
 {
     vec3 baryCoord = gl_BaryCoordEXT;
-    if (uniformBuffer.wireFrameThickness > 0.0f) {
-        fragColor.rgb = getWireFrameIntensity(baryCoord, dFdx(baryCoord), dFdy(baryCoord), uniformBuffer.wireFrameThickness).sss;
+    if (uniformBuffer.wireframeThickness > 0.0f) {
+        fragColor.rgb = getWireframeIntensity(baryCoord, dFdx(baryCoord), dFdy(baryCoord), uniformBuffer.wireframeThickness).sss;
     } else {
         fragColor.rgb = baryCoord;
     }

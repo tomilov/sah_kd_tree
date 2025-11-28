@@ -179,7 +179,7 @@ C.ApplicationWindow {
                 C.ActionGroup.group: texturingModeActionGroup
             }
             C.Action {
-                id: actionWireFrame
+                id: actionWireframe
                 text: qsTr("Wireframe")
                 checkable: true
                 C.ActionGroup.group: texturingModeActionGroup
@@ -389,7 +389,7 @@ C.ApplicationWindow {
                         action: actionBarycentricColor
                     }
                     C.MenuItem {
-                        action: actionWireFrame
+                        action: actionWireframe
                     }
                     C.MenuSeparator {}
                     C.Action {
@@ -865,7 +865,7 @@ C.ApplicationWindow {
                                     texturingMode = verbose ? "Barycentric Color" : "B";
                                     break
                                 }
-                                case SKT.RendererSettings.WireFrame: {
+                                case SKT.RendererSettings.Wireframe: {
                                     texturingMode = verbose ? "Wireframe" : "W";
                                     break
                                 }
@@ -899,8 +899,8 @@ C.ApplicationWindow {
                                     if (actionBarycentricColor.checked) {
                                         value = SKT.RendererSettings.BarycentricColor
                                     }
-                                    if (actionWireFrame.checked) {
-                                        value = SKT.RendererSettings.WireFrame
+                                    if (actionWireframe.checked) {
+                                        value = SKT.RendererSettings.Wireframe
                                     }
                                     return value
                                 }

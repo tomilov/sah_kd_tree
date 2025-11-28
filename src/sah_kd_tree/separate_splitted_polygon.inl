@@ -36,14 +36,14 @@ void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
     };
     auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
     auto polygonTriangleAndNodeBegin = thrust::make_zip_iterator(polygon.triangle.begin(), polygon.node.begin());
-    auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), thrust::next(polygonTriangleAndNodeBegin, polygon.count));
+    auto splittedPolygonOutputBegin = thrust::make_zip_iterator(splittedPolygon.begin(), cuda::std::next(polygonTriangleAndNodeBegin, polygon.count));
     using SplittedPolygonType = cuda::std::iter_value_t<decltype(splittedPolygonOutputBegin)>;
     const auto toSplittedPolygon = [polygonTriangles, polygonNodes] __host__ __device__(U polygon) -> SplittedPolygonType
     {
         return {polygon, {polygonTriangles[polygon], polygonNodes[polygon]}};
     };
     auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
-    auto splittedPolygonInputEnd = thrust::next(splittedPolygonInputBegin, polygon.count);
+    auto splittedPolygonInputEnd = cuda::std::next(splittedPolygonInputBegin, polygon.count);
     [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(splittedPolygonInputBegin, splittedPolygonInputEnd, polygonBegin, splittedPolygonOutputBegin, isSplittedPolygon);
-    assert(thrust::next(splittedPolygonOutputBegin, polygon.splittedCount) == splittedPolygonOutputEnd);
+    assert(cuda::std::next(splittedPolygonOutputBegin, polygon.splittedCount) == splittedPolygonOutputEnd);
 }

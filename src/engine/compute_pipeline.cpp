@@ -3,6 +3,8 @@
 #include <engine/device.hpp>
 #include <engine/pipeline_layout.hpp>
 #include <engine/shader_module.hpp>
+#include <engine/specialization_info.hpp>
+#include <format/vulkan.hpp>
 
 #include <iterator>
 #include <utility>
@@ -10,21 +12,25 @@
 namespace engine
 {
 
-ComputePipeline::ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout)
+ComputePipeline::ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfosIn)
     : name{name}
     , context{context}
     , pipelineCache{pipelineCache}
     , descriptorBufferEnabled{descriptorBufferEnabled}
+    , specializationInfos{std::move(specializationInfosIn)}
 {
-    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     computePipelineCreateInfo.flags = {};  // TODO: eDispatchBase?
     if (descriptorBufferEnabled) {
         computePipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
+    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     computePipelineCreateInfo.layout = pipelineLayout;
     INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
-    computePipelineCreateInfo.stage.setPSpecializationInfo(&specializationInfo);
+    INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
+    if (!std::empty(specializationInfos)) {
+        computePipelineCreateInfo.stage.setPSpecializationInfo(&specializationInfos.at(vk::ShaderStageFlagBits::eCompute).getSpecializationInfo());
+    }
 }
 
 void ComputePipeline::create()

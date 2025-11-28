@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
@@ -17,10 +18,9 @@ namespace engine
 
 struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 {
-    vk::SpecializationInfo specializationInfo;
     vk::ComputePipelineCreateInfo computePipelineCreateInfo;
 
-    ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout);
+    ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfos);
 
     void create();
 
@@ -46,6 +46,7 @@ private:
     const vk::PipelineCache pipelineCache;
     const bool descriptorBufferEnabled;
 
+    SpecializationInfos specializationInfos;
     vk::UniquePipeline pipeline;
 
     static constexpr void completeClassContext [[maybe_unused]] ()

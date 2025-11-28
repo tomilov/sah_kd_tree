@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -590,7 +591,7 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 
     if (shaderModule.getStage() == vk::ShaderStageFlagBits::eVertex) {
-        vertexInputState.emplace(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
+        vertexInputState = std::make_unique<VertexInputState>(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
     }
 
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {

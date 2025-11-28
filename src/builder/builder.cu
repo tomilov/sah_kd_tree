@@ -244,7 +244,7 @@ struct Tree::Impl : utils::OneTime<Impl>
                 thrust::uninitialized_copy_n(node, nodeCount, dst);
 #else
                 typename Traits::Vector<NodeType> nodes{tree.allocator};
-                nodes.assign(node, thrust::next(node, nodeCount));
+                nodes.assign(node, cuda::std::next(node, nodeCount));
                 auto srcPtr = thrust::raw_pointer_cast(nodes.data());
                 CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize));
 #endif

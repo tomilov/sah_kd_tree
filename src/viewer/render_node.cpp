@@ -179,12 +179,12 @@ struct RenderNode::Impl
         UPDATE_STATE(this->rect, rect);
     }
 
-    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
     {
         UPDATE_STATE(frameSettings.traceSahKdTree, traceSahKdTree);
         UPDATE_STATE(frameSettings.useOffscreenTexture, useOffscreenTexture);
         UPDATE_STATE(frameSettings.discardInvisible, discardInvisible);
-        UPDATE_STATE(frameSettings.wireFrame, wireFrame);
+        UPDATE_STATE(frameSettings.wireframe, wireframe);
     }
 
     void updateCamera(const glm::vec3 & position, const glm::quat & orientation, float fov, float zNear, float zFar)
@@ -372,9 +372,9 @@ void RenderNode::updateRect(const QRectF & rect)
     return impl_->updateRect(rect);
 }
 
-void RenderNode::updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireFrame)
+void RenderNode::updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
 {
-    return impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireFrame);
+    return impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireframe);
 }
 
 void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar)

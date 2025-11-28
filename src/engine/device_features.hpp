@@ -24,7 +24,8 @@ using DeviceFeatures = vk::StructureChain<
     vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT,
     vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR,
     vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR,
-    vk::PhysicalDeviceShaderQuadControlFeaturesKHR
+    vk::PhysicalDeviceShaderQuadControlFeaturesKHR,
+    vk::PhysicalDeviceMaintenance9FeaturesKHR
 >;
 // clang-format on
 

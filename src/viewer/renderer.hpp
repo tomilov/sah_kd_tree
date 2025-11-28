@@ -34,7 +34,7 @@ struct FrameSettings
     bool traceSahKdTree = false;
     bool useOffscreenTexture = false;
     bool discardInvisible = false;
-    bool wireFrame = false;
+    bool wireframe = false;
 
     glm::vec3 position{0.0f};
     glm::quat orientation = glm::quat_identity<glm::quat::value_type, glm::defaultp>();
@@ -94,7 +94,7 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
             = "{{"  //
               ".useOffscreenTexture = {}, "
               ".discardInvisible = {}, "
-              ".wireFrame = {}, "
+              ".wireframe = {}, "
               ".position = {}, "
               ".orientation = {}, "
               ".fov = {}, "
@@ -112,7 +112,7 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
                               fmtString,                          //
                               frameSettings.useOffscreenTexture,  //
                               frameSettings.discardInvisible,     //
-                              frameSettings.wireFrame,            //
+                              frameSettings.wireframe,            //
                               frameSettings.position,             //
                               frameSettings.orientation,          //
                               frameSettings.fov,                  //

@@ -1,12 +1,11 @@
 #version 460 core
 
-#extension GL_GOOGLE_include_directive : enable
-#extension GL_EXT_buffer_reference2 : require
-#extension GL_EXT_scalar_block_layout : enable
-//#extension GL_EXT_debug_printf : enable
-#extension GL_NV_compute_shader_derivatives : enable
-#extension GL_KHR_shader_subgroup_quad : enable  // subgroupQuadSwapHorizontal
-#extension GL_EXT_maximal_reconvergence : enable
+#extension GL_GOOGLE_include_directive: require
+#extension GL_EXT_buffer_reference2: require
+#extension GL_EXT_scalar_block_layout: require
+#extension GL_NV_compute_shader_derivatives: require
+#extension GL_KHR_shader_subgroup_quad: require  // subgroupQuadSwapHorizontal
+#extension GL_EXT_maximal_reconvergence: require
 
 #include "utils.glsl"
 
@@ -127,16 +126,17 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     const vec3 y = a - c;
     const vec3 z = b - a;
 
-    uv = vec2(dot(cross(x, b + c), ray.dir), dot(cross(y, c + a), ray.dir));
+    uv.x = dot(cross(x, b + c), ray.dir);
+    uv.y = dot(cross(y, c + a), ray.dir);
     const float w = dot(cross(z, a + b), ray.dir);
 
     const float sum = uv.x + uv.y + w;
     const float eps = kUlp * abs(sum);
-    if (any(lessThan(vec3(eps), vec3(uv, w))) && any(lessThan(vec3(uv, w), vec3(eps)))) {
+    if (any(lessThan(vec3(uv, w), vec3(-eps))) && any(lessThan(vec3(eps), vec3(uv, w)))) {
         return false;
     }
     normal = stableTriangleNormal(x, y, z);
-    t = dot(normal, a) / dot(ray.dir, normal);
+    t = dot(a, normal) / dot(ray.dir, normal);
     if (t <= 0.0f) {
         return false;
     }
@@ -150,11 +150,11 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
 #define rayTriangleIntersect rayTriangleIntersectMoeller
 #endif
 
-uint findNode(uint nodeIndex, const in vec3 rayPos)
+uint findNode(uint nodeIndex, const in vec3 pos)
 {
     while (nodeIndex != 0u) {
         Node node = nodes.node[nodeIndex];
-        if (all(lessThanEqual(node.aabbMin, rayPos)) && all(lessThanEqual(rayPos, node.aabbMax))) {
+        if (all(lessThanEqual(node.aabbMin, pos)) && all(lessThanEqual(pos, node.aabbMax))) {
             break;
         }
         nodeIndex = nodeParents.parent[nodeIndex];
@@ -162,17 +162,14 @@ uint findNode(uint nodeIndex, const in vec3 rayPos)
     return nodeIndex;
 }
 
-// https://people.csail.mit.edu/amy/papers/box-jgt.pdf (An efficient and robust ray-box intersection algorithm)
-bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
+void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
 {
     const vec3 invDir = 1.0f / ray.dir;
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
-    Node node = nodes.node[nodeIndex];
-    vec3 aabbHitT = (mix(node.aabbMin, node.aabbMax, corner) - ray.pos) * invDir;
-    float t = max(aabbHitT.x, max(aabbHitT.y, aabbHitT.z));
-    for (;;) {
+    do {
+        Node node = nodes.node[nodeIndex];
         while (!(node.splitDimension < 0)) {
-            if (corner[node.splitDimension] == ((node.splitPos - ray.pos[node.splitDimension]) * invDir[node.splitDimension] < t)) {
+            if (corner[node.splitDimension] == ((node.splitPos - ray.pos[node.splitDimension]) * invDir[node.splitDimension] < tMin)) {
                 nodeIndex = node.leftChild;
             } else {
                 nodeIndex = node.rightChild;
@@ -185,43 +182,39 @@ bool traceRay(uint nodeIndex, const in Ray ray, inout Hit hit)
             const uint triangle = polygons.triangle[polygon];
             vec2 uv;
             vec3 normal;
-            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uv, normal, t)) {
-                if (t < hit.t) {
+            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uv, normal, tMin)) {
+                if (tMin < hit.t) {
                     hit.triangle = triangle;
                     hit.uv = uv;
                     hit.normal = normal;
-                    hit.t = t;
+                    hit.t = tMin;
                 }
             }
         }
-        aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
-        t = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
-        if (hit.t <= t) {
-            return true;
-        }
-        const ivec3 indices = mix(ivec3(0), ivec3(0, 1, 2), equal(aabbHitT, vec3(t)));
-        const int ropeDirection = max(indices.x, max(indices.y, indices.z));
-        nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
-        //debugPrintfEXT("%i %u\n", __LINE__, nodeIndex);
-        if (nodeIndex == 0u) {
+        const vec3 aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
+        tMin = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
+        if (hit.t <= tMin) {
             break;
         }
-        node = nodes.node[nodeIndex];
-    }
-    return hit.triangle != ~0u;
+        const ivec2 indices = mix(ivec2(0), ivec2(1, 2), equal(aabbHitT.yz, vec2(tMin)));
+        const int ropeDirection = max(indices.x, indices.y);
+        nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
+    } while (nodeIndex != 0u);
 }
 
 layout(push_constant, scalar) uniform PushConstants
 {
     vec4 clearColor;
+    float tNear;
     vec3 pos;
     uint nodeIndex;
     Frustum frustum;
     vec2 viewportSize;
-    float wireFrameThickness;
+    float wireframeThickness;
+    vec4 errorColor;
 };
 
-mat3 getViewMatrix()
+mat3 getViewMatrixX4()
 {
     const vec3 topRight = frustum.rt - frustum.lb;
     const vec3 topLeft = frustum.lt - frustum.rb;
@@ -243,35 +236,35 @@ vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
     return p;
 }
 
-void getAnalyticBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec2 uv, out vec2 ddu, out vec2 ddv)
+void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec2 uv, out vec2 ddu, out vec2 ddv)
 {
-    const mat3 viewMatrix = getViewMatrix();
-    const vec3 a = projectToClip(triangle.a, viewMatrix);
-    const vec3 b = projectToClip(triangle.b, viewMatrix);
-    const vec3 c = projectToClip(triangle.c, viewMatrix);
+    const mat3 viewMatrixX4 = getViewMatrixX4();
+    const vec3 a = projectToClip(triangle.a, viewMatrixX4);
+    const vec3 b = projectToClip(triangle.b, viewMatrixX4);
+    const vec3 c = projectToClip(triangle.c, viewMatrixX4);
     const float invArea = 1.0f / ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
     ddu = vec2(b.y - c.y, c.x - b.x) * (invArea * a.z);
     ddv = vec2(c.y - a.y, a.x - c.x) * (invArea * b.z);
     const vec2 ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
     const vec2 sum = ddu + ddv + ddw;
-    const float pw = 4.0f * dot(p, viewMatrix[2]);  // don't actually know why multiplying by 4 is needed
+    const float pw = 4.0f * dot(p, viewMatrixX4[2]);
     ddu = pw * (ddu - uv.x * sum);
     ddv = pw * (ddv - uv.y * sum);
 }
 
-void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 viewportSize, out vec2 ddx, out vec2 ddy)
+void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewportSize, out vec2 ddx, out vec2 ddy)
 {
     // there is no sense in branching for calculation of all combinations
-    // of these two conditions, because all these would be executed in the same subgroup eventually
+    // of these two conditions separately, because all these would be executed together in the same subgroup eventually
     if ((hit.triangle == subgroupQuadSwapHorizontal(hit.triangle)) && (hit.triangle == subgroupQuadSwapVertical(hit.triangle))) {
         ddx = dFdx(hit.uv);
         ddy = dFdy(hit.uv);
-    } else {  // there are no counterparts in quad to correctly calculate perspective correct derivatives as differences
+    } else {  // there are no counterparts in quad to correctly calculate perspective correct derivatives as differences using dFdx/dFdy
         vec2 ddu;
         vec2 ddv;
-        getAnalyticBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uv, ddu, ddv);
-        ddu *= viewportSize.yx;
-        ddv *= viewportSize.yx;
+        getAnalyticalBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uv, ddu, ddv);
+        ddu *= invViewportSize.yx;
+        ddv *= invViewportSize.yx;
         ddx = vec2(ddu.x, ddv.x);
         ddy = vec2(ddu.y, ddv.y);
     }
@@ -279,7 +272,7 @@ void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 viewport
 
 void main() [[maximally_reconverges]]
 {
-    const uvec2 imageExtent = uvec2(imageSize(target)); // wrong!
+    const uvec2 imageExtent = uvec2(imageSize(target));
     if ((imageExtent.x <= gl_GlobalInvocationID.x) || (imageExtent.y <= gl_GlobalInvocationID.y)) {
         return;
     }
@@ -301,7 +294,7 @@ void main() [[maximally_reconverges]]
         pixel.x
     );
 #else
-    // equiangularly (just for fun, because current partial derivatives are irrelevant)
+    // equiangularly
     const float phi = acos(dot(normalize(frustum.lt), normalize(frustum.rt))) * pixel.x;
     const float sinPhi = sin(phi);
     const float cosPhi = cos(phi);
@@ -316,17 +309,17 @@ void main() [[maximally_reconverges]]
     Hit hit;
     hit.triangle = ~0u;
     hit.t = kInf;
-    const bool isHit = traceRay(nodeIndex, ray, hit);
+    traceRay(nodeIndex, ray, hit, tNear);
     vec4 color;
-    if (isHit) {
+    if (hit.triangle != ~0u) {
         const vec3 uvw = vec3(hit.uv, 1.0f - (hit.uv.x + hit.uv.y));
-        if (wireFrameThickness > 0.0f) {
+        if (0.0f < wireframeThickness) {
             vec3 ddx;
             vec3 ddy;
             getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx.xy, ddy.xy);
             ddx.z = -(ddx.x + ddx.y);
             ddy.z = -(ddy.x + ddy.y);
-            color.rgb = getWireFrameIntensity(uvw, ddx, ddy, wireFrameThickness).sss;
+            color.rgb = getWireframeIntensity(uvw, ddx, ddy, wireframeThickness).sss;
         } else {
             color.rgb = uvw;
         }
@@ -335,8 +328,7 @@ void main() [[maximally_reconverges]]
         color = clearColor;
     }
     if (any(isnan(color))) {
-        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        color = errorColor;
     }
     imageStore(target, ivec2(gl_GlobalInvocationID.xy), color);
 }
-

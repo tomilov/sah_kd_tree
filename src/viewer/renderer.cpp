@@ -11,6 +11,7 @@
 #include <engine/physical_device.hpp>
 #include <engine/pipeline_layout.hpp>
 #include <engine/queue.hpp>
+#include <engine/specialization_info.hpp>
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <scene_data/scene_data.hpp>
@@ -69,7 +70,7 @@ namespace
 constexpr glm::uint kGroupSizeX = 32;
 constexpr glm::uint kGroupSizeY = 32;
 
-constexpr glm::float32 kWireFrameThickness = 1.0f;
+constexpr glm::float32 kWireframeThickness = 1.0f;
 
 using Resource = std::shared_ptr<const void>;
 
@@ -228,7 +229,7 @@ struct UniformBuffer
 {
     vk::Bool32 useOffscreenTexture = vk::False;
     vk::Bool32 discardInvisible = vk::False;
-    glm::float32 wireFrameThickness = 0.0f;
+    glm::float32 wireframeThickness = 0.0f;
     glm::vec3 position{0.0f};
     glm::float32 width = 0.0f;
     glm::float32 height = 0.0f;
@@ -276,11 +277,13 @@ static_assert(std::is_standard_layout_v<Frustum>);
 struct TracePushConstants
 {
     glm::vec4 clearColor;
+    glm::float32 tNear;
     glm::vec3 pos;
     glm::uint nodeIndex;
     Frustum frustum;
     glm::vec2 viewportSize;
-    glm::float32 wireFrameThickness;
+    glm::float32 wireframeThickness;
+    glm::vec4 errorColor;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
 
@@ -498,7 +501,7 @@ private:
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
         GraphicsPipeline graphicsPipeline{engine.getPipelines().getSceneShaders()};
-        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass).create();
+        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass, {}).create();
         return graphicsPipeline;
     }
 };
@@ -612,7 +615,7 @@ UniformBuffer getUniformBuffer(const FrameSettings & frameSettings)
     return {
         .useOffscreenTexture = frameSettings.useOffscreenTexture ? vk::True : vk::False,
         .discardInvisible = frameSettings.discardInvisible ? vk::True : vk::False,
-        .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,
+        .wireframeThickness = frameSettings.wireframe ? kWireframeThickness : 0.0f,
         .position = frameSettings.position,
         .width = frameSettings.width,
         .height = frameSettings.height,
@@ -670,6 +673,7 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
     const glm::float32 height = utils::autoCast(frameSettings.height);
     return {
         .clearColor = frameSettings.clearColor,
+        .tNear = 0.0f,
         .pos = frameSettings.position,
         .nodeIndex = 0,  // TODO: O(logN) -> O(1) on movies
         .frustum = {
@@ -679,7 +683,8 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
             .rb = rightBottom,
         },
         .viewportSize = glm::vec2{width, height},
-        .wireFrameThickness = frameSettings.wireFrame ? kWireFrameThickness : 0.0f,
+        .wireframeThickness = frameSettings.wireframe ? kWireframeThickness : 0.0f,
+        .errorColor = glm::vec4{1.0f, 0.0f, 0.0f, 1.0f},
     };
 }
 
@@ -687,8 +692,8 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
 
 vk::Extent2D FrameSettings::getFramebufferSize() const
 {
-    float w = std::ceil(width);
-    float h = std::ceil(height);
+    const float w = std::ceil(width);
+    const float h = std::ceil(height);
     return {
         .width = utils::autoCast(w),
         .height = utils::autoCast(h),
@@ -751,7 +756,7 @@ struct Renderer::Impl : utils::NonCopyable
     template<typename Pipeline>
     void bindPipeline(vk::CommandBuffer commandBuffer, const Pipeline & pipeline, DescriptorRefs descriptors, const std::byte * pushConstants) const
     {
-        commandBuffer.bindPipeline(Pipeline::kPipelineBindPoint, pipeline.pipeline.value(), context.getDispatcher());
+        commandBuffer.bindPipeline(Pipeline::kPipelineBindPoint, *pipeline.pipeline, context.getDispatcher());
         bindPipeline(commandBuffer, Pipeline::kPipelineBindPoint, *pipeline.shaders, descriptors, pushConstants);
     }
 
@@ -921,12 +926,11 @@ void Renderer::Impl::unsetTree()
 ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const Shaders> shaders) const
 {
     ComputePipeline computePipeline{std::move(shaders)};
-    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled);
     struct SpecializationData
     {
         const glm::uint kGroupSizeX;
         const glm::uint kGroupSizeY;
-        const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
+        const glm::float32 kUlp = std::nextafter(glm::float32{0.0f}, glm::float32{1.0f});
         const glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
         const glm::float32 kInf = std::numeric_limits<glm::float32>::infinity();
     };
@@ -934,7 +938,6 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
         .kGroupSizeX = kGroupSizeX,
         .kGroupSizeY = kGroupSizeY,
     };
-    pipeline.specializationInfo.setData<SpecializationData>(specializationData);
     const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
         {
             .constantID = 0,
@@ -962,7 +965,9 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
             .size = sizeof(SpecializationData::kInf),
         },
     };
-    pipeline.specializationInfo.setMapEntries(specializationMapEntries);
+    engine::SpecializationInfos specializationInfos;
+    specializationInfos.try_emplace(vk::ShaderStageFlagBits::eCompute, std::make_unique<SpecializationData>(specializationData), specializationMapEntries);
+    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, std::move(specializationInfos));
     pipeline.create();
     return computePipeline;
 }
@@ -1017,33 +1022,35 @@ void Renderer::Impl::drawScene(vk::CommandBuffer commandBuffer, const GraphicsPi
     constexpr engine::LabelColor kMagentaColor = {1.0f, 0.0f, 1.0f, 1.0f};
     auto drawSceneLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Draw scene"sv, kMagentaColor);
 
-    vk::Viewport viewport;
-    vk::Rect2D scissor;
-    if (frameSettings.useOffscreenTexture) {
-        ASSERT(offscreenResourcesAndDescriptors);
-        viewport = vk::Viewport{
-            .x = 0.0f,
-            .y = 0.0f,
-            .width = frameSettings.width,
-            .height = frameSettings.height,
-            .minDepth = engine::kMinDepth,
-            .maxDepth = 1.0f,
-        };
-        scissor = vk::Rect2D{
-            .offset = {
-                .x = 0,
-                .y = 0,
-            },
-            .extent = offscreenResourcesAndDescriptors->resources.framebuffer.size,
-        };
-    } else {
-        viewport = frameSettings.viewport;
-        scissor = frameSettings.scissor;
+    {
+        vk::Viewport viewport;
+        vk::Rect2D scissor;
+        if (frameSettings.useOffscreenTexture) {
+            ASSERT(offscreenResourcesAndDescriptors);
+            viewport = vk::Viewport{
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = frameSettings.width,
+                .height = frameSettings.height,
+                .minDepth = engine::kMinDepth,
+                .maxDepth = 1.0f,
+            };
+            scissor = vk::Rect2D{
+                .offset = {
+                    .x = 0,
+                    .y = 0,
+                },
+                .extent = offscreenResourcesAndDescriptors->resources.framebuffer.size,
+            };
+        } else {
+            viewport = frameSettings.viewport;
+            scissor = frameSettings.scissor;
+        }
+        constexpr uint32_t kFirstViewport = 0;
+        commandBuffer.setViewport(kFirstViewport, viewport, context.getDispatcher());
+        constexpr uint32_t kFirstScissor = 0;
+        commandBuffer.setScissor(kFirstScissor, scissor, context.getDispatcher());
     }
-    constexpr uint32_t kFirstViewport = 0;
-    commandBuffer.setViewport(kFirstViewport, viewport, context.getDispatcher());
-    constexpr uint32_t kFirstScissor = 0;
-    commandBuffer.setScissor(kFirstScissor, scissor, context.getDispatcher());
 
     ASSERT(sceneResourcesAndDescriptors);
     const auto & sceneResources = sceneResourcesAndDescriptors->resources;
@@ -1326,12 +1333,11 @@ void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, [[maybe_unused]
     ASSERT(directGraphicsPipeline);
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? *displayGraphicsPipeline : *directGraphicsPipeline;
     if (graphicsPipeline.pipeline) {
-        if (graphicsPipeline.pipeline.value().getRenderPass() == renderPass) {
+        if (graphicsPipeline.pipeline->getRenderPass() == renderPass) {
             return;
         }
         uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
-        deferDeletion(previousFrameSlot, std::make_shared<const engine::GraphicsPipeline>(std::move(graphicsPipeline.pipeline).value()));
-        graphicsPipeline.pipeline.reset();
+        deferDeletion(previousFrameSlot, std::move(graphicsPipeline.pipeline));
     }
     std::string_view name;
     if (frameSettings.useOffscreenTexture) {
@@ -1339,7 +1345,7 @@ void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, [[maybe_unused]
     } else {
         name = "direct scene"sv;
     }
-    auto & p = graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass);
+    auto & p = graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass, {});
     if (frameSettings.useOffscreenTexture) {
         p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
     }

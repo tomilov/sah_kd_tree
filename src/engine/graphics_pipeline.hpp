@@ -1,6 +1,7 @@
 #pragma once
 
 #include <engine/fwd.hpp>
+#include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -20,7 +21,7 @@ inline constexpr float kMinDepth = 0.0f;
 inline constexpr float kMinDepth = -1.0f;
 #endif
 
-struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
+struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
 {
     vk::PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo;
     vk::PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo;
@@ -33,7 +34,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
     vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
     vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
 
-    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass);
+    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass, SpecializationInfos && specializationInfos);
 
     void create();
 
@@ -52,6 +53,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::OneTime<GraphicsPipeline>
         ASSERT(pipeline);
         return *pipeline;
     }
+
     [[nodiscard]] operator vk::Pipeline() const &  // NOLINT: google-explicit-constructor
     {
         return getPipeline();
@@ -64,12 +66,9 @@ private:
     const bool descriptorBufferEnabled;
     const vk::RenderPass renderPass;
 
+    SpecializationInfos specializationInfos;
+    std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
     vk::UniquePipeline pipeline;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine

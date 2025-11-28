@@ -55,7 +55,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::PhysicalDeviceSubgroupProperties
     > properties2Chain;
     // clang-format on
-    uint32_t apiVersion = vk::ApiVersion10;
+    uint32_t apiVersion = vk::ApiVersion;
     DeviceFeatures features2Chain;
     vk::StructureChain<vk::PhysicalDeviceMemoryProperties2> memoryProperties2Chain;
     std::vector<vk::StructureChain<vk::QueueFamilyProperties2>> queueFamilyProperties2Chains;
@@ -83,6 +83,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceVulkan13Features::synchronization2,
         &vk::PhysicalDeviceVulkan13Features::maintenance4,
         &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation,
+        &vk::PhysicalDeviceVulkan13Features::subgroupSizeControl,
+        &vk::PhysicalDeviceVulkan13Features::shaderZeroInitializeWorkgroupMemory,
         &vk::PhysicalDeviceVulkan14Features::indexTypeUint8,
         &vk::PhysicalDeviceVulkan14Features::maintenance5,
         &vk::PhysicalDeviceVulkan14Features::maintenance6,
@@ -98,7 +100,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads,
         &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence,
         &vk::PhysicalDeviceShaderQuadControlFeaturesKHR::shaderQuadControl,
-        &vk::PhysicalDeviceVulkan13Features::subgroupSizeControl
+        &vk::PhysicalDeviceMaintenance9FeaturesKHR::maintenance9
     >;
     using OptionalFeatures = FeatureList<>;
 
@@ -119,7 +121,8 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::KHRExternalMemoryFdExtensionName,
         vk::KHRComputeShaderDerivativesExtensionName,
         vk::KHRShaderMaximalReconvergenceExtensionName,
-        vk::KHRShaderQuadControlExtensionName
+        vk::KHRShaderQuadControlExtensionName,
+        vk::KHRMaintenance9ExtensionName
     };
     // clang-format on
 

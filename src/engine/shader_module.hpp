@@ -15,6 +15,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -124,7 +125,7 @@ private:
     }
 };
 
-struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
+struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 {
     struct SetBindings
     {
@@ -153,7 +154,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
     std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT, vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo>> pipelineShaderStageCreateInfoChains;
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
-    std::optional<VertexInputState> vertexInputState;
+    std::unique_ptr<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
@@ -174,6 +175,11 @@ struct ENGINE_EXPORT ShaderStages final : utils::NonCopyable
 private:
     const Context & context;
     const uint32_t vertexBufferBinding;
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraitsThrow();  // 'throw' because unoredered_map is not nothrow_move_*
+    }
 };
 
 }  // namespace engine

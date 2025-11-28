@@ -20,5 +20,5 @@ void sah_kd_tree::Projection<Traits>::calculateTriangleBbox()
     {
         return {thrust::min(a, thrust::min(b, c)), thrust::max(a, thrust::max(b, c))};
     };
-    thrust::transform(triangleBegin, thrust::next(triangleBegin, triangle.count), polygonBboxBegin, thrust::make_zip_function(toTriangleBbox));
+    thrust::transform(triangleBegin, cuda::std::next(triangleBegin, triangle.count), polygonBboxBegin, thrust::make_zip_function(toTriangleBbox));
 }

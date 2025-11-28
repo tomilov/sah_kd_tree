@@ -7,18 +7,20 @@
 
 #include <fmt/ranges.h>
 
-#include <optional>
+#include <iterator>
 #include <utility>
 
 namespace engine
 {
 
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass)
+GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass,
+                                   SpecializationInfos && specializationInfosIn)
     : name{name}
     , context{context}
     , pipelineCache{pipelineCache}
     , descriptorBufferEnabled{descriptorBufferEnabled}
     , renderPass{renderPass}
+    , specializationInfos{std::move(specializationInfosIn)}
 {
     ASSERT(renderPass);
 
@@ -92,14 +94,22 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     };
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
-    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     graphicsPipelineCreateInfo.flags = {};
     if (descriptorBufferEnabled) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
-    graphicsPipelineCreateInfo.setStages(shaderStages.pipelineShaderStageCreateInfos);
+    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
+    pipelineShaderStageCreateInfos = shaderStages.pipelineShaderStageCreateInfos;
+    INVARIANT(std::size(specializationInfos) <= std::size(pipelineShaderStageCreateInfos), "");
+    for (vk::PipelineShaderStageCreateInfo & pipelineShaderStageCreateInfo : pipelineShaderStageCreateInfos) {
+        auto specializationInfo = specializationInfos.find(pipelineShaderStageCreateInfo.stage);
+        if (specializationInfo != std::cend(specializationInfos)) {
+            pipelineShaderStageCreateInfo.setPSpecializationInfo(&specializationInfo->second.getSpecializationInfo());
+        }
+    }
+    graphicsPipelineCreateInfo.setStages(pipelineShaderStageCreateInfos);
     if (shaderStages.vertexInputState) {
-        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState.value().pipelineVertexInputStateCreateInfo;
+        graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState->pipelineVertexInputStateCreateInfo;
     }
     graphicsPipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
     graphicsPipelineCreateInfo.pTessellationState = nullptr;

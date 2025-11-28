@@ -62,6 +62,8 @@ target_sources(
         "pipeline_cache.cpp"
         "pipeline_layout.hpp"
         "pipeline_layout.cpp"
+        "specialization_info.hpp"
+        "specialization_info.cpp"
         "compute_pipeline.hpp"
         "compute_pipeline.cpp"
         "graphics_pipeline.hpp"
@@ -71,7 +73,9 @@ target_sources(
         "descriptors.hpp"
         "descriptors.cpp"
         "push_constant_ranges.hpp"
-        "push_constant_ranges.cpp")
+        "push_constant_ranges.cpp"
+        "render_graph.hpp"
+        "render_graph.cpp")
 target_link_libraries(
     "lib${PROJECT_NAME}"
     PRIVATE

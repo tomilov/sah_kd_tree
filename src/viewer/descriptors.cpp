@@ -107,6 +107,12 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
         writeDescriptorSet.dstBinding = binding->binding;
         writeDescriptorSet.dstArrayElement = 0;  // not an array
         writeDescriptorSet.descriptorType = descriptorType;
+        if (descriptorType != vk::DescriptorType::eInlineUniformBlock) {
+            writeDescriptorSetChain.unlink<vk::WriteDescriptorSetInlineUniformBlock>();
+        }
+        if (descriptorType != vk::DescriptorType::eAccelerationStructureKHR) {
+            writeDescriptorSetChain.unlink<vk::WriteDescriptorSetAccelerationStructureKHR>();
+        }
         switch (descriptorType) {
         case vk::DescriptorType::eInlineUniformBlock: {
             auto & writeDescriptorSetInlineUniformBlock = writeDescriptorSetChain.get<vk::WriteDescriptorSetInlineUniformBlock>();

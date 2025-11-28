@@ -45,7 +45,7 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
     using PolygonBboxInputType = cuda::std::iter_value_t<decltype(polygonBboxBegin)>;
     auto polygonLeftBboxBegin = thrust::make_permutation_iterator(polygonBboxBegin, splittedPolygon.cbegin());
-    auto polygonRightBboxBegin = thrust::next(polygonBboxBegin, polygon.count);
+    auto polygonRightBboxBegin = cuda::std::next(polygonBboxBegin, polygon.count);
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = cuda::std::iter_value_t<decltype(splittedPolygonBboxBegin)>;
 
@@ -151,6 +151,6 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
         return {{lmin, lmax}, {rmin, rmax}};
     };
     auto polygonBegin = thrust::make_counting_iterator<U>(polygon.count);
-    thrust::transform(polygonLeftBboxBegin, thrust::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, toSplittedPolygon);
+    thrust::transform(polygonLeftBboxBegin, cuda::std::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, toSplittedPolygon);
 }
 }  // namespace sah_kd_tree

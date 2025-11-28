@@ -49,10 +49,13 @@ GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shaders)
     ASSERT(this->shaders);
 }
 
-engine::GraphicsPipeline & GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass)
+engine::GraphicsPipeline & GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass,
+                                                          engine::SpecializationInfos && specializationInfos)
 {
     ASSERT(shaders);
-    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout(), renderPass);
+    ASSERT(!pipeline);
+    pipeline = std::make_unique<engine::GraphicsPipeline>(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout(), renderPass, std::move(specializationInfos));
+    return *pipeline;
 }
 
 ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shaders)
@@ -61,10 +64,12 @@ ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shaders)
     ASSERT(this->shaders);
 }
 
-engine::ComputePipeline & ComputePipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled)
+engine::ComputePipeline & ComputePipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, engine::SpecializationInfos && specializationInfos)
 {
     ASSERT(shaders);
-    return pipeline.emplace(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout());
+    ASSERT(!pipeline);
+    pipeline = std::make_unique<engine::ComputePipeline>(name, context, pipelineCache, descriptorBufferEnabled, shaders->getPipelineLayout(), std::move(specializationInfos));
+    return *pipeline;
 }
 
 Pipelines::Pipelines(const engine::Context & context, bool descriptorBufferEnabled)
