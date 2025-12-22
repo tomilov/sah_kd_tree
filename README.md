@@ -1,7 +1,5 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tomilov/sah_kd_tree)
 
-# UNDER CONSTRUCTION
-
 #### SAH kd-tree for triangles parallel build algorithm.
 
 Based on:
