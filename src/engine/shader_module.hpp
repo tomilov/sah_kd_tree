@@ -98,12 +98,14 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleR
     };
 
     std::unordered_map<uint32_t /* set */, std::unordered_map<DescriptorBindingNameAndType, DescriptorSetLayoutBinding, utils::Hash<DescriptorBindingNameAndType>>> descriptorSetLayoutSetBindings;
+    std::unordered_map<std::string, uint32_t> specializationConstants;
     std::optional<vk::PushConstantRange> pushConstantRange;
 
     ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName);
     ShaderModuleReflection(ShaderModuleReflection &&) noexcept;
     ~ShaderModuleReflection();
 
+    vk::ShaderStageFlagBits getShaderStage() const;
     [[nodiscard]] const std::string & getEntryPointName() const &;
     [[nodiscard]] VertexInputState getVertexInputState(uint32_t vertexBufferBinding) const;
 
@@ -156,6 +158,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 
     std::unique_ptr<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindings;
+    std::unordered_map<vk::ShaderStageFlagBits, std::unordered_map<std::string, uint32_t>> specializationConstants;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 
     std::unordered_map<uint32_t /*set*/, std::unordered_map<vk::DescriptorType, uint32_t /* descriptorCount */>> setDescriptorCounts;

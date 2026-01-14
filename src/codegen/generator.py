@@ -9,7 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Callable
-from xml.etree import ElementTree
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from termcolor import colored
@@ -107,7 +106,7 @@ def _print_diff(unformatted: str, formatted: str, /, *, file_name: str = "") -> 
 def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     sys.path.append(str(args.spirv_headers))
     # pylint: disable=import-outside-toplevel
-    import spirv.unified1.spirv  # type: ignore
+    from spirv.unified1.spirv import spv  # type: ignore
 
     def _prefix_to_lower(m: re.Match[str]) -> str:
         g1 = m.group(1)
@@ -120,32 +119,45 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     def _to_variable_name(name: str) -> str:
         return split_typename_regex.sub(_prefix_to_lower, name)
 
-    spv_enums = []
-    for key, value in spirv.unified1.spirv.spv.items():
-        if key in [
-            "HostAccessQualifier",
-            "LoadCacheControl",
-            "InitializationModeQualifier",
-            "StoreCacheControl",
-        ]:
-            continue
+    spv_enums: list[dict] = []
+    key: str
+    for key, value in spv.items():
         if not isinstance(value, dict):
             continue
         spv_enum: dict[str, str | list[Any]] = {}
 
         spv_enum["enum_typename"] = f"Spv{key}"
         spv_enum["variable_name"] = _to_variable_name(key)
+        enum_infix = key
+        enum_suffix = ""
+        for suffix in "Shift", "Mask":
+            if enum_infix.endswith(suffix):
+                enum_infix = enum_infix.removesuffix(suffix)
+                enum_suffix = suffix
+                break
+
+        spv_enum["enum_infix"] = enum_infix
+        spv_enum["enum_suffix"] = enum_suffix
 
         enum_values = sorted(value.items(), key=lambda item: (item[1], item[0]))
         unique_enum_underlying_values = set()
         unique_enum_values: list[dict[str, int | str]] = []
-        for enum_value_name, enum_underlying_value in enum_values:
-            assert isinstance(enum_underlying_value, int), type(
-                enum_underlying_value
-            ).__name__
+        for enum_name, enum_underlying_value in enum_values:
+            assert isinstance(
+                enum_underlying_value, int
+            ), f"{type(enum_underlying_value)}"
             if enum_underlying_value not in unique_enum_underlying_values:
                 unique_enum_underlying_values.add(enum_underlying_value)
+                enum_value_name = "Spv"
+                if enum_infix == "PackedVectorFormat" or not enum_name.startswith(
+                    enum_infix
+                ):
+                    enum_value_name += enum_infix
+                enum_value_name += enum_name
+                if not enum_name.startswith(enum_suffix):
+                    enum_value_name += enum_suffix
                 enum_value = {
+                    "enum_name": enum_name,
                     "enum_value_name": enum_value_name,
                     "enum_underlying_value": enum_underlying_value,
                 }
@@ -164,6 +176,27 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
 
 
 def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
+    from xml.etree import ElementTree
+
+    from vulkan_object import VulkanObject, get_vulkan_object  # type: ignore
+
+    vk: VulkanObject = get_vulkan_object(args.vulkan_registry)
+
+    if False:
+        import dataclasses
+        import json
+        from enum import Enum
+
+        class EnhancedJSONEncoder(json.JSONEncoder):
+            def default(self, o):
+                if dataclasses.is_dataclass(o):
+                    return dataclasses.asdict(o)
+                elif isinstance(o, Enum):
+                    return o.value
+                return super().default(o)
+
+        print(json.dumps(vk, cls=EnhancedJSONEncoder))
+
     registry = ElementTree.parse(args.vulkan_registry).getroot()
 
     def _cpp_case(m: re.Match[str]) -> str:
@@ -377,14 +410,11 @@ def _clang_format(args: argparse.Namespace, unformatted: str) -> str:
         str(args.clang_format_executable),
         f"-style=file:{args.clang_format_config}",
     ]
-    completed_process = subprocess.run(
+    return subprocess.check_output(
         popenargs,
-        input=unformatted,
-        check=True,
         text=True,
-        capture_output=True,
+        input=unformatted,
     )
-    return completed_process.stdout
 
 
 def main() -> None:

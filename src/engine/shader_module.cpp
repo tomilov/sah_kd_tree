@@ -381,6 +381,11 @@ ShaderModuleReflection::ShaderModuleReflection(const Context & context, const Sh
 ShaderModuleReflection::ShaderModuleReflection(ShaderModuleReflection &&) noexcept = default;
 ShaderModuleReflection::~ShaderModuleReflection() = default;
 
+vk::ShaderStageFlagBits ShaderModuleReflection::getShaderStage() const
+{
+    return shaderStage;
+}
+
 const std::string & ShaderModuleReflection::getEntryPointName() const &
 {
     return entryPointName;
@@ -399,13 +404,15 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
     vertexInputBindingDescription.stride = 0;
     vertexInputBindingDescription.inputRate = vk::VertexInputRate::eVertex;
 
-    uint32_t inputVariableCount = 0;
-    reflectResult = reflectionModule->EnumerateEntryPointInputVariables(entryPointName.c_str(), &inputVariableCount, nullptr);
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateInputVariables returned {}", reflectResult);
-    std::vector<SpvReflectInterfaceVariable *> reflectInterfaceVariable(inputVariableCount);
-    reflectResult = reflectionModule->EnumerateEntryPointInputVariables(entryPointName.c_str(), &inputVariableCount, std::data(reflectInterfaceVariable));
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateInputVariables returned {}", reflectResult);
-
+    std::vector<SpvReflectInterfaceVariable *> reflectInterfaceVariable;
+    {
+        uint32_t inputVariableCount = 0;
+        reflectResult = reflectionModule->EnumerateEntryPointInputVariables(entryPointName.c_str(), &inputVariableCount, nullptr);
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateInputVariables returned {}", reflectResult);
+        reflectInterfaceVariable.resize(inputVariableCount);
+        reflectResult = reflectionModule->EnumerateEntryPointInputVariables(entryPointName.c_str(), &inputVariableCount, std::data(reflectInterfaceVariable));
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateInputVariables returned {}", reflectResult);
+    }
     const auto locationLess = [](auto l, auto r) -> bool
     {
         INVARIANT(l && r, "");
@@ -462,16 +469,17 @@ void ShaderModuleReflection::reflect()
     INVARIANT(shaderStageMask, "Entry point '{}' is not found", entryPointName);
     INVARIANT(shaderStageMask == shaderStage, "Reflected shader stage ({}) of shader module '{}' does not match inferred shader stage ({})", shaderStageMask, shaderModuleName, shaderStage);
 
-    uint32_t descriptorSetCount = 0;
-    reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, nullptr);
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
-    std::vector<SpvReflectDescriptorSet *> reflectDescriptorSets(descriptorSetCount);
-    reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, std::data(reflectDescriptorSets));
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
-
-    for (uint32_t index = 0; index < descriptorSetCount; ++index) {
-        const auto reflectDecriptorSet = reflectDescriptorSets.at(index);
-        INVARIANT(reflectDecriptorSet, "reflectDecriptorSet is null at #{}", index);
+    std::vector<SpvReflectDescriptorSet *> reflectDescriptorSets;
+    {
+        uint32_t descriptorSetCount = 0;
+        reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, nullptr);
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
+        reflectDescriptorSets.resize(descriptorSetCount);
+        reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, std::data(reflectDescriptorSets));
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
+    }
+    for (auto reflectDecriptorSet : reflectDescriptorSets) {
+        INVARIANT(reflectDecriptorSet, "");
         INVARIANT(!descriptorSetLayoutSetBindings.contains(reflectDecriptorSet->set), "Duplicated set {}", reflectDecriptorSet->set);
         auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
         auto bindingCount = reflectDecriptorSet->binding_count;
@@ -500,17 +508,17 @@ void ShaderModuleReflection::reflect()
         }
     }
 
-    uint32_t pushConstantBlockCount = 0;
-    reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPointName.c_str(), &pushConstantBlockCount, nullptr);
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
-    std::vector<SpvReflectBlockVariable *> pushConstantBlocks(pushConstantBlockCount);
-    reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPointName.c_str(), &pushConstantBlockCount, std::data(pushConstantBlocks));
-    INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
-
-    for (uint32_t index = 0; index < pushConstantBlockCount; ++index) {
-        const auto reflectPushConstantBlock = pushConstantBlocks.at(index);
+    std::vector<SpvReflectBlockVariable *> pushConstantBlocks;
+    {
+        uint32_t pushConstantBlockCount = 0;
+        reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPointName.c_str(), &pushConstantBlockCount, nullptr);
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
+        pushConstantBlocks.resize(pushConstantBlockCount);
+        reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPointName.c_str(), &pushConstantBlockCount, std::data(pushConstantBlocks));
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
+    }
+    for (auto reflectPushConstantBlock : pushConstantBlocks) {
         INVARIANT(reflectPushConstantBlock, "");
-
         auto members = reflectPushConstantBlock->members;
         size_t memberCount = utils::autoCast(reflectPushConstantBlock->member_count);
         for (const SpvReflectBlockVariable & member : std::span<const SpvReflectBlockVariable>(members, memberCount)) {
@@ -520,8 +528,7 @@ void ShaderModuleReflection::reflect()
                 SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPointName, shaderStage, shaderModuleName);
                 continue;
             }
-
-            bool isInitialized = pushConstantRange.has_value();
+            const bool isInitialized = pushConstantRange.has_value();
             auto & [stageFlags, offset, size] = isInitialized ? pushConstantRange.value() : pushConstantRange.emplace();
             if (isInitialized) {
                 if (offset > member.offset) {
@@ -535,6 +542,24 @@ void ShaderModuleReflection::reflect()
                 offset = member.offset;
                 size = member.size;
             }
+        }
+    }
+
+    std::vector<SpvReflectSpecializationConstant *> specConstants;
+    {
+        uint32_t specializationConstantCount = 0;
+        reflectResult = reflectionModule->EnumerateSpecializationConstants(&specializationConstantCount, nullptr);
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateSpecializationConstants returned {}", reflectResult);
+        specConstants.resize(specializationConstantCount);
+        reflectResult = reflectionModule->EnumerateSpecializationConstants(&specializationConstantCount, std::data(specConstants));
+        INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateSpecializationConstants returned {}", reflectResult);
+    }
+    for (auto specConstant : specConstants) {
+        if (!specConstant->name) {
+            continue;
+        }
+        if (!specializationConstants.emplace(specConstant->name, specConstant->constant_id).second) {
+            INVARIANT(false, "{} {} ({})", specConstant->name, specConstant->constant_id, fmt::join(specializationConstants, ", "));
         }
     }
 }
@@ -562,10 +587,9 @@ bool ShaderStages::checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagB
 void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::optional<uint32_t> subgroupSize)
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
-    entryPointNames.emplace_back(std::cbegin(entryPointName), std::cend(entryPointName));
-
-    names.emplace_back();
-    fmt::format_to(std::back_inserter(names.back()), "{}:{}", shaderModule.getShaderName(), entryPointName);
+    entryPointNames.push_back(entryPointName);
+    names.push_back(fmt::format("{}:{}", shaderModule.getShaderName(), entryPointName));
+    INVARIANT(std::size(pipelineShaderStageCreateInfoChains) < pipelineShaderStageCreateInfoChains.capacity(), "");
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo, requiredSubgroupSize] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo.flags = vk::PipelineShaderStageCreateFlags{};
     pipelineShaderStageCreateInfo.stage = shaderModule.getStage();
@@ -614,7 +638,9 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
             if (!isMultistage) {
                 size_t index = std::size(mergedBindings.bindings);
                 mergedBindings.bindings.push_back(binding.binding);
-                mergedBindings.bindingIndices.emplace(bindingName, index);
+                if (!mergedBindings.bindingIndices.emplace(bindingName, index).second) {
+                    INVARIANT(false, "");
+                }
                 mergedBindings.bindingNames.push_back(std::move(bindingName));
             }
         }
@@ -626,6 +652,12 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
 
     if (shaderModuleReflection.pushConstantRange) {
         pushConstantRanges.push_back(shaderModuleReflection.pushConstantRange.value());
+    }
+
+    if (!std::empty(shaderModuleReflection.specializationConstants)) {
+        if (!specializationConstants.emplace(shaderModule.getStage(), shaderModuleReflection.specializationConstants).second) {
+            INVARIANT(false, "");
+        }
     }
 }
 

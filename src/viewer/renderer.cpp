@@ -930,7 +930,7 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     {
         const glm::uint kGroupSizeX;
         const glm::uint kGroupSizeY;
-        const glm::float32 kUlp = std::nextafter(glm::float32{0.0f}, glm::float32{1.0f});
+        const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
         const glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
         const glm::float32 kInf = std::numeric_limits<glm::float32>::infinity();
     };

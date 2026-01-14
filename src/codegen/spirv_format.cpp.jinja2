@@ -1,7 +1,5 @@
 #include <codegen/spirv_format.hpp>
 
-#include <type_traits>
-
 namespace codegen::spv
 {
 
@@ -9,11 +7,15 @@ namespace codegen::spv
 
 const char * toString({{ spv_enum.enum_typename }} {{ spv_enum.variable_name }})
 {
-    switch (static_cast<std::underlying_type_t<{{ spv_enum.enum_typename }}>>({{ spv_enum.variable_name }})) {
+    switch ({{ spv_enum.variable_name }}) {
     {% for enum_value in spv_enum.enum_values %}
-    case {{ enum_value.enum_underlying_value }}:
-        return "{{ enum_value.enum_value_name }}";
+    case {{ enum_value.enum_value_name }}:
+        return "{{ enum_value.enum_name }}";
     {% endfor %}
+    {% if not spv_enum.enum_typename.endswith("Mask") %}
+    case Spv{{ spv_enum.enum_infix }}Max:
+        break;
+    {% endif %}
     }
     return nullptr;
 }

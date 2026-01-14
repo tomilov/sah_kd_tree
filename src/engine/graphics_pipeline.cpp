@@ -101,6 +101,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     pipelineShaderStageCreateInfos = shaderStages.pipelineShaderStageCreateInfos;
     INVARIANT(std::size(specializationInfos) <= std::size(pipelineShaderStageCreateInfos), "");
+    INVARIANT(std::size(specializationInfos) <= std::size(shaderStages.specializationConstants), "");
     for (vk::PipelineShaderStageCreateInfo & pipelineShaderStageCreateInfo : pipelineShaderStageCreateInfos) {
         auto specializationInfo = specializationInfos.find(pipelineShaderStageCreateInfo.stage);
         if (specializationInfo != std::cend(specializationInfos)) {
