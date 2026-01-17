@@ -4,16 +4,9 @@ project(
         CUDA)
 string(TOUPPER ${PROJECT_NAME} UPPERCASE_PROJECT_NAME)
 
-add_library("lib${PROJECT_NAME}")
-set_target_properties(
-    "lib${PROJECT_NAME}"
-    PROPERTIES
-        LIBRARY_OUTPUT_NAME "${PROJECT_NAME}"
-        ARCHIVE_OUTPUT_NAME "${PROJECT_NAME}")
-generate_export_header("lib${PROJECT_NAME}" BASE_NAME "${PROJECT_NAME}")
-target_sources(
-    "lib${PROJECT_NAME}"
-    PRIVATE
+skt_add_common_library(
+    "${PROJECT_NAME}"
+    SOURCES
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
         "builder.inl"
@@ -38,7 +31,9 @@ target_sources(
         "split_polygon.inl"
         "update_polygon_node.inl"
         "update_splitted_polygon_count.inl"
-        "update_splitted_polygon_node.inl")
+        "update_splitted_polygon_node.inl"
+    PUBLIC_LINKS
+        Thrust)
 option(
     ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY
     "Make lib${PROJECT_NAME} header-only library"
@@ -82,10 +77,6 @@ else()
             "update_splitted_polygon_count.cu"
             "update_splitted_polygon_node.cu")
 endif()
-target_link_libraries(
-    "lib${PROJECT_NAME}"
-    PUBLIC
-        Thrust)
 target_compile_options(
     "lib${PROJECT_NAME}"
     PRIVATE

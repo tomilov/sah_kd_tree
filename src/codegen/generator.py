@@ -178,11 +178,11 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
 def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
     from xml.etree import ElementTree
 
-    from vulkan_object import VulkanObject, get_vulkan_object  # type: ignore
-
-    vk: VulkanObject = get_vulkan_object(args.vulkan_registry)
-
     if False:
+        from vulkan_object import VulkanObject, get_vulkan_object  # type: ignore
+
+        vk: VulkanObject = get_vulkan_object(args.vulkan_registry)
+
         import dataclasses
         import json
         from enum import Enum
@@ -216,7 +216,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
     def _to_cpp_case(identifier: str) -> str:
         return split_c_regex.sub(_cpp_case, identifier)
 
-    def _c_enum_to_cpp(identifier: str, prefix: str) -> str:
+    def _c_enum_to_cpp(identifier: str, prefix: str = "VK_FORMAT") -> str:
         vk_len = len("VK_")
         assert prefix[:vk_len] == "VK_", prefix
         assert identifier[: len(prefix)] == prefix, identifier[: len(prefix)]
@@ -259,9 +259,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
                 format_name = value
                 assert FORMAT_REGEX.fullmatch(format_name), format_name
                 output_format["format_name"] = format_name
-                output_format["format_cpp_name"] = _c_enum_to_cpp(
-                    format_name, "VK_FORMAT"
-                )
+                output_format["format_cpp_name"] = _c_enum_to_cpp(format_name)
             elif key == "blockExtent":
                 if value != "1,1,1":
                     block_extent = tuple(map(int, value.split(",")))
@@ -349,7 +347,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
                     elif key == "compatible":
                         output_plane["compatible_format_name"] = value
                         output_plane["compatible_cpp_format_name"] = _c_enum_to_cpp(
-                            value, "VK_FORMAT"
+                            value
                         )
                     elif key == "heightDivisor":
                         output_plane["height_divisor"] = int(value)
