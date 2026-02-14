@@ -90,7 +90,7 @@ skt_add_codegen_library(
     PRIVATE_LINKS
         "SPIRV-Reflect"
     PUBLIC_LINKS
-        "Vulkan-Headers"
+        Vulkan::Headers
     SYSTEM_PUBLIC_INCLUDES
         "${spirv_headers_path}")
 

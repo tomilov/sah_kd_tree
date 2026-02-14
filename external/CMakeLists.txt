@@ -28,6 +28,7 @@ else()
         INTERFACE
             "vulkan")
 endif()
+set(Vulkan_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 
 add_library("VulkanMemoryAllocator" INTERFACE)

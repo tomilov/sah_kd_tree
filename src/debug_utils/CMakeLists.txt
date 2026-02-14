@@ -7,6 +7,7 @@ skt_add_common_library(
         "renderdoc.hpp"
         "renderdoc.cpp"
     PUBLIC_LINKS
-        "libutils")
+        "libutils"
+        Vulkan::Headers)
 
 add_subdirectory("tests")
