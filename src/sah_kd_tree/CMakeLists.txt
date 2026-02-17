@@ -2,7 +2,6 @@ project(
     "sah_kd_tree"
     LANGUAGES
         CUDA)
-string(TOUPPER ${PROJECT_NAME} UPPERCASE_PROJECT_NAME)
 
 skt_add_common_library(
     "${PROJECT_NAME}"
@@ -34,6 +33,7 @@ skt_add_common_library(
         "update_splitted_polygon_node.inl"
     PUBLIC_LINKS
         Thrust)
+string(TOUPPER ${PROJECT_NAME} UPPERCASE_PROJECT_NAME)
 option(
     ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY
     "Make lib${PROJECT_NAME} header-only library"

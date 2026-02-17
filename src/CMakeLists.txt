@@ -11,13 +11,23 @@ if(TRUE)
     include(CheckIPOSupported)
     check_ipo_supported(
         RESULT
-            ipo_is_supported
+            cxx_ipo_is_supported
         OUTPUT
-            ipo_support_check_error
+            cxx_ipo_support_check_error
         LANGUAGES
             CXX)
-    if(NOT ${ipo_is_supported})
-        message(WARNING "LTO is not supported: ${ipo_support_check_error}")
+    if(NOT ${cxx_ipo_is_supported})
+        message(WARNING "LTO is not supported: ${cxx_ipo_support_check_error}")
+    endif()
+    check_ipo_supported(
+        RESULT
+            cuda_ipo_is_supported
+        OUTPUT
+            cuda_ipo_support_check_error
+        LANGUAGES
+            CUDA)
+    if(NOT ${cuda_ipo_is_supported})
+        message(WARNING "LTO is not supported: ${cuda_ipo_support_check_error}")
     endif()
 endif()
 
