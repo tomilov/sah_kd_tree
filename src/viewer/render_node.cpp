@@ -91,9 +91,9 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 #undef GET_INSTANCE_PROC_ADDR
     PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*device, "vkGetDeviceQueue"));
 
-    INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getInstance(), "Should match");
-    INVARIANT(*physicalDevice == context.getPhysicalDevice().getPhysicalDevice(), "Should match");
-    INVARIANT(*device == context.getDevice().getDevice(), "Should match");
+    INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getHandle(), "Should match");
+    INVARIANT(*physicalDevice == context.getPhysicalDevice().getHandle(), "Should match");
+    INVARIANT(*device == context.getDevice().getHandle(), "Should match");
     const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
     INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
     INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
@@ -260,7 +260,7 @@ struct RenderNode::Impl
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;
-            frameCapture.emplace(debug_utils::Renderdoc::makeFrameCapture(context.getInstance().getInstance(), utils::autoCast(window->winId())));
+            frameCapture.emplace(debug_utils::Renderdoc::makeFrameCapture(context.getInstance().getHandle(), utils::autoCast(window->winId())));
         }
         renderer.value().advance(commandBuffer, utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }

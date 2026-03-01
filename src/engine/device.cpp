@@ -71,7 +71,7 @@ Device::Device(std::string_view name, Library & library, std::span<const char * 
     deviceCreateInfo.setQueueCreateInfos(physicalDevice.getDeviceQueueCreateInfos());
     deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.getEnabledExtensions());
 
-    deviceHolder = physicalDevice.getPhysicalDevice().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
+    deviceHolder = physicalDevice.getHandle().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     library.getDispatcher().init(*deviceHolder);
 #endif
@@ -83,7 +83,7 @@ const PhysicalDevice & Device::getPhysicalDevice() const &
     return physicalDevice;
 }
 
-vk::Device Device::getDevice() const &
+vk::Device Device::getHandle() const &
 {
     ASSERT(deviceHolder);
     return *deviceHolder;
@@ -91,7 +91,7 @@ vk::Device Device::getDevice() const &
 
 Device::operator vk::Device() const &
 {
-    return getDevice();
+    return getHandle();
 }
 
 void Device::setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const

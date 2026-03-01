@@ -85,7 +85,7 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
 
     [[nodiscard]] const PhysicalDevice & getPhysicalDevice() const &;
 
-    [[nodiscard]] vk::Device getDevice() const &;
+    [[nodiscard]] vk::Device getHandle() const &;
     operator vk::Device() const &;  // NOLINT: google-explicit-constructor
 
 private:

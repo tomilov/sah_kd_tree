@@ -37,7 +37,7 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
         return *descriptorPool;
     }
 
-    [[nodiscard]] vk::DescriptorSet getDescriptorSet() const &
+    [[nodiscard]] vk::DescriptorSet getHandle() const &
     {
         ASSERT(descriptorSet);
         return *descriptorSet;
@@ -45,7 +45,7 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 
     [[nodiscard]] operator vk::DescriptorSet() const &  // NOLINT: google-explicit-constructor
     {
-        return getDescriptorSet();
+        return getHandle();
     }
 
 private:

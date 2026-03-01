@@ -178,7 +178,7 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     renderPassCreateInfo.setAttachments(attachmentDecriptions);
     renderPassCreateInfo.setSubpasses(subpassDescriptions);
     renderPassCreateInfo.setDependencies(subpassDependencies);
-    vk::UniqueRenderPass renderPass = context.getDevice().getDevice().createRenderPass2Unique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    vk::UniqueRenderPass renderPass = context.getDevice().getHandle().createRenderPass2Unique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*renderPass, "Offscreen renderpass"s);
 
     return {
@@ -218,7 +218,7 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
         .layers = 1,
     };
     framebufferCreateInfo.setAttachments(attachments);
-    auto framebuffer = context.getDevice().getDevice().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    auto framebuffer = context.getDevice().getHandle().createFramebufferUnique(framebufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*framebuffer, "Offscreen framebuffer"s);
 
     return {

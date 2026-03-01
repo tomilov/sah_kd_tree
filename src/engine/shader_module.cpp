@@ -347,12 +347,12 @@ ShaderModule::ShaderModule(const Context & contextIn, const FileIo & fileIoIn, s
 
     vk::ShaderModuleCreateInfo shaderModuleCreateInfo;
     shaderModuleCreateInfo.setCode(spirv);
-    shaderModuleHolder = context.getDevice().getDevice().createShaderModuleUnique(shaderModuleCreateInfo, context.getLibrary().getAllocationCallbacks(), context.getDispatcher());
+    shaderModuleHolder = context.getDevice().getHandle().createShaderModuleUnique(shaderModuleCreateInfo, context.getLibrary().getAllocationCallbacks(), context.getDispatcher());
 
     context.getDevice().setDebugUtilsObjectName(*shaderModuleHolder, shaderName);
 }
 
-vk::ShaderModule ShaderModule::getShaderModule() const &
+vk::ShaderModule ShaderModule::getHandle() const &
 {
     ASSERT(shaderModuleHolder);
     return *shaderModuleHolder;
@@ -360,7 +360,7 @@ vk::ShaderModule ShaderModule::getShaderModule() const &
 
 ShaderModule::operator vk::ShaderModule() const &
 {
-    return getShaderModule();
+    return getHandle();
 }
 
 ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
@@ -436,7 +436,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
         vertexInputAttributeDescription.format = utils::autoCast(inputVariable->format);
         vertexInputAttributeDescription.offset = vertexInputBindingDescription.stride;
 
-        auto formatProperties = context.getPhysicalDevice().getPhysicalDevice().getFormatProperties(vertexInputAttributeDescription.format, context.getDispatcher());
+        auto formatProperties = context.getPhysicalDevice().getHandle().getFormatProperties(vertexInputAttributeDescription.format, context.getDispatcher());
         INVARIANT(formatProperties.bufferFeatures & vk::FormatFeatureFlagBits::eVertexBuffer, "");
 
         auto formatSize = utils::safeCast<uint32_t>(codegen::vulkan::formatElementSize(vertexInputAttributeDescription.format, vk::ImageAspectFlagBits::eColor));
@@ -596,8 +596,8 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     pipelineShaderStageCreateInfo.module = shaderModule;
     pipelineShaderStageCreateInfo.pName = std::data(entryPointNames.back());
     pipelineShaderStageCreateInfo.pSpecializationInfo = nullptr;
-    debugUtilsObjectNameInfo.objectType = shaderModule.getShaderModule().objectType;
-    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getShaderModule()));
+    debugUtilsObjectNameInfo.objectType = shaderModule.getHandle().objectType;
+    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getHandle()));
     debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan13Features>().subgroupSizeControl != vk::False) {
         if (subgroupSize) {
@@ -678,7 +678,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
         descriptorSetLayoutCreateInfo.setBindings(descriptorSetLayoutBindings.bindings);
         auto & descriptorSetLayoutBindingFlagsCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutBindingFlagsCreateInfo>();
         descriptorSetLayoutBindingFlagsCreateInfo.setBindingFlags(nullptr);  // TODO:
-        descriptorSetLayoutHolders.push_back(device.getDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+        descriptorSetLayoutHolders.push_back(device.getHandle().createDescriptorSetLayoutUnique(descriptorSetLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
         descriptorSetLayouts.push_back(*descriptorSetLayoutHolders.back());
 
         for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {

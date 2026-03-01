@@ -82,7 +82,7 @@ PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice phy
     queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(context.getDispatcher());
 }
 
-vk::PhysicalDevice PhysicalDevice::getPhysicalDevice() const &
+vk::PhysicalDevice PhysicalDevice::getHandle() const &
 {
     ASSERT(physicalDevice);
     return physicalDevice;
@@ -90,7 +90,7 @@ vk::PhysicalDevice PhysicalDevice::getPhysicalDevice() const &
 
 PhysicalDevice::operator vk::PhysicalDevice() const &
 {
-    return getPhysicalDevice();
+    return getHandle();
 }
 
 std::string PhysicalDevice::getDeviceName() const
@@ -370,7 +370,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
     }
 
     constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
-    auto physicalDevice = getPhysicalDevice();
+    auto physicalDevice = getHandle();
     vk::Format depthFormat = vk::Format::eUndefined;
     auto unmuteMessageGuard = context.getInstance().muteDebugUtilsMessages({0x46835167});  // format () does not fall within the begin..end range of the core VkFormat enumeration tokens and is not an extension added token
     for (vk::Format format : codegen::vulkan::kAllFormats) {

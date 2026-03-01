@@ -48,7 +48,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
         return renderPass;
     }
 
-    [[nodiscard]] vk::Pipeline getPipeline() const &
+    [[nodiscard]] vk::Pipeline getHandle() const &
     {
         ASSERT(pipeline);
         return *pipeline;
@@ -56,7 +56,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
 
     [[nodiscard]] operator vk::Pipeline() const &  // NOLINT: google-explicit-constructor
     {
-        return getPipeline();
+        return getHandle();
     }
 
 private:

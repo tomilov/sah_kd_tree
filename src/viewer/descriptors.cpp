@@ -53,7 +53,7 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
     vk::BufferCreateInfo descriptorBufferCreateInfo;
     descriptorBufferCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress;
-    descriptorBufferCreateInfo.size = context.getDevice().getDevice().getDescriptorSetLayoutSizeEXT(descriptorSetLayout, context.getDispatcher());
+    descriptorBufferCreateInfo.size = context.getDevice().getHandle().getDescriptorSetLayoutSizeEXT(descriptorSetLayout, context.getDispatcher());
     for (const vk::DescriptorSetLayoutBinding & binding : setBindings.bindings) {
         switch (binding.descriptorType) {
         case vk::DescriptorType::eSampler: {
@@ -190,7 +190,7 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
 
     std::vector<vk::WriteDescriptorSet> writeDescriptorSets = engine::getHeads(writeDescriptorSetChains);
     constexpr auto kDescriptorCopies = nullptr;
-    context.getDevice().getDevice().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
+    context.getDevice().getHandle().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }
 
 void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const
@@ -301,9 +301,9 @@ void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer
         };
         std::visit(setDescriptorInfo, descriptorBufferData);
         vk::DeviceSize descriptorSize = context.getPhysicalDevice().getDescriptorSize(descriptorType);
-        vk::DeviceSize bindingOffset = device.getDevice().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding->binding, dispatcher);
+        vk::DeviceSize bindingOffset = device.getHandle().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding->binding, dispatcher);
         ASSERT(bindingOffset + descriptorSize <= descriptorBuffer.base().getSize());
-        device.getDevice().getDescriptorEXT(&descriptorGetInfo, descriptorSize, descriptorSetBufferData + bindingOffset, dispatcher);
+        device.getHandle().getDescriptorEXT(&descriptorGetInfo, descriptorSize, descriptorSetBufferData + bindingOffset, dispatcher);
     }
 }
 

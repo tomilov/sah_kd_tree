@@ -34,7 +34,7 @@ public:
     [[nodiscard]] vk::Extent2D getExtent2D() const;
     [[nodiscard]] vk::Extent3D getExtent3D() const;
 
-    [[nodiscard]] vk::Image getImage() const &;
+    [[nodiscard]] vk::Image getHandle() const &;
     [[nodiscard]] operator vk::Image() const &;  // NOLINT: google-explicit-constructor
 
     [[nodiscard]] vk::PipelineStageFlags2 getStageMask() const;

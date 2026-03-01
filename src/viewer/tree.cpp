@@ -142,7 +142,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
 
-    const vk::Device device = context.getDevice().getDevice();
+    const vk::Device device = context.getDevice().getHandle();
 
     constexpr vk::BufferUsageFlags kBufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
     constexpr vk::ExternalMemoryHandleTypeFlagBits kHandleType = vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd;
@@ -152,7 +152,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
         .usage = kBufferUsage,
         .handleType = kHandleType,
     };
-    vk::ExternalMemoryProperties externalMemoryProperties = physicalDevice.getPhysicalDevice().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
+    vk::ExternalMemoryProperties externalMemoryProperties = physicalDevice.getHandle().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
     vk::ExternalMemoryFeatureFlags externalMemoryFeatures = externalMemoryProperties.externalMemoryFeatures;
     SPDLOG_INFO("External memory properties: externalMemoryFeatures {}, compatibleHandleTypes {}, exportFromImportedHandleTypes {}", externalMemoryFeatures, externalMemoryProperties.compatibleHandleTypes,
                 externalMemoryProperties.exportFromImportedHandleTypes);

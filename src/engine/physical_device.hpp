@@ -134,7 +134,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice);
 
-    [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const &;
+    [[nodiscard]] vk::PhysicalDevice getHandle() const &;
     [[nodiscard]] operator vk::PhysicalDevice() const &;  // NOLINT: google-explicit-constructor
 
     [[nodiscard]] std::string getDeviceName() const;

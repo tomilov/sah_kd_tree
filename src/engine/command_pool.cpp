@@ -20,13 +20,13 @@ CommandPool::CommandPool(std::string_view name, const Context & context, uint32_
     };
     {
         auto muteMessageGuard = context.getInstance().muteDebugUtilsMessages({0x8728e724u});
-        commandPoolHolder = context.getDevice().getDevice().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+        commandPoolHolder = context.getDevice().getHandle().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     }
 
     context.getDevice().setDebugUtilsObjectName(*commandPoolHolder, name);
 }
 
-vk::CommandPool CommandPool::getCommandPool() const &
+vk::CommandPool CommandPool::getHandle() const &
 {
     ASSERT(commandPoolHolder);
     return *commandPoolHolder;
@@ -34,7 +34,7 @@ vk::CommandPool CommandPool::getCommandPool() const &
 
 CommandPool::operator vk::CommandPool() const &
 {
-    return getCommandPool();
+    return getHandle();
 }
 
 }  // namespace engine

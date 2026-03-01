@@ -41,7 +41,7 @@ RenderPass::RenderPass(std::string_view name, const Context & context)
     renderPassCreateInfo.setAttachments(colorAttachmentDescription);
     renderPassCreateInfo.setDependencies(nullptr);
 
-    renderPassHolder = context.getDevice().getDevice().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    renderPassHolder = context.getDevice().getHandle().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
     context.getDevice().setDebugUtilsObjectName(*renderPassHolder, name);
 }

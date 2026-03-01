@@ -84,7 +84,7 @@ struct MemoryAllocator::Impl final : utils::NonCopyable
 {
     const Context & context;
 
-    VmaAllocator allocator = VK_NULL_HANDLE;
+    VmaAllocator handle = VK_NULL_HANDLE;
 
     Impl(const Context & context);  // NOLINT: google-explicit-constructor
     ~Impl();
@@ -99,7 +99,7 @@ MemoryAllocator::~MemoryAllocator() = default;
 vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryProperties() const
 {
     const vk::PhysicalDeviceMemoryProperties::NativeType * p = nullptr;
-    vmaGetMemoryProperties(impl_->allocator, &p);
+    vmaGetMemoryProperties(impl_->handle, &p);
     vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
     physicalDeviceMemoryProperties = *p;
     return physicalDeviceMemoryProperties;
@@ -108,13 +108,13 @@ vk::PhysicalDeviceMemoryProperties MemoryAllocator::getPhysicalDeviceMemoryPrope
 vk::MemoryPropertyFlags MemoryAllocator::getMemoryTypeProperties(uint32_t memoryTypeIndex) const
 {
     vk::MemoryPropertyFlags::MaskType memoryPropertyFlags = {};
-    vmaGetMemoryTypeProperties(impl_->allocator, memoryTypeIndex, &memoryPropertyFlags);
+    vmaGetMemoryTypeProperties(impl_->handle, memoryTypeIndex, &memoryPropertyFlags);
     return vk::MemoryPropertyFlags{memoryPropertyFlags};
 }
 
 void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
 {
-    vmaSetCurrentFrameIndex(impl_->allocator, frameIndex);
+    vmaSetCurrentFrameIndex(impl_->handle, frameIndex);
 }
 
 auto MemoryAllocator::createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority) const & -> Buffer<void>
@@ -175,9 +175,9 @@ MemoryAllocator::Impl::Impl(const Context & context)
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.instance = utils::safeCast<vk::Instance::NativeType>(context.getInstance().getInstance());
-    allocatorInfo.physicalDevice = utils::safeCast<vk::PhysicalDevice::NativeType>(physicalDevice.getPhysicalDevice());
-    allocatorInfo.device = utils::safeCast<vk::Device::NativeType>(context.getDevice().getDevice());
+    allocatorInfo.instance = utils::safeCast<vk::Instance::NativeType>(context.getInstance().getHandle());
+    allocatorInfo.physicalDevice = utils::safeCast<vk::PhysicalDevice::NativeType>(physicalDevice.getHandle());
+    allocatorInfo.device = utils::safeCast<vk::Device::NativeType>(context.getDevice().getHandle());
     allocatorInfo.vulkanApiVersion = physicalDevice.apiVersion;
 
     if (context.getAllocationCallbacks()) {
@@ -243,18 +243,19 @@ MemoryAllocator::Impl::Impl(const Context & context)
     };
 #undef FUNCTION_KHR
 #undef FUNCTION
+    static_assert(sizeof(VmaAllocatorCreateInfo) == 88, "Do update if something changed");
 
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 
     {
-        vk::Result result = utils::autoCast(vmaCreateAllocator(&allocatorInfo, &allocator));
+        vk::Result result = utils::autoCast(vmaCreateAllocator(&allocatorInfo, &handle));
         INVARIANT(result == vk::Result::eSuccess, "Cannot create allocator: {}", result);
     }
 }
 
 MemoryAllocator::Impl::~Impl()
 {
-    vmaDestroyAllocator(allocator);
+    vmaDestroyAllocator(handle);
 }
 
 struct MappedMemory<void>::Impl final : utils::OneTime<Impl>
@@ -395,10 +396,10 @@ vk::DeviceAddress Buffer<void>::getDeviceAddress() const &
     auto bufferUsage = getBufferCreateInfo().usage;
     INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain {}", bufferUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress);
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo = {
-        .buffer = getBuffer(),
+        .buffer = getHandle(),
     };
     const auto & context = impl_->memoryAllocator.impl_->context;
-    return context.getDevice().getDevice().getBufferAddress(bufferDeviceAddressInfo, context.getDispatcher());
+    return context.getDevice().getHandle().getBufferAddress(bufferDeviceAddressInfo, context.getDispatcher());
 }
 
 vk::DescriptorBufferInfo Buffer<void>::getDescriptorBufferInfo() const &
@@ -427,7 +428,7 @@ vk::DescriptorAddressInfoEXT Buffer<void>::getDescriptorAddressInfo() const &
     };
 }
 
-vk::Buffer Buffer<void>::getBuffer() const &
+vk::Buffer Buffer<void>::getHandle() const &
 {
     ASSERT(impl_->resource);
     return impl_->resource->buffer;
@@ -435,7 +436,7 @@ vk::Buffer Buffer<void>::getBuffer() const &
 
 Buffer<void>::operator vk::Buffer() const &
 {
-    return getBuffer();
+    return getHandle();
 }
 
 MappedMemory<void> Buffer<void>::map() const &
@@ -473,7 +474,7 @@ void Buffer<void>::copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize 
 {
     ASSERT(p);
     ASSERT(dstAllocationOffset + size < getSize());
-    vk::Result result = utils::autoCast(vmaCopyMemoryToAllocation(impl_->memoryAllocator.impl_->allocator, p, impl_->resource->allocation, dstAllocationOffset, size));
+    vk::Result result = utils::autoCast(vmaCopyMemoryToAllocation(impl_->memoryAllocator.impl_->handle, p, impl_->resource->allocation, dstAllocationOffset, size));
     INVARIANT(result == vk::Result::eSuccess, "Cannot copy memory to allocation: {}", result);
 }
 
@@ -481,7 +482,7 @@ void Buffer<void>::copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::Devi
 {
     ASSERT(p);
     ASSERT(srcAllocationOffset + size < getSize());
-    vk::Result result = utils::autoCast(vmaCopyAllocationToMemory(impl_->memoryAllocator.impl_->allocator, impl_->resource->allocation, srcAllocationOffset, p, size));
+    vk::Result result = utils::autoCast(vmaCopyAllocationToMemory(impl_->memoryAllocator.impl_->handle, impl_->resource->allocation, srcAllocationOffset, p, size));
     INVARIANT(result == vk::Result::eSuccess, "Cannot copy allocation to memory: {}", result);
 }
 
@@ -506,7 +507,7 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * buffer, vk::DeviceSize offse
         INVARIANT(size + offset < buffer->getSize(), "{} + {} ^ {}", size, offset, buffer->getSize());
     }
 
-    auto allocator = buffer->impl_->memoryAllocator.impl_->allocator;
+    auto allocator = buffer->impl_->memoryAllocator.impl_->handle;
     auto allocation = buffer->impl_->resource->allocation;
     vk::MemoryPropertyFlags memoryPropertyFlags = buffer->getMemoryPropertyFlags();
     INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
@@ -532,7 +533,7 @@ MappedMemory<void>::Impl::~Impl()
     if (!buffer) {
         return;
     }
-    auto allocator = buffer->impl_->memoryAllocator.impl_->allocator;
+    auto allocator = buffer->impl_->memoryAllocator.impl_->handle;
     auto allocation = buffer->impl_->resource->allocation;
     if (mappedData) {
         vmaUnmapMemory(allocator, allocation);
@@ -560,7 +561,7 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
 
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
-    auto allocator = memoryAllocator.impl_->allocator;
+    auto allocator = memoryAllocator.impl_->handle;
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -570,7 +571,7 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
-        context.getDevice().getDevice().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
+        context.getDevice().getHandle().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
     }
 
     context.getDevice().setDebugUtilsObjectName(vk::Buffer{buffer}, resource->name.c_str());
@@ -702,7 +703,7 @@ vk::Extent3D Image::getExtent3D() const
     return getImageCreateInfo().extent;
 }
 
-vk::Image Image::getImage() const &
+vk::Image Image::getHandle() const &
 {
     ASSERT(impl_->resource);
     return impl_->resource->image;
@@ -710,7 +711,7 @@ vk::Image Image::getImage() const &
 
 Image::operator vk::Image() const &
 {
-    return getImage();
+    return getHandle();
 }
 
 vk::PipelineStageFlags2 Image::getStageMask() const
@@ -852,7 +853,7 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
         },
     };
     const auto & context = impl_->memoryAllocator.impl_->context;
-    return context.getDevice().getDevice().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    return context.getDevice().getHandle().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 }
 
 Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority)
@@ -876,7 +877,7 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
 
     auto allocationCreateInfo = makeAllocationCreateInfo(allocationType);
 
-    auto allocator = memoryAllocator.impl_->allocator;
+    auto allocator = memoryAllocator.impl_->handle;
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -886,7 +887,7 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
-        context.getDevice().getDevice().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
+        context.getDevice().getHandle().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
     }
 
     context.getDevice().setDebugUtilsObjectName(vk::Image{image}, resource->name.c_str());

@@ -61,7 +61,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     [[nodiscard]] std::vector<vk::PhysicalDevice> getPhysicalDevices() const &;
 
-    [[nodiscard]] vk::Instance getInstance() const &;
+    [[nodiscard]] vk::Instance getHandle() const &;
     [[nodiscard]] operator vk::Instance() const &;  // NOLINT: google-explicit-constructor
 
     template<typename Object>

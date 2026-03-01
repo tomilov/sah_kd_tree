@@ -35,7 +35,7 @@ ComputePipeline::ComputePipeline(std::string_view name, const Context & context,
 
 void ComputePipeline::create()
 {
-    auto result = context.getDevice().getDevice().createComputePipelineUnique(pipelineCache, computePipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    auto result = context.getDevice().getHandle().createComputePipelineUnique(pipelineCache, computePipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create compute pipeline {}", name);
     pipeline = std::move(result.value);
     context.getDevice().setDebugUtilsObjectName(*pipeline, name);

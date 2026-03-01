@@ -24,7 +24,7 @@ void PipelineLayout::init()
     pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);
     pipelineLayoutCreateInfo.setPushConstantRanges(shaderStages.pushConstantRanges);
 
-    pipelineLayout = context.getDevice().getDevice().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    pipelineLayout = context.getDevice().getHandle().createPipelineLayoutUnique(pipelineLayoutCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     context.getDevice().setDebugUtilsObjectName(*pipelineLayout, name);
 }
 

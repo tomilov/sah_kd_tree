@@ -23,7 +23,7 @@ struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
         return shaderStages;
     }
 
-    [[nodiscard]] vk::PipelineLayout getPipelineLayout() const &
+    [[nodiscard]] vk::PipelineLayout getHandle() const &
     {
         ASSERT(pipelineLayout);
         return *pipelineLayout;
@@ -31,7 +31,7 @@ struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
 
     [[nodiscard]] operator vk::PipelineLayout() const &  // NOLINT: google-explicit-constructor
     {
-        return getPipelineLayout();
+        return getHandle();
     }
 
 private:

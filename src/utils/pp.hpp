@@ -3,6 +3,8 @@
 #define STRINGIZE2(x) #x
 #define STRINGIZE(x) STRINGIZE2(x)
 
+#define SOURCE_LOCATION __FILE__ "(" STRINGIZE(__LINE__) ")"
+
 // FOR_EACH from https://www.scs.stanford.edu/~dm/blog/va-opt.html
 #define PARENS ()
 #define EXPAND(...) EXPAND4(EXPAND4(EXPAND4(EXPAND4(__VA_ARGS__))))

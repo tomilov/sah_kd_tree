@@ -129,7 +129,7 @@ GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & contex
 
 void GraphicsPipeline::create()
 {
-    auto result = context.getDevice().getDevice().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    auto result = context.getDevice().getHandle().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value);
     context.getDevice().setDebugUtilsObjectName(*pipeline, name);

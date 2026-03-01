@@ -18,7 +18,7 @@ CommandBuffers::CommandBuffers(std::string_view name, const Context & context, c
 {
     const auto & device = context.getDevice();
 
-    commandBuffersHolder = device.getDevice().allocateCommandBuffersUnique(commandBufferAllocateInfo, context.getDispatcher());
+    commandBuffersHolder = device.getHandle().allocateCommandBuffersUnique(commandBufferAllocateInfo, context.getDispatcher());
     commandBuffers.reserve(std::size(commandBuffersHolder));
 
     size_t i = 0;

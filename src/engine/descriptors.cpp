@@ -43,7 +43,7 @@ void DescriptorSet::init()
     descriptorPoolCreateInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
     descriptorPoolCreateInfo.setMaxSets(1);
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSizes);
-    descriptorPool = device.getDevice().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
+    descriptorPool = device.getHandle().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     device.setDebugUtilsObjectName(*descriptorPool, name);
 
     const auto & setBindings = shaderStages->setBindings.at(set);
@@ -52,7 +52,7 @@ void DescriptorSet::init()
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;
     descriptorSetAllocateInfo.descriptorPool = *descriptorPool;
     descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayout);
-    auto descriptorSets = device.getDevice().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, context.getLibrary().getDispatcher());
+    auto descriptorSets = device.getHandle().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, context.getLibrary().getDispatcher());
     descriptorSet = std::move(descriptorSets.at(0));
     auto descriptorSetName = fmt::format("{} set #{}", name, set);
     device.setDebugUtilsObjectName(*descriptorSet, descriptorSetName);

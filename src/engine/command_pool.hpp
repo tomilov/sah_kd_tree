@@ -20,7 +20,7 @@ struct ENGINE_EXPORT CommandPool final
     CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex);
     CommandPool(CommandPool &&) noexcept = default;
 
-    [[nodiscard]] vk::CommandPool getCommandPool() const &;
+    [[nodiscard]] vk::CommandPool getHandle() const &;
     [[nodiscard]] operator vk::CommandPool() const &;  // NOLINT: google-explicit-constructor
 
 private:

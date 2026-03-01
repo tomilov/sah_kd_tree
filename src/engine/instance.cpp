@@ -372,7 +372,7 @@ std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const &
     return instanceHolder->enumeratePhysicalDevices(library.getDispatcher());
 }
 
-vk::Instance Instance::getInstance() const &
+vk::Instance Instance::getHandle() const &
 {
     ASSERT(instanceHolder);
     return *instanceHolder;
@@ -380,7 +380,7 @@ vk::Instance Instance::getInstance() const &
 
 Instance::operator vk::Instance() const &
 {
-    return getInstance();
+    return getHandle();
 }
 
 vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const

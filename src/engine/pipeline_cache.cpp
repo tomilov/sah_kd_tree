@@ -68,7 +68,7 @@ PipelineCache::PipelineCache(std::string_view name, const Context & context, con
 
     pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
     try {
-        pipelineCacheHolder = device.getDevice().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
+        pipelineCacheHolder = device.getHandle().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
         SPDLOG_DEBUG("Pipeline cache '{}' successfully loaded", name);
     } catch (const vk::SystemError & exception) {
         if (std::empty(cacheData)) {
@@ -83,7 +83,7 @@ PipelineCache::PipelineCache(std::string_view name, const Context & context, con
         cacheData.clear();
         pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
         try {
-            pipelineCacheHolder = device.getDevice().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
+            pipelineCacheHolder = device.getHandle().createPipelineCacheUnique(pipelineCacheCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
             SPDLOG_INFO("Empty pipeline cache '{}' successfully created", name);
         } catch (const vk::SystemError & exception) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
@@ -107,7 +107,7 @@ bool PipelineCache::flush()
     ASSERT(pipelineCacheHolder);
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();
-    auto data = device.getDevice().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
+    auto data = device.getHandle().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
     if (!fileIo.savePipelineCache(data, name.c_str())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
@@ -116,7 +116,7 @@ bool PipelineCache::flush()
     return true;
 }
 
-vk::PipelineCache PipelineCache::getPipelineCache() const &
+vk::PipelineCache PipelineCache::getHandle() const &
 {
     ASSERT(pipelineCacheHolder);
     return *pipelineCacheHolder;
@@ -124,7 +124,7 @@ vk::PipelineCache PipelineCache::getPipelineCache() const &
 
 PipelineCache::operator vk::PipelineCache() const &
 {
-    return getPipelineCache();
+    return getHandle();
 }
 
 }  // namespace engine

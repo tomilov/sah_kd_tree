@@ -17,7 +17,7 @@ Queue::Queue(std::string_view name, const Context & context, const QueueCreateIn
     , context{context}
     , queueCreateInfo{queueCreateInfo}
     , commandPool{name, context, queueCreateInfo.familyIndex}
-    , queue{context.getDevice().getDevice().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
+    , queue{context.getDevice().getHandle().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
 {
     context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);
 }

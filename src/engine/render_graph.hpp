@@ -6,28 +6,30 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <memory>
 #include <string_view>
 #include <vector>
-#include <memory>
+
+#include <cstdint>
 
 #include <engine/engine_export.h>
+
+namespace engine::rhi
+{
+
+struct Buffer
+{
+};
+
+}  // namespace engine::rhi
 
 namespace engine::render_graph
 {
 
-struct CommandListImmediate
+struct CommandList : utils::NonCopyable
 {
-
-};
-
-struct CommandList
-{
-
-};
-
-struct ComputeCommandList
-{
-
+    void LockBuffer(rhi::Buffer * buffer, vk::DeviceSize offset, vk::DeviceSize size);
+    void UnlockBuffer(rhi::Buffer * buffer);
 };
 
 enum class BuilderFlags
@@ -35,29 +37,26 @@ enum class BuilderFlags
     None,
 };
 
-enum class PassFlags
+enum class PassFlags : uint32_t
 {
-    None,
-    Copy,
-    Compute,
-    AsyncCompute,
-    Graphics,
-    NeverCull,
+    None = 0,
+    Copy = 1 << 0,
+    Compute = 1 << 1,
+    AsyncCompute = 1 << 2,
+    Graphics = 1 << 3,
+    NeverCull = 1 << 4,
 };
 
 struct Pass
 {
-
 };
 
 using PassRef = std::unique_ptr<Pass>;
 
 struct ENGINE_EXPORT Builder final : utils::NonCopyable
 {
-
     struct ResourceRef
     {
-
     };
 
     struct ParameterStruct
@@ -66,14 +65,10 @@ struct ENGINE_EXPORT Builder final : utils::NonCopyable
         std::vector<ResourceRef> renderTargets;
     };
 
-    Builder(std::string_view name, const Context & context, CommandListImmediate & commandList, BuilderFlags flags = BuilderFlags::None);
+    Builder(std::string_view name, const Context & context, CommandList & commandList, BuilderFlags flags = BuilderFlags::None);
 
     template<typename ParameterStruct, typename F>
-    PassRef AddPass(std::string_view passName, const ParameterStruct* parameterStruct, PassFlags flags, F && f);
-
-    void AddPassDependency(Pass * producer, Pass * consumer);
-
-    void AddDispatchHint();
+    PassRef AddPass(std::string_view passName, const ParameterStruct * parameterStruct, PassFlags flags, F && f);
 
 private:
     std::string name;

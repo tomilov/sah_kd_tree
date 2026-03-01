@@ -27,7 +27,7 @@ struct ENGINE_EXPORT PipelineCache final : utils::OneTime<PipelineCache>
 
     [[nodiscard]] bool flush();
 
-    [[nodiscard]] vk::PipelineCache getPipelineCache() const &;
+    [[nodiscard]] vk::PipelineCache getHandle() const &;
     [[nodiscard]] operator vk::PipelineCache() const &;  // NOLINT: google-explicit-constructor
 
 private:

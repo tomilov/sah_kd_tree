@@ -22,7 +22,7 @@ Fences::Fences(std::string_view name, const Context & context, size_t count, vk:
     auto & fenceCreateInfo = fenceCreateInfoChain.get<vk::FenceCreateInfo>();
     fenceCreateInfo.flags = fenceCreateFlags;
     for (size_t i = 0; i < count; ++i) {
-        fencesHolder.push_back(device.getDevice().createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+        fencesHolder.push_back(device.getHandle().createFenceUnique(fenceCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
         auto fence = *fencesHolder.back();
         fences.push_back(fence);
 
@@ -37,22 +37,22 @@ Fences::Fences(std::string_view name, const Context & context, size_t count, vk:
 
 vk::Result Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
 {
-    return context.getDevice().getDevice().waitForFences(fences, waitAll ? vk::True : vk::False, duration.count(), context.getDispatcher());
+    return context.getDevice().getHandle().waitForFences(fences, waitAll ? vk::True : vk::False, duration.count(), context.getDispatcher());
 }
 
 vk::Result Fences::wait(size_t fenceIndex, std::chrono::nanoseconds duration)
 {
-    return context.getDevice().getDevice().waitForFences(fences.at(fenceIndex), vk::True, duration.count(), context.getDispatcher());
+    return context.getDevice().getHandle().waitForFences(fences.at(fenceIndex), vk::True, duration.count(), context.getDispatcher());
 }
 
 void Fences::resetAll()
 {
-    context.getDevice().getDevice().resetFences(fences, context.getDispatcher());
+    context.getDevice().getHandle().resetFences(fences, context.getDispatcher());
 }
 
 void Fences::reset(size_t fenceIndex)
 {
-    context.getDevice().getDevice().resetFences(fences.at(fenceIndex), context.getDispatcher());
+    context.getDevice().getHandle().resetFences(fences.at(fenceIndex), context.getDispatcher());
 }
 
 }  // namespace engine

@@ -57,7 +57,7 @@ struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
         return spirv;
     }
 
-    [[nodiscard]] vk::ShaderModule getShaderModule() const &;
+    [[nodiscard]] vk::ShaderModule getHandle() const &;
     [[nodiscard]] operator vk::ShaderModule() const &;  // NOLINT: google-explicit-constructor
 
 private:

@@ -29,7 +29,7 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
         return descriptorBufferEnabled;
     }
 
-    [[nodiscard]] vk::Pipeline getPipeline() const &
+    [[nodiscard]] vk::Pipeline getHandle() const &
     {
         ASSERT(pipeline);
         return *pipeline;
@@ -37,7 +37,7 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 
     [[nodiscard]] operator vk::Pipeline() const &  // NOLINT: google-explicit-constructor
     {
-        return getPipeline();
+        return getHandle();
     }
 
 private:

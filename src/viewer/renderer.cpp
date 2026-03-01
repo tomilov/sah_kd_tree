@@ -159,7 +159,7 @@ using Fence = std::shared_ptr<vk::UniqueFence>;
 
 [[nodiscard]] inline Fence makeFence(const engine::Context & context, vk::FenceCreateFlags flags = {})
 {
-    auto device = context.getDevice().getDevice();
+    auto device = context.getDevice().getHandle();
     vk::FenceCreateInfo fenceCreateInfo = {
         .flags = flags,
     };
@@ -170,14 +170,14 @@ inline void resetFence(const engine::Context & context, const Fence & fence)
 {
     ASSERT(fence);
     ASSERT(*fence);
-    context.getDevice().getDevice().resetFences(**fence, context.getDispatcher());
+    context.getDevice().getHandle().resetFences(**fence, context.getDispatcher());
 }
 
 inline void waitFence(const engine::Context & context, const Fence & fence)
 {
     ASSERT(fence);
     ASSERT(*fence);
-    auto result = context.getDevice().getDevice().waitForFences(**fence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+    auto result = context.getDevice().getHandle().waitForFences(**fence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
     INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
 }
 
@@ -543,7 +543,7 @@ public:
         if (waitIdle) {
             if (completionFence) {
                 ASSERT(*completionFence);
-                auto result = context.getDevice().getDevice().waitForFences(**completionFence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
+                auto result = context.getDevice().getHandle().waitForFences(**completionFence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
                 INVARIANT(result == vk::Result::eSuccess, "{}: {}", name, result);
             } else {
                 queue.waitIdle();
@@ -871,7 +871,7 @@ std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
         .borderColor = vk::BorderColor::eFloatTransparentBlack,
         .unnormalizedCoordinates = vk::False,
     };
-    return std::make_shared<vk::UniqueSampler>(context.getDevice().getDevice().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
+    return std::make_shared<vk::UniqueSampler>(context.getDevice().getHandle().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
 }
 
 void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)

@@ -145,7 +145,7 @@ public:
     [[nodiscard]] vk::DescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo() const &;
     [[nodiscard]] vk::DescriptorAddressInfoEXT getDescriptorAddressInfo() const &;
 
-    [[nodiscard]] vk::Buffer getBuffer() const &;
+    [[nodiscard]] vk::Buffer getHandle() const &;
     [[nodiscard]] operator vk::Buffer() const &;  // NOLINT: google-explicit-constructor
 
     [[nodiscard]] MappedMemory<void> map() const &;
@@ -217,7 +217,7 @@ public:
         ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
         vk::DeviceSize elementSize = getElementSize();
         return {
-            .buffer = getBuffer(),
+            .buffer = getHandle(),
             .offset = elementSize * index,
             .range = elementSize,
         };
@@ -240,14 +240,14 @@ public:
         };
     }
 
-    [[nodiscard]] vk::Buffer getBuffer() const &
+    [[nodiscard]] vk::Buffer getHandle() const &
     {
-        return buffer.getBuffer();
+        return buffer.getHandle();
     }
 
     [[nodiscard]] operator vk::Buffer() const &  // NOLINT: google-explicit-constructor
     {
-        return getBuffer();
+        return getHandle();
     }
 
     [[nodiscard]] MappedMemory<T> map() const &
