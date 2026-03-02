@@ -84,13 +84,13 @@ struct Ray
 struct Hit
 {
     uint triangle;
-    vec2 uv;
+    vec3 uvw;
     vec3 normal;
     float t;
 };
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec2 uv, out vec3 normal, out float t)
+bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
 {
     const vec3 ca = triangle.a - triangle.c;
     const vec3 bc = triangle.c - triangle.b;
@@ -102,9 +102,10 @@ bool rayTriangleIntersectMoeller(const in Ray ray, const in Triangle triangle, o
         return false;
     }
     const vec3 q = cross(c, ray.dir);
-    uv.x = dot(q, bc) * invPlaneDist;
-    uv.y = dot(q, ca) * invPlaneDist;
-    return all(lessThanEqual(vec3(-kEps), vec3(uv, 1.0f - uv.x - uv.y)));
+    uvw.x = dot(q, bc) * invPlaneDist;
+    uvw.y = dot(q, ca) * invPlaneDist;
+    uvw.z = 1.0f - (uvw.x + uvw.y);
+    return all(lessThanEqual(vec3(-kEps), uvw));
 }
 
 vec3 stableTriangleNormal(const in vec3 a, const in vec3 b, const in vec3 c)
@@ -116,7 +117,7 @@ vec3 stableTriangleNormal(const in vec3 a, const in vec3 b, const in vec3 c)
     return mix(BC, AB, lessThan(abs(ab), abs(bc)));
 }
 
-bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, out vec2 uv, out vec3 normal, out float t)
+bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, out vec3 uvw, out vec3 normal, out float t)
 {
     const vec3 a = triangle.a - ray.pos;
     const vec3 b = triangle.b - ray.pos;
@@ -126,13 +127,13 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     const vec3 y = a - c;
     const vec3 z = b - a;
 
-    uv.x = dot(cross(x, b + c), ray.dir);
-    uv.y = dot(cross(y, c + a), ray.dir);
-    const float w = dot(cross(z, a + b), ray.dir);
+    uvw.x = dot(cross(x, b + c), ray.dir);
+    uvw.y = dot(cross(y, c + a), ray.dir);
+    uvw.z = dot(cross(z, a + b), ray.dir);
 
-    const float sum = uv.x + uv.y + w;
+    const float sum = uvw.x + uvw.y + uvw.z;
     const float eps = kUlp * abs(sum);
-    if (any(lessThan(vec3(uv, w), vec3(-eps))) && any(lessThan(vec3(eps), vec3(uv, w)))) {
+    if (any(lessThan(uvw, vec3(-eps))) && any(lessThan(vec3(eps), uvw))) {
         return false;
     }
     normal = stableTriangleNormal(x, y, z);
@@ -140,7 +141,7 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     if (t <= 0.0f) {
         return false;
     }
-    uv = min(uv / sum, 1.0f);
+    uvw = min(uvw / sum, 1.0f);
     return true;
 }
 
@@ -180,12 +181,12 @@ void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
         const uint polygonEnd = polygonStart + node.rightChild;
         for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
             const uint triangle = polygons.triangle[polygon];
-            vec2 uv;
+            vec3 uvw;
             vec3 normal;
-            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uv, normal, tMin)) {
+            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uvw, normal, tMin)) {
                 if (tMin < hit.t) {
                     hit.triangle = triangle;
-                    hit.uv = uv;
+                    hit.uvw = uvw;
                     hit.normal = normal;
                     hit.t = tMin;
                 }
@@ -236,7 +237,7 @@ vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
     return p;
 }
 
-void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec2 uv, out vec2 ddu, out vec2 ddv)
+void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec3 uvw, out vec2 ddu, out vec2 ddv, out vec2 ddw)
 {
     const mat3 viewMatrixX4 = getViewMatrixX4();
     const vec3 a = projectToClip(triangle.a, viewMatrixX4);
@@ -245,28 +246,28 @@ void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const i
     const float invArea = 1.0f / ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
     ddu = vec2(b.y - c.y, c.x - b.x) * (invArea * a.z);
     ddv = vec2(c.y - a.y, a.x - c.x) * (invArea * b.z);
-    const vec2 ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
+    ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
     const vec2 sum = ddu + ddv + ddw;
     const float pw = 4.0f * dot(p, viewMatrixX4[2]);
-    ddu = pw * (ddu - uv.x * sum);
-    ddv = pw * (ddv - uv.y * sum);
+    ddu = pw * (ddu - uvw.x * sum);
+    ddv = pw * (ddv - uvw.y * sum);
+    ddw = pw * (ddw - uvw.z * sum);
 }
 
-void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewportSize, out vec2 ddx, out vec2 ddy)
+void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewportSize, out vec3 ddx, out vec3 ddy)
 {
     // there is no sense in branching for calculation of all combinations
     // of these two conditions separately, because all these would be executed together in the same subgroup eventually
     if ((hit.triangle == subgroupQuadSwapHorizontal(hit.triangle)) && (hit.triangle == subgroupQuadSwapVertical(hit.triangle))) {
-        ddx = dFdx(hit.uv);
-        ddy = dFdy(hit.uv);
+        ddx = dFdx(hit.uvw);
+        ddy = dFdy(hit.uvw);
     } else {  // there are no counterparts in quad to correctly calculate perspective correct derivatives as differences using dFdx/dFdy
         vec2 ddu;
         vec2 ddv;
-        getAnalyticalBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uv, ddu, ddv);
-        ddu *= invViewportSize.yx;
-        ddv *= invViewportSize.yx;
-        ddx = vec2(ddu.x, ddv.x);
-        ddy = vec2(ddu.y, ddv.y);
+        vec2 ddw;
+        getAnalyticalBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uvw, ddu, ddv, ddw);
+        ddx = vec3(ddu.x, ddv.x, ddw.x) * invViewportSize.y;
+        ddy = vec3(ddu.y, ddv.y, ddw.y) * invViewportSize.x;
     }
 }
 
@@ -312,16 +313,13 @@ void main() [[maximally_reconverges]]
     traceRay(nodeIndex, ray, hit, tNear);
     vec4 color;
     if (hit.triangle != ~0u) {
-        const vec3 uvw = vec3(hit.uv, 1.0f - (hit.uv.x + hit.uv.y));
         if (0.0f < wireframeThickness) {
             vec3 ddx;
             vec3 ddy;
-            getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx.xy, ddy.xy);
-            ddx.z = -(ddx.x + ddx.y);
-            ddy.z = -(ddy.x + ddy.y);
-            color.rgb = getWireframeIntensity(uvw, ddx, ddy, wireframeThickness).sss;
+            getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx, ddy);
+            color.rgb = getWireframeIntensity(hit.uvw, ddx, ddy, wireframeThickness).sss;
         } else {
-            color.rgb = uvw;
+            color.rgb = hit.uvw;
         }
         color.a = 1.0f;
     } else {
