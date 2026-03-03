@@ -321,7 +321,7 @@ void main() [[maximally_reconverges]]
         } else {
             color.rgb = hit.uvw;
         }
-        color.a = 1.0f;
+        color.a = clearColor.a;
     } else {
         color = clearColor;
     }

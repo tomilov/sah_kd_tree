@@ -8,7 +8,6 @@
 #include <array>
 #include <bitset>
 #include <charconv>
-#include <cstdio>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -25,6 +24,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 

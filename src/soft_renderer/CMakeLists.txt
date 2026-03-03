@@ -1,5 +1,6 @@
 project("soft_renderer")
 
+find_package(OpenMP REQUIRED)
 skt_add_common_library(
     "${PROJECT_NAME}"
     SOURCES
@@ -19,8 +20,10 @@ skt_add_common_library(
         "libbuilder"
         "libscene_data"
         "libscene_loader"
-        CUDA::cuda_driver)
+        CUDA::cuda_driver
+        OpenMP::OpenMP_CXX)
 
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 skt_add_common_executable(
     "${PROJECT_NAME}"
     PRIVATE_LINKS
@@ -31,6 +34,7 @@ skt_add_common_executable(
         "libcompute"
         "libutils"
         "gli"
-        Qt::Core)
+        Qt::Core
+        SDL3::SDL3)
 
 add_subdirectory("tests")

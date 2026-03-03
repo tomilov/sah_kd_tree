@@ -76,6 +76,8 @@ IncludeCategories:
     Priority: 5
   - Regex: ^<gl[mi]/
     Priority: 5
+  - Regex: ^<SDL3/
+    Priority: 5
   - Regex: ^<fmt/
     Priority: 5
   - Regex: ^<spdlog/
@@ -95,7 +97,7 @@ IncludeCategories:
     Priority: 11
   - Regex: \.h>$
     Priority: 10
-  - Regex: ^<c(assert|stdlib|stdint|string|math|stddef)>$
+  - Regex: ^<c(assert|string|math|std(lib|int|def|io))>$
     Priority: 9
   - Regex: ^<[[:alnum:]_]+>$
     Priority: 7

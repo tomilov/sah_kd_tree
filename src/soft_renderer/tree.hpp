@@ -25,7 +25,7 @@ struct Ray
 struct Hit
 {
     glm::uint triangle;
-    glm::vec2 uv;
+    glm::vec3 uvw;
     glm::vec3 normal;
     glm::float32 t;
 };

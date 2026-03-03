@@ -44,7 +44,6 @@
 #include <QtCore/QtTypes>
 
 #include <algorithm>
-#include <cstdio>
 #include <iterator>
 #include <limits>
 #include <span>
@@ -56,6 +55,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 #include <unistd.h>
 
