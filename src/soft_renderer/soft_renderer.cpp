@@ -4,6 +4,7 @@
 #include <soft_renderer/tree.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/mem_array.hpp>
 
 #include <gli/type.hpp>
 #include <glm/common.hpp>
@@ -115,10 +116,10 @@ struct SoftRenderer::Impl
     const std::string name;
     const glm::vec4 clearColor;
 
-    std::vector<scene_data::Triangle> triangles;
-    std::vector<glm::uint> polygons;
-    std::vector<Node> nodes;
-    std::vector<glm::uint> nodeParents;
+    utils::MemArray<scene_data::Triangle> triangles;
+    utils::MemArray<glm::uint> polygons;
+    utils::MemArray<Node> nodes;
+    utils::MemArray<glm::uint> nodeParents;
 
     Impl(std::string_view name, const glm::vec4 & clearColor)
         : name{name}
@@ -148,7 +149,7 @@ struct SoftRenderer::Impl
             glm::float32 tMin;
             if (rayTriangleIntersect(ray, triangle, uvw, normal, tMin)) {
                 if (tMin < hit.t) {
-                    hit.triangle = utils::autoCast(std::distance(std::data(triangles), &triangle));
+                    hit.triangle = utils::autoCast(std::distance(triangles.begin(), &triangle));
                     hit.uvw = uvw;
                     hit.normal = normal;
                     hit.t = tMin;

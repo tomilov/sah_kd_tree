@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <stdexcept>
 
 #include <cstddef>
 
@@ -46,6 +47,32 @@ public:
     [[nodiscard]] const T * end() const &
     {
         return p.get() + size;
+    }
+
+    [[nodiscard]] T & operator[](size_t i) &
+    {
+        return begin()[i];
+    }
+
+    [[nodiscard]] const T & operator[](size_t i) const &
+    {
+        return begin()[i];
+    }
+
+    [[nodiscard]] T & at(size_t i) &
+    {
+        if (i >= size) {
+            throw std::out_of_range("MemArray");
+        }
+        return operator[](i);
+    }
+
+    [[nodiscard]] const T & at(size_t i) const &
+    {
+        if (i >= size) {
+            throw std::out_of_range("MemArray");
+        }
+        return operator[](i);
     }
 
 private:

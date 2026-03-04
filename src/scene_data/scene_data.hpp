@@ -22,6 +22,7 @@ namespace scene_data
 
 using Position = glm::vec3;
 static_assert(std::is_standard_layout_v<Position>);
+static_assert(std::is_trivially_copyable_v<Position>);
 
 #pragma pack(push, 1)
 
@@ -30,12 +31,14 @@ struct Triangle
     Position a, b, c;
 };
 static_assert(std::is_standard_layout_v<Triangle>);
+static_assert(std::is_trivially_copyable_v<Triangle>);
 
 struct VertexAttributes
 {
     Position position;
 };
 static_assert(std::is_standard_layout_v<VertexAttributes>);
+static_assert(std::is_trivially_copyable_v<VertexAttributes>);
 
 struct AABB
 {
@@ -43,6 +46,7 @@ struct AABB
     glm::vec3 max{std::numeric_limits<float>::lowest()};
 };
 static_assert(std::is_standard_layout_v<AABB>);
+static_assert(std::is_trivially_copyable_v<AABB>);
 
 #pragma pack(pop)
 

@@ -710,8 +710,7 @@ size_t ShaderStages::findSetByBindingName(const DescriptorBindingNameAndType & n
             return set;
         }
     }
-    const auto & [name, type] = nameAndType;
-    INVARIANT(false, "{} {}", name, type);
+    INVARIANT(false, "{}", nameAndType);
 }
 
 }  // namespace engine

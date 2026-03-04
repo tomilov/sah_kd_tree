@@ -29,8 +29,8 @@ find_program(spirv-val NAMES spirv-val)
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
 function(skt_target_shaders target)
-    cmake_parse_arguments(PARSE_ARGV 1 target_shaders "" "OUTPUT_VARIABLE" "SHADERS")
-    foreach(shader_file IN LISTS target_shaders_SHADERS)
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "OUTPUT_VARIABLE" "SHADERS")
+    foreach(shader_file IN LISTS ARG_SHADERS)
         target_sources(
             "${target}"
             PRIVATE
@@ -68,8 +68,8 @@ function(skt_target_shaders target)
             COMMAND
                 Vulkan::glslangValidator
                 ARGS
+                    -g
                     -gVS
-                    $<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>,-g,-g0>
                     --target-env vulkan1.4
                     --spirv-val
                     "${shader_file}"
@@ -93,11 +93,11 @@ function(skt_target_shaders target)
             "${target}"
             PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}")
-        if(DEFINED target_shaders_OUTPUT_VARIABLE)
-            list(APPEND "${target_shaders_OUTPUT_VARIABLE}" "${output_file}")
+        if(DEFINED ARG_OUTPUT_VARIABLE)
+            list(APPEND "${ARG_OUTPUT_VARIABLE}" "${output_file}")
         endif()
     endforeach()
-    if(DEFINED target_shaders_OUTPUT_VARIABLE)
-        set("${target_shaders_OUTPUT_VARIABLE}" "${${target_shaders_OUTPUT_VARIABLE}}" PARENT_SCOPE)
+    if(DEFINED ARG_OUTPUT_VARIABLE)
+        set("${ARG_OUTPUT_VARIABLE}" "${${ARG_OUTPUT_VARIABLE}}" PARENT_SCOPE)
     endif()
 endfunction()

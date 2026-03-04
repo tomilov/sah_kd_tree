@@ -14,6 +14,10 @@ void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher
 {
     ASSERT_MSG(object, "Expected valid object");
 
+    if (!dispatcher.vkQueueInsertDebugUtilsLabelEXT) {
+        return;
+    }
+
     std::string labelNameStr{labelName};
     vk::DebugUtilsLabelEXT debugUtilsLabel;
     debugUtilsLabel.setPLabelName(labelNameStr.c_str());
@@ -45,6 +49,11 @@ ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
     if (!dispatcher) {
         return;
     }
+
+    if (!dispatcher->vkQueueEndDebugUtilsLabelEXT) {
+        return;
+    }
+
     object.endDebugUtilsLabelEXT(*dispatcher);
 }
 
@@ -53,11 +62,13 @@ auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_T
 {
     ASSERT_MSG(object, "Expected valid object");
 
-    std::string labelNameStr{labelName};
-    vk::DebugUtilsLabelEXT debugUtilsLabel;
-    debugUtilsLabel.setPLabelName(labelNameStr.c_str());
-    debugUtilsLabel.setColor(color);
-    object.beginDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
+    if (dispatcher.vkQueueBeginDebugUtilsLabelEXT) {
+        std::string labelNameStr{labelName};
+        vk::DebugUtilsLabelEXT debugUtilsLabel;
+        debugUtilsLabel.setPLabelName(labelNameStr.c_str());
+        debugUtilsLabel.setColor(color);
+        object.beginDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
+    }
 
     ScopedDebugUtilsLabel debugUtilsGuard;
     debugUtilsGuard.dispatcher = &dispatcher;

@@ -529,7 +529,7 @@ PhysicalDevices::PhysicalDevices(const Context & contextIn)
         SPDLOG_DEBUG("Create physical device #{}", i);
         const auto & pd = physicalDevices.emplace_back(context, physicalDevice);
         const auto & properties = pd.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
-        auto deviceName = std::data(properties.deviceName);
+        [[maybe_unused]] auto deviceName = std::data(properties.deviceName);
         SPDLOG_DEBUG("Physical device #{}: '{}'", i, deviceName);
         ++i;
     }

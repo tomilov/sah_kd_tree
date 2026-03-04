@@ -191,10 +191,10 @@ struct TestInput
 
     static constexpr void checkTraits()
     {
-        static_assert(std::is_standard_layout_v<Params>, "!");
-        static_assert(std::is_trivially_copyable_v<Params>, "!");
-        static_assert(std::is_standard_layout_v<Triangle>, "!");
-        static_assert(std::is_trivially_copyable_v<Triangle>, "!");
+        static_assert(std::is_standard_layout_v<Params>);
+        static_assert(std::is_trivially_copyable_v<Params>);
+        static_assert(std::is_standard_layout_v<Triangle>);
+        static_assert(std::is_trivially_copyable_v<Triangle>);
     }
 
     void generate(size_t triangleCount = trianglesPerItem())

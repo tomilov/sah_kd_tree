@@ -239,18 +239,21 @@ struct UniformBuffer
     glm::mat4 windowMvp{1.0f};
 };
 static_assert(std::is_standard_layout_v<UniformBuffer>);
+static_assert(std::is_trivially_copyable_v<UniformBuffer>);
 
 struct ScenePushConstants
 {
     glm::mat4 mvp{1.0f};
 };
 static_assert(std::is_standard_layout_v<ScenePushConstants>);
+static_assert(std::is_trivially_copyable_v<ScenePushConstants>);
 
 struct DisplayPushConstants
 {
     float x = 1E-5f;
 };
 static_assert(std::is_standard_layout_v<DisplayPushConstants>);
+static_assert(std::is_trivially_copyable_v<DisplayPushConstants>);
 
 struct TreeUniformBuffer
 {
@@ -264,6 +267,7 @@ struct TreeUniformBuffer
     vk::DeviceAddress nodeParents;
 };
 static_assert(std::is_standard_layout_v<TreeUniformBuffer>);
+static_assert(std::is_trivially_copyable_v<TreeUniformBuffer>);
 
 struct Frustum
 {
@@ -273,6 +277,7 @@ struct Frustum
     glm::vec3 rb;
 };
 static_assert(std::is_standard_layout_v<Frustum>);
+static_assert(std::is_trivially_copyable_v<Frustum>);
 
 struct TracePushConstants
 {
@@ -286,6 +291,7 @@ struct TracePushConstants
     glm::vec4 errorColor;
 };
 static_assert(std::is_standard_layout_v<TracePushConstants>);
+static_assert(std::is_trivially_copyable_v<TracePushConstants>);
 
 #pragma pack(pop)
 

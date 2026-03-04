@@ -125,10 +125,10 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     static void printThrustVersion()
     {
-        int major = THRUST_MAJOR_VERSION;
-        int minor = THRUST_MINOR_VERSION;
-        int subminor = THRUST_SUBMINOR_VERSION;
-        int patch = THRUST_PATCH_NUMBER;
+        [[maybe_unused]] int major = THRUST_MAJOR_VERSION;
+        [[maybe_unused]] int minor = THRUST_MINOR_VERSION;
+        [[maybe_unused]] int subminor = THRUST_SUBMINOR_VERSION;
+        [[maybe_unused]] int patch = THRUST_PATCH_NUMBER;
         SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
         const char * deviceSystem = nullptr;
         switch (THRUST_DEVICE_SYSTEM) {

@@ -203,9 +203,10 @@ template<typename T>
         return {};
     }
 
-    const auto loadDataFromCache = [&dataStream, &cacheFile](auto * data, size_t count, QString dataName) -> bool
+    const auto loadDataFromCache = [&dataStream, &cacheFile]<typename Data>(Data * data, size_t count, QString dataName) -> bool
     {
-        static_assert(std::is_standard_layout_v<std::remove_reference_t<decltype(*data)>>, "!");
+        static_assert(std::is_standard_layout_v<Data>);
+        static_assert(std::is_trivially_copyable_v<Data>);
         auto d = utils::safeCast<char *>(data);
         size_t dataSize = count * sizeof *data;
         qCDebug(sceneLoaderLog).noquote() << u"loadDataFromCache %1\t\t%2"_s.arg(dataSize).arg(dataName);
@@ -314,9 +315,10 @@ template<typename T>
         return {};
     }
 
-    const auto saveDataToCache = [&dataStream, &cacheFile](const auto * data, size_t count, QString dataName) -> bool
+    const auto saveDataToCache = [&dataStream, &cacheFile]<typename Data>(const Data * data, size_t count, QString dataName) -> bool
     {
-        static_assert(std::is_standard_layout_v<std::remove_reference_t<decltype(*data)>>, "!");
+        static_assert(std::is_standard_layout_v<Data>);
+        static_assert(std::is_trivially_copyable_v<Data>);
         auto d = utils::safeCast<const char *>(data);
         size_t dataSize = count * sizeof *data;
         qCDebug(sceneLoaderLog).noquote() << u"saveDataToCache %1\t\t%2"_s.arg(dataSize).arg(dataName);
