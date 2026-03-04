@@ -4,6 +4,7 @@ set(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree" CACHE STRING 
 
 qt6_add_qml_module(
     "${PROJECT_NAME}_item"
+    ${QML_MODULE_TYPE}
     URI
         "SahKdTree"
     VERSION
@@ -25,7 +26,8 @@ qt6_add_qml_module(
 set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
 
 generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")
-if(NOT BUILD_SHARED_LIBS)
+get_target_property(TARGET_TYPE "${PROJECT_NAME}_item" TYPE)
+if(TARGET_TYPE STREQUAL "STATIC_LIBRARY")
     string(TOUPPER ${PROJECT_NAME} STATIC_DEFINE_PREFIX)
     target_compile_definitions(
         "${PROJECT_NAME}_item"
@@ -86,7 +88,7 @@ target_link_libraries(
     PUBLIC
         "libutils")
 
-target_shaders(
+skt_target_shaders(
     "${PROJECT_NAME}_item"
     SHADERS
         "shaders/uniform_buffer.glsl"

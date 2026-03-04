@@ -101,6 +101,8 @@ IncludeCategories:
     Priority: 9
   - Regex: ^<[[:alnum:]_]+>$
     Priority: 7
+  - Regex: ^<sah_kd_tree/.*\.inl>
+    Priority: 8
   - Regex: .*
     Priority: 1
 ---

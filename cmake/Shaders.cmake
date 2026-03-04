@@ -28,7 +28,7 @@ find_program(spirv-val NAMES spirv-val)
 
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
-function(target_shaders target)
+function(skt_target_shaders target)
     cmake_parse_arguments(PARSE_ARGV 1 target_shaders "" "OUTPUT_VARIABLE" "SHADERS")
     foreach(shader_file IN LISTS target_shaders_SHADERS)
         target_sources(

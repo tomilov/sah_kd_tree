@@ -48,7 +48,7 @@ private:
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 };
 
-class EngineSingletonForeign
+class VIEWER_EXPORT EngineSingletonForeign
 {
     Q_GADGET
     QML_FOREIGN(EngineWrapper)

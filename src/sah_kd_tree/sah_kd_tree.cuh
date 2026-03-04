@@ -13,10 +13,11 @@
 #include <functional>
 #include <limits>
 #include <stdexcept>
-#include <type_traits>
+#include <utility>
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
@@ -26,29 +27,16 @@ namespace sah_kd_tree
 template<typename U, typename T>
 U safeConvert(T size)
 {
-    if constexpr (std::is_signed_v<T> == std::is_signed_v<U>) {
-        if (size > std::numeric_limits<T>::max()) {
-            throw std::overflow_error{""};
-        }
-    } else if constexpr (std::is_signed_v<T>) {
-        if (size < 0) {
-            throw std::underflow_error{""};
-        }
-        if (static_cast<std::make_unsigned_t<T>>(size) > std::numeric_limits<T>::max()) {
-            throw std::overflow_error{""};
-        }
-    } else {
-        if (size > static_cast<std::make_unsigned_t<U>>(std::numeric_limits<U>::max())) {
-            throw std::overflow_error{""};
-        }
+    if (!std::in_range<U>(size)) {
+        throw std::range_error{"safeConvert"};
     }
     return static_cast<U>(size);
 }
 
 struct DefaultTraits
 {
-    using I = int;
-    using U = unsigned int;
+    using I = std::int32_t;
+    using U = std::uint32_t;
     using F = float;
     template<typename T>
     using Allocator = thrust::device_allocator<T>;
@@ -435,9 +423,9 @@ struct Triangle
           }
     {}
 
-    // For non-CUDA THRUST_DEVICE_SYSTEM a using of the function works fine in pure .cpp,
-    // but to conduct with .cpp code in case of CUDA THRUST_DEVICE_SYSTEM
-    // a "glue" .hpp+.cu pair is required (ideally .hpp should contain only C++).
+    // For non-CUDA THRUST_DEVICE_SYSTEM, using the function works fine in pure .cpp.
+    // However, to work with .cpp code when using CUDA THRUST_DEVICE_SYSTEM,
+    // a "glue" .hpp+.cu pair is required. Ideally, the .hpp should contain only C++.
     // Even so there is a bug in CUDA:
     // https://forums.developer.nvidia.com/t/cuda-separable-compilation-shared-libraries-invalid-function-error/188476
     // Thus dlink the library only once or use static linking.
@@ -465,29 +453,3 @@ template<typename Traits = DefaultTraits>
 void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder) SAH_KD_TREE_EXPORT;
 
 }  // namespace sah_kd_tree
-
-#if SAH_KD_TREE_HEADER_ONLY
-#include <sah_kd_tree/builder.inl>
-#include <sah_kd_tree/calculate_root_node_bbox.inl>
-#include <sah_kd_tree/calculate_rope.inl>
-#include <sah_kd_tree/calculate_triangle_bbox.inl>
-#include <sah_kd_tree/check_tree.inl>
-#include <sah_kd_tree/decouple_event_both.inl>
-#include <sah_kd_tree/determine_polygon_side.inl>
-#include <sah_kd_tree/filter_layer_node_offset.inl>
-#include <sah_kd_tree/find_perfect_split.inl>
-#include <sah_kd_tree/generate_initial_event.inl>
-#include <sah_kd_tree/link_triangle.inl>
-#include <sah_kd_tree/merge_event.inl>
-#include <sah_kd_tree/populate_leaf_node_triangle_range.inl>
-#include <sah_kd_tree/populate_node_parent.inl>
-#include <sah_kd_tree/resize_node.inl>
-#include <sah_kd_tree/select_node_best_split.inl>
-#include <sah_kd_tree/separate_splitted_polygon.inl>
-#include <sah_kd_tree/set_node_count.inl>
-#include <sah_kd_tree/split_node.inl>
-#include <sah_kd_tree/split_polygon.inl>
-#include <sah_kd_tree/update_polygon_node.inl>
-#include <sah_kd_tree/update_splitted_polygon_count.inl>
-#include <sah_kd_tree/update_splitted_polygon_node.inl>
-#endif

@@ -20,7 +20,8 @@ function(skt_add_common_library name)
             LIBRARY_OUTPUT_NAME "${name}"
             ARCHIVE_OUTPUT_NAME "${name}")
     generate_export_header("lib${name}" BASE_NAME "${ARG_BASE_NAME}")
-    if(NOT BUILD_SHARED_LIBS)
+    get_target_property(TARGET_TYPE "lib${name}" TYPE)
+    if(TARGET_TYPE STREQUAL "STATIC_LIBRARY")
         string(TOUPPER "${ARG_BASE_NAME}" STATIC_DEFINE_PREFIX)
         target_compile_definitions(
             "lib${name}"

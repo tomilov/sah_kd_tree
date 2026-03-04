@@ -8,75 +8,55 @@ skt_add_common_library(
     SOURCES
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
+        "${PROJECT_NAME}_inline.cuh"
+        "builder.cu"
         "builder.inl"
+        "calculate_root_node_bbox.cu"
         "calculate_root_node_bbox.inl"
+        "calculate_rope.cu"
         "calculate_rope.inl"
+        "calculate_triangle_bbox.cu"
         "calculate_triangle_bbox.inl"
         "check_tree.inl"
+        "check_tree.cu"
         "decouple_event_both.inl"
+        "decouple_event_both.cu"
         "determine_polygon_side.inl"
+        "determine_polygon_side.cu"
         "filter_layer_node_offset.inl"
+        "filter_layer_node_offset.cu"
         "find_perfect_split.inl"
+        "find_perfect_split.cu"
         "generate_initial_event.inl"
+        "generate_initial_event.cu"
         "link_triangle.inl"
+        "link_triangle.cu"
         "merge_event.inl"
+        "merge_event.cu"
         "populate_leaf_node_triangle_range.inl"
+        "populate_leaf_node_triangle_range.cu"
         "populate_node_parent.inl"
+        "populate_node_parent.cu"
         "resize_node.inl"
+        "resize_node.cu"
         "select_node_best_split.inl"
+        "select_node_best_split.cu"
         "separate_splitted_polygon.inl"
+        "separate_splitted_polygon.cu"
         "set_node_count.inl"
+        "set_node_count.cu"
         "split_node.inl"
+        "split_node.cu"
         "split_polygon.inl"
+        "split_polygon.cu"
         "update_polygon_node.inl"
+        "update_polygon_node.cu"
         "update_splitted_polygon_count.inl"
+        "update_splitted_polygon_count.cu"
         "update_splitted_polygon_node.inl"
+        "update_splitted_polygon_node.cu"
     PUBLIC_LINKS
         Thrust)
-string(TOUPPER ${PROJECT_NAME} UPPERCASE_PROJECT_NAME)
-option(
-    ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY
-    "Make lib${PROJECT_NAME} header-only library"
-    OFF)
-if(${UPPERCASE_PROJECT_NAME}_HEADER_ONLY OR NOT BUILD_SHARED_LIBS)
-    target_compile_definitions(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            ${UPPERCASE_PROJECT_NAME}_STATIC_DEFINE)
-endif()
-if(${UPPERCASE_PROJECT_NAME}_HEADER_ONLY)
-    target_compile_definitions(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            ${UPPERCASE_PROJECT_NAME}_HEADER_ONLY)
-else()
-    target_sources(
-        "lib${PROJECT_NAME}"
-        PRIVATE
-            "builder.cu"
-            "calculate_root_node_bbox.cu"
-            "calculate_rope.cu"
-            "calculate_triangle_bbox.cu"
-            "check_tree.cu"
-            "decouple_event_both.cu"
-            "determine_polygon_side.cu"
-            "filter_layer_node_offset.cu"
-            "find_perfect_split.cu"
-            "generate_initial_event.cu"
-            "link_triangle.cu"
-            "merge_event.cu"
-            "populate_leaf_node_triangle_range.cu"
-            "populate_node_parent.cu"
-            "resize_node.cu"
-            "select_node_best_split.cu"
-            "separate_splitted_polygon.cu"
-            "set_node_count.cu"
-            "split_node.cu"
-            "split_polygon.cu"
-            "update_polygon_node.cu"
-            "update_splitted_polygon_count.cu"
-            "update_splitted_polygon_node.cu")
-endif()
 target_compile_options(
     "lib${PROJECT_NAME}"
     PRIVATE

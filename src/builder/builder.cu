@@ -1,20 +1,22 @@
 #include <builder/builder.hpp>
 #include <compute/compute.hpp>
+#if SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
 #include <sah_kd_tree/sah_kd_tree.cuh>
+#else
+#include <sah_kd_tree/sah_kd_tree_inline.cuh>
+#endif
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/math.hpp>
 
-#include <thrust/device_allocator.h>
-#include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
 #include <thrust/iterator/zip_iterator.h>
+#if !SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
+#include <thrust/device_vector.h>
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/device_memory_resource.h>
-#include <thrust/mr/memory_resource.h>
-#include <thrust/system/cuda/execution_policy.h>
-#include <thrust/system/cuda/pointer.h>
+#endif
+#include <thrust/memory.h>
 #include <thrust/uninitialized_copy.h>
 
 #include <fmt/ranges.h>
@@ -43,7 +45,9 @@ namespace builder
 namespace
 {
 
-#if SAH_KD_TREE_HEADER_ONLY
+#if SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
+using Traits = sah_kd_tree::DefaultTraits;
+#else
 struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA parser
 {
     using F = sah_kd_tree::DefaultTraits::F;
@@ -54,10 +58,8 @@ struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA p
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using Progress = std::function<bool(size_t progressValue)>;
+    using Progress = sah_kd_tree::DefaultTraits::Progress;
 };
-#else
-using Traits = sah_kd_tree::DefaultTraits;
 #endif
 
 }  // namespace
@@ -157,25 +159,25 @@ struct Tree::Impl : utils::OneTime<Impl>
         ASSERT(sceneData);
         auto triangles = sceneData->makeTriangles();
         triangleCount = triangles.getCount();
-#if SAH_KD_TREE_HEADER_ONLY
+#if SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
+        sah_kd_tree::Tree<Traits> tree;
+#else
         typename Traits::MemoryResource memoryResource;
         typename Traits::Allocator<void> allocator{&memoryResource};
 
         sah_kd_tree::Tree<Traits> tree{allocator};
-#else
-        sah_kd_tree::Tree<Traits> tree;
 #endif
         {
-#if SAH_KD_TREE_HEADER_ONLY
-            sah_kd_tree::Builder<Traits> builder{allocator};
-            sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
-
-            sah_kd_tree::Triangle<Traits> triangle{allocator};
-#else
+#if SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
             sah_kd_tree::Builder<Traits> builder;
             sah_kd_tree::Projection<Traits> x, y, z;
 
             sah_kd_tree::Triangle<Traits> triangle;
+#else
+            sah_kd_tree::Builder<Traits> builder{allocator};
+            sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+
+            sah_kd_tree::Triangle<Traits> triangle{allocator};
 #endif
             triangle.setTriangle(triangles.begin(), triangles.end());
             sah_kd_tree::linkTriangles(triangle, x, y, z, builder);

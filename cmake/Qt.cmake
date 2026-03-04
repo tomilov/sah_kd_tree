@@ -27,3 +27,10 @@ add_compile_definitions(
     QT_NO_CAST_FROM_BYTEARRAY
     QT_NO_NARROWING_CONVERSIONS_IN_CONNECT
     QT_MESSAGELOGCONTEXT)
+
+# for use as first positional argument in qt6_add_qml_module
+if (BUILD_SHARED_LIBS)
+    set(QML_MODULE_TYPE "SHARED")
+else()
+    set(QML_MODULE_TYPE "STATIC")
+endif()
