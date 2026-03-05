@@ -24,13 +24,9 @@ struct PushConstantRangeLess
 
 void widenPushConstantRange(vk::PushConstantRange & lhs, const vk::PushConstantRange & rhs)
 {
-    if (lhs.offset + lhs.size < rhs.offset + rhs.size) {
-        lhs.size = rhs.offset + rhs.size - lhs.offset;
-    }
-    if (lhs.offset > rhs.offset) {
-        lhs.size += lhs.offset - rhs.offset;
-        lhs.offset = rhs.offset;
-    }
+    lhs.size = std::max(lhs.offset + lhs.size, rhs.offset + rhs.size);
+    lhs.offset = std::min(lhs.offset, rhs.offset);
+    lhs.size -= lhs.offset;
 }
 
 }  // namespace

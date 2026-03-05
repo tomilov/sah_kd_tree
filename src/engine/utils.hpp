@@ -9,6 +9,7 @@
 #include <deque>
 #include <functional>
 #include <iterator>
+#include <type_traits>
 #include <vector>
 
 #include <cstddef>
@@ -43,6 +44,9 @@ using PrependTypeToStructureChainT = typename PrependTypeToStructureChain<T, Str
 template<typename BitType>
 class FlagBits
 {
+    static_assert(std::is_enum_v<BitType>);
+    static_assert(std::is_unsigned_v<std::underlying_type_t<BitType>>);
+
 public:
     class Iterator
     {
