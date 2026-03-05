@@ -1,6 +1,6 @@
 project("common")
 
-skt_add_common_library(
+skt_add_library(
     "${PROJECT_NAME}"
     SOURCES
         "config.hpp")

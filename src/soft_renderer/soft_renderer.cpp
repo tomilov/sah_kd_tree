@@ -20,7 +20,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <vector>
 
 #include <cmath>
 
@@ -242,7 +241,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
             ray.dir = glm::normalize(glm::mix(left, right, locX));
             Hit hit;
             hit.triangle = std::numeric_limits<glm::uint>::max();
-            hit.t = std::numeric_limits<glm::float32>::infinity();
+            hit.t = std::numeric_limits<glm::float32>::max();
             impl_->traceRay(nodeIndex, ray, hit, tNear);
             glm::vec4 color;
             if (hit.triangle != std::numeric_limits<glm::uint>::max()) {

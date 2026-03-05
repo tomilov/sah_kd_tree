@@ -1,7 +1,7 @@
 project("soft_renderer")
 
 find_package(OpenMP REQUIRED)
-skt_add_common_library(
+skt_add_library(
     "${PROJECT_NAME}"
     SOURCES
         "fwd.hpp"
@@ -23,8 +23,13 @@ skt_add_common_library(
         CUDA::cuda_driver
         OpenMP::OpenMP_CXX)
 
+set_source_files_properties(
+    "${PROJECT_NAME}.cpp"
+    PROPERTIES
+        COMPILE_OPTIONS "-O3;-ffast-math")
+
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
-skt_add_common_executable(
+skt_add_executable(
     "${PROJECT_NAME}"
     PRIVATE_LINKS
         "lib${PROJECT_NAME}"

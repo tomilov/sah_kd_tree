@@ -1,20 +1,22 @@
 project("viewer")
 
-set(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree" CACHE STRING "" FORCE)
+skt_snake_to_camel("${CMAKE_PROJECT_NAME}" CAMEL_CASE_CMAKE_PROJECT_NAME)
+
+set(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}" CACHE STRING "" FORCE)
 
 qt6_add_qml_module(
     "${PROJECT_NAME}_item"
     ${QML_MODULE_TYPE}
     URI
-        "SahKdTree"
+        "${CAMEL_CASE_CMAKE_PROJECT_NAME}"
     VERSION
         1.0
     RESOURCE_PREFIX
         "/${CMAKE_PROJECT_NAME}/imports"
     OUTPUT_DIRECTORY
-        "SahKdTree"
+        "${CAMEL_CASE_CMAKE_PROJECT_NAME}"
     IMPORT_PATH
-        "SahKdTree"
+        "${CAMEL_CASE_CMAKE_PROJECT_NAME}"
     DEPENDENCIES
         QtCore
         QtQuick
@@ -23,7 +25,7 @@ qt6_add_qml_module(
         QtQuick.Layouts
         QtQuick.Dialogs
         QtQuick3D)
-set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/SahKdTree")
+set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}")
 
 generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")
 get_target_property(TARGET_TYPE "${PROJECT_NAME}_item" TYPE)

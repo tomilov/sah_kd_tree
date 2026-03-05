@@ -2,6 +2,7 @@
 
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -15,7 +16,7 @@
 namespace engine
 {
 
-struct ENGINE_EXPORT AllocationCallbacks
+struct ENGINE_EXPORT AllocationCallbacks final : utils::NonCopyable
 {
     const vk::AllocationCallbacks allocationCallbacks = [this]
     {
@@ -56,6 +57,10 @@ class Allocator
 public:
     using value_type = T;
 
+    using propagate_on_container_copy_assignment = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+    using propagate_on_container_swap = std::true_type;
+
     template<typename R>
     struct rebind
     {
@@ -80,7 +85,7 @@ public:
             throw std::bad_array_new_length{};
         }
         if (!allocationCallbacks) {
-            return static_cast<T *>(::operator new(sizeof(T) * n, static_cast<std::align_val_t>(alignof(T))));
+            return static_cast<T *>(::operator new(sizeof(T) * n, std::align_val_t{alignof(T)}));
         }
         auto p = allocationCallbacks->pfnAllocation(allocationCallbacks->pUserData, sizeof(T) * n, alignof(T), systemAllocationScope);
         if (!p) {
@@ -112,8 +117,13 @@ public:
         return !operator==(rhs);
     }
 
+    const Allocator & select_on_container_copy_construction() const &
+    {
+        return *this;
+    }
+
 private:
-    const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
+    vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 };
 
 }  // namespace engine

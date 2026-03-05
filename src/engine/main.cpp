@@ -113,13 +113,17 @@ int main(int /*argc*/, char * /*argv*/[])
 {
     auto fileIo = std::make_unique<FileIo>();
     engine::Context context;
-    constexpr auto kApplicationVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+    constexpr auto kApplicationVersion = vk::makeVersion(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     engine::AllocationCallbacks allocationCallbacks;
     {
         using A = engine::Allocator<int, vk::SystemAllocationScope::eInstance>;
         A a{allocationCallbacks.allocationCallbacks};
         std::vector<int, A> v{a};
         v.push_back(1);
+        auto u = v;
+        u = v;
+        auto w = std::move(v);
+        w = std::move(u);
     }
     context.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, {} /*mutedMessageIdNumbers*/);
     context.createDevice();

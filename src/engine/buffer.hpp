@@ -123,7 +123,7 @@ private:
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
-        MappedMemory::checkTraits();
+        MappedMemory<char>::checkTraits();
     }
 };
 
@@ -282,7 +282,7 @@ private:
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
-        Buffer::checkTraits();
+        Buffer<char>::checkTraits();
     }
 };
 

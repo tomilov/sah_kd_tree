@@ -1,6 +1,6 @@
 project("compute")
 
-skt_add_common_library(
+skt_add_library(
     "${PROJECT_NAME}"
     SOURCES
         "fwd.hpp"
@@ -14,6 +14,6 @@ skt_add_common_library(
         "libutils"
         "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>")
 
-skt_add_common_executable("${PROJECT_NAME}")
+skt_add_executable("${PROJECT_NAME}")
 
 add_subdirectory("tests")

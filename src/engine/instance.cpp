@@ -308,7 +308,7 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
     applicationInfo.pApplicationName = applicationName.c_str();
     applicationInfo.applicationVersion = applicationVersion;
     applicationInfo.pEngineName = sah_kd_tree::kProjectName;
-    applicationInfo.engineVersion = vk::makeApiVersion(0, sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
+    applicationInfo.engineVersion = vk::makeVersion(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
     applicationInfo.apiVersion = apiVersion;
 
     auto & instanceCreateInfo = instanceCreateInfoChain.get<vk::InstanceCreateInfo>();

@@ -41,7 +41,7 @@ function(skt_add_codegen_library name)
             "${name}.hpp"
             "${name}.cpp")
 
-    skt_add_common_library(
+    skt_add_library(
         "${PROJECT_NAME}_${name}"
         BASE_NAME
             "${name}"

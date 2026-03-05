@@ -6,7 +6,24 @@ function(skt_env_or_default variable_name default_value)
     endif()
 endfunction()
 
-function(skt_add_common_library name)
+function(skt_snake_to_camel SNAKE_STR OUTPUT_VAR)
+    string(REPLACE "_" ";" PARTS "${SNAKE_STR}")
+
+    set(RESULT "")
+    foreach(PART IN LISTS PARTS)
+        if(PART STREQUAL "")
+            continue()
+        endif()
+        string(SUBSTRING "${PART}" 0 1 FIRST_CHAR)
+        string(SUBSTRING "${PART}" 1 -1 REST_CHARS)
+        string(TOUPPER "${FIRST_CHAR}" FIRST_CHAR_UPPER)
+        string(APPEND RESULT "${FIRST_CHAR_UPPER}${REST_CHARS}")
+    endforeach()
+
+    set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
+endfunction()
+
+function(skt_add_library name)
     cmake_parse_arguments(ARG "" "BASE_NAME" "SOURCES;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES" ${ARGN})
 
     if(NOT ARG_BASE_NAME)
@@ -54,7 +71,7 @@ function(skt_add_common_library name)
     endif()
 endfunction()
 
-function(skt_add_common_executable name)
+function(skt_add_executable name)
     cmake_parse_arguments(ARG "" "" "SOURCES;PRIVATE_LINKS" ${ARGN})
 
     add_executable("${name}")

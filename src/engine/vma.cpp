@@ -77,7 +77,7 @@ template<typename BitType, typename MaskType = typename vk::Flags<BitType>::Mask
         break;
     }
     case AllocationType::kStaging: {
-        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;  // TODO(tomilov): prefer host
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
         allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         break;
     }
@@ -225,7 +225,7 @@ MemoryAllocator::Impl::Impl(const Context & context)
 #define FUNCTION(f) .f = f
 #define FUNCTION_KHR(f) .f##KHR = f
 #endif
-    VmaVulkanFunctions vulkanFunctions = {
+    const VmaVulkanFunctions vulkanFunctions = {
         .vkGetInstanceProcAddr = nullptr,
         .vkGetDeviceProcAddr = nullptr,
         FUNCTION(vkGetPhysicalDeviceProperties),
