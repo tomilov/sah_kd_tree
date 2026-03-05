@@ -54,11 +54,12 @@ private:
 
     friend class MemoryAllocator;
 
-    static constexpr size_t kSize = 216;
+    static constexpr size_t kSize = 264;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority = 0.5f);
+    Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex,
+          float priority = 0.5f);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

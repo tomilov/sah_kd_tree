@@ -119,7 +119,7 @@ size_t DeviceMemory::getAllocationGranularity(CUmemAllocationGranularity_flags_e
 size_t DeviceMemory::getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
 {
     const size_t recommendedAllocGranularity = getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
-    return utils::divUp(std::max(allocationSize, allocationAlignment), recommendedAllocGranularity) * recommendedAllocGranularity;
+    return utils::alignUp(std::max(allocationSize, allocationAlignment), recommendedAllocGranularity);
 }
 
 ::CUmemGenericAllocationHandle DeviceMemory::makeMemGenericAllocationHandle() const

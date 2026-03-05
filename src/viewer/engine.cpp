@@ -198,12 +198,12 @@ Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2
     constexpr auto colorImageName = "offscreen framebuffer color image"sv;
     constexpr vk::ImageUsageFlags kColorImageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     constexpr vk::ImageAspectFlags kColorImageAspectMask = vk::ImageAspectFlagBits::eColor;
-    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, OffscreenRenderPass::kColorFormat, framebufferSize, kColorImageUsage, kColorImageAspectMask);
+    auto colorImage = context.getMemoryAllocator().createImage2D(colorImageName, OffscreenRenderPass::kColorFormat, framebufferSize, kColorImageUsage, vk::MemoryPropertyFlagBits::eDeviceLocal, kColorImageAspectMask);
     auto colorImageView = colorImage.createImageView(vk::ImageViewType::e2D, kColorImageAspectMask);
 
     constexpr auto depthImageName = "offscreen framebuffer depth image"sv;
     constexpr vk::ImageUsageFlags kDepthImageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, framebufferSize, kDepthImageUsage, depthImageAspectMask);
+    auto depthImage = context.getMemoryAllocator().createImage2D(depthImageName, offscreenRenderPass.depthFormat, framebufferSize, kDepthImageUsage, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImageAspectMask);
     auto depthImageView = depthImage.createImageView(vk::ImageViewType::e2D, depthImageAspectMask);
 
     const vk::ImageView attachments[] = {
@@ -268,7 +268,7 @@ engine::Image TraceFrameResources::makeImage(const engine::Context & context, co
 {
     constexpr auto imageName = "tree render target"sv;
     const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
-    return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, kImageAspectMask, queueFamilyIndex);
+    return context.getMemoryAllocator().createImage2D(imageName, kFormat, imageSize, kImageUsage, vk::MemoryPropertyFlagBits::eDeviceLocal, kImageAspectMask, queueFamilyIndex);
 }
 
 engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool target)
@@ -344,12 +344,8 @@ auto Engine::createUniformBuffer(size_t uniformBufferSize) const -> engine::Buff
     if (settings.descriptorBufferEnabled) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
-    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
     auto uniformBufferName = fmt::format("Uniform buffer");
-    auto uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment());
-
-    auto memoryPropertyFlags = uniformBuffer.getMemoryPropertyFlags();
-    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate uniform buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
+    auto uniformBuffer = context.getMemoryAllocator().createStagingBuffer(uniformBufferName, uniformBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     return uniformBuffer;
 }
@@ -436,11 +432,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
             vk::BufferCreateInfo indexBufferCreateInfo;
             indexBufferCreateInfo.size = indexBufferSize;
             indexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
-            indexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Indices"sv, indexBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
-
-            constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-            auto memoryPropertyFlags = indexBuffer.value().getMemoryPropertyFlags();
-            INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate index buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
+            indexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Indices"sv, indexBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
         }
 
         {
@@ -491,7 +483,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
             vk::BufferCreateInfo drawCountBufferCreateInfo;
             drawCountBufferCreateInfo.size = sizeof(uint32_t);
             drawCountBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            drawCountBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("DrawCount"sv, drawCountBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+            drawCountBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("DrawCount"sv, drawCountBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
             auto mappedDrawCountBuffer = drawCountBuffer.value().map();
             mappedDrawCountBuffer.at(0) = drawCount;
@@ -502,7 +494,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
             constexpr uint32_t kSize = sizeof(vk::DrawIndexedIndirectCommand);
             instanceBufferCreateInfo.size = drawCount * kSize;
             instanceBufferCreateInfo.usage = vk::BufferUsageFlagBits::eIndirectBuffer;
-            instanceBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Instances"sv, instanceBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
+            instanceBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Instances"sv, instanceBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
             auto mappedInstanceBuffer = instanceBuffer.value().map();
             auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
@@ -520,12 +512,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
         vk::BufferCreateInfo vertexBufferCreateInfo;
         vertexBufferCreateInfo.size = sceneData.vertices.getCount() * sizeof(scene_data::VertexAttributes);
         vertexBufferCreateInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Vertices"sv, vertexBufferCreateInfo, context.getPhysicalDevice().getMinAlignment()));
-
-        constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        auto memoryPropertyFlags = vertexBuffer.value().base().getMemoryPropertyFlags();
-        INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate vertex buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
-
+        vertexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Vertices"sv, vertexBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
         {
             auto mappedVertexBuffer = vertexBuffer.value().map();
             ASSERT(sceneData.vertices.getCount() == mappedVertexBuffer.getCount());
@@ -575,12 +562,7 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
     if (settings.descriptorBufferEnabled) {
         transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
-    engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("transforms"sv, transformBufferCreateInfo, context.getPhysicalDevice().getMinAlignment())};
-
-    constexpr vk::MemoryPropertyFlags kMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    auto memoryPropertyFlags = transformBuffer.base().getMemoryPropertyFlags();
-    INVARIANT((memoryPropertyFlags & kMemoryPropertyFlags) == kMemoryPropertyFlags, "Failed to allocate transformation buffer in {} memory, got {} memory", kMemoryPropertyFlags & ~memoryPropertyFlags, ~kMemoryPropertyFlags & memoryPropertyFlags);
-
+    engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("transforms"sv, transformBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal)};
     {
         auto mappedTransformBuffer = transformBuffer.map();
         auto t = mappedTransformBuffer.begin();
@@ -590,7 +572,6 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
         }
         ASSERT(t == mappedTransformBuffer.end());
     }
-
     return transformBuffer;
 }
 

@@ -112,7 +112,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         if (dataAlignment < kElementAlignment) {
             dataAlignment = kElementAlignment;
         }
-        const size_t offset = utils::divUp(dataSize, kElementAlignment) * kElementAlignment;
+        const size_t offset = utils::alignUp(dataSize, kElementAlignment);
         dataSize = offset + count * kElementSize;
         return offset;
     }

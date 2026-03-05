@@ -168,13 +168,14 @@ private:
 
     struct Impl;
 
-    static constexpr size_t kSize = 192;
+    static constexpr size_t kSize = 232;
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
     [[nodiscard]] void * getMappedData() const &;
 
-    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex, float priority);
+    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex,
+           float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

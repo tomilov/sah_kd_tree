@@ -1238,8 +1238,8 @@ void Renderer::Impl::traceScene(vk::CommandBuffer graphicsCommandBuffer, const C
             image.acquire(computeCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
             {
                 auto [width, height] = image.getExtent2D();
-                width = utils::divUp(width, kGroupSizeX) * kGroupSizeX;
-                height = utils::divUp(height, kGroupSizeY) * kGroupSizeY;
+                width = utils::alignUp(width, kGroupSizeX);
+                height = utils::alignUp(height, kGroupSizeY);
                 constexpr uint32_t kDepth = 1;
                 computeCommandBuffer.getCommandBuffer().dispatch(width, height, kDepth, context.getDispatcher());
             }
