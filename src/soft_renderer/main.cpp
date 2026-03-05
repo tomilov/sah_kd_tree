@@ -105,12 +105,17 @@ std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile [[maybe_unused]] (co
 
 }  // namespace
 
+#define CALL_SDL(f, ...)                                           \
+    do                                                             \
+        if (!SDL_##f(__VA_ARGS__)) {                               \
+            SPDLOG_ERROR("SDL_" #f " failed: {}", SDL_GetError()); \
+            return EXIT_FAILURE;                                   \
+        }                                                          \
+    while (false)
+
 int main(int argc, char * argv[])
 {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        SPDLOG_ERROR("SDL_Init failed: {}", SDL_GetError());
-        return EXIT_FAILURE;
-    }
+    CALL_SDL(Init, SDL_INIT_VIDEO);
     utils::ScopeGuard sdlQuit{SDL_Quit};
 
     gli::extent2d::value_type width = 1024;
@@ -121,11 +126,7 @@ int main(int argc, char * argv[])
         SPDLOG_ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
         return EXIT_FAILURE;
     }
-    // SDL_SetWindowRelativeMouseMode(window.get(), true);
-    if (!SDL_SetWindowMinimumSize(window.get(), 16, 16)) {
-        SPDLOG_ERROR("SDL_SetWindowMinimumSize failed: {}", SDL_GetError());
-        return EXIT_FAILURE;
-    }
+    CALL_SDL(SetWindowMinimumSize, window.get(), 16, 16);
 
     std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer{SDL_CreateRenderer(window.get(), nullptr), &SDL_DestroyRenderer};
     if (!renderer) {
@@ -183,6 +184,7 @@ int main(int argc, char * argv[])
     Uint64 timePrev = SDL_GetPerformanceCounter();
     const Uint64 freq = SDL_GetPerformanceFrequency();
 
+    bool capturing = false;
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -269,11 +271,39 @@ int main(int argc, char * argv[])
                 break;
             }
             case SDL_EVENT_MOUSE_MOTION: {
-                if ((event.motion.state & SDL_BUTTON_LMASK) != 0) {
+                if (capturing) {
                     yaw += event.motion.xrel * kMouseSensetivity;
                     pitch += event.motion.yrel * kMouseSensetivity;
                     constexpr auto kHalfPi = glm::half_pi<glm::float32>() - 0.01f;
                     pitch = glm::clamp(pitch, -kHalfPi, kHalfPi);
+                }
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    capturing = true;
+                    CALL_SDL(SetWindowRelativeMouseMode, window.get(), true);
+                }
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    capturing = false;
+                    CALL_SDL(SetWindowRelativeMouseMode, window.get(), false);
+                }
+                break;
+            }
+            case SDL_EVENT_WINDOW_FOCUS_LOST: {
+                CALL_SDL(SetWindowRelativeMouseMode, window.get(), false);
+                break;
+            }
+            case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+                if (capturing) {
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        CALL_SDL(SetWindowRelativeMouseMode, window.get(), true);
+                    } else {
+                        capturing = false;
+                    }
                 }
                 break;
             }
@@ -322,15 +352,9 @@ int main(int argc, char * argv[])
             }
         }
 
-        if (!SDL_RenderClear(renderer.get())) {
-            SPDLOG_WARN("SDL_RenderClear failed: {}", SDL_GetError());
-        }
-        if (!SDL_RenderTexture(renderer.get(), texture.get(), nullptr, nullptr)) {
-            SPDLOG_WARN("SDL_RenderTexture failed: {}", SDL_GetError());
-        }
-        if (!SDL_RenderPresent(renderer.get())) {
-            SPDLOG_WARN("SDL_RenderPresent failed: {}", SDL_GetError());
-        }
+        CALL_SDL(RenderClear, renderer.get());
+        CALL_SDL(RenderTexture, renderer.get(), texture.get(), nullptr, nullptr);
+        CALL_SDL(RenderPresent, renderer.get());
     }
     return EXIT_SUCCESS;
 }
