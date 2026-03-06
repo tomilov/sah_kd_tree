@@ -27,6 +27,7 @@
 #include <QtCore/QtLogging>
 
 #include <chrono>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -90,7 +91,7 @@ builder::TreePtr makeTree(QString sceneFileName)
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
-std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile [[maybe_unused]] (const char * filepath, std::FILE * stream)
+std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
 {
 #pragma GCC diagnostic pop
     if (filepath == "-"sv) {
@@ -102,6 +103,36 @@ std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile [[maybe_unused]] (co
     }
     return {std::fopen(filepath, "wb"), std::fclose};
 }
+
+struct FPSCounter
+{
+    bool operator()(std::string & windowTitle, glm::float32 & dt, Uint64 updateIntervalMs = 500)
+    {
+        const Uint64 timeNow = SDL_GetPerformanceCounter();
+        const Uint64 timeDelta = timeNow - std::exchange(timePrev, timeNow);
+
+        dt = static_cast<glm::float32>(timeDelta) / frequency;
+
+        frameCount++;
+        titleTimer += timeDelta;
+        if (titleTimer < frequency * updateIntervalMs / 1000) {
+            return false;
+        }
+        const double fps = frameCount / (static_cast<double>(titleTimer) / frequency);
+        const double frameTimeMs = static_cast<double>(timeDelta) / frequency * 1000.0;
+        frameCount = 0;
+        titleTimer = 0;
+        windowTitle.resize(0);
+        fmt::format_to(std::back_inserter(windowTitle), APPLICATION_NAME " | FPS: {:.1f} | Frame: {:.3f} ms", fps, frameTimeMs);
+        return true;
+    }
+
+private:
+    const glm::float32 frequency = utils::autoCast(SDL_GetPerformanceFrequency());
+    Uint64 timePrev = SDL_GetPerformanceCounter();
+    Uint64 titleTimer = 0;
+    int frameCount = 0;
+};
 
 }  // namespace
 
@@ -182,9 +213,8 @@ int main(int argc, char * argv[])
     };
     auto target = createTarget();
 
-    Uint64 timePrev = SDL_GetPerformanceCounter();
-    const Uint64 freq = SDL_GetPerformanceFrequency();
-
+    std::string windowTitle;
+    FPSCounter fpsCounter;
     bool capturing = false;
     bool running = true;
     while (running) {
@@ -313,9 +343,11 @@ int main(int argc, char * argv[])
             }
             }
         }
-        const Uint64 timeNow = SDL_GetPerformanceCounter();
-        const glm::float32 dt = static_cast<glm::float32>(timeNow - timePrev) / static_cast<glm::float32>(freq);
-        timePrev = timeNow;
+
+        glm::float32 dt;
+        if (fpsCounter(windowTitle, dt)) {
+            CALL_SDL(SetWindowTitle, window.get(), windowTitle.c_str());
+        }
 
         const glm::quat qYaw = glm::angleAxis(yaw, glm::vec3{0.0f, 1.0f, 0.0f});
         const glm::quat qPitch = glm::angleAxis(pitch, glm::vec3{1.0f, 0.0f, 0.0f});

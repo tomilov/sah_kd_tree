@@ -28,7 +28,7 @@ set_source_files_properties(
     PROPERTIES
         COMPILE_OPTIONS "-O3;-ffast-math")
 
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+find_package(SDL3 REQUIRED)
 skt_add_executable(
     "${PROJECT_NAME}"
     PRIVATE_LINKS
