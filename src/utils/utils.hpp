@@ -6,6 +6,7 @@
 #include <utils/exception.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/fd.hpp>
+#include <utils/get_if.hpp>
 #include <utils/hash.hpp>
 #include <utils/math.hpp>
 #include <utils/meta.hpp>

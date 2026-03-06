@@ -24,13 +24,13 @@ void importTree(builder::Tree tree, utils::MemArray<scene_data::Triangle> & tria
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)
     {
         v = utils::MemArray<T>{count};
-        CU_CHECK_ERROR(::cuMemcpyDtoH(v.begin(), devPtr + offset, count * sizeof(T)));
+        CU_CHECK_ERROR(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
     scatterDeviceData(tree.getTriangleOffset(), tree.getTriangleCount(), triangles);
     scatterDeviceData(tree.getPolygonOffset(), tree.getPolygonCount(), polygons);
     scatterDeviceData(tree.getNodeOffset(), tree.getNodeCount(), nodes);
     scatterDeviceData(tree.getNodeParentOffset(), tree.getNodeCount(), nodeParents);
-    CUDA_CHECK_ERROR(cudaDeviceSynchronize());
+    CUDA_CHECK_ERROR(cudaDeviceSynchronize);
 }
 
 }  // namespace soft_renderer

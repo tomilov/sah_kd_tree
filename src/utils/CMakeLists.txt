@@ -34,7 +34,9 @@ skt_add_library(
         "random.cpp"
         "random.hpp"
         "scope_guard.cpp"
-        "scope_guard.hpp")
+        "scope_guard.hpp"
+        "get_if.cpp"
+        "get_if.hpp")
 
 add_subdirectory("tests")
 

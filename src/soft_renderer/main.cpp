@@ -145,11 +145,12 @@ int main(int argc, char * argv[])
     }
 
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
-    soft_renderer::SoftRenderer softRenderer{"default"sv, kClearColor};
+    soft_renderer::SoftRenderer softRenderer{APPLICATION_NAME ""sv, kClearColor};
     {
         INVARIANT(argc > 1, "{}", argc);
         builder::TreePtr tree = makeTree(QString::fromUtf8(argv[1]));
         if (!tree) {
+            SPDLOG_ERROR("Failed to make tree");
             return EXIT_FAILURE;
         }
         softRenderer.setTree(std::move(*tree));

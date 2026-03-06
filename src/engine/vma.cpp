@@ -9,6 +9,7 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/noncopyable.hpp>
+#include <utils/pp.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -35,10 +36,10 @@
 #include <vk_mem_alloc.h>
 // clang-format on
 
-#define CHECK_VK_RESULT(f, ...)                                       \
-    do {                                                              \
-        vk::Result result{f(__VA_ARGS__)};                            \
-        INVARIANT(result == vk::Result::eSuccess, #f ": {}", result); \
+#define CHECK_VK_RESULT(f, ...)                                                                \
+    do {                                                                                       \
+        vk::Result result{(f(__VA_ARGS__))};                                                   \
+        INVARIANT(result == vk::Result::eSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
     } while (false);
 
 namespace engine

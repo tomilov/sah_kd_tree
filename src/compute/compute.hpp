@@ -4,6 +4,7 @@
 #include <utils/assert.hpp>
 #include <utils/fd.hpp>
 #include <utils/noncopyable.hpp>
+#include <utils/pp.hpp>
 
 #include <fmt/format.h>
 
@@ -17,16 +18,16 @@
 
 #include <compute/compute_export.h>
 
-#define CU_CHECK_ERROR(call)                                        \
-    do {                                                            \
-        ::CUresult result = CUDA_SUCCESS;                           \
-        INVARIANT((result = (call)) == CUDA_SUCCESS, "{}", result); \
+#define CU_CHECK_ERROR(f, ...)                                                         \
+    do {                                                                               \
+        ::CUresult result{(f(__VA_ARGS__))};                                           \
+        INVARIANT(result == CUDA_SUCCESS, STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
     } while (false)
 
-#define CUDA_CHECK_ERROR(call)                                   \
-    do {                                                         \
-        cudaError error = cudaSuccess;                           \
-        INVARIANT((error = (call)) == cudaSuccess, "{}", error); \
+#define CUDA_CHECK_ERROR(f, ...)                                                    \
+    do {                                                                            \
+        cudaError error{(f(__VA_ARGS__))};                                          \
+        INVARIANT(error == cudaSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
     } while (false)
 
 template<>

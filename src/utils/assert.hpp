@@ -24,7 +24,8 @@ void assertFailed [[noreturn]] (bool assert, const char * expression, std::sourc
 #define ASSERT_MSG_SRCLOC(condition, srcLoc, format, ...)                                           \
     do {                                                                                            \
         if constexpr (sah_kd_tree::kIsDebugBuild) {                                                 \
-            if (!(condition)) {                                                                     \
+            if (condition) {                                                                        \
+            } else {                                                                                \
                 ::utils::assertFailed(true, #condition, srcLoc, FMT_STRING(format), ##__VA_ARGS__); \
             }                                                                                       \
         }                                                                                           \
@@ -37,7 +38,8 @@ void assertFailed [[noreturn]] (bool assert, const char * expression, std::sourc
 
 #define INVARIANT_SRCLOC(condition, srcLoc, format, ...)                                                              \
     do {                                                                                                              \
-        if (!(condition)) {                                                                                           \
+        if (condition) {                                                                                              \
+        } else {                                                                                                      \
             ::utils::assertFailed(sah_kd_tree::kIsDebugBuild, #condition, srcLoc, FMT_STRING(format), ##__VA_ARGS__); \
         }                                                                                                             \
     } while (false)

@@ -154,7 +154,7 @@ struct Tree::Impl : utils::OneTime<Impl>
         , cudaDevice{cudaDevice}
         , sceneData{sceneData}
     {
-        CUDA_CHECK_ERROR(cudaSetDevice(cudaDevice.getCudaRuntimeDev()));
+        CUDA_CHECK_ERROR(cudaSetDevice, cudaDevice.getCudaRuntimeDev());
         printThrustVersion();
         ASSERT(sceneData);
         auto triangles = sceneData->makeTriangles();
@@ -230,14 +230,14 @@ struct Tree::Impl : utils::OneTime<Impl>
                 const size_t size = std::size(v) * sizeof(T);
 #if THRUST_DEVICE_SYSTEM == THRUST_DEVICE_SYSTEM_CUDA
                 const ::CUdeviceptr src = utils::autoCast(srcPtr);
-                CU_CHECK_ERROR(::cuMemcpyDtoD(devPtr + offset, src, size));
+                CU_CHECK_ERROR(::cuMemcpyDtoD, devPtr + offset, src, size);
 #else
-                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + offset, srcPtr, size));
+                CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
 #endif
             };
             {
                 constexpr size_t kTriangleSize = sizeof(scene_data::Triangle);
-                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize));
+                CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
@@ -248,11 +248,11 @@ struct Tree::Impl : utils::OneTime<Impl>
                 typename Traits::Vector<NodeType> nodes{tree.allocator};
                 nodes.assign(node, cuda::std::next(node, nodeCount));
                 auto srcPtr = thrust::raw_pointer_cast(nodes.data());
-                CU_CHECK_ERROR(::cuMemcpyHtoD(devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize));
+                CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
 #endif
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);
-            CUDA_CHECK_ERROR(cudaDeviceSynchronize());
+            CUDA_CHECK_ERROR(cudaDeviceSynchronize);
         }
         fd.emplace(deviceMemory.exportMemoryObject());
     }
