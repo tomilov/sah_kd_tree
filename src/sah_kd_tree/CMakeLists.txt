@@ -57,6 +57,7 @@ skt_add_library(
         "update_splitted_polygon_node.cu"
     PUBLIC_LINKS
         Thrust)
+
 target_compile_options(
     "lib${PROJECT_NAME}"
     PRIVATE

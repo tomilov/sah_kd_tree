@@ -51,7 +51,7 @@ constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
 constexpr uint32_t kMaxTreeDepth = 1000;
 
-builder::TreePtr makeTree(QString sceneFileName)
+builder::TreePtr makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
 {
     compute::CudaDevicePtr cudaDevice = compute::makeCudaDevice(std::nullopt);
     scene_data::SceneData sceneData;
@@ -68,6 +68,8 @@ builder::TreePtr makeTree(QString sceneFileName)
             return nullptr;
         }
     }
+    sceneCenter = glm::mix(sceneData.aabb.min, sceneData.aabb.max, 0.5f);
+    mainDiagonal = glm::distance(sceneData.aabb.min, sceneData.aabb.max);
     builder::Tree::Settings settings = {
         .emptinessFactor = kEmptinessFactor,
         .traversalCost = kTraversalCost,
@@ -77,7 +79,7 @@ builder::TreePtr makeTree(QString sceneFileName)
     const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
     {
         using namespace std::chrono_literals;
-        if (start + 10s < std::chrono::steady_clock::now()) {
+        if (start + 600s < std::chrono::steady_clock::now()) {
             INVARIANT(false, "{}", progressValue);
         }
         return false;
@@ -175,11 +177,14 @@ int main(int argc, char * argv[])
         return EXIT_FAILURE;
     }
 
+    glm::float32 mainDiagonal{-1.0f};
+    glm::vec3 sceneCenter{0.0f};
+
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
     soft_renderer::SoftRenderer softRenderer{APPLICATION_NAME ""sv, kClearColor};
     {
         INVARIANT(argc > 1, "{}", argc);
-        builder::TreePtr tree = makeTree(QString::fromUtf8(argv[1]));
+        builder::TreePtr tree = makeTree(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
         if (!tree) {
             SPDLOG_ERROR("Failed to make tree");
             return EXIT_FAILURE;
@@ -187,7 +192,7 @@ int main(int argc, char * argv[])
         softRenderer.setTree(std::move(*tree));
     }
 
-    constexpr glm::float32 kMoveSpeed = 3.0f;
+    constexpr glm::float32 kCrossSceneAabbTime = 5.0f;
     constexpr glm::float32 kMouseSensetivity = 0.002f;
     glm::float32 yaw = 0.0f;
     glm::float32 pitch = 0.0f;
@@ -201,9 +206,9 @@ int main(int argc, char * argv[])
 
     soft_renderer::FrameSettings frameSettings;
     {
+        frameSettings.position = sceneCenter;
         // glm::quat orientation = glm::conjugate(glm::toQuat(glm::lookAt(position, glm::vec3{position.x, position.y, 0.0f}, glm::vec3{0.0f, -1.0f, 0.0f})));
-        frameSettings.position = {yaw, pitch, 0.0f};
-        glm::vec3 eulerAngles{0.0f, 0.0f, 0.0f};
+        glm::vec3 eulerAngles{yaw, pitch, 0.0f};
         frameSettings.orientation = glm::quat{glm::radians(eulerAngles)};
     }
 
@@ -211,7 +216,7 @@ int main(int argc, char * argv[])
     {
         return {soft_renderer::SoftRenderer::kTargetFormat, gli::extent2d{width, height}};
     };
-    auto target = createTarget();
+    auto rgbaTarget = createTarget();
 
     std::string windowTitle;
     FPSCounter fpsCounter;
@@ -233,7 +238,7 @@ int main(int argc, char * argv[])
                     SPDLOG_ERROR("SDL_CreateTexture failed: {}", SDL_GetError());
                     return EXIT_FAILURE;
                 }
-                target = createTarget();
+                rgbaTarget = createTarget();
                 break;
             }
             case SDL_EVENT_KEY_DOWN:
@@ -249,11 +254,31 @@ int main(int argc, char * argv[])
                     break;
                 }
                 case SDL_SCANCODE_S: {
-                    const bool isCtrlPressed = (event.key.mod & SDL_KMOD_CTRL) != 0;
-                    keyS = isPressed && !isCtrlPressed;
-                    if (isCtrlPressed && !event.key.repeat) {
+                    keyS = isPressed;
+                    break;
+                }
+                case SDL_SCANCODE_D: {
+                    keyD = isPressed;
+                    break;
+                }
+                case SDL_SCANCODE_Q: {
+                    keyQ = isPressed;
+                    break;
+                }
+                case SDL_SCANCODE_E: {
+                    keyE = isPressed;
+                    break;
+                }
+                case SDL_SCANCODE_ESCAPE: {
+                    if (isPressed) {
+                        running = false;
+                    }
+                    break;
+                }
+                case SDL_SCANCODE_PRINTSCREEN: {
+                    if (event.type == SDL_EVENT_KEY_UP) {
                         if (argc > 2) {
-                            auto rgbTarget = gli::convert(target, gli::format::FORMAT_RGB8_UNORM_PACK8);
+                            auto rgbTarget = gli::convert(rgbaTarget, gli::format::FORMAT_RGB8_UNORM_PACK8);
                             const std::string_view outputFilepath{argv[2]};
                             if ((outputFilepath == "-"sv) || outputFilepath.ends_with(".ppm"sv)) {
                                 auto outputFile = openFile(argv[2], stdout);
@@ -273,25 +298,8 @@ int main(int argc, char * argv[])
                                     return EXIT_FAILURE;
                                 }
                             }
+                            SPDLOG_ERROR("Screenshot saved to '{}'", argv[2]);
                         }
-                    }
-                    break;
-                }
-                case SDL_SCANCODE_D: {
-                    keyD = isPressed;
-                    break;
-                }
-                case SDL_SCANCODE_Q: {
-                    keyQ = isPressed;
-                    break;
-                }
-                case SDL_SCANCODE_E: {
-                    keyE = isPressed;
-                    break;
-                }
-                case SDL_SCANCODE_ESCAPE: {
-                    if (isPressed) {
-                        running = false;
                     }
                     break;
                 }
@@ -365,18 +373,31 @@ int main(int argc, char * argv[])
         if (keyE) moveDir += up;
         if (keyQ) moveDir -= up;
 
+        auto getSpeedModifier = []
+        {
+            const SDL_Keymod kmod = SDL_GetModState();
+            if (kmod & SDL_KMOD_SHIFT) {
+                return 0.05f;
+            } else if (kmod & SDL_KMOD_CTRL) {
+                return 5.0f;
+            } else {
+                return 1.0f;
+            }
+        };
         if (glm::dot(moveDir, moveDir) > 0.0f) {
             moveDir = glm::normalize(moveDir);
         }
-        frameSettings.position += moveDir * kMoveSpeed * dt;
+        frameSettings.position += moveDir * ((mainDiagonal / kCrossSceneAabbTime) * dt * getSpeedModifier());
+        frameSettings.zFar = mainDiagonal + glm::distance(frameSettings.position, sceneCenter);
+        frameSettings.zNear = frameSettings.zFar * std::numeric_limits<glm::float32>::epsilon() * 1000.0f;
 
-        softRenderer.render(frameSettings, target);
+        softRenderer.render(frameSettings, rgbaTarget);
 
         uint8_t * pixels = nullptr;
         int sdlPitch = 0;
         if (SDL_LockTexture(texture.get(), nullptr, utils::autoCast(&pixels), &sdlPitch)) {
             utils::ScopeGuard sdlUnlockTexture{SDL_UnlockTexture, texture.get()};
-            const uint8_t * srcData = utils::autoCast(target.data(0, 0, 0));
+            const uint8_t * srcData = utils::autoCast(rgbaTarget.data(0, 0, 0));
             const auto srcRowBytes = width * utils::safeCast<decltype(width)>(sizeof(soft_renderer::SoftRenderer::PixelType));
             for (int y = 0; y < height; ++y) {
                 std::memcpy(pixels, srcData, utils::autoCast(srcRowBytes));

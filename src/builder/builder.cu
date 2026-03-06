@@ -125,28 +125,42 @@ struct Tree::Impl : utils::OneTime<Impl>
 
     static void printThrustVersion()
     {
-        [[maybe_unused]] int major = THRUST_MAJOR_VERSION;
-        [[maybe_unused]] int minor = THRUST_MINOR_VERSION;
-        [[maybe_unused]] int subminor = THRUST_SUBMINOR_VERSION;
-        [[maybe_unused]] int patch = THRUST_PATCH_NUMBER;
-        SPDLOG_DEBUG("Thrust version: {}.{}.{}.{}", major, minor, subminor, patch);
-        const char * deviceSystem = nullptr;
-        switch (THRUST_DEVICE_SYSTEM) {
-        case THRUST_DEVICE_SYSTEM_CUDA:
-            deviceSystem = "CUDA";
-            break;
-        case THRUST_DEVICE_SYSTEM_OMP:
-            deviceSystem = "OMP";
-            break;
-        case THRUST_DEVICE_SYSTEM_TBB:
-            deviceSystem = "TBB";
-            break;
-        case THRUST_DEVICE_SYSTEM_CPP:
-            deviceSystem = "CPP";
-            break;
+        SPDLOG_INFO("Thrust version: {}.{}.{}.{}", THRUST_MAJOR_VERSION, THRUST_MINOR_VERSION, THRUST_SUBMINOR_VERSION, THRUST_PATCH_NUMBER);
+        {
+            const char * hostSystem = nullptr;
+            switch (THRUST_HOST_SYSTEM) {
+            case THRUST_HOST_SYSTEM_OMP:
+                hostSystem = "OMP";
+                break;
+            case THRUST_HOST_SYSTEM_TBB:
+                hostSystem = "TBB";
+                break;
+            case THRUST_HOST_SYSTEM_CPP:
+                hostSystem = "CPP";
+                break;
+            }
+            INVARIANT(hostSystem, "{}", THRUST_HOST_SYSTEM);
+            SPDLOG_INFO("Thrust host system: {}", hostSystem);
         }
-        INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
-        SPDLOG_DEBUG("Thrust device system: {}", deviceSystem);
+        {
+            const char * deviceSystem = nullptr;
+            switch (THRUST_DEVICE_SYSTEM) {
+            case THRUST_DEVICE_SYSTEM_CUDA:
+                deviceSystem = "CUDA";
+                break;
+            case THRUST_DEVICE_SYSTEM_OMP:
+                deviceSystem = "OMP";
+                break;
+            case THRUST_DEVICE_SYSTEM_TBB:
+                deviceSystem = "TBB";
+                break;
+            case THRUST_DEVICE_SYSTEM_CPP:
+                deviceSystem = "CPP";
+                break;
+            }
+            INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
+            SPDLOG_INFO("Thrust device system: {}", deviceSystem);
+        }
     }
 
     Impl(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)

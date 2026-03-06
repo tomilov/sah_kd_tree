@@ -18,6 +18,7 @@ skt_add_library(
         "libcompute"
         "libutils"
         "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>")
+
 set(USE_DEFAULT_TRAITS "SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS")
 option(
     ${USE_DEFAULT_TRAITS}
