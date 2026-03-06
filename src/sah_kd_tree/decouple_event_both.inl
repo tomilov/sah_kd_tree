@@ -26,7 +26,7 @@ void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const Vector<I> & nodeSp
         }
         return polygonSides[eventPolygons[event]] < 0;
     };
-    auto eventLeftEnd = thrust::copy_if(eventBegin, eventEnd, eventLeft.begin(), isLeftPolygon);
+    auto eventLeftEnd = thrust::copy_if(exec, eventBegin, eventEnd, eventLeft.begin(), isLeftPolygon);
     eventLeft.erase(eventLeftEnd, eventLeft.end());
 
     auto & eventRight = event.polygonCountRight;
@@ -38,6 +38,6 @@ void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const Vector<I> & nodeSp
         }
         return 0 < polygonSides[eventPolygons[event]];
     };
-    auto eventRightEnd = thrust::copy_if(eventBegin, eventEnd, eventRight.begin(), isRightPolygon);
+    auto eventRightEnd = thrust::copy_if(exec, eventBegin, eventEnd, eventRight.begin(), isRightPolygon);
     eventRight.erase(eventRightEnd, eventRight.end());
 }

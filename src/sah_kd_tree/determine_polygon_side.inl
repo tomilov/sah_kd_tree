@@ -32,7 +32,7 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
         }
         return !(0 < eventKinds[event]);
     };
-    thrust::scatter_if(eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygon.eventRight.begin(), isNotLeftEvent);
+    thrust::scatter_if(exec, eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygon.eventRight.begin(), isNotLeftEvent);
 
     auto polygonRightEvents = thrust::raw_pointer_cast(polygon.eventRight.data());
     auto eventPolygons = thrust::raw_pointer_cast(projection.event.polygon.data());
@@ -64,10 +64,10 @@ void Builder<Traits>::determinePolygonSide(const Projection<Traits> & projection
     };
 #if 1
     auto polygonSideBegin = thrust::make_permutation_iterator(polygon.side.begin(), projection.event.polygon.cbegin());
-    thrust::transform_if(eventBegin, eventEnd, polygonSideBegin, toPolygonSide, isNotRightEvent);
+    thrust::transform_if(exec, eventBegin, eventEnd, polygonSideBegin, toPolygonSide, isNotRightEvent);
 #else
     auto polygonSideBegin = thrust::make_transform_output_iterator(polygon.side.begin(), toPolygonSide);
-    thrust::scatter_if(eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygonSideBegin, isNotRightEvent);
+    thrust::scatter_if(exec, eventBegin, eventEnd, projection.event.polygon.cbegin(), eventBegin, polygonSideBegin, isNotRightEvent);
 #endif
 }
 }  // namespace sah_kd_tree

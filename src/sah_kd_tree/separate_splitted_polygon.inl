@@ -44,6 +44,6 @@ void sah_kd_tree::Builder<Traits>::separateSplittedPolygon()
     };
     auto splittedPolygonInputBegin = thrust::make_transform_iterator(polygonBegin, toSplittedPolygon);
     auto splittedPolygonInputEnd = cuda::std::next(splittedPolygonInputBegin, polygon.count);
-    [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(splittedPolygonInputBegin, splittedPolygonInputEnd, polygonBegin, splittedPolygonOutputBegin, isSplittedPolygon);
+    [[maybe_unused]] auto splittedPolygonOutputEnd = thrust::copy_if(exec, splittedPolygonInputBegin, splittedPolygonInputEnd, polygonBegin, splittedPolygonOutputBegin, isSplittedPolygon);
     assert(cuda::std::next(splittedPolygonOutputBegin, polygon.splittedCount) == splittedPolygonOutputEnd);
 }

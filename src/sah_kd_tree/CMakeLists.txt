@@ -63,7 +63,8 @@ target_compile_options(
     PRIVATE
         "-Wno-unused-parameter"
         "-Wno-deprecated-copy"
-        "-Wno-unused-function")
+        "-Wno-unused-function"
+        "-ftemplate-backtrace-limit=0")
 if(${SAH_KD_TREE_BUILD_FUZZER})
     target_compile_options(
         "lib${PROJECT_NAME}"

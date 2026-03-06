@@ -37,5 +37,5 @@ void sah_kd_tree::Builder<Traits>::updatePolygonNode()
         }
         return true;
     };
-    thrust::transform_if(polygonBegin, polygonEnd, polygon.node.begin(), toPolygonNode, isCurrentLayer);
+    thrust::transform_if(exec, polygonBegin, polygonEnd, polygon.node.begin(), toPolygonNode, isCurrentLayer);
 }

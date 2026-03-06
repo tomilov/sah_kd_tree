@@ -11,6 +11,6 @@ void sah_kd_tree::Builder<Traits>::filterLayerNodeOffset()
 
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);
-    auto layerNodeOffsetEnd = thrust::copy_if(layerNodeBegin, layerNodeEnd, cuda::std::next(node.polygonCount.cbegin(), layer.base), layer.nodeOffset.begin(), isNodeNotEmpty);
+    auto layerNodeOffsetEnd = thrust::copy_if(exec, layerNodeBegin, layerNodeEnd, cuda::std::next(node.polygonCount.cbegin(), layer.base), layer.nodeOffset.begin(), isNodeNotEmpty);
     layer.nodeOffset.erase(layerNodeOffsetEnd, layer.nodeOffset.end());
 }

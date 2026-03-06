@@ -30,7 +30,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
     z.generateInitialEvent();
 
     polygon.triangle.resize(polygon.count);
-    thrust::sequence(polygon.triangle.begin(), polygon.triangle.end());  // TODO(tomilov): do not waste space
+    thrust::sequence(exec, polygon.triangle.begin(), polygon.triangle.end());  // TODO(tomilov): do not waste space
     polygon.node.resize(polygon.count, static_cast<U>(0));
 
     node.polygonCount.resize(1, polygon.count);
@@ -59,7 +59,7 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
         auto layerSplitDimensionBegin = cuda::std::next(node.splitDimension.cbegin(), layer.base);
         auto layerSplitDimensionEnd = cuda::std::next(layerSplitDimensionBegin, layer.size);
         assert(layerSplitDimensionEnd == node.splitDimension.cend());
-        U layerLeafNodeCount = safeConvert<U>(thrust::count(layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
+        U layerLeafNodeCount = safeConvert<U>(thrust::count(exec, layerSplitDimensionBegin, layerSplitDimensionEnd, kNoSplitDimension));
         leaf.count += layerLeafNodeCount;
         if (layerLeafNodeCount == layer.size) {
             assert(tree.layerDepth.size() < sah.maxTreeDepth);
@@ -82,14 +82,14 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
             {
                 return (layerSplitDimension < 0) ? 0 : 2;
             };
-            auto nodeLeftChildEnd = thrust::transform_exclusive_scan(layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, cuda::std::plus<U>{});
+            auto nodeLeftChildEnd = thrust::transform_exclusive_scan(exec, layerSplitDimensionBegin, layerSplitDimensionEnd, nodeLeftChildBegin, toNodeCount, layer.base + layer.size, cuda::std::plus<U>{});
 
             auto nodeRightChildBegin = cuda::std::next(node.rightChild.begin(), layer.base);
             const auto toNodeRightChild = [] __host__ __device__(U nodeLeftChild, I layerSplitDimension) -> U
             {
                 return (layerSplitDimension < 0) ? 0 : (nodeLeftChild + 1);
             };
-            thrust::transform(nodeLeftChildBegin, nodeLeftChildEnd, layerSplitDimensionBegin, nodeRightChildBegin, toNodeRightChild);
+            thrust::transform(exec, nodeLeftChildBegin, nodeLeftChildEnd, layerSplitDimensionBegin, nodeRightChildBegin, toNodeRightChild);
         }
 
         separateSplittedPolygon();
@@ -122,18 +122,18 @@ bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits
 
         auto nodePolygonCountLeftBegin = cuda::std::next(node.polygonCountLeft.cbegin(), layerBasePrev);
         auto nodePolygonCountLeftEnd = cuda::std::next(node.polygonCountLeft.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
+        thrust::scatter_if(exec, nodePolygonCountLeftBegin, nodePolygonCountLeftEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
         auto nodePolygonCountRightBegin = cuda::std::next(node.polygonCountRight.cbegin(), layerBasePrev);
         auto nodePolygonCountRightEnd = cuda::std::next(node.polygonCountRight.cbegin(), layer.base);
-        thrust::scatter_if(nodePolygonCountRightBegin, nodePolygonCountRightEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
+        thrust::scatter_if(exec, nodePolygonCountRightBegin, nodePolygonCountRightEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, node.polygonCount.begin(), isNotLeaf);
 
         setNodeCount(x, y, z);
 
         auto nodeBboxBegin = thrust::make_zip_iterator(x.node.min.begin(), x.node.max.begin(), y.node.min.begin(), y.node.max.begin(), z.node.min.begin(), z.node.max.begin());
         auto layerBboxBegin = cuda::std::next(nodeBboxBegin, layerBasePrev);
         auto layerBboxEnd = cuda::std::next(nodeBboxBegin, layer.base);
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
-        thrust::scatter_if(layerBboxBegin, layerBboxEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        thrust::scatter_if(exec, layerBboxBegin, layerBboxEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
+        thrust::scatter_if(exec, layerBboxBegin, layerBboxEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), layerSplitDimensionBegin, nodeBboxBegin, isNotLeaf);
 
         splitNode<0>(layerBasePrev, x);
         splitNode<1>(layerBasePrev, y);

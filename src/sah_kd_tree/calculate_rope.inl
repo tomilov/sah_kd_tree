@@ -80,7 +80,7 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
         }
         return siblingNode;
     };
-    thrust::transform(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRope.begin(), getRightRope);
+    thrust::transform(exec, thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), nodeRope.begin(), getRightRope);
 }
 
 }  // namespace sah_kd_tree

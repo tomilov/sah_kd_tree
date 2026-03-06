@@ -56,6 +56,7 @@ struct Traits  // cannot be member typedef of Tree::Impl because of wierd CUDA p
     using MemoryResource = thrust::device_memory_resource;
     template<typename T>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
+    using Exec = decltype(thrust::cuda::par_nosync(std::declval<Allocator<std::byte> &>()).on(std::declval<cudaStream_t>()));
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
     using Progress = sah_kd_tree::DefaultTraits::Progress;
@@ -174,10 +175,13 @@ struct Tree::Impl : utils::OneTime<Impl>
         auto triangles = sceneData->makeTriangles();
         triangleCount = triangles.getCount();
 #if SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
+        SPDLOG_INFO("DefaultTraits used");
         sah_kd_tree::Tree<Traits> tree;
 #else
+        SPDLOG_INFO("Custom Traits used");
+
         typename Traits::MemoryResource memoryResource;
-        typename Traits::Allocator<void> allocator{&memoryResource};
+        typename Traits::Allocator<std::byte> allocator{&memoryResource};
 
         sah_kd_tree::Tree<Traits> tree{allocator};
 #endif
@@ -188,10 +192,12 @@ struct Tree::Impl : utils::OneTime<Impl>
 
             sah_kd_tree::Triangle<Traits> triangle;
 #else
-            sah_kd_tree::Builder<Traits> builder{allocator};
-            sah_kd_tree::Projection<Traits> x{allocator}, y{allocator}, z{allocator};
+            compute::CudaStream cudaStream;
+            auto exec = thrust::cuda::par_nosync(allocator).on(cudaStream.getHandle());
+            sah_kd_tree::Builder<Traits> builder{allocator, exec};
+            sah_kd_tree::Projection<Traits> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
 
-            sah_kd_tree::Triangle<Traits> triangle{allocator};
+            sah_kd_tree::Triangle<Traits> triangle{allocator, exec};
 #endif
             triangle.setTriangle(triangles.begin(), triangles.end());
             sah_kd_tree::linkTriangles(triangle, x, y, z, builder);
@@ -204,6 +210,7 @@ struct Tree::Impl : utils::OneTime<Impl>
             if (!builder.build(progress, params, x, y, z, tree)) {
                 return;
             }
+            cudaStream.synchronize();
             // free device memory occupied by temporary arrays required for tree building
         }
         static_assert(std::is_same_v<Traits::F, glm::float32>);

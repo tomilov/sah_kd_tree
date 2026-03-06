@@ -166,4 +166,32 @@ private:
 #pragma GCC diagnostic pop
 };
 
+class COMPUTE_EXPORT CudaStream
+{
+public:
+    CudaStream();
+    ~CudaStream();
+
+    [[nodiscard]] bool operator==(const CudaStream & rhs) const noexcept
+    {
+        return cudaStream == rhs.cudaStream;
+    }
+
+    [[nodiscard]] cudaStream_t getHandle() const &
+    {
+        return cudaStream;
+    }
+
+    void synchronize() const;
+
+private:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#ifndef __clang__
+#pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
+    cudaStream_t cudaStream = cudaStreamPerThread;
+#pragma GCC diagnostic pop
+};
+
 }  // namespace compute

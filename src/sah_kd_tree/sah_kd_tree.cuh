@@ -3,6 +3,7 @@
 #include <thrust/device_allocator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -10,14 +11,20 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
+#include <fmt/chrono.h>
+
+#include <chrono>
 #include <functional>
 #include <limits>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 #include <sah_kd_tree/sah_kd_tree_export.h>
 
@@ -33,6 +40,25 @@ U safeConvert(T size)
     return static_cast<U>(size);
 }
 
+class ScopeTimer
+{
+public:
+    using Clock = std::chrono::high_resolution_clock;
+
+    explicit ScopeTimer(std::string_view name)
+        : name{name}
+    {}
+
+    ~ScopeTimer()
+    {
+        fmt::println(stderr, "ScopeTime '{}': {}", name, std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start));
+    }
+
+private:
+    const std::string name;
+    const Clock::time_point start = Clock::now();
+};
+
 struct DefaultTraits
 {
     using I = std::int32_t;
@@ -40,6 +66,7 @@ struct DefaultTraits
     using F = float;
     template<typename T>
     using Allocator = thrust::device_allocator<T>;
+    using Exec = decltype(thrust::device);
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
     using Progress = std::function<bool(size_t progressValue)>;
@@ -71,65 +98,39 @@ struct Tree
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
 
-    Allocator<void> allocator;
+    Allocator<std::byte> allocator;
 
     thrust::host_vector<U> layerDepth;
 
     struct Projection
     {
+        Allocator<std::byte> allocator;
+
         struct Node
         {
-            Vector<F> min, max;
-            Vector<U> leftRope, rightRope;
-        } node;
-    } x, y, z;
+            Allocator<std::byte> allocator;
+
+            Vector<F> min{allocator}, max{allocator};
+            Vector<U> leftRope{allocator}, rightRope{allocator};
+        } node{allocator};
+    } x{allocator}, y{allocator}, z{allocator};
 
     struct Node
     {
-        Vector<I> splitDimension;
-        Vector<F> splitPos;
-        Vector<U> leftChild, rightChild;
-        Vector<U> parent;
-    } node;
+        Allocator<std::byte> allocator;
 
-    Vector<U> polygonTriangle;
+        Vector<I> splitDimension{allocator};
+        Vector<F> splitPos{allocator};
+        Vector<U> leftChild{allocator}, rightChild{allocator};
+        Vector<U> parent{allocator};
+    } node{allocator};
+
+    Vector<U> polygonTriangle{allocator};
 
     Tree() = default;
 
-    Tree(const Allocator<void> & allocatorIn)
-        : allocator{allocatorIn}
-        , x{
-              .node{
-                  .min{allocator},
-                  .max{allocator},
-                  .leftRope{allocator},
-                  .rightRope{allocator},
-              },
-          }
-        , y{
-              .node{
-                  .min{allocator},
-                  .max{allocator},
-                  .leftRope{allocator},
-                  .rightRope{allocator},
-              },
-          }
-        , z{
-              .node{
-                  .min{allocator},
-                  .max{allocator},
-                  .leftRope{allocator},
-                  .rightRope{allocator},
-              },
-          }
-        , node{
-              .splitDimension{allocator},
-              .splitPos{allocator},
-              .leftChild{allocator},
-              .rightChild{allocator},
-              .parent{allocator},
-          }
-        , polygonTriangle{allocator}
+    Tree(const Allocator<std::byte> & allocator)
+        : allocator{allocator}
     {}
 };
 
@@ -141,10 +142,12 @@ struct Projection
     using F = typename Traits::F;
     template<typename T>
     using Allocator = typename Traits::template Allocator<T>;
+    using Exec = typename Traits::Exec;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
 
-    Allocator<void> allocator;
+    Allocator<std::byte> allocator;
+    Exec exec;
 
     struct ToPair
     {
@@ -170,66 +173,57 @@ struct Projection
 
     struct Polygon
     {
-        Vector<F> min, max;
-    } polygon;
+        Allocator<std::byte> allocator;
+
+        Vector<F> min{allocator}, max{allocator};
+    } polygon{allocator};
 
     struct Node
     {
-        Vector<F> min, max;
-        Vector<U> leftRope, rightRope;
-    } node;
+        Allocator<std::byte> allocator;
+
+        Vector<F> min{allocator}, max{allocator};
+        Vector<U> leftRope{allocator}, rightRope{allocator};
+    } node{allocator};
 
     struct Event
     {
-        U count = 0;
-        Vector<U> node;
-        Vector<F> pos;
-        Vector<I> kind;  // TODO: scale event kind by polygon value
-        Vector<U> polygon;
+        Allocator<std::byte> allocator;
 
-        Vector<U> polygonCountLeft, polygonCountRight;  // or eventLeft, eventRight mutually exclusive
-    } event;
+        U count = 0;
+        Vector<U> node{allocator};
+        Vector<F> pos{allocator};
+        Vector<I> kind{allocator};  // TODO: scale event kind by polygon value
+        Vector<U> polygon{allocator};
+
+        Vector<U> polygonCountLeft{allocator}, polygonCountRight{allocator};  // or eventLeft, eventRight mutually exclusive
+    } event{allocator};
 
     struct Layer
     {
-        Vector<F> splitCost;
-        Vector<U> splitEvent;
-        Vector<F> splitPos;
+        Allocator<std::byte> allocator;
 
-        Vector<U> polygonCountLeft, polygonCountRight;
-        Vector<U> splittedPolygonCount;  // can be optimized out
-    } layer;
+        Vector<F> splitCost{allocator};
+        Vector<U> splitEvent{allocator};
+        Vector<F> splitPos{allocator};
+
+        Vector<U> polygonCountLeft{allocator}, polygonCountRight{allocator};
+        Vector<U> splittedPolygonCount{allocator};  // can be optimized out
+    } layer{allocator};
 
     Projection() = default;
 
-    Projection(const Allocator<void> & allocatorIn)
-        : allocator{allocatorIn}
-        , polygon{
-              .min{allocator},
-              .max{allocator},
-          }
-        , node{
-              .min{allocator},
-              .max{allocator},
-              .leftRope{allocator},
-              .rightRope{allocator},
-          }
-        , event{
-              .node{allocator},
-              .pos{allocator},
-              .kind{allocator},
-              .polygon{allocator},
-              .polygonCountLeft{allocator},
-              .polygonCountRight{allocator},
-          }
-        , layer{
-              .splitCost{allocator},
-              .splitEvent{allocator},
-              .splitPos{allocator},
-              .polygonCountLeft{allocator},
-              .polygonCountRight{allocator},
-              .splittedPolygonCount{allocator},
-          }
+    Projection(const Allocator<std::byte> & allocator)
+        : allocator{allocator}
+    {}
+
+    Projection(Exec exec)
+        : exec{exec}
+    {}
+
+    Projection(const Allocator<std::byte> & allocator, Exec exec)
+        : allocator{allocator}
+        , exec{exec}
     {}
 
     void calculateTriangleBbox();
@@ -250,6 +244,7 @@ struct Builder
     using F = typename Traits::F;
     template<typename T>
     using Allocator = typename Traits::template Allocator<T>;
+    using Exec = typename Traits::Exec;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
     using Progress = typename Traits::Progress;
@@ -272,78 +267,71 @@ struct Builder
         }
     } isNodeNotEmpty;
 
-    Allocator<void> allocator;
+    Allocator<std::byte> allocator;
+    Exec exec;
 
     struct Polygon
     {
+        Allocator<std::byte> allocator;
+
         U count = 0;
         U splittedCount = 0;
 
-        Vector<U> triangle;
-        Vector<U> node;
-        Vector<I> side;
-        Vector<U> eventRight;  // right event in diverse best dimensions
-    } polygon;
+        Vector<U> triangle{allocator};
+        Vector<U> node{allocator};
+        Vector<I> side{allocator};
+        Vector<U> eventRight{allocator};  // right event in diverse best dimensions
+    } polygon{allocator};
 
     struct Node
     {
+        Allocator<std::byte> allocator;
+
         U count = 1;  // always equal layer.base + layer.size
 
-        Vector<I> splitDimension;
-        Vector<F> splitPos;                                           // TODO: splitDimension can be packed into 2 lsb of splitPos
-        Vector<U> leftChild, rightChild;                              // left child node and right child node if not leaf, polygon range otherwise
-        Vector<U> polygonCount, polygonCountLeft, polygonCountRight;  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
-        Vector<U> parent;                                             // temporarily needed to build ropes
-    } node;                                                           // TODO: optimize out node.rightChild
+        Vector<I> splitDimension{allocator};
+        Vector<F> splitPos{allocator};                                                                 // TODO: splitDimension can be packed into 2 lsb of splitPos
+        Vector<U> leftChild{allocator}, rightChild{allocator};                                         // left child node and right child node if not leaf, polygon range otherwise
+        Vector<U> polygonCount{allocator}, polygonCountLeft{allocator}, polygonCountRight{allocator};  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
+        Vector<U> parent{allocator};                                                                   // temporarily needed to build ropes
+    } node{allocator};                                                                                 // TODO: optimize out node.rightChild
 
     struct Leaf
     {
+        Allocator<std::byte> allocator;
+
         U count = 0;
 
-        Vector<U> node;
-        Vector<U> polygonCount;
-        Vector<U> polygonOffset;
-    } leaf;
+        Vector<U> node{allocator};
+        Vector<U> polygonCount{allocator};
+        Vector<U> polygonOffset{allocator};
+    } leaf{allocator};
 
     struct Layer
     {
+        Allocator<std::byte> allocator;
+
         U base = 0;
         U size = 1;
 
-        Vector<U> nodeOffset;
-    } layer;
+        Vector<U> nodeOffset{allocator};
+    } layer{allocator};
 
-    Vector<U> splittedPolygon;
+    Vector<U> splittedPolygon{allocator};
 
     Builder() = default;
 
-    Builder(const Allocator<void> & allocatorIn)
-        : allocator{allocatorIn}
-        , polygon{
-              .triangle{allocator},
-              .node{allocator},
-              .side{allocator},
-              .eventRight{allocator},
-          }
-        , node{
-              .splitDimension{allocator},
-              .splitPos{allocator},
-              .leftChild{allocator},
-              .rightChild{allocator},
-              .polygonCount{allocator},
-              .polygonCountLeft{allocator},
-              .polygonCountRight{allocator},
-              .parent{allocator},
-          }
-        , leaf{
-              .node{allocator},
-              .polygonCount{allocator},
-              .polygonOffset{allocator},
-          }
-        , layer{
-              .nodeOffset{allocator},
-          }
-        , splittedPolygon{allocator}
+    Builder(const Allocator<std::byte> & allocator)
+        : allocator{allocator}
+    {}
+
+    Builder(Exec exec)
+        : exec{exec}
+    {}
+
+    Builder(const Allocator<std::byte> & allocator, Exec exec)
+        : allocator{allocator}
+        , exec{exec}
     {}
 
     void filterLayerNodeOffset();
@@ -381,6 +369,7 @@ struct Triangle
     using F = typename Traits::F;
     template<typename T>
     using Allocator = typename Traits::template Allocator<T>;
+    using Exec = typename Traits::Exec;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
 
@@ -393,34 +382,31 @@ struct Triangle
         }
     };
 
-    Allocator<void> allocator;
+    Allocator<std::byte> allocator;
+    Exec exec;
 
     U count = 0;
 
     struct Component
     {
-        Vector<F> a, b, c;
-    } x, y, z;
+        Allocator<std::byte> allocator;
+
+        Vector<F> a{allocator}, b{allocator}, c{allocator};
+    } x{allocator}, y{allocator}, z{allocator};
 
     Triangle() = default;
 
-    Triangle(const Allocator<void> & allocatorIn)
-        : allocator{allocatorIn}
-        , x{
-              .a{allocator},
-              .b{allocator},
-              .c{allocator},
-          }
-        , y{
-              .a{allocator},
-              .b{allocator},
-              .c{allocator},
-          }
-        , z{
-              .a{allocator},
-              .b{allocator},
-              .c{allocator},
-          }
+    Triangle(const Allocator<std::byte> & allocator)
+        : allocator{allocator}
+    {}
+
+    Triangle(Exec exec)
+        : exec{exec}
+    {}
+
+    Triangle(const Allocator<std::byte> & allocator, Exec exec)
+        : allocator{allocator}
+        , exec{exec}
     {}
 
     // For non-CUDA THRUST_DEVICE_SYSTEM, using the function works fine in pure .cpp.
@@ -445,7 +431,7 @@ struct Triangle
         };
         auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
         using TransposedTriangleType = cuda::std::iter_value_t<decltype(transposedTriangleBegin)>;
-        thrust::transform(t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangle<TriangleType, TransposedTriangleType>{});
+        thrust::transform(exec, t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangle<TriangleType, TransposedTriangleType>{});
     }
 };
 

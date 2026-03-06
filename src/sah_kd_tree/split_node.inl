@@ -16,7 +16,7 @@ void Builder<Traits>::splitNode(U layerBasePrev, Projection<Traits> & projection
     {
         return nodeSplitDimension == dimension;
     };
-    thrust::scatter_if(nodeSplitPosBegin, nodeSplitPosEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), nodeSplitDimensionBegin, projection.node.max.begin(), isCurrentProjection);
-    thrust::scatter_if(nodeSplitPosBegin, nodeSplitPosEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), nodeSplitDimensionBegin, projection.node.min.begin(), isCurrentProjection);
+    thrust::scatter_if(exec, nodeSplitPosBegin, nodeSplitPosEnd, cuda::std::next(node.leftChild.cbegin(), layerBasePrev), nodeSplitDimensionBegin, projection.node.max.begin(), isCurrentProjection);
+    thrust::scatter_if(exec, nodeSplitPosBegin, nodeSplitPosEnd, cuda::std::next(node.rightChild.cbegin(), layerBasePrev), nodeSplitDimensionBegin, projection.node.min.begin(), isCurrentProjection);
 }
 }  // namespace sah_kd_tree

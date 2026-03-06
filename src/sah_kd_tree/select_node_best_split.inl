@@ -72,5 +72,5 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
             return NodeBestSplitType{-1};  // leaf node
         }
     };
-    thrust::transform_if(layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, cuda::std::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
+    thrust::transform_if(exec, layerNodeBegin, layerNodeEnd, nodePolygonCountBegin, cuda::std::next(nodeBestSplitBegin, layer.base), toNodeBestSplit, isNodeNotEmpty);
 }

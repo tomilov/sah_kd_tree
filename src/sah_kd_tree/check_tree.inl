@@ -72,7 +72,7 @@ bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<
 
         return true;
     };
-    if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygonProjections)) {
+    if (!thrust::all_of(exec, thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(polygon.count), checkPolygonProjections)) {
         return false;
     }
     return true;
@@ -163,7 +163,7 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
         }
         return true;
     };
-    if (!thrust::all_of(thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), checkNode)) {
+    if (!thrust::all_of(exec, thrust::make_counting_iterator<U>(0), thrust::make_counting_iterator<U>(node.count), checkNode)) {
         return false;
     }
     return true;

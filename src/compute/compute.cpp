@@ -194,4 +194,19 @@ CudaDevice::CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
     }
 }
 
+CudaStream::CudaStream()
+{
+    CUDA_CHECK_ERROR(cudaStreamCreate, &cudaStream);
+}
+
+CudaStream::~CudaStream()
+{
+    CUDA_CHECK_ERROR(cudaStreamDestroy, cudaStream);
+}
+
+void CudaStream::synchronize() const
+{
+    CUDA_CHECK_ERROR(cudaStreamSynchronize, cudaStream);
+}
+
 }  // namespace compute
