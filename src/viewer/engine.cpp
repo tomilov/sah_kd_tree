@@ -35,20 +35,20 @@ engine::DescriptorBindingNameAndType SceneResources::getBindingName()
 
 [[nodiscard]] DescriptorInfo SceneResources::getDescriptorInfo(bool descriptorBufferEnabled) const
 {
-    const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+    const auto getDescriptorData = [this, descriptorBufferEnabled]
     {
         if (!transformBuffer) {
             if (descriptorBufferEnabled) {  // requires nullDescriptor
-                return DescriptorBufferData{};
+                return DescriptorData{std::in_place_type<DescriptorBufferData>};
             } else {
-                return DescriptorSetData{vk::DescriptorBufferInfo{}};
+                return DescriptorData{std::in_place_type<DescriptorSetData>, vk::DescriptorBufferInfo{}};
             }
         }
         const auto & t = transformBuffer.value().base();
         if (descriptorBufferEnabled) {
-            return DescriptorBufferData{t.getDescriptorAddressInfo()};
+            return DescriptorData{std::in_place_type<DescriptorBufferData>, t.getDescriptorAddressInfo()};
         } else {
-            return DescriptorSetData{t.getDescriptorBufferInfo()};
+            return DescriptorData{std::in_place_type<DescriptorSetData>, t.getDescriptorBufferInfo()};
         }
     };
     return {getBindingName(), getDescriptorData()};
@@ -247,12 +247,12 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
         .imageView = *framebuffer.colorImageView,
         .imageLayout = OffscreenRenderPass::kExternalColorImageLayout,
     };
-    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]() -> DescriptorData
+    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]
     {
         if (descriptorBufferEnabled) {
-            return DescriptorBufferData{descriptorImageInfo};
+            return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
         } else {
-            return DescriptorSetData{descriptorImageInfo};
+            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
         }
     };
     return {getBindingName(), getDescriptorData()};
@@ -289,12 +289,12 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
         .imageView = *imageView,
         .imageLayout = target ? kInternalImageLayout : kExternalImageLayout,
     };
-    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]() -> DescriptorData
+    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]
     {
         if (descriptorBufferEnabled) {
-            return DescriptorBufferData{descriptorImageInfo};
+            return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
         } else {
-            return DescriptorSetData{descriptorImageInfo};
+            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
         }
     };
     return {getBindingName(target), getDescriptorData()};

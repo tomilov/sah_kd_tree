@@ -306,12 +306,12 @@ struct UniformBufferResource final
 
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
     {
-        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+        const auto getDescriptorData = [this, descriptorBufferEnabled]
         {
             if (descriptorBufferEnabled) {
-                return DescriptorBufferData{uniformBuffer.getDescriptorAddressInfo()};
+                return DescriptorData{std::in_place_type<DescriptorBufferData>, uniformBuffer.getDescriptorAddressInfo()};
             } else {
-                return viewer::DescriptorSetData{uniformBuffer.getDescriptorBufferInfo()};
+                return DescriptorData{std::in_place_type<DescriptorSetData>, uniformBuffer.getDescriptorBufferInfo()};
             }
         };
         return {getBindingName(), getDescriptorData()};
@@ -335,12 +335,12 @@ struct TraceSceneResources final
 
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
     {
-        const auto getDescriptorData = [this, descriptorBufferEnabled]() -> DescriptorData
+        const auto getDescriptorData = [this, descriptorBufferEnabled]
         {
             if (descriptorBufferEnabled) {
-                return DescriptorBufferData{treeUniformBuffer.getDescriptorAddressInfo()};
+                return DescriptorData{std::in_place_type<DescriptorBufferData>, treeUniformBuffer.getDescriptorAddressInfo()};
             } else {
-                return viewer::DescriptorSetData{treeUniformBuffer.getDescriptorBufferInfo()};
+                return DescriptorData{std::in_place_type<DescriptorSetData>, treeUniformBuffer.getDescriptorBufferInfo()};
             }
         };
         return {getBindingName(), getDescriptorData()};

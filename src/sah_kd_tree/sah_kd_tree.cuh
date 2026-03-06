@@ -370,7 +370,7 @@ struct Builder
     void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
 
     template<typename P = Progress>
-    bool build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree) SAH_KD_TREE_EXPORT;
+    bool build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree);
 };
 
 template<typename Traits = DefaultTraits>
@@ -450,6 +450,9 @@ struct Triangle
 };
 
 template<typename Traits = DefaultTraits>
-void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder) SAH_KD_TREE_EXPORT;
+void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder);
 
 }  // namespace sah_kd_tree
+
+extern template bool sah_kd_tree::Builder<>::build<>(const Progress & progress, const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z, Tree<> & tree) SAH_KD_TREE_EXPORT;
+extern template void sah_kd_tree::linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder) SAH_KD_TREE_EXPORT;

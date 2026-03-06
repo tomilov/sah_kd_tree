@@ -111,15 +111,15 @@ struct FPSCounter
         const Uint64 timeNow = SDL_GetPerformanceCounter();
         const Uint64 timeDelta = timeNow - std::exchange(timePrev, timeNow);
 
-        dt = static_cast<glm::float32>(timeDelta) / frequency;
+        dt = static_cast<glm::float32>(timeDelta) / static_cast<glm::float32>(frequency);
 
         frameCount++;
         titleTimer += timeDelta;
         if (titleTimer < frequency * updateIntervalMs / 1000) {
             return false;
         }
-        const double fps = frameCount / (static_cast<double>(titleTimer) / frequency);
-        const double frameTimeMs = static_cast<double>(timeDelta) / frequency * 1000.0;
+        const double fps = frameCount / (static_cast<double>(titleTimer) / static_cast<double>(frequency));
+        const double frameTimeMs = static_cast<double>(timeDelta) / static_cast<double>(frequency) * 1000.0;
         frameCount = 0;
         titleTimer = 0;
         windowTitle.resize(0);
@@ -128,7 +128,7 @@ struct FPSCounter
     }
 
 private:
-    const glm::float32 frequency = utils::autoCast(SDL_GetPerformanceFrequency());
+    const Uint64 frequency = SDL_GetPerformanceFrequency();
     Uint64 timePrev = SDL_GetPerformanceCounter();
     Uint64 titleTimer = 0;
     int frameCount = 0;

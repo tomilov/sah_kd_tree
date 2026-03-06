@@ -268,7 +268,7 @@ bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int r
     switch (role) {
     case Qt::ItemDataRole::CheckStateRole: {
         const auto checkState = value.value<Qt::CheckState>();
-        bool checked;
+        bool checked = false;
         switch (value.value<Qt::CheckState>()) {
         case Qt::CheckState::Checked: {
             checked = true;
