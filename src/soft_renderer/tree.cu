@@ -17,8 +17,8 @@ namespace soft_renderer
 
 void importTree(builder::Tree tree, utils::MemArray<scene_data::Triangle> & triangles, utils::MemArray<glm::uint> & polygons, utils::MemArray<Node> & nodes, utils::MemArray<glm::uint> & nodeParents)
 {
-    const compute::CudaDevice & cudaDevice = tree.getCudaDevice();
-    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).stealFd(), tree.getAllocationSize(), tree.getDataAlignment()};
+    const compute::CudaDevice & cudaDevice = tree.cudaDevice;
+    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).fd, tree.allocationSize, tree.dataAlignment};
     const auto mappedDeviceMemory = deviceMemory.map();
     const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)
@@ -26,10 +26,10 @@ void importTree(builder::Tree tree, utils::MemArray<scene_data::Triangle> & tria
         v = utils::MemArray<T>{count};
         CU_CHECK_ERROR(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
-    scatterDeviceData(tree.getTriangleOffset(), tree.getTriangleCount(), triangles);
-    scatterDeviceData(tree.getPolygonOffset(), tree.getPolygonCount(), polygons);
-    scatterDeviceData(tree.getNodeOffset(), tree.getNodeCount(), nodes);
-    scatterDeviceData(tree.getNodeParentOffset(), tree.getNodeCount(), nodeParents);
+    scatterDeviceData(tree.triangleOffset, tree.triangleCount, triangles);
+    scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
+    scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);
+    scatterDeviceData(tree.nodeParentOffset, tree.nodeCount, nodeParents);
     CUDA_CHECK_ERROR(cudaDeviceSynchronize);
 }
 

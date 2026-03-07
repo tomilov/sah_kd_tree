@@ -57,7 +57,7 @@ protected:
                 return false;
             }
         }
-        const builder::Tree::Settings treeSettings = {
+        const builder::Settings treeSettings = {
             .emptinessFactor = emptinessFactor,
             .traversalCost = traversalCost,
             .intersectionCost = intersectionCost,
@@ -71,8 +71,7 @@ protected:
             }
             return false;
         };
-        builder::Tree tree{treeSettings, cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress};
-        return !tree.isEmpty();
+        return builder::build(treeSettings, cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress).has_value();
     }
 
 private:

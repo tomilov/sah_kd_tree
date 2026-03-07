@@ -51,7 +51,7 @@ constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
 constexpr uint32_t kMaxTreeDepth = 1000;
 
-builder::TreePtr makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
+std::optional<builder::Tree> makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
 {
     compute::CudaDevicePtr cudaDevice = compute::makeCudaDevice(std::nullopt);
     scene_data::SceneData sceneData;
@@ -59,18 +59,18 @@ builder::TreePtr makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::f
     if ((false)) {
         if (!scene_loader::load(sceneData, sceneFileInfo)) {
             qCDebug(softRendererMain).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
-            return nullptr;
+            return {};
         }
     } else {
         auto cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
         if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
             qCDebug(softRendererMain).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
-            return nullptr;
+            return {};
         }
     }
     sceneCenter = glm::mix(sceneData.aabb.min, sceneData.aabb.max, 0.5f);
     mainDiagonal = glm::distance(sceneData.aabb.min, sceneData.aabb.max);
-    builder::Tree::Settings settings = {
+    const builder::Settings settings = {
         .emptinessFactor = kEmptinessFactor,
         .traversalCost = kTraversalCost,
         .intersectionCost = kIntersectionCost,
@@ -84,11 +84,7 @@ builder::TreePtr makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::f
         }
         return false;
     };
-    builder::Tree tree{settings, *cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress};
-    if (tree.isEmpty()) {
-        return nullptr;
-    }
-    return builder::makeTreePtr(std::move(tree));
+    return builder::build(settings, *cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress);
 }
 
 #pragma GCC diagnostic push
@@ -184,7 +180,7 @@ int main(int argc, char * argv[])
     soft_renderer::SoftRenderer softRenderer{APPLICATION_NAME ""sv, kClearColor};
     {
         INVARIANT(argc > 1, "{}", argc);
-        builder::TreePtr tree = makeTree(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
+        auto tree = makeTree(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
         if (!tree) {
             SPDLOG_ERROR("Failed to make tree");
             return EXIT_FAILURE;

@@ -8,7 +8,7 @@
 int main()
 {
     compute::CudaDevicePtr cudaDevice = compute::makeCudaDevice(std::nullopt);
-    builder::Tree::Settings settings = {
+    builder::Settings settings = {
 
     };
     scene_data::SceneDataPtr sceneData = nullptr;
@@ -16,5 +16,5 @@ int main()
     {
         return false;
     };
-    builder::Tree tree{settings, *cudaDevice, sceneData, progress};
+    auto tree = builder::build(builder::ThrustDeviceSystem::eCUDA, settings, *cudaDevice, sceneData, progress);
 }

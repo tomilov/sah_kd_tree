@@ -4,7 +4,8 @@
 
 namespace builder
 {
-class Tree;
+
+struct Tree;
 
 struct TreeDeleter
 {

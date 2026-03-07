@@ -7,7 +7,7 @@
 #include <utils/noncopyable.hpp>
 
 #include <functional>
-#include <memory>
+#include <optional>
 #include <vector>
 
 #include <cstddef>
@@ -18,56 +18,58 @@
 namespace builder
 {
 
-class BUILDER_EXPORT Tree : utils::OneTime<Tree>
+enum class ThrustDeviceSystem
 {
-public:
-    struct Settings
-    {
-        float emptinessFactor;
-        float traversalCost;
-        float intersectionCost;
-        uint32_t maxTreeDepth;
+    eDefault,
+    eCUDA,
+    eTBB,
+    eOMP,
+    eCPP,
+};
 
-        auto operator<=>(const Settings &) const = default;
-    };
+struct Settings
+{
+    const float emptinessFactor;
+    const float traversalCost;
+    const float intersectionCost;
+    const uint32_t maxTreeDepth;
 
-    Tree(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
-    Tree(Tree &&) noexcept;
-    ~Tree();
+    auto operator<=>(const Settings &) const = default;
+};
 
-    [[nodiscard]] const Settings & getSettings() const &;
-    [[nodiscard]] const compute::CudaDevice & getCudaDevice() const &;
-    [[nodiscard]] scene_data::SceneDataPtr getSceneData() const;
+struct Tree
+{
+    const Settings settings;
+    const compute::CudaDevice & cudaDevice;
+    const scene_data::SceneDataWeakPtr sceneData;
 
-    [[nodiscard]] bool operator==(const Tree & rhs) const noexcept;
+    size_t dataSize = 0;
+    size_t dataAlignment = 0;
+    size_t allocationSize = 0;
 
-    [[nodiscard]] size_t getTriangleCount() const;
-    [[nodiscard]] const std::vector<size_t> & getLayerSizes() const &;
-    [[nodiscard]] size_t getPolygonCount() const;
-    [[nodiscard]] size_t getNodeCount() const;
+    size_t triangleCount = 0;
+    std::vector<size_t> layerSizes = {};
+    size_t polygonCount = 0;
+    size_t nodeCount = 0;
 
-    [[nodiscard]] size_t getDataSize() const;
-    [[nodiscard]] size_t getDataAlignment() const;
-    [[nodiscard]] size_t getAllocationSize() const;
+    size_t triangleOffset = 0;
+    size_t polygonOffset = 0;
+    size_t nodeOffset = 0;
+    size_t nodeParentOffset = 0;
 
-    [[nodiscard]] size_t getTriangleOffset() const;
-    [[nodiscard]] size_t getPolygonOffset() const;
-    [[nodiscard]] size_t getNodeOffset() const;
-    [[nodiscard]] size_t getNodeParentOffset() const;
-
-    [[nodiscard]] bool isEmpty() const;
-    [[nodiscard]] utils::Fd stealFd() &&;
-    [[nodiscard]] utils::Fd cloneFd() const;
-
-private:
-    struct Impl;
-
-    std::unique_ptr<Impl> impl_;
+    utils::Fd fd = {};
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
-        checkTraits();
+        utils::OneTime<Tree>::checkTraits();
     }
 };
+
+std::optional<Tree> build(ThrustDeviceSystem deviceSystem, const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
+
+inline std::optional<Tree> build(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)
+{
+    return build(ThrustDeviceSystem::eDefault, settings, cudaDevice, sceneData, progress);
+}
 
 }  // namespace builder

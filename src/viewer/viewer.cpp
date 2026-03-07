@@ -42,6 +42,7 @@
 #include <chrono>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <random>
 #include <thread>
 
@@ -154,7 +155,7 @@ int SceneSettings::getDepth() const &
     if (!tree) {
         return -1;
     }
-    return utils::autoCast(tree->getLayerSizes().size());
+    return utils::autoCast(tree->layerSizes.size());
 }
 
 void SceneSettings::resetUrl()
@@ -302,13 +303,13 @@ void SceneSettings::onTreeSettingsChanged()
         }
         return;
     }
-    const builder::Tree::Settings builderTreeSettings = {
+    const builder::Settings builderTreeSettings = {
         .emptinessFactor = emptinessFactor,
         .traversalCost = traversalCost,
         .intersectionCost = intersectionCost,
         .maxTreeDepth = utils::autoCast(maxTreeDepth),
     };
-    if (tree && (tree->getSettings() == builderTreeSettings) && (tree->getCudaDevice() == *engineWrapper->getEngine().getCudaDevice()) && (tree->getSceneData() == sceneData)) {
+    if (tree && (tree->settings == builderTreeSettings) && (tree->cudaDevice == *engineWrapper->getEngine().getCudaDevice()) && (tree->sceneData.lock() == sceneData)) {
         return;
     }
     auto scenePath = QString::fromStdString(sceneData->name);
@@ -328,9 +329,8 @@ void SceneSettings::onTreeSettingsChanged()
         progress(0);
         try {
             if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
-                builder::Tree tree{builderTreeSettings, *cudaDevice, sceneData, progress};
-                if (!tree.isEmpty()) {
-                    promise.addResult(builder::makeTreePtr(std::move(tree)));
+                if (auto tree = builder::build(builderTreeSettings, *cudaDevice, sceneData, progress)) {
+                    promise.addResult(builder::makeTreePtr(std::move(tree).value()));
                 }
             }
         } catch (const std::exception & e) {

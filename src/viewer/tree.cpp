@@ -127,17 +127,17 @@ vk::DeviceAddress Tree::getNodeParentAddress() const &
 Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder::Tree builderTree)
     : name{name}
     , context{context}
-    , triangleCount{utils::autoCast(builderTree.getTriangleCount())}
-    , layerSizes{builderTree.getLayerSizes()}
-    , polygonCount{utils::autoCast(builderTree.getPolygonCount())}
-    , nodeCount{utils::autoCast(builderTree.getNodeCount())}
-    , dataSize{utils::autoCast(builderTree.getDataSize())}
-    , dataAlignment{utils::autoCast(builderTree.getDataAlignment())}
-    , allocationSize{utils::autoCast(builderTree.getAllocationSize())}
-    , triangleOffset{utils::autoCast(builderTree.getTriangleOffset())}
-    , polygonOffset{utils::autoCast(builderTree.getPolygonOffset())}
-    , nodeOffset{utils::autoCast(builderTree.getNodeOffset())}
-    , nodeParentOffset{utils::autoCast(builderTree.getNodeParentOffset())}
+    , triangleCount{utils::autoCast(builderTree.triangleCount)}
+    , layerSizes{builderTree.layerSizes}
+    , polygonCount{utils::autoCast(builderTree.polygonCount)}
+    , nodeCount{utils::autoCast(builderTree.nodeCount)}
+    , dataSize{utils::autoCast(builderTree.dataSize)}
+    , dataAlignment{utils::autoCast(builderTree.dataAlignment)}
+    , allocationSize{utils::autoCast(builderTree.allocationSize)}
+    , triangleOffset{utils::autoCast(builderTree.triangleOffset)}
+    , polygonOffset{utils::autoCast(builderTree.polygonOffset)}
+    , nodeOffset{utils::autoCast(builderTree.nodeOffset)}
+    , nodeParentOffset{utils::autoCast(builderTree.nodeParentOffset)}
 {
     const auto & physicalDevice = context.getPhysicalDevice();
     INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
@@ -184,7 +184,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
 
     const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
-    utils::Fd fd = builderTree.cloneFd();
+    utils::Fd fd = builderTree.fd.clone();
 
     vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
     auto & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
