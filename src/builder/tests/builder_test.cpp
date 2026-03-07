@@ -43,16 +43,16 @@ class Builder : public testing::Test
 protected:
     [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxTreeDepth = kMaxTreeDepth) const
     {
-        scene_data::SceneData sceneData;
+        auto sceneData = std::make_shared<scene_data::SceneData>();
         QFileInfo sceneFileInfo{sceneFileName};
         if ((true)) {
-            if (!scene_loader::load(sceneData, sceneFileInfo)) {
+            if (!scene_loader::load(*sceneData, sceneFileInfo)) {
                 qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
                 return false;
             }
         } else {
             auto cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-            if (!scene_loader::cachingLoad(sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
+            if (!scene_loader::cachingLoad(*sceneData, sceneFileInfo, cachePath.isEmpty() ? QDir::temp() : cachePath)) {
                 qCDebug(builderTest).noquote() << u"Cannot load scene from file %1"_s.arg(sceneFileName);
                 return false;
             }
@@ -63,15 +63,22 @@ protected:
             .intersectionCost = intersectionCost,
             .maxTreeDepth = utils::autoCast(maxTreeDepth),
         };
-        const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
-        {
-            using namespace std::chrono_literals;
-            if (start + 10s < std::chrono::steady_clock::now()) {
-                INVARIANT(false, "{}", progressValue);
+        for (size_t i = 0; i < 5; ++i) {
+            auto build = builder::getBuild(i);
+            INVARIANT(build, "{}", i);
+            const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
+            {
+                using namespace std::chrono_literals;
+                if (start + 10s < std::chrono::steady_clock::now()) {
+                    INVARIANT(false, "{}", progressValue);
+                }
+                return false;
+            };
+            if (!build(treeSettings, cudaDevice, sceneData, progress)) {
+                return false;
             }
-            return false;
-        };
-        return builder::build(treeSettings, cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress).has_value();
+        }
+        return true;
     }
 
 private:

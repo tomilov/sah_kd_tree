@@ -42,6 +42,7 @@ public:
     ~SoftRenderer();
 
     void setTree(builder::Tree && builderTree);
+    bool hasTree() const;
 
     void render(const FrameSettings & frameSettings, gli::texture2d & target) const;
 

@@ -58,13 +58,6 @@ skt_add_library(
     PUBLIC_LINKS
         Thrust)
 
-target_compile_options(
-    "lib${PROJECT_NAME}"
-    PRIVATE
-        "-Wno-unused-parameter"
-        "-Wno-deprecated-copy"
-        "-Wno-unused-function"
-        "-ftemplate-backtrace-limit=0")
 if(${SAH_KD_TREE_BUILD_FUZZER})
     target_compile_options(
         "lib${PROJECT_NAME}"

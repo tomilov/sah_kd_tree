@@ -65,13 +65,13 @@ public:
         if constexpr (std::is_same_v<S, Destination>) {
             return std::forward<Source>(source);
         } else if constexpr (std::is_enum_v<S>) {
+            using SourceUnderlyingType = std::underlying_type_t<S>;
             if constexpr (std::is_enum_v<Destination>) {
-                using SourceUnderlyingType = std::underlying_type_t<S>;
                 using DestinationUnderlyingType = std::underlying_type_t<Destination>;
                 return static_cast<Destination>(convertIfInRange<DestinationUnderlyingType>(static_cast<SourceUnderlyingType>(source), sourceLocation));
             } else if constexpr (std::is_arithmetic_v<Destination>) {
                 static_assert(!std::is_same_v<Destination, bool>);
-                return convertIfInRange<Destination>(source, sourceLocation);
+                return convertIfInRange<Destination>(static_cast<SourceUnderlyingType>(source), sourceLocation);
             } else {
                 static_assert(!std::is_pointer_v<Destination>);
                 return static_cast<Destination>(source);

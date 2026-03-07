@@ -213,6 +213,21 @@ void SoftRenderer::setTree(builder::Tree && builderTree)
     importTree(std::move(builderTree), impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
 }
 
+bool SoftRenderer::hasTree() const
+{
+    if (impl_->triangles.isEmpty()) {
+        ASSERT(impl_->polygons.isEmpty());
+        ASSERT(impl_->nodes.isEmpty());
+        ASSERT(impl_->nodeParents.isEmpty());
+        return false;
+    } else {
+        ASSERT(!impl_->polygons.isEmpty());
+        ASSERT(!impl_->nodes.isEmpty());
+        ASSERT(!impl_->nodeParents.isEmpty());
+        return true;
+    }
+}
+
 void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const
 {
     INVARIANT(!target.empty(), "");

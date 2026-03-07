@@ -957,6 +957,7 @@ C.ApplicationWindow {
                         Settings {
                             id: viewerSettings
                             category: tabHash
+                            property alias thrustDeviceSystem: sceneSettings.thrustDeviceSystem
                             property alias emptinessFactor: sceneSettings.emptinessFactor
                             property alias traversalCost: sceneSettings.traversalCost
                             property alias intersectionCost: sceneSettings.intersectionCost
@@ -1073,6 +1074,26 @@ C.ApplicationWindow {
                             }
                             contentItem: GridLayout {
                                 columns: 2
+                                CenteredText {
+                                    text: qsTr("thrustDeviceSystem")
+                                }
+                                C.ComboBox {
+                                    id: thrustDeviceSystemComboBox
+                                    model: sceneSettings.thrustDeviceSystems
+                                    textRole: "text"
+                                    valueRole: "value"
+                                    onActivated: {
+                                        sceneSettings.thrustDeviceSystem = currentValue
+                                    }
+                                    Component.onCompleted: {
+                                        currentIndex = indexOfValue(sceneSettings.thrustDeviceSystem)
+                                    }
+                                    implicitContentWidthPolicy: C.ComboBox.WidestText
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: currentText
+                                    C.ToolTip.delay: Application.styleHints.mousePressAndHoldInterval
+                                    C.ToolTip.timeout: settings.toolTipTimeout
+                                }
                                 CenteredText {
                                     text: "emptinessFactor"
                                 }

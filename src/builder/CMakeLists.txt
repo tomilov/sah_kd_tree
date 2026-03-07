@@ -8,10 +8,10 @@ skt_add_library(
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cuh"
         "${PROJECT_NAME}.cu"
-        "${PROJECT_NAME}_cuda.cu"
-        "${PROJECT_NAME}_tbb.cu"
-        "${PROJECT_NAME}_omp.cu"
         "${PROJECT_NAME}_cpp.cu"
+        "${PROJECT_NAME}_omp.cu"
+        "${PROJECT_NAME}_tbb.cu"
+        "${PROJECT_NAME}_cuda.cu"
     PRIVATE_LINKS
         "libsah_kd_tree"
         "libscene_loader"
@@ -23,17 +23,6 @@ skt_add_library(
         "libcompute"
         "libutils"
         "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>")
-
-option(
-    SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS
-    "Use sah_kd_tree::DefaultTraits"
-    OFF)
-if(SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS)
-    target_compile_definitions(
-        "lib${PROJECT_NAME}"
-        PUBLIC
-            SAH_KD_TREE_BUILDER_USE_DEFAULT_TRAITS)
-endif()
 
 skt_add_executable("${PROJECT_NAME}")
 

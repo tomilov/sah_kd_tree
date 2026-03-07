@@ -6,11 +6,13 @@
 #include <soft_renderer/soft_renderer.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/pp.hpp>
 #include <utils/scope_guard.hpp>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <fmt/base.h>
+#include <fmt/chrono.h>
 #include <gli/convert.hpp>
 #include <gli/save.hpp>
 #include <gli/texture2d.hpp>
@@ -51,9 +53,17 @@ constexpr float kTraversalCost = 2.0f;
 constexpr float kIntersectionCost = 1.0f;
 constexpr uint32_t kMaxTreeDepth = 1000;
 
-std::optional<builder::Tree> makeTree(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
+enum class ThrustDeviceSystem
 {
-    compute::CudaDevicePtr cudaDevice = compute::makeCudaDevice(std::nullopt);
+    ThrustDeviceSystemDefault,
+    ThrustDeviceSystemCPP,
+    ThrustDeviceSystemOMP,
+    ThrustDeviceSystemTBB,
+    ThrustDeviceSystemCUDA,
+};
+
+scene_data::SceneDataPtr getScene(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
+{
     scene_data::SceneData sceneData;
     QFileInfo sceneFileInfo{sceneFileName};
     if ((false)) {
@@ -70,21 +80,7 @@ std::optional<builder::Tree> makeTree(QString sceneFileName, glm::vec3 & sceneCe
     }
     sceneCenter = glm::mix(sceneData.aabb.min, sceneData.aabb.max, 0.5f);
     mainDiagonal = glm::distance(sceneData.aabb.min, sceneData.aabb.max);
-    const builder::Settings settings = {
-        .emptinessFactor = kEmptinessFactor,
-        .traversalCost = kTraversalCost,
-        .intersectionCost = kIntersectionCost,
-        .maxTreeDepth = kMaxTreeDepth,
-    };
-    const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
-    {
-        using namespace std::chrono_literals;
-        if (start + 600s < std::chrono::steady_clock::now()) {
-            INVARIANT(false, "{}", progressValue);
-        }
-        return false;
-    };
-    return builder::build(settings, *cudaDevice, std::make_shared<scene_data::SceneData>(std::move(sceneData)), progress);
+    return std::make_shared<scene_data::SceneData>(std::move(sceneData));
 }
 
 #pragma GCC diagnostic push
@@ -121,7 +117,7 @@ struct FPSCounter
         frameCount = 0;
         titleTimer = 0;
         windowTitle.resize(0);
-        fmt::format_to(std::back_inserter(windowTitle), APPLICATION_NAME " | FPS: {:.1f} | Frame: {:.3f} ms", fps, frameTimeMs);
+        fmt::format_to(std::back_inserter(windowTitle), "FPS: {:.1f} | Frame: {:.3f} ms", fps, frameTimeMs);
         return true;
     }
 
@@ -134,16 +130,21 @@ private:
 
 }  // namespace
 
-#define CALL_SDL(f, ...)                                           \
-    do                                                             \
-        if (!SDL_##f(__VA_ARGS__)) {                               \
-            SPDLOG_ERROR("SDL_" #f " failed: {}", SDL_GetError()); \
-            return EXIT_FAILURE;                                   \
-        }                                                          \
+#define CALL_SDL(f, ...)                                                         \
+    do                                                                           \
+        if (!SDL_##f(__VA_ARGS__)) {                                             \
+            SPDLOG_ERROR("SDL_" #f " failed: {}", SDL_GetError());               \
+            throw std::runtime_error("Error: " STRINGIZE(SDL_##f(__VA_ARGS__))); \
+        }                                                                        \
     while (false)
 
 int main(int argc, char * argv[])
 {
+    glm::float32 mainDiagonal{-1.0f};
+    glm::vec3 sceneCenter{0.0f};
+    INVARIANT(argc > 1, "{}", argc);
+    auto sceneData = getScene(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
+
     CALL_SDL(Init, SDL_INIT_VIDEO);
     utils::ScopeGuard sdlQuit{SDL_Quit};
 
@@ -173,20 +174,32 @@ int main(int argc, char * argv[])
         return EXIT_FAILURE;
     }
 
-    glm::float32 mainDiagonal{-1.0f};
-    glm::vec3 sceneCenter{0.0f};
-
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
     soft_renderer::SoftRenderer softRenderer{APPLICATION_NAME ""sv, kClearColor};
+
+    const auto getTree = [cudaDevice = compute::makeCudaDevice(std::nullopt), sceneData = std::move(sceneData)](ThrustDeviceSystem thrustDeviceSystem) -> builder::TreePtr
     {
-        INVARIANT(argc > 1, "{}", argc);
-        auto tree = makeTree(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
-        if (!tree) {
-            SPDLOG_ERROR("Failed to make tree");
-            return EXIT_FAILURE;
+        const builder::Settings settings = {
+            .emptinessFactor = kEmptinessFactor,
+            .traversalCost = kTraversalCost,
+            .intersectionCost = kIntersectionCost,
+            .maxTreeDepth = kMaxTreeDepth,
+        };
+        const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
+        {
+            using namespace std::chrono_literals;
+            if (start + 600s < std::chrono::steady_clock::now()) {
+                INVARIANT(false, "{}", progressValue);
+            }
+            return false;
+        };
+        auto build = builder::getBuild(utils::autoCast(thrustDeviceSystem));
+        if (!build) {
+            return nullptr;
         }
-        softRenderer.setTree(std::move(*tree));
-    }
+        return build(settings, *cudaDevice, sceneData, progress);
+    };
+    std::optional<ThrustDeviceSystem> thrustDeviceSystem = ThrustDeviceSystem::ThrustDeviceSystemDefault;
 
     constexpr glm::float32 kCrossSceneAabbTime = 5.0f;
     constexpr glm::float32 kMouseSensetivity = 0.002f;
@@ -214,7 +227,22 @@ int main(int argc, char * argv[])
     };
     auto rgbaTarget = createTarget();
 
+    using Clock = std::chrono::high_resolution_clock;
+    auto getMillisecondsSinceLastCall = [start = Clock::now()]() mutable
+    {
+        auto now = Clock::now();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now - std::exchange(start, now));
+    };
+
     std::string windowTitle;
+    std::string windowTitleFPS;
+    std::string windowTitleBuildTime;
+    const auto updateWindowTitle = [&]
+    {
+        windowTitle.resize(0);
+        fmt::format_to(std::back_inserter(windowTitle), APPLICATION_NAME " | {} | {}", windowTitleFPS, windowTitleBuildTime);
+        CALL_SDL(SetWindowTitle, window.get(), windowTitle.c_str());
+    };
     FPSCounter fpsCounter;
     bool capturing = false;
     bool running = true;
@@ -299,6 +327,16 @@ int main(int argc, char * argv[])
                     }
                     break;
                 }
+                case SDL_SCANCODE_1:
+                case SDL_SCANCODE_2:
+                case SDL_SCANCODE_3:
+                case SDL_SCANCODE_4:
+                case SDL_SCANCODE_5: {
+                    if (isPressed && !event.key.repeat) {
+                        thrustDeviceSystem = utils::safeCast<ThrustDeviceSystem>(event.key.scancode - SDL_SCANCODE_1);
+                    }
+                    break;
+                }
                 default: {
                     break;
                 }
@@ -349,8 +387,8 @@ int main(int argc, char * argv[])
         }
 
         glm::float32 dt;
-        if (fpsCounter(windowTitle, dt)) {
-            CALL_SDL(SetWindowTitle, window.get(), windowTitle.c_str());
+        if (fpsCounter(windowTitleFPS, dt)) {
+            updateWindowTitle();
         }
 
         const glm::quat qYaw = glm::angleAxis(yaw, glm::vec3{0.0f, 1.0f, 0.0f});
@@ -387,7 +425,18 @@ int main(int argc, char * argv[])
         frameSettings.zFar = mainDiagonal + glm::distance(frameSettings.position, sceneCenter);
         frameSettings.zNear = frameSettings.zFar * std::numeric_limits<glm::float32>::epsilon() * 1000.0f;
 
-        softRenderer.render(frameSettings, rgbaTarget);
+        if (thrustDeviceSystem) {
+            getMillisecondsSinceLastCall();
+            if (auto tree = getTree(std::exchange(thrustDeviceSystem, std::nullopt).value())) {
+                softRenderer.setTree(std::move(*tree));
+            }
+            windowTitleBuildTime.resize(0);
+            fmt::format_to(std::back_inserter(windowTitleBuildTime), "Built in: {}", getMillisecondsSinceLastCall());
+            updateWindowTitle();
+        }
+        if (softRenderer.hasTree()) {
+            softRenderer.render(frameSettings, rgbaTarget);
+        }
 
         uint8_t * pixels = nullptr;
         int sdlPitch = 0;

@@ -184,7 +184,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
 
     const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
-    utils::Fd fd = builderTree.fd.clone();
+    utils::Fd fd = builderTree.fd.value().clone();
 
     vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
     auto & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();

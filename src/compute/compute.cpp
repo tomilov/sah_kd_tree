@@ -194,6 +194,11 @@ CudaDevice::CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
     }
 }
 
+void CudaDevice::setCurrentDevice() const
+{
+    CUDA_CHECK_ERROR(cudaSetDevice, getCudaRuntimeDev());
+}
+
 CudaStream::CudaStream()
 {
     CUDA_CHECK_ERROR(cudaStreamCreate, &cudaStream);

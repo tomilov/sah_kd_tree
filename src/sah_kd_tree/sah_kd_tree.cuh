@@ -51,7 +51,7 @@ public:
 
     ~ScopeTimer()
     {
-        fmt::println(stderr, "ScopeTime '{}': {}", name, std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start));
+        fmt::println(stderr, "Time '{}': {}", name, std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start));
     }
 
 private:
@@ -66,9 +66,9 @@ struct DefaultTraits
     using F = float;
     template<typename T>
     using Allocator = thrust::device_allocator<T>;
-    using Exec = decltype(thrust::device);
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
+    using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
 };
 
@@ -128,6 +128,8 @@ struct Tree
     Vector<U> polygonTriangle{allocator};
 
     Tree() = default;
+    Tree(Tree &) = delete;
+    Tree & operator=(Tree &) = delete;
 
     Tree(const Allocator<std::byte> & allocator)
         : allocator{allocator}
@@ -212,6 +214,8 @@ struct Projection
     } layer{allocator};
 
     Projection() = default;
+    Projection(Projection &) = delete;
+    Projection & operator=(Projection &) = delete;
 
     Projection(const Allocator<std::byte> & allocator)
         : allocator{allocator}
@@ -320,6 +324,8 @@ struct Builder
     Vector<U> splittedPolygon{allocator};
 
     Builder() = default;
+    Builder(Builder &) = delete;
+    Builder & operator=(Builder &) = delete;
 
     Builder(const Allocator<std::byte> & allocator)
         : allocator{allocator}
@@ -395,6 +401,8 @@ struct Triangle
     } x{allocator}, y{allocator}, z{allocator};
 
     Triangle() = default;
+    Triangle(Triangle &) = delete;
+    Triangle & operator=(Triangle &) = delete;
 
     Triangle(const Allocator<std::byte> & allocator)
         : allocator{allocator}

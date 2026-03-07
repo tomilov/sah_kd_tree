@@ -148,6 +148,8 @@ public:
         return cudaDev;
     }
 
+    void setCurrentDevice() const;
+
     [[nodiscard]] ::CUdevice getCudaDriverDev() const &
     {
         return cuDev;

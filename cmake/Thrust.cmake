@@ -5,8 +5,9 @@
 find_package(Thrust REQUIRED CONFIG)
 thrust_create_target(Thrust FROM_OPTIONS)
 
-if(THRUST_DEVICE_SYSTEM STREQUAL "OMP")
-    find_package(OpenMP REQUIRED)
-    target_link_libraries(Thrust INTERFACE OpenMP::OpenMP_CXX)
-    target_compile_options(Thrust INTERFACE $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAGS}>)
-endif()
+find_package(TBB REQUIRED)
+target_link_libraries(
+    Thrust
+    INTERFACE
+        OpenMP::OpenMP_CXX
+        TBB::tbb)

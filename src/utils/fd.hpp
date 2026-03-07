@@ -10,7 +10,6 @@ namespace utils
 class UTILS_EXPORT Fd : utils::OneTime<Fd>
 {
 public:
-    Fd() = default;
     explicit Fd(int fd);
     Fd(Fd && file) noexcept;
     ~Fd();

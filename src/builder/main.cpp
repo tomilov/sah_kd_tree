@@ -2,6 +2,7 @@
 #include <compute/compute.hpp>
 #include <compute/make.hpp>
 #include <scene_data/scene_data.hpp>
+#include <utils/assert.hpp>
 
 #include <cstddef>
 
@@ -16,5 +17,9 @@ int main()
     {
         return false;
     };
-    auto tree = builder::build(builder::ThrustDeviceSystem::eCUDA, settings, *cudaDevice, sceneData, progress);
+    for (size_t i = 0; i < 5; ++i) {
+        auto build = builder::getBuild(i);
+        INVARIANT(build, "{}", i);
+        auto tree = build(settings, *cudaDevice, sceneData, progress);
+    }
 }

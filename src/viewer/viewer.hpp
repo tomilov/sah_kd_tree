@@ -41,7 +41,11 @@ class SceneSettings : public QObject
     Q_PROPERTY(QVector3D sceneAabbMax READ getSceneAabbMax NOTIFY sceneChanged STORED false)
     Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
 
+    Q_PROPERTY(QVariantList thrustDeviceSystems READ getThrustDeviceSystems CONSTANT)
+    Q_PROPERTY(ThrustDeviceSystem thrustDeviceSystem MEMBER thrustDeviceSystem NOTIFY thrustDeviceSystemChanged)
+
     Q_PROPERTY(bool traceTree MEMBER traceTree NOTIFY treeSettingsChanged)
+
     Q_PROPERTY(float emptinessFactor MEMBER emptinessFactor NOTIFY treeSettingsChanged)
     Q_PROPERTY(float traversalCost MEMBER traversalCost NOTIFY treeSettingsChanged)
     Q_PROPERTY(float intersectionCost MEMBER intersectionCost NOTIFY treeSettingsChanged)
@@ -51,12 +55,25 @@ class SceneSettings : public QObject
     Q_PROPERTY(QString treeStatus READ getTreeStatus NOTIFY treeStatusChanged)
 
 public:
+    enum class ThrustDeviceSystem
+    {
+        Default,
+        CPP,
+        OMP,
+        TBB,
+        CUDA,
+    };
+    Q_ENUM(ThrustDeviceSystem);
+
     EngineWrapper * engineWrapper = nullptr;
     TaskQueue * taskQueue = nullptr;
 
     QUrl url;
 
+    ThrustDeviceSystem thrustDeviceSystem = ThrustDeviceSystem::Default;
+
     bool traceTree = false;
+
     float emptinessFactor = 0.8f;
     float traversalCost = 2.0f;
     float intersectionCost = 1.0f;
@@ -74,6 +91,8 @@ public:
         return sceneStatus;
     }
 
+    [[nodiscard]] QVariantList getThrustDeviceSystems() const &;
+
     [[nodiscard]] int getDepth() const &;
 
     [[nodiscard]] const QString & getTreeStatus() const &
@@ -88,6 +107,8 @@ Q_SIGNALS:
     void urlChanged();
     void sceneChanged();
     void sceneStatusChanged();
+
+    void thrustDeviceSystemChanged();
 
     void treeSettingsChanged();
     void treeChanged();

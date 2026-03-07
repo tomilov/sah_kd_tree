@@ -1,6 +1,5 @@
 project("soft_renderer")
 
-find_package(OpenMP REQUIRED)
 skt_add_library(
     "${PROJECT_NAME}"
     SOURCES

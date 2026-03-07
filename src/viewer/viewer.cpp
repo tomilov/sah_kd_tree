@@ -150,6 +150,19 @@ QVector3D SceneSettings::getSceneAabbMax() const
     return {aabbMax.x, aabbMax.y, aabbMax.z};
 }
 
+QVariantList SceneSettings::getThrustDeviceSystems() const &
+{
+    QMetaEnum metaEnum = QMetaEnum::fromType<ThrustDeviceSystem>();
+    QVariantList thrustDeviceSystems;
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        QVariantMap modelItem;
+        modelItem["text"] = QString::fromLatin1(metaEnum.key(i));
+        modelItem["value"] = metaEnum.value(i);
+        thrustDeviceSystems << modelItem;
+    }
+    return thrustDeviceSystems;
+}
+
 int SceneSettings::getDepth() const &
 {
     if (!tree) {
@@ -309,7 +322,7 @@ void SceneSettings::onTreeSettingsChanged()
         .intersectionCost = intersectionCost,
         .maxTreeDepth = utils::autoCast(maxTreeDepth),
     };
-    if (tree && (tree->settings == builderTreeSettings) && (tree->cudaDevice == *engineWrapper->getEngine().getCudaDevice()) && (tree->sceneData.lock() == sceneData)) {
+    if (tree && (tree->settings == builderTreeSettings) && (tree->cudaDevice == *engineWrapper->getEngine().getCudaDevice()) && (tree->sceneData == sceneData)) {
         return;
     }
     auto scenePath = QString::fromStdString(sceneData->name);
@@ -329,8 +342,10 @@ void SceneSettings::onTreeSettingsChanged()
         progress(0);
         try {
             if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
-                if (auto tree = builder::build(builderTreeSettings, *cudaDevice, sceneData, progress)) {
-                    promise.addResult(builder::makeTreePtr(std::move(tree).value()));
+                auto build = builder::getBuild(utils::autoCast(thrustDeviceSystem));
+                ASSERT(build);
+                if (auto tree = build(builderTreeSettings, *cudaDevice, sceneData, progress)) {
+                    promise.addResult(std::move(tree));
                 }
             }
         } catch (const std::exception & e) {

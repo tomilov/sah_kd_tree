@@ -84,7 +84,9 @@ public:
 
     [[nodiscard]] static File dup(int fd)
     {
-        return File{::dup(fd)};
+        fd = ::dup(fd);
+        INVARIANT(fd >= 0, "dup: {}", fd);
+        return File{fd};
     }
 
 private:
@@ -423,7 +425,7 @@ QStringList getSupportedExtensions()
 
 bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
 {
-    INVARIANT(sceneFileInfo.isFile(), "");
+    INVARIANT(sceneFileInfo.isFile(), "Scene filepath: '{}'. Current dir: '{}'", sceneFileInfo.filePath().toStdString(), QDir::currentPath().toStdString());
 
     AssimpLoggerGuard loggerGuard{Assimp::Logger::LogSeverity::VERBOSE};
     Assimp::Importer importer;

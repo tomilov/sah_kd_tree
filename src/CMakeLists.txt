@@ -44,7 +44,12 @@ include_directories(
 add_compile_options(
     "-Wall"
     "-Wextra"
-    "$<$<COMPILE_LANGUAGE:C,CXX>:-Werror>")
+    $<$<COMPILE_LANGUAGE:C,CXX>:-Werror>
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Werror>
+    $<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-copy>
+    #$<$<COMPILE_LANGUAGE:CUDA>:-Wno-unused-parameter>
+    #$<$<COMPILE_LANGUAGE:CUDA>:-Wno-unused-function>
+    -ftemplate-backtrace-limit=0)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     add_compile_options(
         -Wold-style-cast
@@ -69,6 +74,9 @@ add_compile_definitions(FMT_USE_NONTYPE_TEMPLATE_ARGS)
 
 link_libraries(spdlog::spdlog)
 add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
+
+find_package(OpenMP REQUIRED)
+target_compile_options(OpenMP::OpenMP_CXX INTERFACE $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAGS}>)
 
 include(Python)
 include(CUDA)

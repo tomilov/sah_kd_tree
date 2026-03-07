@@ -18,7 +18,7 @@ namespace soft_renderer
 void importTree(builder::Tree tree, utils::MemArray<scene_data::Triangle> & triangles, utils::MemArray<glm::uint> & polygons, utils::MemArray<Node> & nodes, utils::MemArray<glm::uint> & nodeParents)
 {
     const compute::CudaDevice & cudaDevice = tree.cudaDevice;
-    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).fd, tree.allocationSize, tree.dataAlignment};
+    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment};
     const auto mappedDeviceMemory = deviceMemory.map();
     const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)

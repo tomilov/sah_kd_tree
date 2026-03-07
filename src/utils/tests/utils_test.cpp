@@ -275,6 +275,51 @@ TEST(getIf, FreeFunction)
     EXPECT_EQ(utils::getIf(a, std::ref(f)), &a.b);
 }
 
+TEST(getIf, MemberFunction)
+{
+    struct A
+    {
+        int b = 123;
+        int & f()
+        {
+            return b;
+        };
+        int & g(int & c)
+        {
+            return c;
+        };
+    };
+
+    A a{};
+
+    {
+        EXPECT_EQ(utils::getIf(a, &A::f), &a.b);
+        EXPECT_EQ(GET_IF(a, f()), &a.b);
+    }
+    {
+        int c = 321;
+        EXPECT_EQ(GET_IF(a, g(c)), &c);
+    }
+}
+
+TEST(getIf, Capture)
+{
+    struct A
+    {
+        int & g(int & c)
+        {
+            return c;
+        };
+    };
+
+    A a{};
+
+    {
+        int c = 321;
+        EXPECT_EQ(GET_IF(a, g(c)), &c);
+    }
+}
+
 TEST(getIf, PerfectForwarding)
 {
     struct C
