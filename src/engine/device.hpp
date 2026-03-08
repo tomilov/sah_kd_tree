@@ -35,7 +35,7 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
         vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo;
         fillDebugUtilsObjectInfo(debugUtilsObjectNameInfo, object);
         debugUtilsObjectNameInfo.pObjectName = objectName;
-        return setDebugUtilsObjectName(debugUtilsObjectNameInfo);
+        setDebugUtilsObjectName(debugUtilsObjectNameInfo);
     }
 
     template<typename Object>
@@ -57,7 +57,7 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
         fillDebugUtilsObjectInfo(debugUtilsObjectTagInfo, object);
         debugUtilsObjectTagInfo.tagName = tagName;
         debugUtilsObjectTagInfo.setTag(tag);
-        return setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
+        setDebugUtilsObjectTag(debugUtilsObjectTagInfo);
     }
 
     [[nodiscard]] const PhysicalDevice & getPhysicalDevice() const &;

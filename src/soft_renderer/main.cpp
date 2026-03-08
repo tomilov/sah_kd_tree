@@ -83,6 +83,18 @@ scene_data::SceneDataPtr getScene(QString sceneFileName, glm::vec3 & sceneCenter
     return std::make_shared<scene_data::SceneData>(std::move(sceneData));
 }
 
+glm::float32 getSpeedModifier()
+{
+    const SDL_Keymod kmod = SDL_GetModState();
+    if (kmod & SDL_KMOD_SHIFT) {
+        return 0.05f;
+    }
+    if (kmod & SDL_KMOD_CTRL) {
+        return 5.0f;
+    }
+    return 1.0f;
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
@@ -419,17 +431,6 @@ int main(int argc, char * argv[])
             moveDir -= up;
         }
 
-        auto getSpeedModifier = []
-        {
-            const SDL_Keymod kmod = SDL_GetModState();
-            if (kmod & SDL_KMOD_SHIFT) {
-                return 0.05f;
-            }
-            if (kmod & SDL_KMOD_CTRL) {
-                return 5.0f;
-            }
-            return 1.0f;
-        };
         if (glm::dot(moveDir, moveDir) > 0.0f) {
             moveDir = glm::normalize(moveDir);
         }
@@ -452,7 +453,7 @@ int main(int argc, char * argv[])
 
         uint8_t * pixels = nullptr;
         int sdlPitch = 0;
-        if (SDL_LockTexture(texture.get(), nullptr, utils::autoCast(&pixels), &sdlPitch)) {
+        if (SDL_LockTexture(texture.get(), /* rect */ nullptr, utils::autoCast(&pixels), &sdlPitch)) {
             utils::ScopeGuard sdlUnlockTexture{SDL_UnlockTexture, texture.get()};
             const uint8_t * srcData = utils::autoCast(rgbaTarget.data(0, 0, 0));
             const auto srcRowBytes = width * utils::safeCast<decltype(width)>(sizeof(soft_renderer::SoftRenderer::PixelType));

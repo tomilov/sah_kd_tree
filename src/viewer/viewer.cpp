@@ -80,7 +80,7 @@ SceneSettings::SceneSettings(QObject * parent)
                 return;
             }
             for (int64_t i = 0; i < 12; ++i) {
-                auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks)
+                auto taskWithPromise = [i = std::make_unique<int>(i)](QPromise<int> & promise) mutable  // NOLINT: clang-analyzer-cplusplus.NewDeleteLeaks
                 {
                     promise.suspendIfRequested();
                     if (promise.isCanceled()) {

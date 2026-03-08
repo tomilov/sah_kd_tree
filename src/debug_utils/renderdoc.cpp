@@ -67,10 +67,10 @@ const Renderdoc & Renderdoc::renderdoc()
 
 Renderdoc::FrameCapture::~FrameCapture()
 {
-    if (lock.mutex() == nullptr) {
+    if (!lock.mutex()) {
         return;
     }
-    if (impl.api == nullptr) {
+    if (!impl.api) {
         return;
     }
     SPDLOG_INFO("Frame capture end");
@@ -90,7 +90,7 @@ Renderdoc::FrameCapture::FrameCapture(const Impl & implIn, vk::Instance instance
     , window{windowIn}
     , lock{impl.mutex}
 {
-    if (impl.api == nullptr) {
+    if (!impl.api) {
         return;
     }
     SPDLOG_INFO("Frame capture begin");
@@ -106,7 +106,7 @@ auto Renderdoc::makeFrameCapture(vk::Instance instance, WindowHandle window) -> 
 
 bool Renderdoc::isFrameCapturing()
 {
-    if (renderdoc().impl_->api == nullptr) {
+    if (!renderdoc().impl_->api) {
         return false;
     }
     return renderdoc().impl_->api->IsFrameCapturing() == 1;

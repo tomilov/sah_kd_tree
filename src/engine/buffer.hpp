@@ -71,7 +71,7 @@ public:
     [[nodiscard]] T & at(uint32_t index) const &
     {
         ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
-        auto data = static_cast<std::byte *>(mappedMemory.data());
+        auto * data = static_cast<std::byte *>(mappedMemory.data());
         data += index * getElementSize();
         return *std::launder(static_cast<T *>(static_cast<void *>(data)));
     }

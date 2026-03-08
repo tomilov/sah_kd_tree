@@ -1,11 +1,12 @@
 #pragma once
 
 #include <utils/checked_ptr.hpp>
-#include <utils/fast_pimpl.hpp>
 
 #include <QtCore/QObject>
 #include <QtQml/QJSEngine>
 #include <QtQml/QQmlEngine>
+
+#include <memory>
 
 #include <cstddef>
 
@@ -43,9 +44,7 @@ public:
 private:
     struct Impl;
 
-    static constexpr size_t kSize = 392;
-    static constexpr size_t kAlignment = 8;
-    utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+    std::unique_ptr<Impl> impl_;
 };
 
 class VIEWER_EXPORT EngineSingletonForeign

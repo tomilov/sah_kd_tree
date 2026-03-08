@@ -7,50 +7,22 @@ include(GenerateExportHeader)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
-if(TRUE)
-    include(CheckIPOSupported)
-    check_ipo_supported(
-        RESULT
-            cxx_ipo_is_supported
-        OUTPUT
-            cxx_ipo_support_check_error
-        LANGUAGES
-            CXX)
-    if(NOT ${cxx_ipo_is_supported})
-        message(WARNING "LTO is not supported: ${cxx_ipo_support_check_error}")
-    endif()
-    check_ipo_supported(
-        RESULT
-            cuda_ipo_is_supported
-        OUTPUT
-            cuda_ipo_support_check_error
-        LANGUAGES
-            CUDA)
-    if(NOT ${cuda_ipo_is_supported})
-        message(WARNING "LTO is not supported: ${cuda_ipo_support_check_error}")
-    endif()
-endif()
-
-option(ENABLE_IWYU "Run include-what-you-use")
-if(ENABLE_IWYU)
-  find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
-  set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
-  set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
-endif()
-
 include_directories(
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}")
+
 add_compile_options(
     -Wall
     -Wextra
     $<$<NOT:$<AND:$<CXX_COMPILER_ID:GNU>,$<COMPILE_LANGUAGE:CUDA>>>:-Wpedantic>
     $<$<COMPILE_LANGUAGE:C,CXX>:-Werror>
     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Werror>
-    -ftemplate-backtrace-limit=0)
+    -ftemplate-backtrace-limit=0
+)
 add_compile_options(
     $<$<COMPILE_LANGUAGE:C,CXX>:-Wold-style-cast>
     $<$<COMPILE_LANGUAGE:C,CXX>:-Wzero-as-null-pointer-constant>
+    -Wuninitialized
     -Wcast-align
     -Wcast-qual
     -Wconversion
@@ -79,29 +51,64 @@ add_compile_options(
     $<$<NOT:$<AND:$<CXX_COMPILER_ID:GNU>,$<COMPILE_LANGUAGE:CUDA>>>:-Wredundant-decls>
     $<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-copy>
     $<$<COMPILE_LANGUAGE:CUDA>:-Wno-gnu-line-marker>
-    $<$<COMPILE_LANGUAGE:CUDA>:-Wno-overlength-strings>)
+    $<$<COMPILE_LANGUAGE:CUDA>:-Wno-overlength-strings>
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(
+        #_GLIBCXX_DEBUG
+        #_GLIBCXX_DEBUG_PEDANTIC
+        #_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG
+    )
     add_compile_options(
-        -fstack-protector-strong
+        -fno-omit-frame-pointer
+        #-fstack-protector-strong
+        #-fstack-clash-protection
+        #-fcf-protection=full
+        #-fsanitize=undefined
         #-fsanitize=address
-        -fsanitize=undefined)
+        #-fsanitize=thread
+        #-fsanitize=float-divide-by-zero
+        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=integer>
+        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=implicit-conversion>
+        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=memory>
+        #-fsanitize=cfi -flto -fvisibility=default
+    )
     add_link_options(
+        #-fsanitize=undefined
         #-fsanitize=address
-        -fsanitize=undefined)
+        #-fsanitize=thread
+        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=memory>
+        #-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
+        #-fsanitize=cfi -flto
+    )
 
-    option(ENABLE_CLANG_TIDY "Enable clang-tidy" ON)
-    option(ENABLE_CPPCHECK "Enable cppcheck" ON)
-
+    option(ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
     if(ENABLE_CLANG_TIDY)
         find_program(CLANG_TIDY clang-tidy REQUIRED)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" -checks=-*,readability-*,-readability-function-cognitive-complexity,-readability-function-size,-readability-identifier-length,-readability-isolate-declaration,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion,-readability-magic-numbers,-readability-avoid-unconditional-preprocessor-if,-readability-identifier-naming,-readability-named-parameter)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy --header-filter=${CMAKE_SOURCE_DIR}/include/.*)
     endif()
 
+    option(ENABLE_CPPCHECK "Enable cppcheck" OFF)
     if(ENABLE_CPPCHECK)
         find_program(CPPCHECK cppcheck REQUIRED)
         set(CMAKE_CXX_CPPCHECK "${CPPCHECK}" --enable=all --suppress=missingInclude)
     endif()
+
+    option(ENABLE_IWYU "Run include-what-you-use" OFF)
+    if(ENABLE_IWYU)
+      find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
+      set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
+      set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
+    endif()
+else()
+    add_compile_options(
+        -fstack-protector-strong
+        -D_FORTIFY_SOURCE=3
+    )
+    add_link_options(
+        -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
+    )
 endif()
 
 include(CTest)

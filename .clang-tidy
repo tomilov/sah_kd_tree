@@ -1,11 +1,62 @@
-Checks: -*, bugprone-string-integer-assignment, bugprone-unused-raii, bugprone-use-after-move,
-  google-build-explicit-make-pair, google-explicit-constructor, google-readability-casting,
-  modernize-avoid-bind, modernize-loop-convert, modernize-make-shared, modernize-make-unique,
-  modernize-redundant-void-arg, modernize-replace-random-shuffle, modernize-shrink-to-fit,
-  modernize-use-bool-literals, modernize-use-default-member-init, modernize-use-emplace,
-  modernize-use-equals-default, modernize-use-equals-delete, modernize-use-noexcept,
-  modernize-use-nullptr, modernize-use-override, modernize-use-transparent-functors,
-  readability-redundant-member-init, modernize-use-nodiscard, clang-analyzer-*
+FormatStyle: file
+Checks: >
+  -*,
+  readability-*,
+  -readability-redundant-access-specifiers,
+  -readability-function-size,
+  -readability-identifier-length,
+  -readability-isolate-declaration,
+  -readability-uppercase-literal-suffix,
+  -readability-implicit-bool-conversion,
+  -readability-magic-numbers,
+  -readability-avoid-unconditional-preprocessor-if,
+  -readability-identifier-naming,
+  -readability-named-parameter,
+  -readability-function-cognitive-complexity,
+  bugprone-argument-comment,
+  bugprone-bool-pointer-implicit-conversion,
+  bugprone-dangling-handle,
+  bugprone-forward-declaration-namespace,
+  bugprone-inaccurate-erase,
+  bugprone-redundant-branch-condition,
+  bugprone-string-constructor,
+  bugprone-string-integer-assignment,
+  bugprone-suspicious-memset-usage,
+  bugprone-suspicious-realloc-usage,
+  bugprone-terminating-continue,
+  bugprone-undefined-memory-manipulation,
+  bugprone-unique-ptr-array-mismatch,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  bugprone-virtual-near-miss,
+  clang-analyzer-*,
+  google-build-explicit-make-pair,
+  google-default-arguments,
+  google-explicit-constructor,
+  google-objc-avoid-nsobject-new,
+  google-readability-casting,
+  google-upgrade-googletest-case,
+  misc-homoglyph,
+  misc-misleading-identifier,
+  modernize-avoid-bind,
+  modernize-concat-nested-namespaces,
+  modernize-loop-convert,
+  modernize-make-shared,
+  modernize-make-unique,
+  modernize-redundant-void-arg,
+  modernize-replace-random-shuffle,
+  modernize-shrink-to-fit,
+  modernize-use-bool-literals,
+  modernize-use-default-member-init,
+  modernize-use-emplace,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-use-nodiscard,
+  modernize-use-noexcept,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-transparent-functors
+
 CheckOptions:
   - key: modernize-use-default-member-init.UseAssignment
     value: true
@@ -19,3 +70,7 @@ CheckOptions:
     value: assert, ASSERT, ASSERT_MSG, VULKAN_HPP_ASSERT
   - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
     value: true
+  - key: bugprone-dangling-handle.HandleClasses
+    value: ::std::basic_string_view;::std::span
+  - key: bugprone-string-constructor.StringNames
+    value: ::std::basic_string;::std::basic_string_view;

@@ -458,7 +458,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
         QElapsedTimer sceneLoadTimer;
         sceneLoadTimer.start();
         assimpScene = importer.ReadFile(qPrintable(QDir::toNativeSeparators(sceneFileInfo.filePath())), pFlags);
-        if (assimpScene == nullptr) {
+        if (!assimpScene) {
             qCCritical(sceneLoaderLog).noquote() << u"unable to load scene %1: %2"_s.arg(sceneFileInfo.filePath(), QString::fromUtf8(importer.GetErrorString()));
             return {};
         }
@@ -502,7 +502,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
     qCDebug(sceneLoaderLog).noquote() << u"number of textures: %1"_s.arg(assimpScene->mNumTextures);
 
     auto * assimpRootNode = assimpScene->mRootNode;
-    if (assimpRootNode == nullptr) {
+    if (!assimpRootNode) {
         qCCritical(sceneLoaderLog).noquote() << u"scene %1 has no root node"_s.arg(sceneFileInfo.filePath());
         return {};
     }

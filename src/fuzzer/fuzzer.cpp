@@ -48,7 +48,7 @@ using UniformUIntDistributionParam = typename UniformUIntDistribution::param_typ
 
 bool boxWorld = false;
 
-UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
+UniformIntDistribution uniformInt;    // clazy:exclude=non-pod-global-static
 UniformUIntDistribution uniformUInt;  // clazy:exclude=non-pod-global-static
 
 void setSeed(unsigned int seed)
@@ -293,7 +293,7 @@ struct TestInput
             }
         }
         if (!checkItems(std::cbegin(triangles), std::cend(triangles))) {
-            return false;  // NOLINT(readability-simplify-boolean-expr)
+            return false;  // NOLINT: readability-simplify-boolean-expr
         }
         return true;
     }
@@ -626,22 +626,22 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
     static const size_t boxWorldSize = std::size(boxWorldOption);
     char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
 
-    if (boxWorldArg != nullptr) {
+    if (boxWorldArg) {
         fuzzer::boxWorld = fuzzer::readIntArg(*boxWorldArg, boxWorldSize) != 0;
         fmt::print(stderr, "INFO(sah_kd_tree): generating of {} enabled\n", fuzzer::primitiveName());
     }
 
-    if ((maxLenArg != nullptr) && !maxPrimitiveCountArg) {
+    if (maxLenArg && !maxPrimitiveCountArg) {
         fmt::print(stderr, "INFO(sah_kd_tree): no primitive count limiting command line options are provided; number of {} is not limited\n", fuzzer::primitiveName());
         return 0;
     }
 
-    if ((maxLenArg != nullptr) && maxPrimitiveCountArg) {
+    if (maxLenArg && maxPrimitiveCountArg) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): max_len and max_primitive_count should not be set both at once\n");
         std::exit(EXIT_FAILURE);
     }
 
-    if (maxLenArg != nullptr) {
+    if (maxLenArg) {
         size_t maxLen = fuzzer::readIntArg(*maxLenArg, maxLenSize);
         size_t itemCount = (std::max(maxLen, sizeof(fuzzer::Params)) - sizeof(fuzzer::Params)) / fuzzer::itemSize();
         fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), itemCount);
@@ -652,7 +652,7 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
         return 0;
     }
 
-    if (maxPrimitiveCountArg != nullptr) {
+    if (maxPrimitiveCountArg) {
         size_t maxPrimitiveCount = fuzzer::readIntArg(*maxPrimitiveCountArg, maxPrimitiveCountSize);
         fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), maxPrimitiveCount);
         if (maxPrimitiveCount == 0) {
@@ -666,7 +666,7 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
         std::abort();
     }
 
-    if (boxWorldArg != nullptr) {
+    if (boxWorldArg) {
         *argv = std::rotate(*argv, boxWorldArg, std::next(boxWorldArg));
         --*argc;
     }

@@ -53,6 +53,20 @@ ShortNamespaceLines: 0
 WhitespaceSensitiveMacros:
   - STRINGIZE
   - STRINGIZE2
+StatementAttributeLikeMacros:
+  - Q_EMIT
+StatementMacros:
+  - Q_UNUSED
+  - Q_DECLARE_FLAGS
+  - Q_ENUM
+  - Q_FLAG
+  - Q_LOGGING_CATEGORY
+  - Q_OBJECT
+  - Q_PROPERTY
+  - QML_ELEMENT
+  - QML_NAMED_ELEMENT
+  - QML_SINGLETON
+  - QML_FOREIGN
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false

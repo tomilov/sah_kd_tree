@@ -70,7 +70,7 @@ Instance::DebugUtilsMessageMuteGuard::~DebugUtilsMessageMuteGuard() = default;
 
 template<typename... Args>
 Instance::DebugUtilsMessageMuteGuard::DebugUtilsMessageMuteGuard(Args &&... args)
-    : impl_{std::forward<Args>(args)...}
+    : impl_{std::make_unique<Impl>(std::forward<Args>(args)...)}
 {}
 
 Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()

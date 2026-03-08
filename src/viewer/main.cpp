@@ -210,12 +210,24 @@ int main(int argc, char * argv[])
             // "%{time yyyy/MM/dd dddd HH:mm:ss.zzz t}"
         }
         qSetMessagePattern(messagePattern);
-        auto & sinks = spdlog::default_logger_raw()->sinks();
-        sinks.clear();
-        sinks.emplace_back(std::make_shared<QtSink>());
+        const auto setSinks = [](const std::shared_ptr<spdlog::logger> & logger)
+        {
+            if (!logger) {
+                return;
+            }
+            logger->sinks() = {std::make_shared<QtSink>()};
+        };
+        spdlog::apply_all(setSinks);
+        if (auto logger = spdlog::default_logger()) {
+            auto & sinks = logger->sinks();
+            sinks.clear();
+            sinks.emplace_back(std::make_shared<QtSink>());
+        }
     } else {
         if (!sah_kd_tree::kIsDebugBuild) {
-            spdlog::default_logger_raw()->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [file://%g:%# (%!)] %v");  // (-logger name +full file path +func name) if comapre vs default "%+" format (spdlog::details::full_formatter)
+            if (auto logger = spdlog::default_logger()) {
+                logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [file://%g:%# (%!)] %v");  // (-logger name +full file path +func name) if comapre vs default "%+" format (spdlog::details::full_formatter)
+            }
         }
         constexpr QtMessageHandler messageHandler = [](QtMsgType msgType, const QMessageLogContext & messageLogContext, const QString & message)
         {

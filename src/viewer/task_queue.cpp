@@ -92,13 +92,13 @@ QHash<int, QByteArray> TaskQueue::roleNames() const
     return roleNames;
 }
 
-int TaskQueue::rowCount(const QModelIndex & parent) const
+int TaskQueue::rowCount(const QModelIndex & parent) const  // NOLINT: google-default-arguments
 {
     Q_ASSERT(!parent.isValid());
     return utils::autoCast(taskInfos.size());
 }
 
-int TaskQueue::columnCount(const QModelIndex & parent) const
+int TaskQueue::columnCount(const QModelIndex & parent) const  // NOLINT: google-default-arguments
 {
     Q_ASSERT(!parent.isValid());
     return utils::autoCast(headers.size());

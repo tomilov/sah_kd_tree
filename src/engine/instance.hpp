@@ -5,12 +5,12 @@
 #include <engine/library.hpp>
 #include <engine/types.hpp>
 #include <utils/assert.hpp>
-#include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
+#include <memory>
 #include <mutex>
 #include <span>
 #include <string>
@@ -18,7 +18,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <cstddef>
 #include <cstdint>
 
 #include <engine/engine_export.h>
@@ -38,9 +37,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
         struct Impl;
 
-        static constexpr size_t kSize = 48;
-        static constexpr size_t kAlignment = 8;
-        utils::FastPimpl<Impl, kSize, kAlignment> impl_;
+        std::unique_ptr<Impl> impl_;
 
         template<typename... Args>
         DebugUtilsMessageMuteGuard(Args &&... args);  // NOLINT: google-explicit-constructor, modernize-use-equals-delete

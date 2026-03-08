@@ -53,6 +53,7 @@ struct EngineWrapper::Impl final : utils::NonCopyable
 
 EngineWrapper::EngineWrapper(QObject * parent)
     : QObject{parent}
+    , impl_{std::make_unique<Impl>()}
 {
     qCDebug(engineWrapperCategory).noquote() << u"EngineWrapper created"_s;
     auto projectName = QString::fromUtf8(sah_kd_tree::kProjectName);

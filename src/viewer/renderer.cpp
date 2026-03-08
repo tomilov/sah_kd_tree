@@ -134,7 +134,7 @@ public:
 private:
     using Holder = std::unique_ptr<void, void (*)(void * p)>;
 
-    Holder holder;  // NOLINT(readability-dentifier-naming)
+    Holder holder;  // NOLINT: readability-dentifier-naming
 
     template<typename F, typename... Args, size_t... Indices>
     [[nodiscard]] static Holder makeHolder(F & f, Args &... args, std::index_sequence<Indices...>)

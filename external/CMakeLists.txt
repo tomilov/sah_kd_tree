@@ -43,6 +43,7 @@ target_link_libraries(
         Vulkan::Headers)
 
 
+set(GLI_TEST_ENABLE OFF CACHE BOOL "" FORCE)
 add_subdirectory("gli" EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(
     "gli"
