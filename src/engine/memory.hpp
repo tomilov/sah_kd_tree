@@ -20,29 +20,29 @@ struct ENGINE_EXPORT AllocationCallbacks final : utils::NonCopyable
 {
     const vk::AllocationCallbacks allocationCallbacks = [this]
     {
-        vk::AllocationCallbacks allocationCallbacks;
+        vk::AllocationCallbacks allocationCallbacksOut;
 
-        allocationCallbacks.pUserData = this;
+        allocationCallbacksOut.pUserData = this;
 
-        allocationCallbacks.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, vk::SystemAllocationScope allocationScope) -> void *
+        allocationCallbacksOut.pfnAllocation = [](void * pUserData, size_t size, size_t alignment, vk::SystemAllocationScope allocationScope) -> void *
         {
             return static_cast<AllocationCallbacks *>(pUserData)->allocation(size, alignment, allocationScope);
         };
-        allocationCallbacks.pfnReallocation = nullptr;
-        allocationCallbacks.pfnFree = [](void * pUserData, void * pMemory)
+        allocationCallbacksOut.pfnReallocation = nullptr;
+        allocationCallbacksOut.pfnFree = [](void * pUserData, void * pMemory)
         {
             return static_cast<AllocationCallbacks *>(pUserData)->free(pMemory);
         };
-        allocationCallbacks.pfnInternalAllocation = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
+        allocationCallbacksOut.pfnInternalAllocation = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
         {
             return static_cast<AllocationCallbacks *>(pUserData)->internalAllocation(size, allocationType, allocationScope);
         };
-        allocationCallbacks.pfnInternalFree = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
+        allocationCallbacksOut.pfnInternalFree = [](void * pUserData, size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope)
         {
             return static_cast<AllocationCallbacks *>(pUserData)->internalFreeNotification(size, allocationType, allocationScope);
         };
 
-        return allocationCallbacks;
+        return allocationCallbacksOut;
     }();
 
     [[nodiscard]] void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope);
@@ -67,8 +67,8 @@ public:
         using other = Allocator<R, systemAllocationScope>;
     };
 
-    explicit Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacks) noexcept
-        : allocationCallbacks{allocationCallbacks}
+    explicit Allocator(vk::Optional<const vk::AllocationCallbacks> allocationCallbacksIn) noexcept
+        : allocationCallbacks{allocationCallbacksIn}
     {}
 
     template<typename R>

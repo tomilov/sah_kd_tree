@@ -84,10 +84,10 @@ void Renderdoc::FrameCapture::completeClassContext()
     checkTraits();
 }
 
-Renderdoc::FrameCapture::FrameCapture(const Impl & impl, vk::Instance instance, WindowHandle window)
-    : impl{impl}
-    , instance{instance}
-    , window{window}
+Renderdoc::FrameCapture::FrameCapture(const Impl & implIn, vk::Instance instanceIn, WindowHandle windowIn)
+    : impl{implIn}
+    , instance{instanceIn}
+    , window{windowIn}
     , lock{impl.mutex}
 {
     if (!impl.api) {

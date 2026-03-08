@@ -252,8 +252,8 @@ void SceneSettings::onUrlChanged()
         if (promise.isCanceled()) {
             return;
         }
-        if (auto sceneData = engineWrapper->getEngine().getScenes().getScene(scenePath)) {
-            promise.addResult(std::move(sceneData));
+        if (auto resultSceneData = engineWrapper->getEngine().getScenes().getScene(scenePath)) {
+            promise.addResult(std::move(resultSceneData));
         }
     };
     Q_ASSERT(taskQueue);
@@ -327,7 +327,7 @@ void SceneSettings::onTreeSettingsChanged()
     }
     auto scenePath = QString::fromStdString(sceneData->name);
     Q_CHECK_PTR(engineWrapper);
-    const auto buildTree = [this, scenePath, sceneData = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
+    const auto buildTree = [this, scenePath, sceneDataOld = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
     {
         ElapsedTimer elapsedTimer{viewerCategory, u"Build SAH kd-tree for '%1'"_s.arg(scenePath)};
         const int progressRange = utils::autoCast(builderTreeSettings.maxTreeDepth);
@@ -344,8 +344,8 @@ void SceneSettings::onTreeSettingsChanged()
             if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
                 auto build = builder::getBuild(utils::autoCast(thrustDeviceSystem));
                 ASSERT(build);
-                if (auto tree = build(builderTreeSettings, *cudaDevice, sceneData, progress)) {
-                    promise.addResult(std::move(tree));
+                if (auto resultTree = build(builderTreeSettings, *cudaDevice, sceneDataOld, progress)) {
+                    promise.addResult(std::move(resultTree));
                 }
             }
         } catch (const std::exception & e) {

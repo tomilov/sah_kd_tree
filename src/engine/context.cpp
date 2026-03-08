@@ -4,6 +4,9 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
+#include <utils/assert.hpp>
+
+#include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
 #include <memory>
@@ -18,18 +21,18 @@ namespace engine
 Context::Context() = default;
 Context::~Context() = default;
 
-void Context::createInstance(std::string_view applicationName, uint32_t applicationVersion, std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks,
+void Context::createInstance(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, std::string_view applicationName, uint32_t applicationVersion,
                              std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks);
-    instance = std::make_unique<Instance>(applicationName, applicationVersion, requiredInstanceExtensions, *library, mutedMessageIdNumbers, mute);
-    physicalDevices = std::make_unique<PhysicalDevices>(*this);
+    instance = std::make_unique<Instance>(applicationName, applicationVersion, *library, requiredInstanceExtensions, mutedMessageIdNumbers, mute);
+    physicalDevices = std::make_unique<PhysicalDevices>(*library, *instance, requiredDeviceExtensions);
 }
 
 void Context::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
-    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *library, requiredDeviceExtensions, physicalDevice);
+    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *library, *instance, requiredDeviceExtensions, physicalDevice);
     vma = std::make_unique<MemoryAllocator>(*this);
 }
 

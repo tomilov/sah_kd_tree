@@ -49,11 +49,11 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
     auto splittedPolygonBboxBegin = thrust::make_zip_iterator(polygonLeftBboxBegin, polygonRightBboxBegin);
     using SplittedPolygonBboxType = cuda::std::iter_value_t<decltype(splittedPolygonBboxBegin)>;
 
-    const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygon) -> SplittedPolygonBboxType
+    const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygonIn) -> SplittedPolygonBboxType
     {
         F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
         assert(!(max < min));
-        U polygonNode = polygonNodes[polygon];
+        U polygonNode = polygonNodes[polygonIn];
         I polygonSplitDimension = nodeSplitDimensions[polygonNode];
         F polygonSplitPos = nodeSplitPositions[polygonNode];
         if (polygonSplitDimension == dimension) {
@@ -63,7 +63,7 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
             return {bbox, bbox};
         }
 
-        U triangle = polygonTriangles[polygon];
+        U triangle = polygonTriangles[polygonIn];
         F a, b, c;
         if (polygonSplitDimension == ((dimension + 1) % 3)) {
             a = AY[triangle];

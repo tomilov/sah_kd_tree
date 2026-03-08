@@ -363,11 +363,11 @@ ShaderModule::operator vk::ShaderModule() const &
     return getHandle();
 }
 
-ShaderModuleReflection::ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName)
-    : context{context}
+ShaderModuleReflection::ShaderModuleReflection(const Context & contextIn, const ShaderModule & shaderModule, std::string_view entryPointNameIn)
+    : context{contextIn}
     , shaderModuleName{shaderModule.getShaderName()}
     , shaderStage{shaderModule.getStage()}
-    , entryPointName{entryPointName}
+    , entryPointName{entryPointNameIn}
     , reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
     auto reflectionResult = reflectionModule->GetResult();
@@ -564,9 +564,9 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-ShaderStages::ShaderStages(const Context & context, uint32_t vertexBufferBinding)
-    : context{context}
-    , vertexBufferBinding{vertexBufferBinding}
+ShaderStages::ShaderStages(const Context & contextIn, uint32_t vertexBufferBindingIn)
+    : context{contextIn}
+    , vertexBufferBinding{vertexBufferBindingIn}
 {}
 
 bool ShaderStages::checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagBits shaderStage) const
@@ -619,7 +619,7 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     }
 
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
-        auto & mergedBindings = setBindings[set];
+        auto & mergedBindings = setBindingMap[set];
         for (const auto & [bindingName, binding] : bindings) {
             bool isMultistage = false;
             size_t b = 0;
@@ -646,7 +646,7 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
         }
     }
     uint32_t setIndex = 0;
-    for (auto & [set, bindings] : setBindings) {
+    for (auto & [set, bindings] : setBindingMap) {
         bindings.setIndex = setIndex++;
     }
 
@@ -663,15 +663,15 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
 
 void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
 {
-    size_t setCount = std::size(setBindings);
+    size_t setCount = std::size(setBindingMap);
     descriptorSetLayoutCreateInfoChains.reserve(setCount);
     descriptorSetLayoutHolders.reserve(setCount);
     descriptorSetLayouts.reserve(setCount);
 
     const auto & device = context.getDevice();
 
-    descriptorSetLayoutCreateInfoChains.reserve(std::size(setBindings));
-    for (const auto & [set, descriptorSetLayoutBindings] : setBindings) {
+    descriptorSetLayoutCreateInfoChains.reserve(std::size(setBindingMap));
+    for (const auto & [set, descriptorSetLayoutBindings] : setBindingMap) {
         auto & descriptorSetLayoutCreateInfoChain = descriptorSetLayoutCreateInfoChains.emplace_back();
         auto & descriptorSetLayoutCreateInfo = descriptorSetLayoutCreateInfoChain.get<vk::DescriptorSetLayoutCreateInfo>();
         descriptorSetLayoutCreateInfo.flags = descriptorSetLayoutCreateFlags;
@@ -691,7 +691,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
             }
         }
 
-        if (std::size(setBindings) > 1) {
+        if (std::size(setBindingMap) > 1) {
             auto descriptorSetLayoutName = fmt::format("{} set {} (of total {} sets)", name, set, setCount);
             device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
         } else {
@@ -705,7 +705,7 @@ void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::Descrip
 
 size_t ShaderStages::findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const
 {
-    for (const auto & [set, setBindings] : setBindings) {
+    for (const auto & [set, setBindings] : setBindingMap) {
         if (setBindings.bindingIndices.contains(nameAndType)) {
             return set;
         }

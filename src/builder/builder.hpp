@@ -78,15 +78,13 @@ extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemCUDA>(const Setti
 
 constexpr auto getBuild(size_t i)
 {
-    // clang-format off
     auto builds = {
-        &builder::build<builder::ThrustDeviceSystemDefault>,
-        &builder::build<builder::ThrustDeviceSystemCPP>,
-        &builder::build<builder::ThrustDeviceSystemOMP>,
-        &builder::build<builder::ThrustDeviceSystemTBB>,
-        &builder::build<builder::ThrustDeviceSystemCUDA>,
+        &builder::build<builder::ThrustDeviceSystemDefault>,  //
+        &builder::build<builder::ThrustDeviceSystemCPP>,      //
+        &builder::build<builder::ThrustDeviceSystemOMP>,      //
+        &builder::build<builder::ThrustDeviceSystemTBB>,      //
+        &builder::build<builder::ThrustDeviceSystemCUDA>,     //
     };
-    // clang-format on
     return (i < std::size(builds)) ? builds.begin()[i] : nullptr;
 }
 

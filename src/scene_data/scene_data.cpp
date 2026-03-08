@@ -13,12 +13,12 @@ namespace scene_data
 size_t SceneData::instanceCount(size_t rootNodeIndex) const
 {
     size_t instanceCount = 0;
-    const auto countInstances = [this, &instanceCount](const auto & countInstances, size_t nodeIndex) -> void
+    const auto countInstances = [this, &instanceCount](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         instanceCount += node.meshes.size();
         for (size_t childIndex : node.children) {
-            countInstances(countInstances, childIndex);
+            self(self, childIndex);
         }
     };
     countInstances(countInstances, rootNodeIndex);
@@ -52,7 +52,7 @@ utils::MemArray<Triangle> SceneData::makeTriangles() const
     for (const Mesh & mesh : meshes) {
         auto index = indices.begin();
         std::advance(index, mesh.indexOffset);
-        auto endIndex = std::next(index, mesh.indexCount);
+        const auto endIndex = std::next(index, mesh.indexCount);
         while (index != endIndex) {
             INVARIANT(t < triangles.end(), "");
             uint32_t a = *index++;
@@ -74,7 +74,7 @@ utils::MemArray<Triangle> SceneData::makeTriangles() const
 utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
 {
     size_t vertexCount = 0;
-    const auto countTriangles = [this, &vertexCount](const auto & countTriangles, size_t nodeIndex) -> void
+    const auto countTriangles = [this, &vertexCount](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
@@ -83,7 +83,7 @@ utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
             vertexCount += mesh.indexCount;
         }
         for (size_t childIndex : node.children) {
-            countTriangles(countTriangles, childIndex);
+            self(self, childIndex);
         }
     };
     countTriangles(countTriangles, rootNodeIndex);
@@ -91,7 +91,7 @@ utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
     utils::MemArray<Triangle> triangles{vertexCount / 3};
     auto t = triangles.begin();
     auto v = vertices.begin();
-    const auto traverseNodes = [this, &t, &triangles, v](const auto & traverseNodes, size_t nodeIndex) -> void
+    const auto traverseNodes = [this, &t, &triangles, v](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
@@ -115,7 +115,7 @@ utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
             }
         }
         for (size_t childIndex : node.children) {
-            traverseNodes(traverseNodes, childIndex);
+            self(self, childIndex);
         }
     };
     traverseNodes(traverseNodes, rootNodeIndex);

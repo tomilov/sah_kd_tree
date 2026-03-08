@@ -15,7 +15,7 @@ public:
     {}
 
     constexpr CheckedPtr(T * p)  // NOLINT: google-explicit-constructor
-        : p{p}
+        : ptr{p}
     {
         INVARIANT(p, "Empty CheckedPtr");
         checked = true;
@@ -24,14 +24,14 @@ public:
     explicit constexpr operator bool() const noexcept
     {
         checked = true;
-        return p;
+        return ptr;
     }
 
     T * get() const
     {
         ASSERT_MSG(checked, "CheckedPtr contents were not checked before dereferencing");
-        INVARIANT(p, "Empty CheckedPtr");
-        return p;
+        INVARIANT(ptr, "Empty CheckedPtr");
+        return ptr;
     }
 
     T * operator->() const
@@ -46,7 +46,7 @@ public:
 
 private:
     mutable bool checked = false;
-    T * p = nullptr;
+    T * ptr = nullptr;
 };
 
 template<typename T>

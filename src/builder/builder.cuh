@@ -31,35 +31,40 @@ namespace builder
 {
 
 template<typename Traits>
-struct GetTraits
+struct GetBaseTraits
 {
     using Type = Traits;
 };
 
 template<typename Traits>
     requires requires { typename Traits::Traits; }
-struct GetTraits<Traits>
+struct GetBaseTraits<Traits>
 {
     using Type = typename Traits::Traits;
 };
 
 template<typename Traits>
-using GetTraitsType = typename GetTraits<Traits>::Type;
+using GetBaseTraitsType = typename GetBaseTraits<Traits>::Type;
 
 template<ThrustDeviceSystem Traits>
 struct TreeBuildContext : Tree
 {
-    using SrcTraits = GetTraitsType<Traits>;
+    using BaseTraits = GetBaseTraitsType<Traits>;
 
-    static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<typename thrust::iterator_system<typename SrcTraits::template Allocator<std::byte>::pointer>::type, thrust::cuda::tag>;
+    template<typename T>
+    using Allocator = typename BaseTraits::template Allocator<T>;
+    template<typename T>
+    using Vector = typename BaseTraits::template Vector<T>;
 
-    TreeBuildContext(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData)
-        : Tree{settings, cudaDevice, sceneData}
+    static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type, thrust::cuda::tag>;
+
+    TreeBuildContext(const Settings & settingsIn, const compute::CudaDevice & cudaDeviceIn, const scene_data::SceneDataPtr & sceneDataIn)
+        : Tree{settingsIn, cudaDeviceIn, sceneDataIn}
     {
         ASSERT(sceneData);
     }
 
-    [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<SrcTraits> & tree)
+    [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<BaseTraits> & tree)
     {
         auto aabbMin = thrust::make_zip_iterator(tree.x.node.min.begin(), tree.y.node.min.begin(), tree.z.node.min.begin());
         auto aabbMax = thrust::make_zip_iterator(tree.x.node.max.begin(), tree.y.node.max.begin(), tree.z.node.max.begin());
@@ -86,7 +91,7 @@ struct TreeBuildContext : Tree
     }
 
     template<typename T>
-    size_t gatherSize(const typename SrcTraits::template Vector<T> & v)
+    size_t gatherSize(const Vector<T> & v)
     {
         return gatherSize<T>(std::size(v));
     }
@@ -143,7 +148,7 @@ struct TreeBuildContext : Tree
             typename Traits::BuildContext buildContext{treeContext};
             buildContext.triangle.setTriangle(triangles.begin(), triangles.end());
             sah_kd_tree::linkTriangles(buildContext.triangle, buildContext.x, buildContext.y, buildContext.z, buildContext.builder);
-            const sah_kd_tree::Params<SrcTraits> params = {
+            const sah_kd_tree::Params<BaseTraits> params = {
                 .emptinessFactor = settings.emptinessFactor,
                 .traversalCost = settings.traversalCost,
                 .intersectionCost = settings.intersectionCost,
@@ -153,9 +158,9 @@ struct TreeBuildContext : Tree
                 return false;
             }
         }
-        static_assert(std::is_same_v<typename SrcTraits::F, glm::float32>);
-        static_assert(std::is_same_v<typename SrcTraits::U, glm::uint32>);
-        static_assert(std::is_same_v<typename SrcTraits::I, glm::int32>);
+        static_assert(std::is_same_v<typename BaseTraits::F, glm::float32>);
+        static_assert(std::is_same_v<typename BaseTraits::U, glm::uint32>);
+        static_assert(std::is_same_v<typename BaseTraits::I, glm::int32>);
         const auto & tree = treeContext.tree;
         {
             ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
@@ -186,7 +191,7 @@ struct TreeBuildContext : Tree
         {
             const auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
-            const auto gatherDeviceData = [devPtr]<typename T>(size_t offset, const typename SrcTraits::template Vector<T> & v)
+            const auto gatherDeviceData = [devPtr]<typename T>(size_t offset, const Vector<T> & v)
             {
                 const T * const srcPtr = thrust::raw_pointer_cast(std::data(v));
                 const size_t size = std::size(v) * sizeof(T);
@@ -204,11 +209,11 @@ struct TreeBuildContext : Tree
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
                 if constexpr (kIsThrustDeviceSystemCUDA) {
-                    const typename SrcTraits::template Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
+                    const typename Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
                     thrust::uninitialized_copy_n(node, nodeCount, dst);
                 } else {
-                    typename SrcTraits::template Vector<NodeType> nodes{tree.allocator};
-                    nodes.assign(node, cuda::std::next(node, nodeCount));
+                    Vector<NodeType> nodes{tree.allocator};
+                    nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
                     auto srcPtr = thrust::raw_pointer_cast(nodes.data());
                     CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
                 }

@@ -130,8 +130,8 @@ bool AssimpProgressHandler::Update(float percentage)
     return true;
 }
 
-AssimpIOStream::AssimpIOStream(QIODevice * device)
-    : device{device}
+AssimpIOStream::AssimpIOStream(QIODevice * deviceIn)
+    : device{deviceIn}
 {}
 
 AssimpIOStream::~AssimpIOStream() = default;

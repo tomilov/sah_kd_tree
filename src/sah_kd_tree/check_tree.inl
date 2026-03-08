@@ -32,23 +32,23 @@ bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<
     auto polygonZMaxs = thrust::raw_pointer_cast(z.polygon.max.data());
 
     const auto checkPolygonProjections
-        = [triangleCount, polygonTriangles, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygon) -> bool
+        = [triangleCount, polygonTriangles, polygonNodes, nodeZMaxs, polygonXMins, polygonXMaxs, polygonYMins, polygonYMaxs, polygonZMins, polygonZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins] __host__ __device__(U polygonIn) -> bool
     {
-        if (polygonTriangles[polygon] >= triangleCount) {
+        if (polygonTriangles[polygonIn] >= triangleCount) {
             return false;
         }
 
-        F polygonXMin = polygonXMins[polygon];
-        F polygonXMax = polygonXMaxs[polygon];
+        F polygonXMin = polygonXMins[polygonIn];
+        F polygonXMax = polygonXMaxs[polygonIn];
         assert(!(polygonXMax < polygonXMin));
-        F polygonYMin = polygonYMins[polygon];
-        F polygonYMax = polygonYMaxs[polygon];
+        F polygonYMin = polygonYMins[polygonIn];
+        F polygonYMax = polygonYMaxs[polygonIn];
         assert(!(polygonYMax < polygonYMin));
-        F polygonZMin = polygonZMins[polygon];
-        F polygonZMax = polygonZMaxs[polygon];
+        F polygonZMin = polygonZMins[polygonIn];
+        F polygonZMax = polygonZMaxs[polygonIn];
         assert(!(polygonZMax < polygonZMin));
 
-        U polygonNode = polygonNodes[polygon];
+        U polygonNode = polygonNodes[polygonIn];
 
         F nodeXMin = nodeXMins[polygonNode];
         F nodeXMax = nodeXMaxs[polygonNode];
@@ -120,11 +120,11 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
     auto nodeZMaxs = thrust::raw_pointer_cast(z.node.max.data());
 
     U polygonCount = polygon.count;
-    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U node) -> bool
+    const auto checkNode = [parents, leftChildren, rightChildren, splitDimensions, splitPositions, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, polygonCount] __host__ __device__(U nodeIn) -> bool
     {
-        I splitDimension = splitDimensions[node];
-        U leftChild = leftChildren[node];
-        U rightChild = rightChildren[node];
+        I splitDimension = splitDimensions[nodeIn];
+        U leftChild = leftChildren[nodeIn];
+        U rightChild = rightChildren[nodeIn];
         if (splitDimension < 0) {
             if (rightChild > 0) {
                 if (leftChild >= polygonCount) {
@@ -139,23 +139,23 @@ bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<
             }
             return true;
         }
-        if (parents[leftChild] != node) {
+        if (parents[leftChild] != nodeIn) {
             return false;
         }
-        if (parents[rightChild] != node) {
+        if (parents[rightChild] != nodeIn) {
             return false;
         }
-        F splitPos = splitPositions[node];
+        F splitPos = splitPositions[nodeIn];
         if (splitDimension == 0) {
-            if (!checkNodeProjection<F, U>(nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, splitPos, nodeIn, leftChild, rightChild)) {
                 return false;
             }
         } else if (splitDimension == 1) {
-            if (!checkNodeProjection<F, U>(nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, splitPos, nodeIn, leftChild, rightChild)) {
                 return false;
             }
         } else if (splitDimension == 2) {
-            if (!checkNodeProjection<F, U>(nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, splitPos, node, leftChild, rightChild)) {
+            if (!checkNodeProjection<F, U>(nodeZMins, nodeZMaxs, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, splitPos, nodeIn, leftChild, rightChild)) {
                 return false;
             }
         } else {

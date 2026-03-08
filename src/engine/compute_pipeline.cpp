@@ -12,11 +12,11 @@
 namespace engine
 {
 
-ComputePipeline::ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfosIn)
-    : name{name}
-    , context{context}
-    , pipelineCache{pipelineCache}
-    , descriptorBufferEnabled{descriptorBufferEnabled}
+ComputePipeline::ComputePipeline(std::string_view nameIn, const Context & contextIn, vk::PipelineCache pipelineCacheIn, bool descriptorBufferEnabledIn, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfosIn)
+    : name{nameIn}
+    , context{contextIn}
+    , pipelineCache{pipelineCacheIn}
+    , descriptorBufferEnabled{descriptorBufferEnabledIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
     computePipelineCreateInfo.flags = {};  // TODO: eDispatchBase?

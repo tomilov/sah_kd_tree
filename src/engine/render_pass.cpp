@@ -9,8 +9,9 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view name, const Context & context)
-    : name{name}
+RenderPass::RenderPass(std::string_view nameIn, const Context & contextIn)
+    : name{nameIn}
+    , context{contextIn}
 {
     attachmentReference = {
         .attachment = 0,

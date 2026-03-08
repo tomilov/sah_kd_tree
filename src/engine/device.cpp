@@ -1,5 +1,6 @@
 #include <common/config.hpp>
 #include <engine/device.hpp>
+#include <engine/instance.hpp>
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
@@ -7,16 +8,22 @@
 #include <utils/assert.hpp>
 
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_extension_inspection.hpp>
 
+#include <string_view>
 #include <type_traits>
+
+using namespace std::string_view_literals;
 
 namespace engine
 {
 
-Device::Device(std::string_view name, Library & library, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice)
-    : name{name}
-    , library{library}
-    , physicalDevice{physicalDevice}
+Device::Device(std::string_view nameIn, Library & libraryIn, const Instance & instanceIn, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDeviceIn)
+    : name{nameIn}
+    , library{libraryIn}
+    , instance{instanceIn}
+    , physicalDevice{physicalDeviceIn}
 {
     const auto setFeature = [this, &features2Chain = physicalDevice.features2Chain]<typename Features>(vk::Bool32 Features::* feature) -> bool
     {
@@ -47,35 +54,52 @@ Device::Device(std::string_view name, Library & library, std::span<const char * 
     }
 
     for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
-        if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
+        if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredExtension);
         }
     }
     for (const char * requiredExtension : requiredDeviceExtensions) {
-        if (!physicalDevice.enableExtensionIfAvailable(requiredExtension)) {
+        if (!enableExtensionIfAvailable(requiredExtension)) {
             INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredExtension);
         }
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
-        if (!physicalDevice.enableExtensionIfAvailable(optionalExtension)) {
+        if (!enableExtensionIfAvailable(optionalExtension)) {
             SPDLOG_WARN("{}: device extension '{}' is not available", name, optionalExtension);
         }
     }
     for (const char * optionalVmaExtension : MemoryAllocator::kOptionalExtensions) {
-        if (!physicalDevice.enableExtensionIfAvailable(optionalVmaExtension)) {
+        if (!enableExtensionIfAvailable(optionalVmaExtension)) {
             SPDLOG_WARN("{}: device extension '{}' optionally needed for VMA is not available", name, optionalVmaExtension);
         }
     }
 
     auto & deviceCreateInfo = createInfoChain.get<vk::DeviceCreateInfo>();
     deviceCreateInfo.setQueueCreateInfos(physicalDevice.getDeviceQueueCreateInfos());
-    deviceCreateInfo.setPEnabledExtensionNames(physicalDevice.getEnabledExtensions());
+    deviceCreateInfo.setPEnabledExtensionNames(getEnabledExtensions());
 
     deviceHolder = physicalDevice.getHandle().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
+    setDebugUtilsObjectName(deviceHolder, name);
+
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
-    library.getDispatcher().init(*deviceHolder);
+    libraryIn.getDispatcher().init(*deviceHolder);
 #endif
-    setDebugUtilsObjectName(*deviceHolder, name);
+}
+
+const std::vector<const char *> & Device::getEnabledExtensions() const &
+{
+    return enabledExtensions;
+}
+
+bool Device::isExtensionEnabled(const char * extension) const
+{
+    const auto extensionPromotionVersion = vk::getExtensionPromotedTo(extension);
+    for (auto vkVersion : {"VK_VERSION_1_0"sv, "VK_VERSION_1_1"sv, "VK_VERSION_1_2"sv, "VK_VERSION_1_3"sv}) {
+        if (vkVersion == extensionPromotionVersion) {
+            return true;
+        }
+    }
+    return enabledExtensionSet.contains(extension);
 }
 
 const PhysicalDevice & Device::getPhysicalDevice() const &
@@ -92,6 +116,33 @@ vk::Device Device::getHandle() const &
 Device::operator vk::Device() const &
 {
     return getHandle();
+}
+
+bool Device::enableExtensionIfAvailable(const char * extensionName)
+{
+    if (physicalDevice.getExtensions().contains(extensionName)) {
+        if (enabledExtensionSet.insert(extensionName).second) {
+            enabledExtensions.push_back(extensionName);
+        } else {
+            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
+        }
+        return true;
+    }
+    const auto & extensionLayers = physicalDevice.getExtensionLayers();
+    auto extensionLayer = extensionLayers.find(extensionName);
+    if (extensionLayer != std::end(extensionLayers)) {
+        const char * layerName = extensionLayer->second;
+        if (!instance.getEnabledLayers().contains(layerName)) {
+            INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
+        }
+        if (enabledExtensionSet.insert(extensionName).second) {
+            enabledExtensions.push_back(extensionName);
+        } else {
+            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
+        }
+        return true;
+    }
+    return false;
 }
 
 void Device::setDebugUtilsObjectName(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo) const

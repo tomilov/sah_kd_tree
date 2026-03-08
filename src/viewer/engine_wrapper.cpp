@@ -92,20 +92,20 @@ QStringList EngineWrapper::getSupportedSceneFileExtensions()
     return scene_loader::getSupportedExtensions();
 }
 
-void EngineSingletonForeign::setEngine(EngineWrapper * engine)
+void EngineSingletonForeign::setEngine(EngineWrapper * engineIn)
 {
     INVARIANT(!EngineSingletonForeign::engine, "engine should not be set twice");
-    EngineSingletonForeign::engine = engine;
+    EngineSingletonForeign::engine = engineIn;
     INVARIANT(EngineSingletonForeign::engine, "Nullptr should not be passed");
 }
 
-EngineWrapper * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngine)
+EngineWrapper * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngineIn)
 {
-    INVARIANT(jsEngine->thread() == engine->thread(), "The engine has to have the same thread affinity as the singleton");
+    INVARIANT(jsEngineIn->thread() == engine->thread(), "The engine has to have the same thread affinity as the singleton");
     if (EngineSingletonForeign::jsEngine) {
-        INVARIANT(EngineSingletonForeign::jsEngine == jsEngine, "There can only be one engine accessing the singleton");
+        INVARIANT(EngineSingletonForeign::jsEngine == jsEngineIn, "There can only be one engine accessing the singleton");
     } else {
-        EngineSingletonForeign::jsEngine = jsEngine;
+        EngineSingletonForeign::jsEngine = jsEngineIn;
     }
     QJSEngine::setObjectOwnership(engine.get(), QJSEngine::CppOwnership);
     return engine.get();

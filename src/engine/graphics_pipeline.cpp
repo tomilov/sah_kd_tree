@@ -13,13 +13,13 @@
 namespace engine
 {
 
-GraphicsPipeline::GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass,
+GraphicsPipeline::GraphicsPipeline(std::string_view nameIn, const Context & contextIn, vk::PipelineCache pipelineCacheIn, bool descriptorBufferEnabledIn, const PipelineLayout & pipelineLayout, vk::RenderPass renderPassIn,
                                    SpecializationInfos && specializationInfosIn)
-    : name{name}
-    , context{context}
-    , pipelineCache{pipelineCache}
-    , descriptorBufferEnabled{descriptorBufferEnabled}
-    , renderPass{renderPass}
+    : name{nameIn}
+    , context{contextIn}
+    , pipelineCache{pipelineCacheIn}
+    , descriptorBufferEnabled{descriptorBufferEnabledIn}
+    , renderPass{renderPassIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
     ASSERT(renderPass);

@@ -124,9 +124,9 @@ vk::DeviceAddress Tree::getNodeParentAddress() const &
     return deviceAddress;
 }
 
-Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder::Tree builderTree)
-    : name{name}
-    , context{context}
+Tree::Impl::Impl(std::string_view nameIn, const engine::Context & contextIn, builder::Tree builderTree)
+    : name{nameIn}
+    , context{contextIn}
     , triangleCount{utils::autoCast(builderTree.triangleCount)}
     , layerSizes{builderTree.layerSizes}
     , polygonCount{utils::autoCast(builderTree.polygonCount)}
@@ -139,10 +139,8 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
     , nodeOffset{utils::autoCast(builderTree.nodeOffset)}
     , nodeParentOffset{utils::autoCast(builderTree.nodeParentOffset)}
 {
-    const auto & physicalDevice = context.getPhysicalDevice();
-    INVARIANT(physicalDevice.isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
-
-    const vk::Device device = context.getDevice().getHandle();
+    INVARIANT(context.getDevice().isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
+    const auto device = context.getDevice().getHandle();
 
     constexpr vk::BufferUsageFlags kBufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
     constexpr vk::ExternalMemoryHandleTypeFlagBits kHandleType = vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd;
@@ -152,7 +150,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
         .usage = kBufferUsage,
         .handleType = kHandleType,
     };
-    vk::ExternalMemoryProperties externalMemoryProperties = physicalDevice.getHandle().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
+    vk::ExternalMemoryProperties externalMemoryProperties = context.getPhysicalDevice().getHandle().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
     vk::ExternalMemoryFeatureFlags externalMemoryFeatures = externalMemoryProperties.externalMemoryFeatures;
     SPDLOG_INFO("External memory properties: externalMemoryFeatures {}, compatibleHandleTypes {}, exportFromImportedHandleTypes {}", externalMemoryFeatures, externalMemoryProperties.compatibleHandleTypes,
                 externalMemoryProperties.exportFromImportedHandleTypes);
@@ -182,7 +180,7 @@ Tree::Impl::Impl(std::string_view name, const engine::Context & context, builder
     SPDLOG_INFO("Memory requirements: size {}, alignment {}, memoryTypeBits {:b}b", memoryRequirements.size, memoryRequirements.alignment, memoryRequirements.memoryTypeBits);
     const auto & memoryDedicatedRequirements = memoryRequirementsChain.get<vk::MemoryDedicatedRequirements>();
 
-    const uint32_t memoryTypeIndex = physicalDevice.findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
+    const uint32_t memoryTypeIndex = context.getPhysicalDevice().findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
     utils::Fd fd = builderTree.fd.value().clone();
 

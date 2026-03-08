@@ -53,10 +53,10 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo)
-    : name{name}
-    , context{context}
-    , fileIo{fileIo}
+PipelineCache::PipelineCache(std::string_view nameIn, const Context & contextIn, const FileIo & fileIoIn)
+    : name{nameIn}
+    , context{contextIn}
+    , fileIo{fileIoIn}
 {
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();

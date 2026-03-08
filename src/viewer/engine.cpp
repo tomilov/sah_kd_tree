@@ -258,10 +258,10 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
     return {getBindingName(), getDescriptorData()};
 }
 
-TraceFrameResources::TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler)
+TraceFrameResources::TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> samplerIn)
     : image{makeImage(context, imageSize)}
     , imageView{image.createImageView(vk::ImageViewType::e2D, kImageAspectMask)}
-    , sampler{std::move(sampler)}
+    , sampler{std::move(samplerIn)}
 {}
 
 engine::Image TraceFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
@@ -300,9 +300,9 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
     return {getBindingName(target), getDescriptorData()};
 }
 
-Engine::Engine(const engine::Context & context, const Settings & settings)
-    : context{context}
-    , settings{settings}
+Engine::Engine(const engine::Context & contextIn, const Settings & settingsIn)
+    : context{contextIn}
+    , settings{settingsIn}
     , pipelines{context, settings.descriptorBufferEnabled}
 {
     const auto & device = context.getDevice();
@@ -355,7 +355,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
     std::vector<std::vector<glm::mat4>> transforms(std::size(sceneData.meshes));  // [Scene::meshes index][instance index]
     std::vector<vk::DrawIndexedIndirectCommand> instances(std::size(sceneData.meshes));
     {
-        const auto collectNodeInfos = [&sceneData, &transforms, &instances](const auto & collectNodeInfos, const scene_data::Node & sceneNode, glm::mat4 transform) -> void
+        const auto collectNodeInfos = [&sceneData, &transforms, &instances](const auto & self, const scene_data::Node & sceneNode, glm::mat4 transform) -> void
         {
             transform *= sceneNode.transform;
             for (size_t m : sceneNode.meshes) {
@@ -363,7 +363,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
                 ++instances.at(m).instanceCount;
             }
             for (size_t sceneNodeChild : sceneNode.children) {
-                collectNodeInfos(collectNodeInfos, sceneData.nodes.at(sceneNodeChild), transform);
+                self(self, sceneData.nodes.at(sceneNodeChild), transform);
             }
         };
         auto transform = glm::identity<glm::mat4>();
@@ -444,10 +444,10 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
                 uint32_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
-                const auto convertCopy = [&sceneData, &instance, sceneIndexOffset](auto indices)
+                const auto convertCopy = [&sceneData, &instance, sceneIndexOffset](auto indicesIn)
                 {
                     auto indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
-                    auto indexOut = std::next(indices, instance.firstIndex);
+                    auto indexOut = std::next(indicesIn, instance.firstIndex);
                     for (uint32_t i = 0; i < instance.indexCount; ++i) {
                         *indexOut++ = utils::autoCast(*indexIn++);
                     }
@@ -538,10 +538,10 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
 Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const DescriptorInfos & descriptorInfos) const
 {
     const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(std::get<0>(descriptorInfos.at(0))));
-    auto shaderBindingName = std::cbegin(shaderStages->setBindings.at(set).bindingNames);
-    for (const auto & [name, data] : descriptorInfos) {
-        if (*shaderBindingName != name) {
-            INVARIANT(false, "{} ^ {}", *shaderBindingName, name);
+    auto shaderBindingName = std::cbegin(shaderStages->setBindingMap.at(set).bindingNames);
+    for (const auto & [descriptorName, data] : descriptorInfos) {
+        if (*shaderBindingName != descriptorName) {
+            INVARIANT(false, "{} ^ {}", *shaderBindingName, descriptorName);
         }
         ++shaderBindingName;
     }

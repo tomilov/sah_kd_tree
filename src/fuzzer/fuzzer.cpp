@@ -41,12 +41,15 @@ constexpr bool kFuzzIntegerCoordinate = false;
 constexpr int kFloatDigits = std::numeric_limits<F>::digits;
 
 using RandomValueType = typename std::mt19937::result_type;
-using UniformIntDistribution = std::uniform_int_distribution<>;
+using UniformIntDistribution = std::uniform_int_distribution<ptrdiff_t>;
+using UniformUIntDistribution = std::uniform_int_distribution<size_t>;
 using UniformIntDistributionParam = typename UniformIntDistribution::param_type;
+using UniformUIntDistributionParam = typename UniformUIntDistribution::param_type;
 
 bool boxWorld = false;
 
 UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
+UniformUIntDistribution uniformUInt;
 
 void setSeed(unsigned int seed)
 {
@@ -149,7 +152,7 @@ template<typename TriangleRandomAccessIterator>
 bool checkItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator end)
 {
     if (boxWorld) {
-        assert((std::distance(beg, end) % kBoxTriangleCount) == 0);
+        assert((utils::safeCast<size_t>(std::distance(beg, end)) % kBoxTriangleCount) == 0);
         for (auto box = beg; box != end; std::advance(box, kBoxTriangleCount)) {
             if (!std::is_sorted(box, std::next(box, kBoxTriangleCount))) {
                 return false;
@@ -214,7 +217,7 @@ struct TestInput
                 assert(std::is_sorted(std::prev(std::cend(triangles), kBoxTriangleCount), std::cend(triangles)));
             } else if (std::size(triangles) + 4 <= triangleCount) {  // add tetrahedron
                 assert(!boxWorld);
-                Vertex v[4];
+                Vertex v[4] = {};
                 for (Vertex & vertex : v) {
                     genVertex(vertex);
                 }
@@ -469,7 +472,7 @@ struct TestInput
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
             UniformIntDistributionParam distributionParam{0, utils::safeCast<int>(std::size(triangles) / kBoxTriangleCount - 1)};
-            return std::next(std::begin(triangles), kBoxTriangleCount * uniformInt(utils::defaultRandom(), distributionParam));
+            return std::next(std::begin(triangles), utils::safeCast<int>(kBoxTriangleCount) * uniformInt(utils::defaultRandom(), distributionParam));
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
         {
@@ -530,7 +533,7 @@ struct TestInput
     template<size_t N>
     static constexpr auto cdf(float (&&probabilities)[N])
     {
-        std::array<float, N> result;
+        std::array<float, N> result = {};
         std::inclusive_scan(std::cbegin(probabilities), std::cend(probabilities), std::begin(result));
         return result;
     }
@@ -585,7 +588,7 @@ size_t readIntArg(char * arg, size_t argSize)
 {
     size_t result = 0;
     auto argBeg = arg + argSize;
-    auto argEnd = std::next(argBeg, std::strlen(arg + argSize));
+    auto argEnd = std::next(argBeg, utils::safeCast<ptrdiff_t>(std::strlen(arg + argSize)));
     auto [p, ec] = std::from_chars(argBeg, argEnd, result);
     if ((ec != std::errc{}) || (p != argEnd)) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} to size_t\n", fmt::string_view{arg + argSize}, fmt::string_view{arg + 1, argSize - 2});
@@ -598,7 +601,7 @@ void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
 {
     arg.resize(argSize + std::numeric_limits<decltype(argValue)>::digits10 + 1);
     char * s = arg.data();
-    auto [p, ec] = std::to_chars(std::next(s, argSize), std::next(s, std::size(arg)), argValue);
+    auto [p, ec] = std::to_chars(std::next(s, utils::safeCast<ptrdiff_t>(argSize)), std::next(s, std::ssize(arg)), argValue);
     if (ec != std::errc{}) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} from size_t to string\n", argValue, fmt::string_view{arg.data() + 1, argSize - 2});
         std::exit(EXIT_FAILURE);

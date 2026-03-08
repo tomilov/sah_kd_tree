@@ -110,9 +110,9 @@ struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
     Framebuffer framebuffer;
     std::shared_ptr<const vk::UniqueSampler> sampler;
 
-    DrawOffscreenResources(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> sampler)
+    DrawOffscreenResources(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> samplerIn)
         : framebuffer{Framebuffer::make(context, framebufferSize, offscreenRenderPass)}
-        , sampler{std::move(sampler)}
+        , sampler{std::move(samplerIn)}
     {}
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();

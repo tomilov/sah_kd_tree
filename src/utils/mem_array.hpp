@@ -14,8 +14,8 @@ class MemArray
 public:
     MemArray() = default;
 
-    explicit MemArray(size_t size)
-        : size{size}
+    explicit MemArray(size_t sizeIn)
+        : size{sizeIn}
         , p{std::make_unique<T[]>(size)}
     {}
 

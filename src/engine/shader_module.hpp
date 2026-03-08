@@ -157,7 +157,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
     std::unique_ptr<VertexInputState> vertexInputState;
-    std::map<uint32_t /*set*/, SetBindings> setBindings;
+    std::map<uint32_t /*set*/, SetBindings> setBindingMap;
     std::unordered_map<vk::ShaderStageFlagBits, std::unordered_map<std::string, uint32_t>> specializationConstants;
     std::vector<vk::PushConstantRange> pushConstantRanges;
 

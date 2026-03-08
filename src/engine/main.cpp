@@ -125,6 +125,6 @@ int main(int /*argc*/, char * /*argv*/[])
         auto w = std::move(v);
         w = std::move(u);
     }
-    context.createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, {} /*mutedMessageIdNumbers*/);
+    context.createInstance(std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, APPLICATION_NAME, kApplicationVersion, {} /*mutedMessageIdNumbers*/);
     context.createDevice();
 }

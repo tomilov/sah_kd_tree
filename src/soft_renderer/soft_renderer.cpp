@@ -120,9 +120,9 @@ struct SoftRenderer::Impl
     utils::MemArray<Node> nodes;
     utils::MemArray<glm::uint> nodeParents;
 
-    Impl(std::string_view name, const glm::vec4 & clearColor)
-        : name{name}
-        , clearColor{clearColor}
+    Impl(std::string_view nameIn, const glm::vec4 & clearColorIn)
+        : name{nameIn}
+        , clearColor{clearColorIn}
     {
         omp_set_num_threads(utils::autoCast(std::thread::hardware_concurrency()));
     }
@@ -243,7 +243,7 @@ void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & 
     const glm::vec3 rightBottom = glm::rotate(frameSettings.orientation, glm::vec3{dx, -dy, 1.0f});
     const glm::vec2 invExtent = 1.0f / glm::vec2{extent};
     const glm::float32 tNear = 0.0f;
-    const glm::uint nodeIndex = 0u;  // impl_->findNode(kRootNodeIndex, ray.pos);
+    const glm::uint nodeIndex = 0u;  // impl_->findNode(kRootNodeIndex, frameSettings.position);
 #pragma omp parallel for schedule(dynamic, 1)
     for (gli::int32 y = 0; y < extent.y; ++y) {
         const glm::float32 locY = (utils::safeCast<glm::float32>(y) + 0.5f) * invExtent.y;

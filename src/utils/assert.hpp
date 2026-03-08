@@ -21,6 +21,11 @@ void assertFailed [[noreturn]] (bool assert, const char * expression, std::sourc
 
 }  // namespace utils
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #define ASSERT_MSG_SRCLOC(condition, srcLoc, format, ...)                                           \
     do {                                                                                            \
         if constexpr (sah_kd_tree::kIsDebugBuild) {                                                 \
@@ -45,3 +50,7 @@ void assertFailed [[noreturn]] (bool assert, const char * expression, std::sourc
     } while (false)
 
 #define INVARIANT(condition, format, ...) INVARIANT_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

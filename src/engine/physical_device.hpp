@@ -8,9 +8,10 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <deque>
 #include <initializer_list>
 #include <limits>
-#include <list>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -29,8 +30,8 @@ struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
     uint32_t familyIndex = vk::QueueFamilyIgnored;
     uint32_t index = std::numeric_limits<uint32_t>::max();
 
-    explicit QueueCreateInfo(const std::string & name)
-        : name{name}
+    explicit QueueCreateInfo(const std::string & nameIn)
+        : name{nameIn}
     {}
 };
 
@@ -132,7 +133,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer"};
 
-    PhysicalDevice(const Context & context, vk::PhysicalDevice physicalDevice);
+    PhysicalDevice(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions, vk::PhysicalDevice physicalDevice);
 
     [[nodiscard]] vk::PhysicalDevice getHandle() const &;
     [[nodiscard]] operator vk::PhysicalDevice() const &;  // NOLINT: google-explicit-constructor
@@ -140,16 +141,13 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     [[nodiscard]] std::string getDeviceName() const;
     [[nodiscard]] std::string getPipelineCacheUUID() const;
 
-    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const;
+    [[nodiscard]] const StringUnorderedSet & getExtensions() const &;
+    [[nodiscard]] const StringUnorderedMultiMap<const char *> & getExtensionLayers() const &;
+    [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(std::span<const char * const> extensionsToCheck) const;
     [[nodiscard]] uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
     [[nodiscard]] bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
 
-    [[nodiscard]] bool enableExtensionIfAvailable(const char * extensionName);
-
     [[nodiscard]] const std::vector<vk::DeviceQueueCreateInfo> & getDeviceQueueCreateInfos() const &;
-
-    [[nodiscard]] const std::vector<const char *> & getEnabledExtensions() const &;
-    [[nodiscard]] bool isExtensionEnabled(const char * extension) const;
 
     [[nodiscard]] vk::Format findDepthImageFormat(vk::ImageTiling imageTiling) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
@@ -159,7 +157,9 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
                                                vk::MemoryHeapFlags requiredMemoryHeapFlags = vk::MemoryHeapFlagBits::eDeviceLocal) const;
 
 private:
-    const Context & context;
+    const Library & library;
+    const Instance & instance;
+    std::span<const char * const> requiredDeviceExtensions;
 
     vk::PhysicalDevice physicalDevice;
 
@@ -168,8 +168,6 @@ private:
     std::vector<vk::ExtensionProperties> extensionPropertyList;
     StringUnorderedSet extensions;
     StringUnorderedMultiMap<const char *> extensionLayers;
-    StringUnorderedSet enabledExtensionSet;
-    std::vector<const char *> enabledExtensions;
 
     vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo;
     vk::SurfaceCapabilities2KHR surfaceCapabilities;
@@ -184,14 +182,12 @@ private:
 
 struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 {
-    explicit PhysicalDevices(const Context & context);
+    explicit PhysicalDevices(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 
 private:
-    const Context & context;
-
-    std::list<PhysicalDevice> physicalDevices;
+    std::deque<PhysicalDevice> physicalDevices;
 };
 
 }  // namespace engine

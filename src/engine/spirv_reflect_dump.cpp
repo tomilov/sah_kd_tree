@@ -324,8 +324,8 @@ struct Nullable
 {
     T * value;
 
-    explicit Nullable(T * value)
-        : value{value}
+    explicit Nullable(T * valueIn)
+        : value{valueIn}
     {}
 };
 
@@ -335,12 +335,12 @@ Nullable(T * value) -> Nullable<T>;
 template<typename T>
 struct List
 {
-    T * p;
+    T * ptr;
     uint32_t count;
 
-    List(T * p, uint32_t count)
-        : p{p}
-        , count{count}
+    List(T * p, uint32_t countIn)
+        : ptr{p}
+        , count{countIn}
     {}
 };
 
@@ -362,9 +362,9 @@ struct JsonStreamedFmt
 {
     const nlohmann::json & j;
 
-    friend std::ostream & operator<< [[gnu::used]] (std::ostream & out, const JsonStreamedFmt & j)
+    friend std::ostream & operator<< [[gnu::used]] (std::ostream & out, const JsonStreamedFmt & json)
     {
-        return out << std::setw(2) << j.j;
+        return out << std::setw(2) << json.j;
     }
 };
 
@@ -582,19 +582,19 @@ struct nlohmann::adl_serializer<engine::List<T>>
 {
     static void to_json(json & j, const engine::List<T> & list)
     {
-        if (!list.p) {
+        if (!list.ptr) {
             return;
         }
         j = json::array();
         for (size_t i = 0; i < list.count; ++i) {
             if constexpr (std::is_pointer_v<T>) {
-                if (list.p[i]) {
-                    j.push_back(*list.p[i]);
+                if (list.ptr[i]) {
+                    j.push_back(*list.ptr[i]);
                 } else {
                     j.push_back(nullptr);
                 }
             } else {
-                j.push_back(list.p[i]);
+                j.push_back(list.ptr[i]);
             }
         }
     }

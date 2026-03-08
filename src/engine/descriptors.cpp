@@ -19,11 +19,11 @@
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set)
-    : name{name}
-    , context{context}
-    , shaderStages{std::move(shaderStages)}
-    , set{set}
+DescriptorSet::DescriptorSet(std::string_view nameIn, const Context & contextIn, std::shared_ptr<const ShaderStages> shaderStagesIn, uint32_t setIn)
+    : name{nameIn}
+    , context{contextIn}
+    , shaderStages{std::move(shaderStagesIn)}
+    , set{setIn}
 {
     init();
 }
@@ -46,7 +46,7 @@ void DescriptorSet::init()
     descriptorPool = device.getHandle().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     device.setDebugUtilsObjectName(*descriptorPool, name);
 
-    const auto & setBindings = shaderStages->setBindings.at(set);
+    const auto & setBindings = shaderStages->setBindingMap.at(set);
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
 
     vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo;

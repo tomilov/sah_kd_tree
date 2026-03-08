@@ -12,10 +12,12 @@
 #include <thrust/tuple.h>
 
 #include <fmt/chrono.h>
+#include <spdlog/spdlog.h>
 
 #include <chrono>
 #include <functional>
 #include <limits>
+#include <source_location>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -45,17 +47,18 @@ class ScopeTimer
 public:
     using Clock = std::chrono::high_resolution_clock;
 
-    explicit ScopeTimer(std::string_view name)
-        : name{name}
+    explicit ScopeTimer(const std::source_location & sourceLocationIn = std::source_location::current())
+        : sourceLocation{sourceLocationIn}
     {}
 
     ~ScopeTimer()
     {
-        fmt::println(stderr, "Time '{}': {}", name, std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start));
+        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start);
+        SPDLOG_TRACE("{}:{}:{} in {}: {}", sourceLocation.file_name(), sourceLocation.line(), sourceLocation.column(), sourceLocation.function_name(), dt);
     }
 
 private:
-    const std::string name;
+    const std::source_location sourceLocation;
     const Clock::time_point start = Clock::now();
 };
 
@@ -131,8 +134,8 @@ struct Tree
     Tree(Tree &) = delete;
     Tree & operator=(Tree &) = delete;
 
-    Tree(const Allocator<std::byte> & allocator)
-        : allocator{allocator}
+    Tree(const Allocator<std::byte> & allocatorIn)
+        : allocator{allocatorIn}
     {}
 };
 
@@ -217,17 +220,17 @@ struct Projection
     Projection(Projection &) = delete;
     Projection & operator=(Projection &) = delete;
 
-    Projection(const Allocator<std::byte> & allocator)
-        : allocator{allocator}
+    Projection(const Allocator<std::byte> & allocatorIn)
+        : allocator{allocatorIn}
     {}
 
-    Projection(Exec exec)
-        : exec{exec}
+    Projection(Exec execIn)
+        : exec{execIn}
     {}
 
-    Projection(const Allocator<std::byte> & allocator, Exec exec)
-        : allocator{allocator}
-        , exec{exec}
+    Projection(const Allocator<std::byte> & allocatorIn, Exec execIn)
+        : allocator{allocatorIn}
+        , exec{execIn}
     {}
 
     void calculateTriangleBbox();
@@ -327,17 +330,17 @@ struct Builder
     Builder(Builder &) = delete;
     Builder & operator=(Builder &) = delete;
 
-    Builder(const Allocator<std::byte> & allocator)
-        : allocator{allocator}
+    Builder(const Allocator<std::byte> & allocatorIn)
+        : allocator{allocatorIn}
     {}
 
-    Builder(Exec exec)
-        : exec{exec}
+    Builder(Exec execIn)
+        : exec{execIn}
     {}
 
-    Builder(const Allocator<std::byte> & allocator, Exec exec)
-        : allocator{allocator}
-        , exec{exec}
+    Builder(const Allocator<std::byte> & allocatorIn, Exec execIn)
+        : allocator{allocatorIn}
+        , exec{execIn}
     {}
 
     void filterLayerNodeOffset();
@@ -404,17 +407,17 @@ struct Triangle
     Triangle(Triangle &) = delete;
     Triangle & operator=(Triangle &) = delete;
 
-    Triangle(const Allocator<std::byte> & allocator)
-        : allocator{allocator}
+    Triangle(const Allocator<std::byte> & allocatorIn)
+        : allocator{allocatorIn}
     {}
 
-    Triangle(Exec exec)
-        : exec{exec}
+    Triangle(Exec execIn)
+        : exec{execIn}
     {}
 
-    Triangle(const Allocator<std::byte> & allocator, Exec exec)
-        : allocator{allocator}
-        , exec{exec}
+    Triangle(const Allocator<std::byte> & allocatorIn, Exec execIn)
+        : allocator{allocatorIn}
+        , exec{execIn}
     {}
 
     // For non-CUDA THRUST_DEVICE_SYSTEM, using the function works fine in pure .cpp.

@@ -32,8 +32,8 @@ Q_DECLARE_LOGGING_CATEGORY(viewerFileIoCategory)
 Q_LOGGING_CATEGORY(viewerFileIoCategory, "viewer.file_io")
 }  // namespace
 
-FileIo::FileIo(const std::filesystem::path & shaderLocation)
-    : shaderLocation{shaderLocation}
+FileIo::FileIo(const std::filesystem::path & shaderLocationIn)
+    : shaderLocation{shaderLocationIn}
 {}
 
 std::vector<uint8_t> FileIo::loadPipelineCache(std::string_view pipelineCacheName) const

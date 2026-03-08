@@ -512,27 +512,29 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
     };
     std::unordered_map<const aiMesh *, MeshUsage> meshUsages;
     {
-        size_t assimpMeshCount = utils::autoCast(assimpScene->mNumMeshes);
         auto assimpMeshes = assimpScene->mMeshes;
-        meshUsages.reserve(assimpMeshCount);
-        for (size_t assimpMeshIndex = 0; assimpMeshIndex < assimpMeshCount; ++assimpMeshIndex) {
-            auto assimpMesh = assimpMeshes[assimpMeshIndex];
-            MeshUsage meshUsage = {
-                .meshIndex = std::size(meshUsages),
-            };
-            if (const auto & [m, inserted] = meshUsages.emplace(assimpMesh, meshUsage); !inserted) {
-                INVARIANT(false, "Duplicated mesh #{}: #{}", m->second.meshIndex, meshUsage.meshIndex);
+        {
+            size_t assimpMeshCount = utils::autoCast(assimpScene->mNumMeshes);
+            meshUsages.reserve(assimpMeshCount);
+            for (size_t assimpMeshIndex = 0; assimpMeshIndex < assimpMeshCount; ++assimpMeshIndex) {
+                auto assimpMesh = assimpMeshes[assimpMeshIndex];
+                MeshUsage meshUsage = {
+                    .meshIndex = std::size(meshUsages),
+                };
+                if (const auto & [m, inserted] = meshUsages.emplace(assimpMesh, meshUsage); !inserted) {
+                    INVARIANT(false, "Duplicated mesh #{}: #{}", m->second.meshIndex, meshUsage.meshIndex);
+                }
             }
         }
 
         std::unordered_map<const aiNode *, size_t> parents;
-        const auto traverseNodes = [&sceneData, &parents, &meshUsages, assimpMeshes](const auto & traverseNodes, const aiNode * assimpNode) -> size_t
+        const auto traverseNodes = [&sceneData, &parents, &meshUsages, assimpMeshes](const auto & self, const aiNode * assimpNode) -> size_t
         {
             size_t nodeIndex = std::size(sceneData.nodes);
             scene_data::Node & node = sceneData.nodes.emplace_back();
             if (auto assimpNodeParent = assimpNode->mParent) {
                 auto p = parents.find(assimpNodeParent);
-                ASSERT(p != std::end(parents));
+                INVARIANT(p != std::end(parents), "");
                 node.parent = p->second;
             } else {
                 node.parent = nodeIndex;
@@ -546,7 +548,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
                     auto assimpMeshIndex = assimpNode->mMeshes[m];
                     auto assimpMesh = assimpMeshes[assimpMeshIndex];
                     auto u = meshUsages.find(assimpMesh);
-                    ASSERT(u != std::end(meshUsages));
+                    INVARIANT(u != std::end(meshUsages), "");
                     MeshUsage & meshUsage = u->second;
                     node.meshes.push_back(meshUsage.meshIndex);
                     ++meshUsage.useCount;
@@ -559,7 +561,7 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
             for (size_t c = 0; c < childrenCount; ++c) {
                 auto assimpNodeChild = assimpNodeChildren[c];
                 ASSERT(assimpNodeChild->mParent == assimpNode);
-                size_t childNodeIndex = traverseNodes(traverseNodes, assimpNodeChild);
+                size_t childNodeIndex = self(self, assimpNodeChild);
                 sceneData.nodes.at(nodeIndex).children.push_back(childNodeIndex);
             }
             return nodeIndex;

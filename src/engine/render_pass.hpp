@@ -20,6 +20,7 @@ struct ENGINE_EXPORT RenderPass final : utils::OneTime<RenderPass>
 
 private:
     std::string name;
+    const Context & context;
 
     vk::AttachmentReference attachmentReference;
     vk::SubpassDescription subpassDescription;

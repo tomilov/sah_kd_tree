@@ -19,24 +19,24 @@ void sah_kd_tree::Projection<Traits>::decoupleEventBoth(const Vector<I> & nodeSp
 
     auto & eventLeft = event.polygonCountLeft;
     assert(!(eventLeft.size() < event.count));
-    const auto isLeftPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool
+    const auto isLeftPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U eventIn) -> bool
     {
-        if (nodeSplitDimensions[eventNodes[event]] < 0) {
+        if (nodeSplitDimensions[eventNodes[eventIn]] < 0) {
             return false;
         }
-        return polygonSides[eventPolygons[event]] < 0;
+        return polygonSides[eventPolygons[eventIn]] < 0;
     };
     auto eventLeftEnd = thrust::copy_if(exec, eventBegin, eventEnd, eventLeft.begin(), isLeftPolygon);
     eventLeft.erase(eventLeftEnd, eventLeft.end());
 
     auto & eventRight = event.polygonCountRight;
     assert(!(eventRight.size() < event.count));
-    const auto isRightPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U event) -> bool
+    const auto isRightPolygon = [eventNodes, nodeSplitDimensions, eventPolygons, polygonSides] __host__ __device__(U eventIn) -> bool
     {
-        if (nodeSplitDimensions[eventNodes[event]] < 0) {
+        if (nodeSplitDimensions[eventNodes[eventIn]] < 0) {
             return false;
         }
-        return 0 < polygonSides[eventPolygons[event]];
+        return 0 < polygonSides[eventPolygons[eventIn]];
     };
     auto eventRightEnd = thrust::copy_if(exec, eventBegin, eventEnd, eventRight.begin(), isRightPolygon);
     eventRight.erase(eventRightEnd, eventRight.end());

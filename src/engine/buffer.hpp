@@ -112,9 +112,9 @@ private:
     MappedMemory<void> mappedMemory;
     const vk::DeviceSize count;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize count, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize)
+    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize countIn, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize)  // NOLINT: google-explicit-constructor
         : mappedMemory{buffer, offset, size}
-        , count{count}  // NOLINT: google-explicit-constructor
+        , count{countIn}
     {
         ASSERT(count > 0);
         ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
@@ -187,8 +187,8 @@ template<typename T>
 class ENGINE_EXPORT Buffer final : utils::OneTime<Buffer<T>>
 {
 public:
-    Buffer(Buffer<void> && buffer) noexcept  // NOLINT: google-explicit-constructor
-        : buffer{std::move(buffer)}
+    Buffer(Buffer<void> && bufferIn) noexcept  // NOLINT: google-explicit-constructor
+        : buffer{std::move(bufferIn)}
         , count{base().getSize() / sizeof(T)}
     {
         ASSERT(count > 0);
@@ -256,9 +256,9 @@ public:
         return {&buffer, count};
     }
 
-    void copyFrom(const T * p, vk::DeviceSize count, vk::DeviceSize dstOffset)
+    void copyFrom(const T * p, vk::DeviceSize countIn, vk::DeviceSize dstOffset)
     {
-        return buffer.copyFrom(p, sizeof(T) * count, sizeof(T) * dstOffset);
+        return buffer.copyFrom(p, sizeof(T) * countIn, sizeof(T) * dstOffset);
     }
 
     void copyTo(vk::DeviceSize srcOffset, T * p, vk::DeviceSize size) const

@@ -24,9 +24,9 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
     auto rightChildren = thrust::raw_pointer_cast(node.rightChild.data());
     auto splitDimensions = thrust::raw_pointer_cast(node.splitDimension.data());
     auto splitPositions = thrust::raw_pointer_cast(node.splitPos.data());
-    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U node) -> U
+    const auto getRightRope = [yMins, yMaxs, zMins, zMaxs, parents, leftChildren, rightChildren, splitDimensions, splitPositions] __host__ __device__(U nodeIn) -> U
     {
-        U siblingNode = node;
+        U siblingNode = nodeIn;
         for (;;) {
             if (siblingNode == 0) {
                 return 0;  // ray miss
@@ -34,7 +34,7 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
             U parent = parents[siblingNode];
             if (splitDimensions[parent] == dimension) {
                 if (siblingNode == (forth ? leftChildren : rightChildren)[parent]) {
-                    if (siblingNode == node) {
+                    if (siblingNode == nodeIn) {
                         return (forth ? rightChildren : leftChildren)[parent];
                     }
                     siblingNode = (forth ? rightChildren : leftChildren)[parent];
@@ -43,10 +43,10 @@ void Builder<Traits>::calculateRope(Projection<Traits> & x, const Projection<Tra
             }
             siblingNode = parent;
         }
-        F yMin = yMins[node];
-        F yMax = yMaxs[node];
-        F zMin = zMins[node];
-        F zMax = zMaxs[node];
+        F yMin = yMins[nodeIn];
+        F yMax = yMaxs[nodeIn];
+        F zMin = zMins[nodeIn];
+        F zMax = zMaxs[nodeIn];
         for (;;) {
             I siblingSplitDimension = splitDimensions[siblingNode];
             if (siblingSplitDimension < 0) {

@@ -97,7 +97,7 @@ public:
     };
 
     explicit FlagBits(vk::Flags<BitType> f)
-        : f{f}
+        : flags{f}
     {}
 
     static FlagBits allBits()
@@ -107,7 +107,7 @@ public:
 
     Iterator begin() const
     {
-        return Iterator{f};
+        return Iterator{flags};
     }
 
     Iterator end() const
@@ -116,7 +116,7 @@ public:
     }
 
 private:
-    const vk::Flags<BitType> f;
+    const vk::Flags<BitType> flags;
 };
 
 template<typename ChainHead, typename... ChainTail>

@@ -16,7 +16,8 @@ target_compile_definitions(
         VULKAN_HPP_NO_CONSTRUCTORS
         VULKAN_HPP_TYPESAFE_CONVERSION
         VULKAN_HPP_ASSERT=ASSERT
-        VULKAN_HEADERS_ENABLE_MODULE_STD)
+        VULKAN_HEADERS_ENABLE_MODULE_STD
+        VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
         Vulkan-Headers

@@ -132,9 +132,9 @@ struct RenderNode::Impl
 
     bool update = false;
 
-    Impl(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
-        : name{name}
-        , window{window}
+    Impl(QString nameIn, QQuickWindow * windowIn, const EngineWrapper & engineWrapper)
+        : name{nameIn}
+        , window{windowIn}
         , context{engineWrapper.getContext()}
         , engine{engineWrapper.getEngine()}
     {
@@ -143,7 +143,7 @@ struct RenderNode::Impl
     }
 
     template<typename Dst, typename Src>
-    [[maybe_unused]] bool updateState(Dst & lhs, Src && rhs, [[maybe_unused]] const char * name)
+    [[maybe_unused]] bool updateState(Dst & lhs, Src && rhs, [[maybe_unused]] const char * stateName)
     {
         if (lhs == rhs) {
             return false;
@@ -162,21 +162,21 @@ struct RenderNode::Impl
         }
     }
 
-    void updateScene(const scene_data::SceneDataPtr & sceneData)
+    void updateScene(const scene_data::SceneDataPtr & sceneDataIn)
     {
-        UPDATE_STATE(this->sceneData, sceneData);
+        UPDATE_STATE(sceneData, sceneDataIn);
     }
 
-    void setTree(builder::TreePtr builderTree)
+    void setTree(builder::TreePtr builderTreeIn)
     {
-        this->builderTree = std::move(builderTree);
+        builderTree = std::move(builderTreeIn);
         treeIsDirty = true;
         isDirty = true;
     }
 
-    void updateRect(const QRectF & rect)
+    void updateRect(const QRectF & rectIn)
     {
-        UPDATE_STATE(this->rect, rect);
+        UPDATE_STATE(rect, rectIn);
     }
 
     void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
@@ -201,9 +201,9 @@ struct RenderNode::Impl
         UPDATE_STATE(frameSettings.clearColor, clearColor);
     }
 
-    void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
+    void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounterIn)
     {
-        UPDATE_STATE(this->renderdocCaptureFrameCounter, renderdocCaptureFrameCounter);
+        UPDATE_STATE(renderdocCaptureFrameCounter, renderdocCaptureFrameCounterIn);
     }
 #undef UPDATE_STATE
 

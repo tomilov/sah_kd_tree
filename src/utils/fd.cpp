@@ -8,8 +8,8 @@
 namespace utils
 {
 
-Fd::Fd(int fd)
-    : fd{fd}
+Fd::Fd(int file)
+    : fd{file}
 {
     INVARIANT(fd >= 0, "{}", fd);
 }

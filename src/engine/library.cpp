@@ -17,8 +17,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 namespace engine
 {
 
-Library::Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks)
-    : allocationCallbacks{allocationCallbacks}
+Library::Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacksIn)
+    : allocationCallbacks{allocationCallbacksIn}
 {
     using namespace std::string_view_literals;
     SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);

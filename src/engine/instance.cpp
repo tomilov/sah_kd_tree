@@ -59,7 +59,7 @@ struct Instance::DebugUtilsMessageMuteGuard::Impl
     const Action action;
     const std::vector<uint32_t> messageIdNumbers;
 
-    Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers);
+    Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::span<const uint32_t> messageIdNumbers);
     ~Impl();
 
     void mute();
@@ -87,11 +87,11 @@ Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()
     }
 }
 
-Instance::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::initializer_list<uint32_t> messageIdNumbers)
-    : mutex{mutex}
-    , mutedMessageIdNumbers{mutedMessageIdNumbers}
-    , action{action}
-    , messageIdNumbers{messageIdNumbers}
+Instance::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutexIn, std::unordered_multiset<uint32_t> & mutedMessageIdNumbersIn, Action actionIn, std::span<const uint32_t> messageIdNumbersIn)
+    : mutex{mutexIn}
+    , mutedMessageIdNumbers{mutedMessageIdNumbersIn}
+    , action{actionIn}
+    , messageIdNumbers{std::cbegin(messageIdNumbersIn), std::cend(messageIdNumbersIn)}
 {
     switch (action) {
     case Action::kMute: {
@@ -127,12 +127,12 @@ void Instance::DebugUtilsMessageMuteGuard::Impl::unmute()
     }
 }
 
-auto Instance::muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Instance::muteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kMute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
 
-auto Instance::unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Instance::unmuteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kUnmute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
@@ -143,11 +143,11 @@ bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersionIn, std::span<const char * const> requiredInstanceExtensions, Library & libraryIn, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
+Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersionIn, Library & libraryIn, std::span<const char * const> requiredInstanceExtensions, std::initializer_list<uint32_t> mutedMessageIdNumbersIn, bool mute)
     : applicationName{applicationNameIn}
     , applicationVersion{applicationVersionIn}
     , library{libraryIn}
-    , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbers, mute)}
+    , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbersIn, mute)}
 {
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
     if (library.getDispatcher().vkEnumerateInstanceVersion) {
@@ -244,7 +244,7 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
             vk::LayerSettingEXT layerSetting = {
                 .pLayerName = "VK_LAYER_KHRONOS_validation",
             };
-            const auto setValues = [&]<typename T = const char *>(const char * settingName, std::initializer_list<T> value)
+            const auto setValues = [&]<typename T = const char *>(const char * settingName, std::initializer_list<T> values)
             {
                 layerSetting.pSettingName = settingName;
                 if constexpr (std::is_same_v<T, vk::Bool32>) {
@@ -266,8 +266,7 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
                 } else {
                     static_assert(sizeof(T) == 0, "Type is not supported");
                 }
-                layerSetting.valueCount = utils::autoCast(std::size(value));  // TODO: https://github.com/KhronosGroup/Vulkan-Hpp/issues/1907
-                layerSetting.pValues = std::data(value);
+                layerSetting.setValues(values);
                 layerSettings.push_back(layerSetting);
             };
             // setValues("validate_gpu_based", {"GPU_BASED_DEBUG_PRINTF"});  // "GPU_BASED_GPU_ASSISTED"
@@ -321,7 +320,7 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
     }
 #if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
-    library.getDispatcher().init(*instanceHolder);
+    libraryIn.getDispatcher().init(*instanceHolder);
 #endif
 
     if (enabledExtensionSet.contains(vk::EXTDebugUtilsExtensionName)) {

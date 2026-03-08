@@ -85,9 +85,9 @@ struct fmt::formatter<vk::DebugUtilsLabelEXT> : fmt::formatter<fmt::string_view>
     auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
     {
         auto color = debugUtilsLabel.color;
-        auto clamp = [](float color) -> uint8_t
+        auto clamp = [](float colorComponent) -> uint8_t
         {
-            return static_cast<uint8_t>(std::floor(std::numeric_limits<uint8_t>::max() * std::clamp(color, 0.0f, 1.0f)));
+            return static_cast<uint8_t>(std::floor(std::numeric_limits<uint8_t>::max() * std::clamp(colorComponent, 0.0f, 1.0f)));
         };
         auto rgb = fmt::rgb(clamp(color[0]), clamp(color[1]), clamp(color[2]));
         auto styledLabelName = fmt::styled<fmt::string_view>(debugUtilsLabel.pLabelName, fmt::fg(rgb));

@@ -76,11 +76,6 @@ skt_add_library(
         "libutils")
 
 set_source_files_properties(
-    "spirv_reflect_dump.cpp"
-    PROPERTIES
-        COMPILE_FLAGS
-            "-Werror=switch")
-set_source_files_properties(
     "library.cpp"
     PROPERTIES
         VULKAN_HPP_STORAGE_SHARED_EXPORT

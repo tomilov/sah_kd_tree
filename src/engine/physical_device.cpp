@@ -14,6 +14,7 @@
 #include <vulkan/vulkan_extension_inspection.hpp>
 
 #include <bitset>
+#include <initializer_list>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -26,32 +27,32 @@
 #include <cstddef>
 #include <cstdint>
 
-using namespace std::string_view_literals;
-
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice physicalDevice)
-    : context{contextIn}
-    , physicalDevice{physicalDevice}
+PhysicalDevice::PhysicalDevice(Library & libraryIn, const Instance & instanceIn, std::span<const char * const> requiredDeviceExtensionsIn, vk::PhysicalDevice physicalDeviceIn)
+    : library{libraryIn}
+    , instance{instanceIn}
+    , requiredDeviceExtensions{requiredDeviceExtensionsIn}
+    , physicalDevice{physicalDeviceIn}
 {
-    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, context.getDispatcher());
+    extensionPropertyList = physicalDevice.enumerateDeviceExtensionProperties(nullptr, library.getDispatcher());
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
         if (!extensions.insert(extensionProperties.extensionName).second) {
             SPDLOG_WARN("Duplicated extension '{}'", extensionProperties.extensionName);
         }
     }
 
-    layerExtensionPropertyLists.reserve(std::size(context.getInstance().getLayers()));
-    for (const char * layerName : context.getInstance().getLayers()) {
-        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, context.getDispatcher()));
+    layerExtensionPropertyLists.reserve(std::size(instance.getLayers()));
+    for (const char * layerName : instance.getLayers()) {
+        layerExtensionPropertyLists.push_back(physicalDevice.enumerateDeviceExtensionProperties({layerName}, library.getDispatcher()));
         for (const auto & layerExtensionProperties : layerExtensionPropertyLists.back()) {
             extensionLayers.emplace(layerExtensionProperties.extensionName, layerName);
         }
     }
 
     auto & physicalDeviceProperties2 = properties2Chain.get<vk::PhysicalDeviceProperties2>();
-    physicalDevice.getProperties2(&physicalDeviceProperties2, context.getDispatcher());
+    physicalDevice.getProperties2(&physicalDeviceProperties2, library.getDispatcher());
     apiVersion = physicalDeviceProperties2.properties.apiVersion;
 
     [[maybe_unused]] auto & physicalDeviceProperties = physicalDeviceProperties2.properties;
@@ -73,13 +74,13 @@ PhysicalDevice::PhysicalDevice(const Context & contextIn, vk::PhysicalDevice phy
     }
 
     auto & physicalDeviceFeatures2 = features2Chain.get<vk::PhysicalDeviceFeatures2>();
-    physicalDevice.getFeatures2(&physicalDeviceFeatures2, context.getDispatcher());
+    physicalDevice.getFeatures2(&physicalDeviceFeatures2, library.getDispatcher());
 
     auto & physicalDeviceMemoryProperties2 = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>();
-    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, context.getDispatcher());
+    physicalDevice.getMemoryProperties2(&physicalDeviceMemoryProperties2, library.getDispatcher());
 
     using QueueFamilyProperties2Chain = vk::StructureChain<vk::QueueFamilyProperties2>;
-    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(context.getDispatcher());
+    queueFamilyProperties2Chains = physicalDevice.getQueueFamilyProperties2<QueueFamilyProperties2Chain, std::allocator<QueueFamilyProperties2Chain>>(library.getDispatcher());
 }
 
 vk::PhysicalDevice PhysicalDevice::getHandle() const &
@@ -103,7 +104,17 @@ std::string PhysicalDevice::getPipelineCacheUUID() const
     return fmt::to_string(properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.pipelineCacheUUID);
 }
 
-auto PhysicalDevice::getExtensionsCannotBeEnabled(const std::vector<const char *> & extensionsToCheck) const -> StringUnorderedSet
+const StringUnorderedSet & PhysicalDevice::getExtensions() const &
+{
+    return extensions;
+}
+
+const StringUnorderedMultiMap<const char *> & PhysicalDevice::getExtensionLayers() const &
+{
+    return extensionLayers;
+}
+
+auto PhysicalDevice::getExtensionsCannotBeEnabled(std::span<const char * const> extensionsToCheck) const -> StringUnorderedSet
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
@@ -143,7 +154,7 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
             continue;
         }
         if (surface && (desiredQueueFlags & vk::QueueFlagBits::eGraphics)) {
-            if (vk::False == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, context.getDispatcher())) {
+            if (vk::False == physicalDevice.getSurfaceSupportKHR(queueFamilyIndex, surface, library.getDispatcher())) {
                 continue;
             }
         }
@@ -231,7 +242,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
         return false;
     }
 
-    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(context.requiredDeviceExtensions);
+    auto externalExtensionsCannotBeEnabled = getExtensionsCannotBeEnabled(requiredDeviceExtensions);
     if (!std::empty(externalExtensionsCannotBeEnabled)) {
         SPDLOG_DEBUG("{}: external extensions cannot be enabled: {}", deviceName, fmt::join(externalExtensionsCannotBeEnabled, ", "));
         return false;
@@ -311,51 +322,9 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
     return true;
 }
 
-bool PhysicalDevice::enableExtensionIfAvailable(const char * extensionName)
-{
-    if (extensions.contains(extensionName)) {
-        if (enabledExtensionSet.insert(extensionName).second) {
-            enabledExtensions.push_back(extensionName);
-        } else {
-            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
-        }
-        return true;
-    }
-    auto extensionLayer = extensionLayers.find(extensionName);
-    if (extensionLayer != std::end(extensionLayers)) {
-        const char * layerName = extensionLayer->second;
-        if (!context.getInstance().getEnabledLayers().contains(layerName)) {
-            INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
-        }
-        if (enabledExtensionSet.insert(extensionName).second) {
-            enabledExtensions.push_back(extensionName);
-        } else {
-            SPDLOG_WARN("Tried to enable instance extension '{}' twice", extensionName);
-        }
-        return true;
-    }
-    return false;
-}
-
 const std::vector<vk::DeviceQueueCreateInfo> & PhysicalDevice::getDeviceQueueCreateInfos() const &
 {
     return deviceQueueCreateInfos;
-}
-
-const std::vector<const char *> & PhysicalDevice::getEnabledExtensions() const &
-{
-    return enabledExtensions;
-}
-
-bool PhysicalDevice::isExtensionEnabled(const char * extension) const
-{
-    const auto extensionPromotionVersion = vk::getExtensionPromotedTo(extension);
-    for (auto vkVersion : {"VK_VERSION_1_0"sv, "VK_VERSION_1_1"sv, "VK_VERSION_1_2"sv, "VK_VERSION_1_3"sv}) {
-        if (vkVersion == extensionPromotionVersion) {
-            return true;
-        }
-    }
-    return enabledExtensionSet.contains(extension);
 }
 
 vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) const
@@ -370,11 +339,11 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
     }
 
     constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
-    auto physicalDevice = getHandle();
+    auto physicalDeviceCandidate = getHandle();
     vk::Format depthFormat = vk::Format::eUndefined;
-    auto unmuteMessageGuard = context.getInstance().muteDebugUtilsMessages({0x46835167});  // format () does not fall within the begin..end range of the core VkFormat enumeration tokens and is not an extension added token
+    auto unmuteMessageGuard = instance.muteDebugUtilsMessages(std::initializer_list<uint32_t>{0x46835167});  // format () does not fall within the begin..end range of the core VkFormat enumeration tokens and is not an extension added token
     for (vk::Format format : codegen::vulkan::kAllFormats) {
-        auto formatProperties2Chain = physicalDevice.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, context.getDispatcher());
+        auto formatProperties2Chain = physicalDeviceCandidate.getFormatProperties2<vk::FormatProperties2, vk::FormatProperties3>(format, library.getDispatcher());
         if ((formatProperties2Chain.get<vk::FormatProperties3>().*p & kFormatFeatureFlags) != kFormatFeatureFlags) {
             continue;
         }
@@ -389,7 +358,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
         }
         const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
         const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        ASSERT(bestDepthComponent);
+        INVARIANT(bestDepthComponent, "");
         if (depthComponent->bitsize < bestDepthComponent->bitsize) {
             continue;
         }
@@ -408,7 +377,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
 
 vk::DeviceSize PhysicalDevice::getMinAlignment() const
 {
-    const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    const auto & physicalDeviceLimits = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
@@ -521,13 +490,12 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
     return vk::MaxMemoryTypes;
 }
 
-PhysicalDevices::PhysicalDevices(const Context & contextIn)
-    : context{contextIn}
+PhysicalDevices::PhysicalDevices(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions)
 {
     [[maybe_unused]] size_t i = 0;
-    for (vk::PhysicalDevice physicalDevice : context.getInstance().getPhysicalDevices()) {
+    for (vk::PhysicalDevice physicalDevice : instance.getPhysicalDevices()) {
         SPDLOG_DEBUG("Create physical device #{}", i);
-        const auto & pd = physicalDevices.emplace_back(context, physicalDevice);
+        const auto & pd = physicalDevices.emplace_back(library, instance, requiredDeviceExtensions, physicalDevice);
         const auto & properties = pd.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
         [[maybe_unused]] auto deviceName = std::data(properties.deviceName);
         SPDLOG_DEBUG("Physical device #{}: '{}'", i, deviceName);

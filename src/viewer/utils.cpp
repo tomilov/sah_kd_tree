@@ -29,16 +29,16 @@ QString addRichTextColor(QString str, QColor color)
     return addRichTextColor(str, color.name());
 }
 
-ElapsedTimer::ElapsedTimer(LoggingCategory loggingCategory, QString message)
-    : loggingCategory{&loggingCategory()}
-    , message{message}
+ElapsedTimer::ElapsedTimer(LoggingCategory loggingCategoryIn, QString messageIn)
+    : loggingCategory{&loggingCategoryIn()}
+    , message{messageIn}
 {
     elapsedTimer.start();
 }
 
-ElapsedTimer::ElapsedTimer(QString message)
+ElapsedTimer::ElapsedTimer(QString messageIn)
     : loggingCategory{QLoggingCategory::defaultCategory()}
-    , message{message}
+    , message{messageIn}
 {
     elapsedTimer.start();
 }

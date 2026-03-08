@@ -53,9 +53,9 @@ template<typename Source>
 class autoCast
 {
 public:
-    constexpr explicit autoCast(Source && source, const std::source_location & sourceLocation = std::source_location::current()) noexcept
-        : source{source}
-        , sourceLocation{sourceLocation}
+    constexpr explicit autoCast(Source && sourceIn, const std::source_location & sourceLocationIn = std::source_location::current()) noexcept
+        : source{sourceIn}
+        , sourceLocation{sourceLocationIn}
     {}
 
     template<typename Destination>

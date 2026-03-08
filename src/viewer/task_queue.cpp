@@ -423,13 +423,13 @@ void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
         }
     }
     resultReadyState.erase(lo, hi);
-    QString description;
+    QString resultDescription;
     if (beginIndex == endIndex) {
-        description = QString::number(beginIndex);
+        resultDescription = QString::number(beginIndex);
     } else {
-        description = u"%1-%2"_s.arg(beginIndex).arg(endIndex);
+        resultDescription = u"%1-%2"_s.arg(beginIndex).arg(endIndex);
     }
-    resultReadyState.insert(ResultRange{beginIndex, endIndex}, qMove(description));
+    resultReadyState.insert(ResultRange{beginIndex, endIndex}, qMove(resultDescription));
 }
 
 auto TaskQueue::getTaskInfo(int id) -> TaskInfo &
@@ -453,26 +453,28 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
     taskInfo.name = qMove(name);
     taskInfo.description = qMove(description);
     taskInfo.futureWatcher = futureWatcher;
-    const int row = rowCount();
     {
-        beginInsertRows({}, row, row);
-        taskInfos.insert(id, qMove(taskInfo));
-        endInsertRows();
-        Q_EMIT taskCountChanged();
-    }
-    for (int col = 0; col < columnCount(); ++col) {
-        QPersistentModelIndex i = index(row, col);
-        Q_ASSERT(i.isValid());
-        const auto key = qMakePair(id, col);
-        idToIndex.insert(key, i);
-        indexToId.insert(i, key);
+        const int row = rowCount();
+        {
+            beginInsertRows({}, row, row);
+            taskInfos.insert(id, qMove(taskInfo));
+            endInsertRows();
+            Q_EMIT taskCountChanged();
+        }
+        for (int col = 0; col < columnCount(); ++col) {
+            QPersistentModelIndex i = index(row, col);
+            Q_ASSERT(i.isValid());
+            const auto key = qMakePair(id, col);
+            idToIndex.insert(key, i);
+            indexToId.insert(i, key);
+        }
     }
     {
         const auto onProgressRangeChanged = [this, id](int minimum, int maximum)
         {
-            TaskInfo & taskInfo = getTaskInfo(id);
-            progressMinimum += minimum - qExchange(taskInfo.progressMinimum, minimum);
-            progressMaximum += maximum - qExchange(taskInfo.progressMaximum, maximum);
+            TaskInfo & taskInfoById = getTaskInfo(id);
+            progressMinimum += minimum - qExchange(taskInfoById.progressMinimum, minimum);
+            progressMaximum += maximum - qExchange(taskInfoById.progressMaximum, maximum);
             Q_EMIT progressChanged();
             emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
         };
@@ -481,8 +483,8 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         }
         const auto onProgressValueChanged = [this, id](int value)
         {
-            TaskInfo & taskInfo = getTaskInfo(id);
-            progressValue += value - qExchange(taskInfo.progressValue, value);
+            TaskInfo & taskInfoById = getTaskInfo(id);
+            progressValue += value - qExchange(taskInfoById.progressValue, value);
             Q_EMIT progressChanged();
             emitDataChanged(id, 1, {Qt::ItemDataRole::DisplayRole});
         };
@@ -491,8 +493,8 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         }
         const auto onProgressTextChanged = [this, id](const QString & progressText)
         {
-            TaskInfo & taskInfo = getTaskInfo(id);
-            taskInfo.progressText = progressText;
+            TaskInfo & taskInfoById = getTaskInfo(id);
+            taskInfoById.progressText = progressText;
             emitDataChanged(id, 1, {Qt::ItemDataRole::ToolTipRole});
         };
         if (!connect(futureWatcher.get(), &QFutureWatcherBase::progressTextChanged, this, onProgressTextChanged)) {
@@ -505,16 +507,16 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
                 return;
             }
             {
-                const TaskInfo & taskInfo = *it;
-                progressMinimum -= taskInfo.progressMinimum;
-                progressMaximum -= taskInfo.progressMaximum;
-                progressValue -= taskInfo.progressValue;
+                const TaskInfo & taskInfoById = *it;
+                progressMinimum -= taskInfoById.progressMinimum;
+                progressMaximum -= taskInfoById.progressMaximum;
+                progressValue -= taskInfoById.progressValue;
                 Q_EMIT progressChanged();
 
-                if (!taskInfo.futureWatcher->disconnect(this)) {
+                if (!taskInfoById.futureWatcher->disconnect(this)) {
                     qFatal("unreachable");
                 }
-                if (!disconnect(taskInfo.futureWatcher.get())) {
+                if (!disconnect(taskInfoById.futureWatcher.get())) {
                     qFatal("unreachable");
                 }
             }
@@ -548,10 +550,10 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
             {&QFutureWatcherBase::resumed, u8"resumed"},        //
         };
         for (const auto & [signal, signalName] : statusSignals) {
-            const auto onStatusChanged = [this, id, signal = signal, signalName = signalName, removeRow]
+            const auto onStatusChanged = [this, id, signal, signalName, removeRow]
             {
-                TaskInfo & taskInfo = getTaskInfo(id);
-                taskInfo.statusLog << QString::fromUtf8(signalName);
+                TaskInfo & taskInfoById = getTaskInfo(id);
+                taskInfoById.statusLog << QString::fromUtf8(signalName);
                 emitDataChanged(id, 2);
                 if ((signal == &QFutureWatcherBase::finished) || (signal == &QFutureWatcherBase::canceled)) {
                     if (removeRowDelay >= 0) {
@@ -573,8 +575,8 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         if ((false)) {  // https://bugreports.qt.io/browse/QTBUG-127714
             const auto onResultsReadyAt = [this, id](int beginIndex, int endIndex)
             {
-                TaskInfo & taskInfo = getTaskInfo(id);
-                taskInfo.insertRange(beginIndex, endIndex);
+                TaskInfo & taskInfoById = getTaskInfo(id);
+                taskInfoById.insertRange(beginIndex, endIndex);
                 emitDataChanged(id, 3);
             };
             if (!connect(futureWatcher.get(), &QFutureWatcherBase::resultsReadyAt, this, onResultsReadyAt)) {
@@ -583,8 +585,8 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         } else {
             const auto onResultReadyAt = [this, id](int resultIndex)
             {
-                TaskInfo & taskInfo = getTaskInfo(id);
-                taskInfo.insertRange(resultIndex, resultIndex);
+                TaskInfo & taskInfoById = getTaskInfo(id);
+                taskInfoById.insertRange(resultIndex, resultIndex);
                 emitDataChanged(id, 3);
             };
             if (!connect(futureWatcher.get(), &QFutureWatcherBase::resultReadyAt, this, onResultReadyAt)) {

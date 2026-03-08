@@ -25,6 +25,7 @@ struct ENGINE_EXPORT CommandPool final
 
 private:
     std::string name;
+    const Context & context;
 
     vk::UniqueCommandPool commandPoolHolder;
 };

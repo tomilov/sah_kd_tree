@@ -54,18 +54,18 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
         auto nodeYRightChildPolygonCount = nodeYRightChildPolygonCounts[layerNode];
         auto nodeZRightChildPolygonCount = nodeZRightChildPolygonCounts[layerNode];
 
-        cuda::std::tuple<F, U> x{nodeXSplitCosts[layerNode], nodeXLeftChildPolygonCount + nodeXRightChildPolygonCount - nodePolygonCount};
-        cuda::std::tuple<F, U> y{nodeYSplitCosts[layerNode], nodeYLeftChildPolygonCount + nodeYRightChildPolygonCount - nodePolygonCount};
-        cuda::std::tuple<F, U> z{nodeZSplitCosts[layerNode], nodeZLeftChildPolygonCount + nodeZRightChildPolygonCount - nodePolygonCount};
+        cuda::std::tuple<F, U> xxx{nodeXSplitCosts[layerNode], nodeXLeftChildPolygonCount + nodeXRightChildPolygonCount - nodePolygonCount};
+        cuda::std::tuple<F, U> yyy{nodeYSplitCosts[layerNode], nodeYLeftChildPolygonCount + nodeYRightChildPolygonCount - nodePolygonCount};
+        cuda::std::tuple<F, U> zzz{nodeZSplitCosts[layerNode], nodeZLeftChildPolygonCount + nodeZRightChildPolygonCount - nodePolygonCount};
 
         cuda::std::tuple<F, U> t{sah.intersectionCost * static_cast<F>(nodePolygonCount), 0};
 
-        cuda::std::tuple<F, U> bestNodeSplitCost = thrust::min(t, thrust::min(x, thrust::min(y, z)));
-        if (!(bestNodeSplitCost < x)) {
+        cuda::std::tuple<F, U> bestNodeSplitCost = thrust::min(t, thrust::min(xxx, thrust::min(yyy, zzz)));
+        if (!(bestNodeSplitCost < xxx)) {
             return {0, nodeXSplitPositions[layerNode], nodeXLeftChildPolygonCount, nodeXRightChildPolygonCount};
-        } else if (!(bestNodeSplitCost < y)) {
+        } else if (!(bestNodeSplitCost < yyy)) {
             return {1, nodeYSplitPositions[layerNode], nodeYLeftChildPolygonCount, nodeYRightChildPolygonCount};
-        } else if (!(bestNodeSplitCost < z)) {
+        } else if (!(bestNodeSplitCost < zzz)) {
             return {2, nodeZSplitPositions[layerNode], nodeZLeftChildPolygonCount, nodeZRightChildPolygonCount};
         } else {
             assert(!(bestNodeSplitCost < t));

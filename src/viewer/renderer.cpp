@@ -189,8 +189,8 @@ inline void checkFenceUnique(const Fence & fence)
 class FencePool final : utils::NonCopyable
 {
 public:
-    explicit FencePool(const engine::Context & context)
-        : context{context}
+    explicit FencePool(const engine::Context & contextIn)
+        : context{contextIn}
     {}
 
     [[nodiscard]] Fence get() &
@@ -358,10 +358,10 @@ struct FrameResourcesAndDescriptors
     Descriptors directDescriptors;
     std::optional<Descriptors> displayDescriptors;
 
-    FrameResourcesAndDescriptors(UniformBufferResource && resources, Descriptors && sceneDescriptors, std::optional<Descriptors> && displayDescriptors)
-        : resources{std::move(resources)}
-        , directDescriptors{std::move(sceneDescriptors)}
-        , displayDescriptors{std::move(displayDescriptors)}
+    FrameResourcesAndDescriptors(UniformBufferResource && resourcesIn, Descriptors && sceneDescriptorsIn, std::optional<Descriptors> && displayDescriptorsIn)
+        : resources{std::move(resourcesIn)}
+        , directDescriptors{std::move(sceneDescriptorsIn)}
+        , displayDescriptors{std::move(displayDescriptorsIn)}
     {}
 };
 
@@ -370,9 +370,9 @@ struct TraceSceneResourcesAndDescriptors
     TraceSceneResources resources;
     Descriptors descriptors;
 
-    TraceSceneResourcesAndDescriptors(TraceSceneResources && resources, Descriptors && descriptors)
-        : resources{std::move(resources)}
-        , descriptors{std::move(descriptors)}
+    TraceSceneResourcesAndDescriptors(TraceSceneResources && resourcesIn, Descriptors && descriptorsIn)
+        : resources{std::move(resourcesIn)}
+        , descriptors{std::move(descriptorsIn)}
     {}
 };
 
@@ -382,10 +382,10 @@ struct TraceFrameResourcesAndDescriptors
     Descriptors writeDescriptors;
     Descriptors readDescriptors;
 
-    TraceFrameResourcesAndDescriptors(TraceFrameResources && resources, Descriptors && writeDescriptors, Descriptors && readDescriptors)
-        : resources{std::move(resources)}
-        , writeDescriptors{std::move(writeDescriptors)}
-        , readDescriptors{std::move(readDescriptors)}
+    TraceFrameResourcesAndDescriptors(TraceFrameResources && resourcesIn, Descriptors && writeDescriptorsIn, Descriptors && readDescriptorsIn)
+        : resources{std::move(resourcesIn)}
+        , writeDescriptors{std::move(writeDescriptorsIn)}
+        , readDescriptors{std::move(readDescriptorsIn)}
     {}
 };
 
@@ -394,9 +394,9 @@ struct SceneResourcesAndDescriptors
     SceneResources resources;
     Descriptors descriptors;
 
-    SceneResourcesAndDescriptors(SceneResources && resources, Descriptors && descriptors)
-        : resources{std::move(resources)}
-        , descriptors{std::move(descriptors)}
+    SceneResourcesAndDescriptors(SceneResources && resourcesIn, Descriptors && descriptorsIn)
+        : resources{std::move(resourcesIn)}
+        , descriptors{std::move(descriptorsIn)}
     {}
 };
 
@@ -408,9 +408,9 @@ struct DrawOffscreenResourcesAndDescriptors
     Fence fence;
     std::shared_ptr<const engine::CommandBuffers> commandBuffers;
 
-    DrawOffscreenResourcesAndDescriptors(DrawOffscreenResources && resources, Descriptors && descriptors)
-        : resources{std::move(resources)}
-        , descriptors{std::move(descriptors)}
+    DrawOffscreenResourcesAndDescriptors(DrawOffscreenResources && resourcesIn, Descriptors && descriptorsIn)
+        : resources{std::move(resourcesIn)}
+        , descriptors{std::move(descriptorsIn)}
     {}
 };
 
@@ -424,12 +424,12 @@ class DrawOffscreenPool final
     };
 
 public:
-    DrawOffscreenPool(Private, const engine::Context & context, const Engine & engine, std::shared_ptr<const vk::UniqueSampler> && sampler)
-        : context{context}
-        , engine{engine}
+    DrawOffscreenPool(Private, const engine::Context & contextIn, const Engine & engineIn, std::shared_ptr<const vk::UniqueSampler> && samplerIn)
+        : context{contextIn}
+        , engine{engineIn}
         , displayRenderPass{OffscreenRenderPass::make(context)}
         , displayGraphicsPipeline{makeGraphicsPipeline()}
-        , sampler{std::move(sampler)}
+        , sampler{std::move(samplerIn)}
     {}
 
     [[nodiscard]] static std::shared_ptr<DrawOffscreenPool> make(const engine::Context & context, const Engine & engine, std::shared_ptr<const vk::UniqueSampler> sampler)
@@ -515,10 +515,10 @@ private:
 class ScopedCommandBuffer final : utils::OneTime<ScopedCommandBuffer>
 {
 public:
-    explicit ScopedCommandBuffer(std::string_view name, const engine::Context & context, const engine::Queue & queue)
-        : name{name}
-        , context{context}
-        , queue{queue}
+    explicit ScopedCommandBuffer(std::string_view nameIn, const engine::Context & contextIn, const engine::Queue & queueIn)
+        : name{nameIn}
+        , context{contextIn}
+        , queue{queueIn}
         , commandBuffers{std::make_shared<engine::CommandBuffers>(queue.allocateCommandBuffers(name))}
     {
         auto commandBuffer = commandBuffers->getCommandBuffer();
@@ -572,19 +572,19 @@ public:
         return getCommandBuffer();
     }
 
-    void setCompletionFence(Fence completionFence)
+    void setCompletionFence(Fence completionFenceIn)
     {
-        this->completionFence = std::move(completionFence);
+        completionFence = std::move(completionFenceIn);
     }
 
-    void setWaitCompletion(bool waitIdle = true)
+    void setWaitCompletion(bool waitIdleIn = true)
     {
-        this->waitIdle = waitIdle;
+        waitIdle = waitIdleIn;
     }
 
-    void setWaitCompletion(Fence completionFence)
+    void setWaitCompletion(Fence completionFenceIn)
     {
-        setCompletionFence(completionFence);
+        setCompletionFence(completionFenceIn);
         setWaitCompletion();
     }
 
@@ -846,11 +846,11 @@ void Renderer::render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass
     return impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged, currentFrameSlot);
 }
 
-Renderer::Impl::Impl(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight)
-    : name{name}
-    , context{context}
-    , engine{engine}
-    , framesInFlight{framesInFlight}
+Renderer::Impl::Impl(std::string_view nameIn, const engine::Context & contextIn, const Engine & engineIn, uint32_t framesInFlightIn)
+    : name{nameIn}
+    , context{contextIn}
+    , engine{engineIn}
+    , framesInFlight{framesInFlightIn}
 {
     uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
     INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
@@ -880,9 +880,9 @@ std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
     return std::make_shared<vk::UniqueSampler>(context.getDevice().getHandle().createSamplerUnique(samplerCreateInfo, context.getAllocationCallbacks(), context.getDispatcher()));
 }
 
-void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettings)
+void Renderer::Impl::setFrameSettings(const FrameSettings & frameSettingsIn)
 {
-    this->frameSettings = frameSettings;
+    frameSettings = frameSettingsIn;
 }
 
 void Renderer::Impl::unsetScene()
@@ -1261,14 +1261,14 @@ void Renderer::Impl::advance(vk::CommandBuffer commandBuffer, uint32_t currentFr
     uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
 
     if (offscreenResourcesAndDescriptors) {
-        Recycler recycler = [this, resourcesAndDescriptors = std::move(offscreenResourcesAndDescriptors), drawOffscreenPool = drawOffscreenPool]() mutable
+        Recycler recycler = [this, resourcesAndDescriptors = std::move(offscreenResourcesAndDescriptors), drawOffscreenPoolOld = drawOffscreenPool]() mutable
         {
             if (resourcesAndDescriptors->fence) {
                 fencePool.waitAndPut(std::move(resourcesAndDescriptors->fence));
             }
             resourcesAndDescriptors->commandBuffers.reset();
-            if (drawOffscreenPool) {
-                drawOffscreenPool->put(std::move(resourcesAndDescriptors));
+            if (drawOffscreenPoolOld) {
+                drawOffscreenPoolOld->put(std::move(resourcesAndDescriptors));
             } else {
                 resourcesAndDescriptors.reset();
             }
@@ -1321,14 +1321,14 @@ void Renderer::Impl::advance(vk::CommandBuffer commandBuffer, uint32_t currentFr
         } else if (sceneData) {
             offscreenResourcesAndDescriptors = drawOffscreenPool->get(frameSettings.getFramebufferSize(), displayGraphicsPipeline->shaders->getShaderStagesPtr());
             {
-                ScopedCommandBuffer commandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
+                ScopedCommandBuffer offscreenCommandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
                 const OffscreenRenderPass & offscreenRenderPass = drawOffscreenPool->getOffscreenRenderPass();
-                offscreenPass(commandBuffer, offscreenRenderPass);
+                offscreenPass(offscreenCommandBuffer, offscreenRenderPass);
                 ASSERT(!offscreenResourcesAndDescriptors->fence);
                 offscreenResourcesAndDescriptors->fence = fencePool.get();
-                commandBuffer.setCompletionFence(offscreenResourcesAndDescriptors->fence);
+                offscreenCommandBuffer.setCompletionFence(offscreenResourcesAndDescriptors->fence);
                 ASSERT(!offscreenResourcesAndDescriptors->commandBuffers);
-                offscreenResourcesAndDescriptors->commandBuffers = commandBuffer.getCommandBuffers();
+                offscreenResourcesAndDescriptors->commandBuffers = offscreenCommandBuffer.getCommandBuffers();
             }
         }
     }
@@ -1345,13 +1345,13 @@ void Renderer::Impl::updateRenderPass(vk::RenderPass renderPass, [[maybe_unused]
         uint32_t previousFrameSlot = utils::modDown(currentFrameSlot, framesInFlight);
         deferDeletion(previousFrameSlot, std::move(graphicsPipeline.pipeline));
     }
-    std::string_view name;
+    std::string_view graphicsPipelineName;
     if (frameSettings.useOffscreenTexture) {
-        name = "offscreen display"sv;
+        graphicsPipelineName = "offscreen display"sv;
     } else {
-        name = "direct scene"sv;
+        graphicsPipelineName = "direct scene"sv;
     }
-    auto & p = graphicsPipeline.initPipeline(name, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass, {});
+    auto & p = graphicsPipeline.initPipeline(graphicsPipelineName, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass, {});
     if (frameSettings.useOffscreenTexture) {
         p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
     }

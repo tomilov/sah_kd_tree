@@ -13,6 +13,7 @@
 #include <limits>
 
 #include <cassert>
+#include <cstddef>
 
 template<typename Traits>
 void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sah, U layerSize, const Vector<U> & layerNodeOffset, const Vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
@@ -53,26 +54,27 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
     auto perfectSplitBegin = thrust::make_zip_iterator(layer.splitCost.begin(), layer.splittedPolygonCount.begin(), layer.splitPos.begin(), layer.polygonCountLeft.begin(), layer.polygonCountRight.begin(), layer.splitEvent.begin());
     auto perfectSplitOutputBegin = thrust::make_permutation_iterator(perfectSplitBegin, layerNodeOffset.cbegin());
     using PerfectSplitType = cuda::std::iter_value_t<decltype(perfectSplitOutputBegin)>;
-    const auto toPerfectSplit = [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U event) -> PerfectSplitType
+    const auto toPerfectSplit = [sah, eventNodes, eventPositions, eventKinds, polygonCountLefts, polygonCountRights, nodePolygonCounts, nodeXMins, nodeXMaxs, nodeYMins, nodeYMaxs, nodeZMins, nodeZMaxs] __host__ __device__(U eventIn)
+        -> PerfectSplitType
     {
-        U eventNode = eventNodes[event];
+        U eventNode = eventNodes[eventIn];
         F min = nodeXMins[eventNode], max = nodeXMaxs[eventNode];
-        F splitPos = eventPositions[event];
+        F splitPos = eventPositions[eventIn];
         assert(!(splitPos < min));
         assert(!(max < splitPos));
-        U polygonCountLeft = polygonCountLefts[event];
-        U polygonCountRight = polygonCountRights[event];
+        U polygonCountLeft = polygonCountLefts[eventIn];
+        U polygonCountRight = polygonCountRights[eventIn];
         U polygonCount = nodePolygonCounts[eventNode];
         assert(polygonCountLeft <= polygonCount);
         assert(polygonCountRight <= polygonCount);
         U splittedPolygonCount = polygonCountLeft + polygonCountRight - polygonCount;
-        U splitEvent = event;
+        U splitEvent = eventIn;
         F splitCost = std::numeric_limits<F>::infinity();
         if (!(min < max)) {
             return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
         F l = splitPos - min, r = max - splitPos;
-        I eventKind = eventKinds[event];
+        I eventKind = eventKinds[eventIn];
         if (eventKind < 0) {
             assert(0 != polygonCountLeft);
             ++splitEvent;
@@ -103,18 +105,18 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
         } else if (polygonCountLeft == polygonCount) {
             return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
-        F x = max - min;
-        F y = nodeYMaxs[eventNode] - nodeYMins[eventNode];
-        assert(static_cast<F>(0) <= y);
-        F z = nodeZMaxs[eventNode] - nodeZMins[eventNode];
-        assert(static_cast<F>(0) <= z);
-        F halfArea = y * z;
+        F xxx = max - min;
+        F yyy = nodeYMaxs[eventNode] - nodeYMins[eventNode];
+        assert(static_cast<F>(0) <= yyy);
+        F zzz = nodeZMaxs[eventNode] - nodeZMins[eventNode];
+        assert(static_cast<F>(0) <= zzz);
+        F halfArea = yyy * zzz;
         if (static_cast<F>(0) < halfArea) {
-            F halfPerimeter = y + z;
+            F halfPerimeter = yyy + zzz;
             assert(static_cast<F>(0) < halfPerimeter);
-            splitCost = (static_cast<F>(polygonCountLeft) * (halfArea + halfPerimeter * l) + static_cast<F>(polygonCountRight) * (halfArea + halfPerimeter * r)) / (halfArea + halfPerimeter * x);
+            splitCost = (static_cast<F>(polygonCountLeft) * (halfArea + halfPerimeter * l) + static_cast<F>(polygonCountRight) * (halfArea + halfPerimeter * r)) / (halfArea + halfPerimeter * xxx);
         } else {
-            splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / x;
+            splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / xxx;
         }
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;
@@ -123,5 +125,5 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sa
     };
     auto perfectSplitValueBegin = thrust::make_transform_iterator(thrust::make_counting_iterator<U>(0), toPerfectSplit);
     [[maybe_unused]] auto ends = thrust::reduce_by_key(exec, event.node.cbegin(), event.node.cend(), perfectSplitValueBegin, thrust::make_discard_iterator(), perfectSplitOutputBegin, cuda::std::equal_to<U>{}, cuda::minimum<PerfectSplitType>{});
-    assert(ends.first == thrust::make_discard_iterator(layerNodeOffset.size()));
+    assert(ends.first == thrust::make_discard_iterator(safeConvert<ptrdiff_t>(layerNodeOffset.size())));
 }

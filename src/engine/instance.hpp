@@ -48,11 +48,11 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {};
 
-    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
-    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::initializer_list<uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled = true) const;
     [[nodiscard]] bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, std::span<const char * const> requiredInstanceExtensions, Library & library, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
+    Instance(std::string_view applicationName, uint32_t applicationVersion, Library & library, std::span<const char * const> requiredInstanceExtensions, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
 
     [[nodiscard]] const StringUnorderedSet & getLayers() const &;
     [[nodiscard]] const StringUnorderedSet & getEnabledLayers() const &;
@@ -97,7 +97,7 @@ private:
     std::string applicationName;
     const uint32_t applicationVersion;
 
-    Library & library;
+    const Library & library;
 
     mutable std::mutex mutex;
     mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;

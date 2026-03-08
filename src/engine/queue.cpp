@@ -12,10 +12,10 @@
 namespace engine
 {
 
-Queue::Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo)
-    : name{fmt::format("{} {}", queueCreateInfo.name, name)}
-    , context{context}
-    , queueCreateInfo{queueCreateInfo}
+Queue::Queue(std::string_view nameIn, const Context & contextIn, const QueueCreateInfo & queueCreateInfoIn)
+    : name{fmt::format("{} {}", queueCreateInfoIn.name, nameIn)}
+    , context{contextIn}
+    , queueCreateInfo{queueCreateInfoIn}
     , commandPool{name, context, queueCreateInfo.familyIndex}
     , queue{context.getDevice().getHandle().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
 {
@@ -57,14 +57,14 @@ void Queue::waitIdle() const
     queue.waitIdle(context.getDispatcher());
 }
 
-CommandBuffers Queue::allocateCommandBuffers(std::string_view name, uint32_t count, vk::CommandBufferLevel level) const
+CommandBuffers Queue::allocateCommandBuffers(std::string_view commandBuffersName, uint32_t count, vk::CommandBufferLevel level) const
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo = {
         .commandPool = commandPool,
         .level = level,
         .commandBufferCount = count,
     };
-    return {name, context, commandBufferAllocateInfo};
+    return {commandBuffersName, context, commandBufferAllocateInfo};
 }
 
 }  // namespace engine

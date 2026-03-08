@@ -13,8 +13,8 @@
 namespace compute
 {
 
-MappedDeviceMemory::MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSize, ::CUmemGenericAllocationHandle allocationHandle)
-    : alignedAllocationSize{alignedAllocationSize}
+MappedDeviceMemory::MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSizeIn, ::CUmemGenericAllocationHandle allocationHandle)
+    : alignedAllocationSize{alignedAllocationSizeIn}
 {
     CU_CHECK_ERROR(cuMemAddressReserve, &devPtr, alignedAllocationSize, allocGranularity, devPtr, 0);
     CU_CHECK_ERROR(cuMemMap, devPtr, alignedAllocationSize, 0, allocationHandle, 0);
@@ -98,8 +98,8 @@ utils::Fd DeviceMemory::exportMemoryObject() const
 
 size_t DeviceMemory::getAllocationGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const
 {
-    size_t allocGranularity = 0;
-    CU_CHECK_ERROR(cuMemGetAllocationGranularity, &allocGranularity, &memAllocationProp, memAllocationGranularityFlag);
+    size_t allocGranularityOut = 0;
+    CU_CHECK_ERROR(cuMemGetAllocationGranularity, &allocGranularityOut, &memAllocationProp, memAllocationGranularityFlag);
     const char * kind = nullptr;
     switch (memAllocationGranularityFlag) {
     case CU_MEM_ALLOC_GRANULARITY_MINIMUM: {
@@ -112,8 +112,8 @@ size_t DeviceMemory::getAllocationGranularity(CUmemAllocationGranularity_flags_e
     }
     }
     INVARIANT(kind, "{}", fmt::underlying(memAllocationGranularityFlag));
-    SPDLOG_INFO("{} allocGranularity {}", kind, allocGranularity);
-    return allocGranularity;
+    SPDLOG_INFO("{} allocGranularity {}", kind, allocGranularityOut);
+    return allocGranularityOut;
 }
 
 size_t DeviceMemory::getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
@@ -124,28 +124,28 @@ size_t DeviceMemory::getAlignedAllocationSize(size_t allocationSize, size_t allo
 
 ::CUmemGenericAllocationHandle DeviceMemory::makeMemGenericAllocationHandle() const
 {
-    ::CUmemGenericAllocationHandle allocationHandle = {};
-    const auto result = cuMemCreate(&allocationHandle, alignedAllocationSize, &memAllocationProp, 0);
+    ::CUmemGenericAllocationHandle allocationHandleOut = {};
+    const auto result = cuMemCreate(&allocationHandleOut, alignedAllocationSize, &memAllocationProp, 0);
     if (result == CUDA_ERROR_OUT_OF_MEMORY) {
         throw OutOfMemoryException{};
     }
     INVARIANT(result == CUDA_SUCCESS, "{}", result);
-    return allocationHandle;
+    return allocationHandleOut;
 }
 
 ::CUmemGenericAllocationHandle DeviceMemory::importMemGenericAllocationHandle(utils::Fd fd) const
 {
-    ::CUmemGenericAllocationHandle allocationHandle = {};
-    const auto result = cuMemImportFromShareableHandle(&allocationHandle, utils::autoCast(fd.getFd()), kHandleType);
+    ::CUmemGenericAllocationHandle allocationHandleOut = {};
+    const auto result = cuMemImportFromShareableHandle(&allocationHandleOut, utils::autoCast(fd.getFd()), kHandleType);
     if (result == CUDA_ERROR_OUT_OF_MEMORY) {
         throw OutOfMemoryException{};
     }
     INVARIANT(result == CUDA_SUCCESS, "{}", result);
-    return allocationHandle;
+    return allocationHandleOut;
 }
 
-CudaDevice::CudaDevice(const std::optional<DeviceUuidType> & deviceUuid)
-    : deviceUuid{deviceUuid}
+CudaDevice::CudaDevice(const std::optional<DeviceUuidType> & deviceUuidIn)
+    : deviceUuid{deviceUuidIn}
 {
     cudaDeviceProp devProp = {};
     static_assert(sizeof(DeviceUuidType) == sizeof devProp.uuid);

@@ -261,7 +261,7 @@ int main(int argc, char * argv[])
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {vk::KHRSurfaceExtensionName, vk::KHRXcbSurfaceExtensionName});
         constexpr auto kApplicationVersion = vk::makeVersion(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.getContext().createInstance(APPLICATION_NAME, kApplicationVersion, std::nullopt, nullptr, engine.getMutedMessageIdNumbers());
+        engine.getContext().createInstance(std::nullopt, nullptr, APPLICATION_NAME, kApplicationVersion, engine.getMutedMessageIdNumbers());
         vulkanInstance.setVkInstance(engine.getContext().getInstance().getHandle());
     } else {
         {
