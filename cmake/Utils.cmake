@@ -67,15 +67,32 @@ function(skt_add_library target)
     endif()
 endfunction()
 
-include(CheckIPOSupported)
-check_ipo_supported(
-    RESULT
-        cxx_ipo_is_supported
-    OUTPUT
-        cxx_ipo_support_check_error
-    LANGUAGES
-        CXX
-)
+option(ENABLE_IPO "Enable IPO/LTO" ON)
+if(ENABLE_IPO)
+    include(CheckIPOSupported)
+    check_ipo_supported(
+        RESULT
+            cxx_ipo_is_supported
+        OUTPUT
+            cxx_ipo_support_check_error
+        LANGUAGES
+            CUDA
+    )
+    if(NOT cxx_ipo_is_supported)
+        message(STATUS "C++ LTO is not supported: ${cxx_ipo_support_check_error}")
+    endif()
+    check_ipo_supported(
+        RESULT
+            cuda_ipo_is_supported
+        OUTPUT
+            cuda_ipo_support_check_error
+        LANGUAGES
+            CUDA
+    )
+    if(NOT cuda_ipo_is_supported)
+        message(STATUS "CUDA LTO is not supported: ${cuda_ipo_support_check_error}")
+    endif()
+endif()
 function(skt_add_executable target)
     cmake_parse_arguments(ARG "" "" "SOURCES;PRIVATE_LINKS" ${ARGN})
     add_executable("${target}")
@@ -93,19 +110,22 @@ function(skt_add_executable target)
         "${target}"
         PRIVATE
             APPLICATION_NAME="${target}")
-    if(cxx_ipo_is_supported)
+    if(ENABLE_IPO)
         get_target_property(sources "${target}" SOURCES)
+        set(has_cxx_sources FALSE)
         set(has_cuda_sources FALSE)
         foreach(source ${sources})
-            if(source MATCHES "\\.cu$")
+            if(source MATCHES "\\.cpp$")
+                set(has_cxx_sources TRUE)
+            elseif(source MATCHES "\\.cu$")
                 set(has_cuda_sources TRUE)
             endif()
         endforeach()
-        if(has_cuda_sources)
+        if((NOT cxx_ipo_is_supported AND has_cxx_sources) OR (NOT cuda_ipo_is_supported AND has_cuda_sources))
+            message(STATUS "LTO for ${target} is OFF")
+        elseif(has_cxx_sources OR has_cuda_sources)
             set_property(TARGET "${target}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
             message(STATUS "LTO for ${target} is ON")
-        else()
-            message(STATUS "LTO for ${target} is OFF because of cuda sources")
         endif()
     endif()
 endfunction()
