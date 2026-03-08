@@ -45,10 +45,10 @@ struct ENGINE_EXPORT AllocationCallbacks final : utils::NonCopyable
         return allocationCallbacksOut;
     }();
 
-    [[nodiscard]] void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope);
-    void free(void * pMemory);
-    void internalAllocation(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
-    void internalFreeNotification(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
+    [[nodiscard]] static void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope);
+    static void free(void * pMemory);
+    static void internalAllocation(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
+    static void internalFreeNotification(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
 };
 
 template<typename T, vk::SystemAllocationScope systemAllocationScope>

@@ -80,9 +80,8 @@ auto Descriptors::createDescriptors() const -> std::variant<engine::DescriptorSe
 {
     if (descriptorBufferEnabled) {
         return createDescriptorBuffer();
-    } else {
-        return createDescriptorSet();
     }
+    return createDescriptorSet();
 }
 
 void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const
@@ -198,7 +197,7 @@ void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer
     INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorBufferInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorBufferInfos));
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
     auto mappedDescriptorSetBuffer = descriptorBuffer.map();
-    auto descriptorSetBufferData = mappedDescriptorSetBuffer.data();
+    auto * descriptorSetBufferData = mappedDescriptorSetBuffer.data();
     for (const auto & [nameAndType, descriptorData] : descriptorBufferInfos) {
         const auto & [symbol, descriptorType] = nameAndType;
         const vk::DescriptorSetLayoutBinding * binding = setBindings.getBinding(nameAndType);

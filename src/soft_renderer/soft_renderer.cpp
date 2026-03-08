@@ -69,8 +69,8 @@ glm::vec3 stableTriangleNormal(const glm::vec3 & a, const glm::vec3 & b, const g
 {
     const glm::vec3 ab{a.z * b.y, a.x * b.z, a.y * b.x};
     const glm::vec3 bc{b.z * c.y, b.x * c.z, b.y * c.x};
-    const glm::vec3 AB{a.y * b.z - ab.x, a.z * b.x - ab.y, a.x * b.y - ab.z};
-    const glm::vec3 BC{b.y * c.z - bc.x, b.z * c.x - bc.y, b.x * c.y - bc.z};
+    const glm::vec3 AB{(a.y * b.z) - ab.x, (a.z * b.x) - ab.y, (a.x * b.y) - ab.z};
+    const glm::vec3 BC{(b.y * c.z) - bc.x, (b.z * c.x) - bc.y, (b.x * c.y) - bc.z};
     return glm::mix(BC, AB, glm::lessThan(glm::abs(ab), glm::abs(bc)));
 }
 
@@ -220,12 +220,11 @@ bool SoftRenderer::hasTree() const
         ASSERT(impl_->nodes.isEmpty());
         ASSERT(impl_->nodeParents.isEmpty());
         return false;
-    } else {
-        ASSERT(!impl_->polygons.isEmpty());
-        ASSERT(!impl_->nodes.isEmpty());
-        ASSERT(!impl_->nodeParents.isEmpty());
-        return true;
     }
+    ASSERT(!impl_->polygons.isEmpty());
+    ASSERT(!impl_->nodes.isEmpty());
+    ASSERT(!impl_->nodeParents.isEmpty());
+    return true;
 }
 
 void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const

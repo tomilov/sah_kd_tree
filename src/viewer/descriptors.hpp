@@ -90,7 +90,7 @@ public:
     [[nodiscard]] DescriptorBuffer createDescriptorBuffer() const;
     [[nodiscard]] std::variant<engine::DescriptorSet, DescriptorBuffer> createDescriptors() const;
 
-    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> sescriptorSetInfos) const;
+    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const;
     void fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()

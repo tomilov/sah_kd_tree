@@ -44,7 +44,7 @@ struct Renderdoc::Impl
         }
         constexpr const char * kGetApiFunctionName = "RENDERDOC_GetAPI";
         getApi = reinterpret_cast<pRENDERDOC_GetAPI>(::dlsym(library.get(), kGetApiFunctionName));
-        if (!getApi) {
+        if (getApi == nullptr) {
             SPDLOG_INFO("Cannot load function {}", kGetApiFunctionName);
             return;
         }
@@ -67,10 +67,10 @@ const Renderdoc & Renderdoc::renderdoc()
 
 Renderdoc::FrameCapture::~FrameCapture()
 {
-    if (!lock.mutex()) {
+    if (lock.mutex() == nullptr) {
         return;
     }
-    if (!impl.api) {
+    if (impl.api == nullptr) {
         return;
     }
     SPDLOG_INFO("Frame capture end");
@@ -90,7 +90,7 @@ Renderdoc::FrameCapture::FrameCapture(const Impl & implIn, vk::Instance instance
     , window{windowIn}
     , lock{impl.mutex}
 {
-    if (!impl.api) {
+    if (impl.api == nullptr) {
         return;
     }
     SPDLOG_INFO("Frame capture begin");
@@ -106,7 +106,7 @@ auto Renderdoc::makeFrameCapture(vk::Instance instance, WindowHandle window) -> 
 
 bool Renderdoc::isFrameCapturing()
 {
-    if (!renderdoc().impl_->api) {
+    if (renderdoc().impl_->api == nullptr) {
         return false;
     }
     return renderdoc().impl_->api->IsFrameCapturing() == 1;

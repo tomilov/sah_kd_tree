@@ -39,14 +39,11 @@
 #include <QtQuick/QSGRendererInterface>
 
 #include <algorithm>
-#include <chrono>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <random>
 #include <thread>
-
-#include <cmath>
 
 using namespace Qt::StringLiterals;
 using namespace std::chrono_literals;
@@ -150,7 +147,7 @@ QVector3D SceneSettings::getSceneAabbMax() const
     return {aabbMax.x, aabbMax.y, aabbMax.z};
 }
 
-QVariantList SceneSettings::getThrustDeviceSystems() const &
+QVariantList SceneSettings::getThrustDeviceSystems()
 {
     QMetaEnum metaEnum = QMetaEnum::fromType<ThrustDeviceSystem>();
     QVariantList thrustDeviceSystems;
@@ -404,8 +401,8 @@ void CameraView::rotate(float pan, float tilt)
         orientation.getEulerAngles(&pitch, &yaw, &roll);
 
         float screenRoll = qDegreesToRadians(roll);
-        pitch += tilt * qCos(screenRoll) - pan * qSin(screenRoll);
-        yaw += tilt * qSin(screenRoll) + pan * qCos(screenRoll);
+        pitch += (tilt * qCos(screenRoll)) - (pan * qSin(screenRoll));
+        yaw += (tilt * qSin(screenRoll)) + (pan * qCos(screenRoll));
 
         while (pitch > 180.0f) {
             pitch -= 360.0f;
@@ -468,7 +465,7 @@ void CameraView::widen(float angle)
     setFov(newFov);
 }
 
-float CameraView::getDefaultFov() const
+float CameraView::getDefaultFov()
 {
     return kDefaultFov;
 }
@@ -825,7 +822,7 @@ void Viewer::wheelEvent(QWheelEvent * event)
 void Viewer::mouseUngrabEvent()
 {
     unsetCursor();
-    return QQuickItem::mouseUngrabEvent();
+    QQuickItem::mouseUngrabEvent();
 }
 
 void Viewer::mousePressEvent(QMouseEvent * event)
@@ -845,7 +842,7 @@ void Viewer::mousePressEvent(QMouseEvent * event)
         setKeepMouseGrab(true);
         update();
     } else {
-        return QQuickItem::mousePressEvent(event);
+        QQuickItem::mousePressEvent(event);
     }
 }
 
@@ -857,7 +854,7 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
             mousePressAndHoldTimer->stop();
             setCursor(Qt::CursorShape::BlankCursor);
             if (!size().isEmpty()) {
-                const auto screen = window()->screen();
+                auto * const screen = window()->screen();
                 const qreal screenDensityX = screen->physicalDotsPerInchX();
                 const qreal screenDensityY = screen->physicalDotsPerInchY();
                 const float pixelRatio = utils::autoCast(window()->effectiveDevicePixelRatio());
@@ -874,7 +871,7 @@ void Viewer::mouseMoveEvent(QMouseEvent * event)
     if (event->isAccepted()) {
         update();
     } else {
-        return QQuickItem::mouseMoveEvent(event);
+        QQuickItem::mouseMoveEvent(event);
     }
 }
 
@@ -898,7 +895,7 @@ void Viewer::mouseReleaseEvent(QMouseEvent * event)
         setKeepMouseGrab(false);
         update();
     } else {
-        return QQuickItem::mouseReleaseEvent(event);
+        QQuickItem::mouseReleaseEvent(event);
     }
 }
 
@@ -917,7 +914,7 @@ void Viewer::mouseDoubleClickEvent(QMouseEvent * event)
     if (event->isAccepted()) {
         update();
     } else {
-        return QQuickItem::mouseReleaseEvent(event);
+        QQuickItem::mouseReleaseEvent(event);
     }
 }
 
@@ -927,7 +924,7 @@ void Viewer::keyPressEvent(QKeyEvent * event)
     if (event->isAccepted()) {
         update();
     } else {
-        return QQuickItem::keyPressEvent(event);
+        QQuickItem::keyPressEvent(event);
     }
 }
 
@@ -937,7 +934,7 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
     if (event->isAccepted()) {
         update();
     } else {
-        return QQuickItem::keyReleaseEvent(event);
+        QQuickItem::keyReleaseEvent(event);
     }
 }
 
@@ -946,7 +943,7 @@ QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePai
     if (!window() || !engineWrapper) {
         return QQuickItem::updatePaintNode(old, updatePaintNodeData);
     }
-    auto renderNode = static_cast<RenderNode *>(old);
+    auto * renderNode = static_cast<RenderNode *>(old);
     if (old) {
         Q_ASSERT(dynamic_cast<RenderNode *>(old));
     } else {

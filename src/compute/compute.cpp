@@ -133,7 +133,7 @@ size_t DeviceMemory::getAlignedAllocationSize(size_t allocationSize, size_t allo
     return allocationHandleOut;
 }
 
-::CUmemGenericAllocationHandle DeviceMemory::importMemGenericAllocationHandle(utils::Fd fd) const
+::CUmemGenericAllocationHandle DeviceMemory::importMemGenericAllocationHandle(utils::Fd fd)
 {
     ::CUmemGenericAllocationHandle allocationHandleOut = {};
     const auto result = cuMemImportFromShareableHandle(&allocationHandleOut, utils::autoCast(fd.getFd()), kHandleType);

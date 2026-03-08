@@ -164,7 +164,8 @@ vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imag
 {
     if (imageAspect == vk::ImageAspectFlagBits::eStencil) {
         return formatStencilBitSize(format);
-    } else if (imageAspect == vk::ImageAspectFlagBits::eDepth) {
+    }
+    if (imageAspect == vk::ImageAspectFlagBits::eDepth) {
         return formatDepthBitSize(format);
     }
     auto f = kFormatDescriptions.find(format);

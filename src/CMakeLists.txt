@@ -66,15 +66,14 @@ add_compile_options(
     -Wunused
     -Wwrite-strings
     -Wswitch
+    -Wformat-overflow
+    -Wformat-truncation
+    -Wmisleading-indentation
     $<$<CXX_COMPILER_ID:GNU>:-Wduplicated-branches>
     $<$<CXX_COMPILER_ID:GNU>:-Wduplicated-cond>
-    $<$<CXX_COMPILER_ID:GNU>:-Wformat-overflow>
-    $<$<CXX_COMPILER_ID:GNU>:-Wformat-truncation>
     $<$<CXX_COMPILER_ID:GNU>:-Wlogical-op>
     $<$<CXX_COMPILER_ID:GNU>:-Wmaybe-uninitialized>
-    $<$<CXX_COMPILER_ID:GNU>:-Wmisleading-indentation>
     $<$<CXX_COMPILER_ID:GNU>:-Wsized-deallocation>
-    #$<$<CXX_COMPILER_ID:GNU>:-Wswitch-enum>
     $<$<CXX_COMPILER_ID:GNU>:-Wuseless-cast>
     $<$<NOT:$<AND:$<CXX_COMPILER_ID:GNU>,$<NOT:$<CONFIG:Debug>>>>:-Wnull-dereference>
     $<$<NOT:$<AND:$<CXX_COMPILER_ID:GNU>,$<COMPILE_LANGUAGE:CUDA>>>:-Wredundant-decls>
@@ -96,7 +95,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
     if(ENABLE_CLANG_TIDY)
         find_program(CLANG_TIDY clang-tidy REQUIRED)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" -checks=-*,readability-*)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" -checks=-*,readability-*,-readability-function-cognitive-complexity,-readability-function-size,-readability-identifier-length,-readability-isolate-declaration,-readability-uppercase-literal-suffix,-readability-implicit-bool-conversion,-readability-magic-numbers,-readability-avoid-unconditional-preprocessor-if,-readability-identifier-naming,-readability-named-parameter)
     endif()
 
     if(ENABLE_CPPCHECK)

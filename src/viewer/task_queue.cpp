@@ -8,6 +8,7 @@
 #include <QtCore/QtAssert>
 #include <QtCore/QtLogging>
 
+#include <algorithm>
 #include <limits>
 
 using namespace Qt::StringLiterals;
@@ -415,12 +416,8 @@ void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
     auto [lo, hi] = resultReadyState.equal_range(ResultRange{beginIndex, endIndex});
     for (auto it = lo; it != hi; ++it) {
         ResultRange resultRange = it.key();
-        if (beginIndex > resultRange.beginIndex) {
-            beginIndex = resultRange.beginIndex;
-        }
-        if (endIndex < resultRange.endIndex) {
-            endIndex = resultRange.endIndex;
-        }
+        beginIndex = std::min(beginIndex, resultRange.beginIndex);
+        endIndex = std::max(endIndex, resultRange.endIndex);
     }
     resultReadyState.erase(lo, hi);
     QString resultDescription;

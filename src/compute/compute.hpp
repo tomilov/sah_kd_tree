@@ -120,7 +120,7 @@ private:
     [[nodiscard]] size_t getAllocationGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const;
     [[nodiscard]] size_t getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const;
     [[nodiscard]] ::CUmemGenericAllocationHandle makeMemGenericAllocationHandle() const;
-    [[nodiscard]] ::CUmemGenericAllocationHandle importMemGenericAllocationHandle(utils::Fd fd) const;
+    [[nodiscard]] static ::CUmemGenericAllocationHandle importMemGenericAllocationHandle(utils::Fd fd);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

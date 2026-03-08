@@ -10,11 +10,11 @@ namespace utils
 class UTILS_EXPORT Fd : utils::OneTime<Fd>
 {
 public:
-    explicit Fd(int fd);
+    explicit Fd(int file);
     Fd(Fd && file) noexcept;
     ~Fd();
 
-    [[nodiscard]] static Fd dup(int fd);
+    [[nodiscard]] static Fd dup(int file);
 
     [[nodiscard]] const int & getFd() const &;
     [[nodiscard]] int release() &&;

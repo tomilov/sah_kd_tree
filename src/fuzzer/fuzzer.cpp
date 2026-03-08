@@ -49,7 +49,7 @@ using UniformUIntDistributionParam = typename UniformUIntDistribution::param_typ
 bool boxWorld = false;
 
 UniformIntDistribution uniformInt;  // clazy:exclude=non-pod-global-static
-UniformUIntDistribution uniformUInt;
+UniformUIntDistribution uniformUInt;  // clazy:exclude=non-pod-global-static
 
 void setSeed(unsigned int seed)
 {
@@ -64,7 +64,7 @@ F genFloat()
 void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
 {
     assert(!(max < min));
-    f = F(uniformInt(utils::defaultRandom(), UniformIntDistributionParam{min, max}));
+    f = static_cast<F>(uniformInt(utils::defaultRandom(), UniformIntDistributionParam{min, max}));
     if (kFuzzIntegerCoordinate) {
         const int pow = uniformInt(utils::defaultRandom(), UniformIntDistributionParam{1, kFloatDigits});
         auto fuzz = genFloat();
@@ -293,7 +293,7 @@ struct TestInput
             }
         }
         if (!checkItems(std::cbegin(triangles), std::cend(triangles))) {
-            return false;
+            return false;  // NOLINT(readability-simplify-boolean-expr)
         }
         return true;
     }
@@ -443,9 +443,9 @@ struct TestInput
 
             constexpr Vertex Triangle::* vertices[] = {&Triangle::a, &Triangle::b, &Triangle::c};
 
-            auto srcTriangle = &*src;
+            auto * srcTriangle = &*src;
             auto triangle = std::move(*dst);
-            auto dstTriangle = &triangle;
+            auto * dstTriangle = &triangle;
             if (direction[0]) {
                 std::swap(srcTriangle, dstTriangle);
             }
@@ -471,7 +471,7 @@ struct TestInput
         {
             assert(!std::empty(triangles));
             assert((std::size(triangles) % kBoxTriangleCount) == 0);
-            UniformIntDistributionParam distributionParam{0, utils::safeCast<int>(std::size(triangles) / kBoxTriangleCount - 1)};
+            UniformIntDistributionParam distributionParam{0, utils::safeCast<int>((std::size(triangles) / kBoxTriangleCount) - 1)};
             return std::next(std::begin(triangles), utils::safeCast<int>(kBoxTriangleCount) * uniformInt(utils::defaultRandom(), distributionParam));
         };
         const auto sampleBoxVertex = [](auto box, const Vertex * anchor = nullptr) -> Vertex
@@ -563,9 +563,7 @@ struct TestInput
         if (selector[2]) {
             params.intersectionCost = testInput.params.intersectionCost;
         }
-        if (params.maxTreeDepth < testInput.params.maxTreeDepth) {
-            params.maxTreeDepth = testInput.params.maxTreeDepth;
-        }
+        params.maxTreeDepth = std::max(params.maxTreeDepth, testInput.params.maxTreeDepth);
 
         triangles.reserve(std::size(triangles) + std::size(testInput.triangles));
         triangles.insert(std::cend(triangles), std::make_move_iterator(std::begin(testInput.triangles)), std::make_move_iterator(std::end(testInput.triangles)));
@@ -587,8 +585,8 @@ char ** findArg(char ** beg, char ** end, const char * arg)
 size_t readIntArg(char * arg, size_t argSize)
 {
     size_t result = 0;
-    auto argBeg = arg + argSize;
-    auto argEnd = std::next(argBeg, utils::safeCast<ptrdiff_t>(std::strlen(arg + argSize)));
+    auto * argBeg = arg + argSize;
+    auto * argEnd = std::next(argBeg, utils::safeCast<ptrdiff_t>(std::strlen(arg + argSize)));
     auto [p, ec] = std::from_chars(argBeg, argEnd, result);
     if ((ec != std::errc{}) || (p != argEnd)) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): cannot convert value '{}' of command line parameter {} to size_t\n", fmt::string_view{arg + argSize}, fmt::string_view{arg + 1, argSize - 2});
@@ -628,22 +626,22 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
     static const size_t boxWorldSize = std::size(boxWorldOption);
     char ** boxWorldArg = fuzzer::findArg(*argv + 1, *argv + *argc, boxWorldOption.c_str());
 
-    if (boxWorldArg) {
+    if (boxWorldArg != nullptr) {
         fuzzer::boxWorld = fuzzer::readIntArg(*boxWorldArg, boxWorldSize) != 0;
         fmt::print(stderr, "INFO(sah_kd_tree): generating of {} enabled\n", fuzzer::primitiveName());
     }
 
-    if (!maxLenArg && !maxPrimitiveCountArg) {
+    if ((maxLenArg != nullptr) && !maxPrimitiveCountArg) {
         fmt::print(stderr, "INFO(sah_kd_tree): no primitive count limiting command line options are provided; number of {} is not limited\n", fuzzer::primitiveName());
         return 0;
     }
 
-    if (maxLenArg && maxPrimitiveCountArg) {
+    if ((maxLenArg != nullptr) && maxPrimitiveCountArg) {
         fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): max_len and max_primitive_count should not be set both at once\n");
         std::exit(EXIT_FAILURE);
     }
 
-    if (maxLenArg) {
+    if (maxLenArg != nullptr) {
         size_t maxLen = fuzzer::readIntArg(*maxLenArg, maxLenSize);
         size_t itemCount = (std::max(maxLen, sizeof(fuzzer::Params)) - sizeof(fuzzer::Params)) / fuzzer::itemSize();
         fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), itemCount);
@@ -654,21 +652,21 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
         return 0;
     }
 
-    if (maxPrimitiveCountArg) {
+    if (maxPrimitiveCountArg != nullptr) {
         size_t maxPrimitiveCount = fuzzer::readIntArg(*maxPrimitiveCountArg, maxPrimitiveCountSize);
         fmt::print(stderr, "INFO(sah_kd_tree): maximum {} count: {}\n", fuzzer::primitiveName(), maxPrimitiveCount);
         if (maxPrimitiveCount == 0) {
             fmt::print(stderr, fg(fmt::color::red), "INFO(sah_kd_tree): nothing to fuzz\n");
             std::exit(EXIT_FAILURE);
         }
-        size_t maxLen = sizeof(fuzzer::Params) + maxPrimitiveCount * fuzzer::itemSize();
+        size_t maxLen = sizeof(fuzzer::Params) + (maxPrimitiveCount * fuzzer::itemSize());
         fuzzer::writeIntArg(maxLenOption, maxLenSize, maxLen);
         *maxPrimitiveCountArg = maxLenOption.data();
     } else {
         std::abort();
     }
 
-    if (boxWorldArg) {
+    if (boxWorldArg != nullptr) {
         *argv = std::rotate(*argv, boxWorldArg, std::next(boxWorldArg));
         --*argc;
     }

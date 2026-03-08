@@ -52,7 +52,7 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled = true) const;
     [[nodiscard]] bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
-    Instance(std::string_view applicationName, uint32_t applicationVersion, Library & library, std::span<const char * const> requiredInstanceExtensions, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
+    Instance(Library & library, std::span<const char * const> requiredInstanceExtensions, std::string_view applicationName, uint32_t applicationVersion, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
 
     [[nodiscard]] const StringUnorderedSet & getLayers() const &;
     [[nodiscard]] const StringUnorderedSet & getEnabledLayers() const &;
@@ -94,10 +94,10 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     }
 
 private:
+    const Library & library;
+    const std::span<const char * const> requiredInstanceExtensions;
     std::string applicationName;
     const uint32_t applicationVersion;
-
-    const Library & library;
 
     mutable std::mutex mutex;
     mutable std::unordered_multiset<uint32_t> mutedMessageIdNumbers;
@@ -130,7 +130,7 @@ private:
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    [[nodiscard]] vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+    [[nodiscard]] static vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData);
     [[nodiscard]] vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 };
 

@@ -105,37 +105,39 @@ namespace
 [[nodiscard]] vk::ShaderStageFlagBits shaderNameToStage(std::string_view shaderName)
 {
     using namespace std::string_view_literals;
-    if (shaderName.ends_with(".vert")) {
+    // NOLINTBEGIN(readability-else-after-return)
+    if (shaderName.ends_with(".vert"sv)) {
         return vk::ShaderStageFlagBits::eVertex;
-    } else if (shaderName.ends_with(".tesc")) {
+    } else if (shaderName.ends_with(".tesc"sv)) {
         return vk::ShaderStageFlagBits::eTessellationControl;
-    } else if (shaderName.ends_with(".tese")) {
+    } else if (shaderName.ends_with(".tese"sv)) {
         return vk::ShaderStageFlagBits::eTessellationEvaluation;
-    } else if (shaderName.ends_with(".geom")) {
+    } else if (shaderName.ends_with(".geom"sv)) {
         return vk::ShaderStageFlagBits::eGeometry;
-    } else if (shaderName.ends_with(".frag")) {
+    } else if (shaderName.ends_with(".frag"sv)) {
         return vk::ShaderStageFlagBits::eFragment;
-    } else if (shaderName.ends_with(".comp")) {
+    } else if (shaderName.ends_with(".comp"sv)) {
         return vk::ShaderStageFlagBits::eCompute;
-    } else if (shaderName.ends_with(".rgen")) {
+    } else if (shaderName.ends_with(".rgen"sv)) {
         return vk::ShaderStageFlagBits::eRaygenKHR;
-    } else if (shaderName.ends_with(".rahit")) {
+    } else if (shaderName.ends_with(".rahit"sv)) {
         return vk::ShaderStageFlagBits::eAnyHitKHR;
-    } else if (shaderName.ends_with(".rchit")) {
+    } else if (shaderName.ends_with(".rchit"sv)) {
         return vk::ShaderStageFlagBits::eClosestHitKHR;
-    } else if (shaderName.ends_with(".rmiss")) {
+    } else if (shaderName.ends_with(".rmiss"sv)) {
         return vk::ShaderStageFlagBits::eMissKHR;
-    } else if (shaderName.ends_with(".rint")) {
+    } else if (shaderName.ends_with(".rint"sv)) {
         return vk::ShaderStageFlagBits::eIntersectionKHR;
-    } else if (shaderName.ends_with(".rcall")) {
+    } else if (shaderName.ends_with(".rcall"sv)) {
         return vk::ShaderStageFlagBits::eCallableKHR;
-    } else if (shaderName.ends_with(".task")) {
+    } else if (shaderName.ends_with(".task"sv)) {
         return vk::ShaderStageFlagBits::eTaskEXT;
-    } else if (shaderName.ends_with(".mesh")) {
+    } else if (shaderName.ends_with(".mesh"sv)) {
         return vk::ShaderStageFlagBits::eMeshEXT;
     } else {
         INVARIANT(false, "Cannot infer stage from shader name '{}'", shaderName);
     }
+    // NOLINTEND(readability-else-after-return)
 }
 
 [[nodiscard]] const char * shaderStageToName [[maybe_unused]] (vk::ShaderStageFlagBits shaderStage)
@@ -422,7 +424,7 @@ VertexInputState ShaderModuleReflection::getVertexInputState(uint32_t vertexBuff
 
     auto & variableNames = vertexInputState.variableNames;
     auto & vertexInputAttributeDescriptions = vertexInputState.vertexInputAttributeDescriptions;
-    for (const auto inputVariable : reflectInterfaceVariable) {
+    for (const auto * const inputVariable : reflectInterfaceVariable) {
         INVARIANT(inputVariable, "");
         auto variableName = inputVariable->name ? inputVariable->name : fmt::to_string(inputVariable->spirv_id);
         SPDLOG_DEBUG("Variable name: '{}'", variableName);
@@ -459,7 +461,7 @@ void ShaderModuleReflection::reflect()
     SPDLOG_DEBUG("Shader consists of {} entry points", entryPointCount);
     vk::ShaderStageFlags shaderStageMask;
     for (uint32_t i = 0; i < entryPointCount; ++i) {
-        auto nextEntryPointName = reflectionModule->GetEntryPointName(i);
+        const auto * nextEntryPointName = reflectionModule->GetEntryPointName(i);
         if (nextEntryPointName == entryPointName) {
             SPDLOG_DEBUG("Found entry point '{}'", nextEntryPointName);
             shaderStageMask = spvReflectShaderStageToVk(reflectionModule->GetEntryPointShaderStage(i));
@@ -478,16 +480,16 @@ void ShaderModuleReflection::reflect()
         reflectResult = reflectionModule->EnumerateEntryPointDescriptorSets(entryPointName.c_str(), &descriptorSetCount, std::data(reflectDescriptorSets));
         INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateDescriptorSets returned {}", reflectResult);
     }
-    for (auto reflectDecriptorSet : reflectDescriptorSets) {
+    for (auto * reflectDecriptorSet : reflectDescriptorSets) {
         INVARIANT(reflectDecriptorSet, "");
         INVARIANT(!descriptorSetLayoutSetBindings.contains(reflectDecriptorSet->set), "Duplicated set {}", reflectDecriptorSet->set);
         auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
         auto bindingCount = reflectDecriptorSet->binding_count;
         descriptorSetLayoutBindings.reserve(bindingCount);
         for (uint32_t b = 0; b < bindingCount; ++b) {
-            const auto reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
+            auto * const reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
             INVARIANT(reflectDescriptorBinding, "");
-            auto descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : "";  // fmt::format("_{}", reflectDescriptorBinding->spirv_id)
+            const auto * descriptorBindingName = reflectDescriptorBinding->name ? reflectDescriptorBinding->name : "";  // fmt::format("_{}", reflectDescriptorBinding->spirv_id)
             const vk::DescriptorType descriptorType = spvReflectDescriiptorTypeToVk(reflectDescriptorBinding->descriptor_type);
             DescriptorBindingNameAndType descriptorBindingNameAndType{descriptorBindingName, descriptorType};
             INVARIANT(!descriptorSetLayoutBindings.contains(descriptorBindingNameAndType), "Duplicated descriptor binding name '{}' and type {}", descriptorBindingName, descriptorType);
@@ -517,26 +519,23 @@ void ShaderModuleReflection::reflect()
         reflectResult = reflectionModule->EnumerateEntryPointPushConstantBlocks(entryPointName.c_str(), &pushConstantBlockCount, std::data(pushConstantBlocks));
         INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumeratePushConstantBlocks returned {}", reflectResult);
     }
-    for (auto reflectPushConstantBlock : pushConstantBlocks) {
+    for (auto * reflectPushConstantBlock : pushConstantBlocks) {
         INVARIANT(reflectPushConstantBlock, "");
-        auto members = reflectPushConstantBlock->members;
+        auto * members = reflectPushConstantBlock->members;
         size_t memberCount = utils::autoCast(reflectPushConstantBlock->member_count);
         for (const SpvReflectBlockVariable & member : std::span<const SpvReflectBlockVariable>(members, memberCount)) {
             if ((member.flags & SPV_REFLECT_VARIABLE_FLAGS_UNUSED) != 0) {
-                auto memberName = member.name ? member.name : "<unknown>";
-                auto blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";
+                const auto * memberName = member.name ? member.name : "<unknown>";
+                const auto * blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";
                 SPDLOG_WARN("Member {} of {} is not statically used in entry point {} on stage {} of shader {}", memberName, blockName, entryPointName, shaderStage, shaderModuleName);
                 continue;
             }
             const bool isInitialized = pushConstantRange.has_value();
             auto & [stageFlags, offset, size] = isInitialized ? pushConstantRange.value() : pushConstantRange.emplace();
             if (isInitialized) {
-                if (offset > member.offset) {
-                    offset = member.offset;
-                }
-                if (offset + size < member.offset + member.size) {
-                    size = member.offset - offset + member.size;
-                }
+                size = std::max(offset + size, member.offset + member.size);
+                offset = std::min(offset, member.offset);
+                size -= offset;
             } else {
                 stageFlags = shaderStage;
                 offset = member.offset;
@@ -554,7 +553,7 @@ void ShaderModuleReflection::reflect()
         reflectResult = reflectionModule->EnumerateSpecializationConstants(&specializationConstantCount, std::data(specConstants));
         INVARIANT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "EnumerateSpecializationConstants returned {}", reflectResult);
     }
-    for (auto specConstant : specConstants) {
+    for (auto * specConstant : specConstants) {
         if (!specConstant->name) {
             continue;
         }
@@ -596,7 +595,7 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     pipelineShaderStageCreateInfo.module = shaderModule;
     pipelineShaderStageCreateInfo.pName = std::data(entryPointNames.back());
     pipelineShaderStageCreateInfo.pSpecializationInfo = nullptr;
-    debugUtilsObjectNameInfo.objectType = shaderModule.getHandle().objectType;
+    debugUtilsObjectNameInfo.objectType = vk::ShaderModule::objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getHandle()));
     debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan13Features>().subgroupSizeControl != vk::False) {

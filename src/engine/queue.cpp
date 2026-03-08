@@ -44,12 +44,12 @@ void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
 
 void Queue::submit(const vk::SubmitInfo & submitInfo, vk::Fence fence) const
 {
-    return queue.submit(submitInfo, fence, context.getDispatcher());
+    queue.submit(submitInfo, fence, context.getDispatcher());
 }
 
 void Queue::submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence) const
 {
-    return queue.submit2(submitInfo2, fence, context.getDispatcher());
+    queue.submit2(submitInfo2, fence, context.getDispatcher());
 }
 
 void Queue::waitIdle() const

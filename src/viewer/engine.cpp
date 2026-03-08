@@ -40,16 +40,14 @@ engine::DescriptorBindingNameAndType SceneResources::getBindingName()
         if (!transformBuffer) {
             if (descriptorBufferEnabled) {  // requires nullDescriptor
                 return DescriptorData{std::in_place_type<DescriptorBufferData>};
-            } else {
-                return DescriptorData{std::in_place_type<DescriptorSetData>, vk::DescriptorBufferInfo{}};
             }
+            return DescriptorData{std::in_place_type<DescriptorSetData>, vk::DescriptorBufferInfo{}};
         }
         const auto & t = transformBuffer.value().base();
         if (descriptorBufferEnabled) {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, t.getDescriptorAddressInfo()};
-        } else {
-            return DescriptorData{std::in_place_type<DescriptorSetData>, t.getDescriptorBufferInfo()};
         }
+        return DescriptorData{std::in_place_type<DescriptorSetData>, t.getDescriptorBufferInfo()};
     };
     return {getBindingName(), getDescriptorData()};
 }
@@ -251,9 +249,8 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
     {
         if (descriptorBufferEnabled) {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
-        } else {
-            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
         }
+        return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
     };
     return {getBindingName(), getDescriptorData()};
 }
@@ -275,9 +272,8 @@ engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool ta
 {
     if (target) {
         return {"target"s, vk::DescriptorType::eStorageImage};
-    } else {
-        return {"display"s, vk::DescriptorType::eCombinedImageSampler};
     }
+    return {"display"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
 DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabled, bool target) const
@@ -293,9 +289,8 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
     {
         if (descriptorBufferEnabled) {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
-        } else {
-            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
         }
+        return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
     };
     return {getBindingName(target), getDescriptorData()};
 }
@@ -389,7 +384,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
 
             instance.indexCount = utils::autoCast(sceneMesh.indexCount);
 
-            auto firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
+            const auto * firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
             uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
             if (settings.indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<engine::IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
                 indexType = vk::IndexType::eUint8KHR;
@@ -437,7 +432,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
 
         {
             auto mappedIndexBuffer = indexBuffer.value().map();
-            auto indices = mappedIndexBuffer.data();
+            auto * indices = mappedIndexBuffer.data();
             for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
                 const auto & instance = instances.at(m);
 
@@ -446,7 +441,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
                 uint32_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
                 const auto convertCopy = [&sceneData, &instance, sceneIndexOffset](auto indicesIn)
                 {
-                    auto indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
+                    const auto * indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
                     auto indexOut = std::next(indicesIn, instance.firstIndex);
                     for (uint32_t i = 0; i < instance.indexCount; ++i) {
                         *indexOut++ = utils::autoCast(*indexIn++);
@@ -497,7 +492,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
             instanceBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Instances"sv, instanceBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
             auto mappedInstanceBuffer = instanceBuffer.value().map();
-            auto end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
+            auto * end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
             INVARIANT(end == mappedInstanceBuffer.end(), "");
         }
 
@@ -565,7 +560,7 @@ auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std
     engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("transforms"sv, transformBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal)};
     {
         auto mappedTransformBuffer = transformBuffer.map();
-        auto t = mappedTransformBuffer.begin();
+        auto * t = mappedTransformBuffer.begin();
         for (const auto & instanceTransforms : transforms) {
             ASSERT(mappedTransformBuffer.end() != t);
             t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);

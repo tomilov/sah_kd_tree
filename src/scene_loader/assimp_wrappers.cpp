@@ -183,7 +183,7 @@ size_t AssimpIOStream::FileSize() const
 
 void AssimpIOStream::Flush()
 {
-    if (auto file = qobject_cast<QFileDevice *>(device.get())) {
+    if (auto * file = qobject_cast<QFileDevice *>(device.get())) {
         file->flush();
     }
 }

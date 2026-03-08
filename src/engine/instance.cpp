@@ -143,13 +143,14 @@ bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersionIn, Library & libraryIn, std::span<const char * const> requiredInstanceExtensions, std::initializer_list<uint32_t> mutedMessageIdNumbersIn, bool mute)
-    : applicationName{applicationNameIn}
+Instance::Instance(Library & libraryIn, std::span<const char * const> requiredInstanceExtensionsIn, std::string_view applicationNameIn, uint32_t applicationVersionIn, std::initializer_list<uint32_t> mutedMessageIdNumbersIn, bool mute)
+    : library{libraryIn}
+    , requiredInstanceExtensions{requiredInstanceExtensionsIn}
+    , applicationName{applicationNameIn}
     , applicationVersion{applicationVersionIn}
-    , library{libraryIn}
     , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbersIn, mute)}
 {
-#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
+#ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     if (library.getDispatcher().vkEnumerateInstanceVersion) {
         apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
     }
@@ -280,9 +281,9 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
             SPDLOG_WARN("Layer settings instance extension is not available in debug build");
         }
     }
-    for (const char * requiredExtension : requiredInstanceExtensions) {
-        if (!enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, "Instance extension '{}' is not available", requiredExtension);
+    for (const char * requiredInstanceExtension : requiredInstanceExtensions) {
+        if (!enableExtensionIfAvailable(requiredInstanceExtension)) {
+            INVARIANT(false, "Instance extension '{}' is not available", requiredInstanceExtension);
         }
     }
 
@@ -319,7 +320,7 @@ Instance::Instance(std::string_view applicationNameIn, uint32_t applicationVersi
         // auto mute0x822806FA = muteDebugUtilsMessages({0x822806FA}, sah_kd_tree::kIsDebugBuild);
         instanceHolder = vk::createInstanceUnique(instanceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
     }
-#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
+#ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     libraryIn.getDispatcher().init(*instanceHolder);
 #endif
 
@@ -382,7 +383,7 @@ Instance::operator vk::Instance() const &
     return getHandle();
 }
 
-vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData)
 {
     auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
     if (!spdlog::should_log(lvl)) {

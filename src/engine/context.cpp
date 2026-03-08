@@ -25,7 +25,7 @@ void Context::createInstance(std::optional<std::string> libraryName, vk::Optiona
                              std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks);
-    instance = std::make_unique<Instance>(applicationName, applicationVersion, *library, requiredInstanceExtensions, mutedMessageIdNumbers, mute);
+    instance = std::make_unique<Instance>(*library, requiredInstanceExtensions, applicationName, applicationVersion, mutedMessageIdNumbers, mute);
     physicalDevices = std::make_unique<PhysicalDevices>(*library, *instance, requiredDeviceExtensions);
 }
 

@@ -180,7 +180,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requ
 {
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
-    auto deviceName = std::data(properties.deviceName);
+    const auto * deviceName = std::data(properties.deviceName);
     SPDLOG_DEBUG("Consider physical device '{}'", deviceName);
     if (physicalDeviceType != requiredPhysicalDeviceType) {
         SPDLOG_DEBUG("{}: expected {} physical device type, got {}", deviceName, requiredPhysicalDeviceType, physicalDeviceType);
@@ -401,30 +401,26 @@ size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) cons
     case vk::DescriptorType::eUniformTexelBuffer: {
         if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.uniformTexelBufferDescriptorSize;
-        } else {
-            return physicalDeviceDescriptorBufferProperties.robustUniformTexelBufferDescriptorSize;
         }
+        return physicalDeviceDescriptorBufferProperties.robustUniformTexelBufferDescriptorSize;
     }
     case vk::DescriptorType::eStorageTexelBuffer: {
         if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.storageTexelBufferDescriptorSize;
-        } else {
-            return physicalDeviceDescriptorBufferProperties.robustStorageTexelBufferDescriptorSize;
         }
+        return physicalDeviceDescriptorBufferProperties.robustStorageTexelBufferDescriptorSize;
     }
     case vk::DescriptorType::eUniformBuffer: {
         if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.uniformBufferDescriptorSize;
-        } else {
-            return physicalDeviceDescriptorBufferProperties.robustUniformBufferDescriptorSize;
         }
+        return physicalDeviceDescriptorBufferProperties.robustUniformBufferDescriptorSize;
     }
     case vk::DescriptorType::eStorageBuffer: {
         if (robustBufferAccess == vk::False) {
             return physicalDeviceDescriptorBufferProperties.storageBufferDescriptorSize;
-        } else {
-            return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
         }
+        return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
     }
     case vk::DescriptorType::eUniformBufferDynamic: {
         INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored in descriptor buffer");
@@ -497,7 +493,7 @@ PhysicalDevices::PhysicalDevices(Library & library, const Instance & instance, s
         SPDLOG_DEBUG("Create physical device #{}", i);
         const auto & pd = physicalDevices.emplace_back(library, instance, requiredDeviceExtensions, physicalDevice);
         const auto & properties = pd.properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
-        [[maybe_unused]] auto deviceName = std::data(properties.deviceName);
+        [[maybe_unused]] const auto * deviceName = std::data(properties.deviceName);
         SPDLOG_DEBUG("Physical device #{}: '{}'", i, deviceName);
         ++i;
     }

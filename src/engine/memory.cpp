@@ -11,7 +11,7 @@ namespace engine
 
 void * AllocationCallbacks::allocation(size_t size, size_t alignment, [[maybe_unused]] vk::SystemAllocationScope allocationScope)
 {
-    auto pMemory = ::operator new(size, std::align_val_t{alignment});
+    auto * pMemory = ::operator new(size, std::align_val_t{alignment});
     if ((false)) {
         SPDLOG_DEBUG("Allocation mem size {}, alignment {}, system allocation scope: {}, address {}", size, alignment, allocationScope, fmt::ptr(pMemory));
     }
@@ -23,7 +23,7 @@ void AllocationCallbacks::free(void * pMemory)
     if ((false)) {
         SPDLOG_DEBUG("Free mem  address {}", fmt::ptr(pMemory));
     }
-    return ::operator delete(static_cast<void *>(pMemory));
+    ::operator delete(pMemory);
 }
 
 void AllocationCallbacks::internalAllocation([[maybe_unused]] size_t size, [[maybe_unused]] vk::InternalAllocationType allocationType, [[maybe_unused]] vk::SystemAllocationScope allocationScope)

@@ -47,12 +47,12 @@ utils::MemArray<Triangle> SceneData::makeTriangles() const
     }
 
     utils::MemArray<Triangle> triangles{vertexCount / 3};
-    auto t = triangles.begin();
-    auto v = vertices.begin();
+    auto * t = triangles.begin();
+    const auto * v = vertices.begin();
     for (const Mesh & mesh : meshes) {
-        auto index = indices.begin();
+        const auto * index = indices.begin();
         std::advance(index, mesh.indexOffset);
-        const auto endIndex = std::next(index, mesh.indexCount);
+        const auto * const endIndex = std::next(index, mesh.indexCount);
         while (index != endIndex) {
             INVARIANT(t < triangles.end(), "");
             uint32_t a = *index++;
@@ -89,16 +89,16 @@ utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
     countTriangles(countTriangles, rootNodeIndex);
 
     utils::MemArray<Triangle> triangles{vertexCount / 3};
-    auto t = triangles.begin();
-    auto v = vertices.begin();
+    auto * t = triangles.begin();
+    const auto * v = vertices.begin();
     const auto traverseNodes = [this, &t, &triangles, v](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
             const Mesh & mesh = meshes[m];
-            auto index = indices.begin();
+            const auto * index = indices.begin();
             std::advance(index, mesh.indexOffset);
-            auto endIndex = std::next(index, mesh.indexCount);
+            const auto * const endIndex = std::next(index, mesh.indexCount);
             while (index != endIndex) {
                 INVARIANT(t < triangles.end(), "");
                 uint32_t a = *index++;

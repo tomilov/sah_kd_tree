@@ -400,23 +400,35 @@ int main(int argc, char * argv[])
         const glm::vec3 up{0.0f, 1.0f, 0.0f};
 
         glm::vec3 moveDir{0.0f};
-        if (keyW) moveDir += forward;
-        if (keyS) moveDir -= forward;
-        if (keyD) moveDir += right;
-        if (keyA) moveDir -= right;
-        if (keyE) moveDir += up;
-        if (keyQ) moveDir -= up;
+        if (keyW) {
+            moveDir += forward;
+        }
+        if (keyS) {
+            moveDir -= forward;
+        }
+        if (keyD) {
+            moveDir += right;
+        }
+        if (keyA) {
+            moveDir -= right;
+        }
+        if (keyE) {
+            moveDir += up;
+        }
+        if (keyQ) {
+            moveDir -= up;
+        }
 
         auto getSpeedModifier = []
         {
             const SDL_Keymod kmod = SDL_GetModState();
             if (kmod & SDL_KMOD_SHIFT) {
                 return 0.05f;
-            } else if (kmod & SDL_KMOD_CTRL) {
-                return 5.0f;
-            } else {
-                return 1.0f;
             }
+            if (kmod & SDL_KMOD_CTRL) {
+                return 5.0f;
+            }
+            return 1.0f;
         };
         if (glm::dot(moveDir, moveDir) > 0.0f) {
             moveDir = glm::normalize(moveDir);

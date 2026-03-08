@@ -22,7 +22,7 @@ namespace engine
 
 std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 {
-    auto cacheData = fileIo.loadPipelineCache(name.c_str());
+    auto cacheData = fileIo.loadPipelineCache(name);
     if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
@@ -74,9 +74,8 @@ PipelineCache::PipelineCache(std::string_view nameIn, const Context & contextIn,
         if (std::empty(cacheData)) {
             SPDLOG_WARN("Cannot create empty pipeline cache '{}': {}", name, exception);
             throw;
-        } else {
-            SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
         }
+        SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
     }
     if (!pipelineCacheHolder) {
         ASSERT(!std::empty(cacheData));
@@ -108,7 +107,7 @@ bool PipelineCache::flush()
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();
     auto data = device.getHandle().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
-    if (!fileIo.savePipelineCache(data, name.c_str())) {
+    if (!fileIo.savePipelineCache(data, name)) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }

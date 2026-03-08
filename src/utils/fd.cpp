@@ -28,12 +28,12 @@ Fd::~Fd()
     ::close(fd);
 }
 
-Fd Fd::dup(int fd)
+Fd Fd::dup(int file)
 {
-    INVARIANT(fd >= 0, "{}", fd);
-    fd = ::dup(fd);
-    INVARIANT(fd >= 0, "{}", fd);
-    return Fd{fd};
+    INVARIANT(file >= 0, "{}", file);
+    file = ::dup(file);
+    INVARIANT(file >= 0, "{}", file);
+    return Fd{file};
 }
 
 const int & Fd::getFd() const &

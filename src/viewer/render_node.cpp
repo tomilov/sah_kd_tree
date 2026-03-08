@@ -65,7 +65,7 @@ void checkContext(QQuickWindow * window, const engine::Context & context)
 {
     Q_CHECK_PTR(window);
 
-    auto ri = window->rendererInterface();
+    auto * ri = window->rendererInterface();
 
     QVulkanInstance * instance = utils::autoCast(ri->getResource(window, QSGRendererInterface::Resource::VulkanInstanceResource));
     Q_CHECK_PTR(instance);
@@ -217,7 +217,7 @@ struct RenderNode::Impl
         return true;
     }
 
-    [[nodiscard]] QRectF getScissorRect(int width, int height, const QMatrix4x4 & mvp)
+    [[nodiscard]] QRectF getScissorRect(int width, int height, const QMatrix4x4 & mvp) const
     {
         QRectF scissorRect = mvp.mapRect(rect);
         scissorRect.translate(1.0, 1.0);
@@ -349,12 +349,12 @@ RenderNode::RenderNode(QString name, QQuickWindow * window, const EngineWrapper 
 
 void RenderNode::unsetScene()
 {
-    return impl_->unsetScene();
+    impl_->unsetScene();
 }
 
 void RenderNode::updateScene(const scene_data::SceneDataPtr & sceneData)
 {
-    return impl_->updateScene(sceneData);
+    impl_->updateScene(sceneData);
 }
 
 auto RenderNode::getScene() const & -> const scene_data::SceneDataPtr &
@@ -364,17 +364,17 @@ auto RenderNode::getScene() const & -> const scene_data::SceneDataPtr &
 
 void RenderNode::setTree(builder::TreePtr && tree)
 {
-    return impl_->setTree(std::move(tree));
+    impl_->setTree(std::move(tree));
 }
 
 void RenderNode::updateRect(const QRectF & rect)
 {
-    return impl_->updateRect(rect);
+    impl_->updateRect(rect);
 }
 
 void RenderNode::updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
 {
-    return impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireframe);
+    impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireframe);
 }
 
 void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar)
@@ -382,19 +382,19 @@ void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternio
     glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
     glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};
     float fov = glm::radians(cameraFov);
-    return impl_->updateCamera(position, orientation, fov, zNear, zFar);
+    impl_->updateCamera(position, orientation, fov, zNear, zFar);
 }
 
 void RenderNode::updateClearColor(const QColor & clearColor)
 {
     float r, g, b, a;
     clearColor.getRgbF(&r, &g, &b, &a);
-    return impl_->updateClearColor({r, g, b, a});
+    impl_->updateClearColor({r, g, b, a});
 }
 
 void RenderNode::updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter)
 {
-    return impl_->updateRenderdocCaptureFrameCounter(renderdocCaptureFrameCounter);
+    impl_->updateRenderdocCaptureFrameCounter(renderdocCaptureFrameCounter);
 }
 
 void RenderNode::updateDirty()
@@ -402,7 +402,7 @@ void RenderNode::updateDirty()
     if (!impl_->resetDirty()) {
         return;
     }
-    return QSGNode::markDirty(QSGNode::DirtyStateBit::DirtyForceUpdate);
+    QSGNode::markDirty(QSGNode::DirtyStateBit::DirtyForceUpdate);
 }
 
 void RenderNode::prepare()
@@ -423,17 +423,17 @@ void RenderNode::prepare()
         }
     }
 
-    auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
+    const auto * const commandBufferNativeHandles = commandBuffer()->nativeHandles();
     Q_CHECK_PTR(commandBufferNativeHandles);
     vk::CommandBuffer commandBuffer = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
-    return impl_->prepare(commandBuffer, alpha, renderTargetSize, mvp, isAxisAligned);
+    impl_->prepare(commandBuffer, alpha, renderTargetSize, mvp, isAxisAligned);
 }
 
 void RenderNode::render(const RenderState * renderState)
 {
     if ((false)) {
         QStringList clipRegions;
-        if (auto clipRegion = renderState->clipRegion()) {
+        if (const auto * clipRegion = renderState->clipRegion()) {
             for (const QRect & rect : *clipRegion) {
                 clipRegions << toString(rect);
             }
@@ -447,22 +447,22 @@ void RenderNode::render(const RenderState * renderState)
                    .arg(clipRegions.join(u"|"_s));                                                         //
     }
 
-    auto commandBufferNativeHandles = commandBuffer()->nativeHandles();
+    const auto * commandBufferNativeHandles = commandBuffer()->nativeHandles();
     Q_CHECK_PTR(commandBufferNativeHandles);
     vk::CommandBuffer commandBuffer = static_cast<const QRhiVulkanCommandBufferNativeHandles *>(commandBufferNativeHandles)->commandBuffer;
 
-    auto renderPassDescriptor = renderTarget()->renderPassDescriptor();
+    auto * renderPassDescriptor = renderTarget()->renderPassDescriptor();
     auto newRenderPassFormat = renderPassDescriptor->serializedFormat();
     const bool isRenderPassFormatChanged = impl_->renderPassFormat != newRenderPassFormat;
     if (isRenderPassFormatChanged) {
         impl_->renderPassFormat = std::move(newRenderPassFormat);
         qCDebug(viewerRenderNodeCategory) << u"Render pass format changed"_s;
     }
-    auto renderPassNativeHandles = renderPassDescriptor->nativeHandles();
+    const auto * renderPassNativeHandles = renderPassDescriptor->nativeHandles();
     Q_CHECK_PTR(renderPassNativeHandles);
     vk::RenderPass renderPass = static_cast<const QRhiVulkanRenderPassNativeHandles *>(renderPassNativeHandles)->renderPass;
 
-    return impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged);
+    impl_->render(commandBuffer, renderPass, isRenderPassFormatChanged);
 }
 
 void RenderNode::releaseResources()

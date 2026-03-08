@@ -133,19 +133,24 @@ protected:
         auto message = QString::fromStdString(fmt::to_string(msg.payload));
         switch (msgType.value()) {
         case QtMsgType::QtDebugMsg: {
-            return messageLogger.debug("%s", qPrintable(message));
+            messageLogger.debug("%s", qPrintable(message));
+            return;
         }
         case QtMsgType::QtWarningMsg: {
-            return messageLogger.warning("%s", qPrintable(message));
+            messageLogger.warning("%s", qPrintable(message));
+            return;
         }
         case QtMsgType::QtCriticalMsg: {
-            return messageLogger.critical("%s", qPrintable(message));
+            messageLogger.critical("%s", qPrintable(message));
+            return;
         }
         case QtMsgType::QtFatalMsg: {
-            return messageLogger.fatal("%s", qPrintable(message));
+            messageLogger.fatal("%s", qPrintable(message));
+            return;
         }
         case QtMsgType::QtInfoMsg: {
-            return messageLogger.info("%s", qPrintable(message));
+            messageLogger.info("%s", qPrintable(message));
+            return;
         }
         }
         INVARIANT(false, "unreachable");
@@ -219,7 +224,7 @@ int main(int argc, char * argv[])
                 return;
             }
             spdlog::source_loc location{messageLogContext.file, messageLogContext.line, messageLogContext.function};
-            auto category = messageLogContext.category ? messageLogContext.category : "default";
+            const auto * category = messageLogContext.category ? messageLogContext.category : "default";
             spdlog::log(location, lvl, "[{}] {}", category, qPrintable(message));
         };
         qInstallMessageHandler(messageHandler);
@@ -239,9 +244,9 @@ int main(int argc, char * argv[])
     qCDebug(viewerMainCategory).noquote() << u"Application filepath: %1"_s.arg(QCoreApplication::applicationFilePath());
 
     {
-        auto applicationFont = application->font();
+        auto applicationFont = QGuiApplication::font();
         applicationFont.setFixedPitch(true);
-        application->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        QGuiApplication::setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     }
 
     QGuiApplication::setWindowIcon(QIcon{viewer::GuiApplication::getWindowIconFilepath()});
@@ -261,7 +266,7 @@ int main(int argc, char * argv[])
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {vk::KHRSurfaceExtensionName, vk::KHRXcbSurfaceExtensionName});
         constexpr auto kApplicationVersion = vk::makeVersion(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.getContext().createInstance(std::nullopt, nullptr, APPLICATION_NAME, kApplicationVersion, engine.getMutedMessageIdNumbers());
+        engine.getContext().createInstance(std::nullopt, nullptr, APPLICATION_NAME, kApplicationVersion, viewer::EngineWrapper::getMutedMessageIdNumbers());
         vulkanInstance.setVkInstance(engine.getContext().getInstance().getHandle());
     } else {
         {
@@ -311,7 +316,7 @@ int main(int argc, char * argv[])
     qmlApplicationEngine.setBaseUrl(resourcesBasePath);
     // qmlApplicationEngine.addImportPath(u":/%1/imports"_s.arg(QString::fromUtf8(sah_kd_tree::kProjectName)));
 
-    const auto rootContext = qmlApplicationEngine.rootContext();
+    auto * const rootContext = qmlApplicationEngine.rootContext();
     rootContext->setContextProperty("app", qApp);
 
     if (!QObject::connect(&qmlApplicationEngine, &QQmlApplicationEngine::objectCreationFailed, qApp, &QCoreApplication::quit, Qt::ConnectionType::QueuedConnection)) {
@@ -325,7 +330,7 @@ int main(int argc, char * argv[])
             return;
         }
         qCDebug(viewerMainCategory).noquote() << u"Object from URL %1 successfully created"_s.arg(url.toString());
-        auto applicationWindow = qobject_cast<QQuickWindow *>(object);
+        auto * applicationWindow = qobject_cast<QQuickWindow *>(object);
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
         INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
@@ -361,7 +366,7 @@ int main(int argc, char * argv[])
     {
         auto rootObjects = qmlApplicationEngine.rootObjects();
         INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
-        auto applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
+        const auto * applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
         INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         // examine applicationWindow properties
     };
@@ -376,5 +381,5 @@ int main(int argc, char * argv[])
     }
     qmlApplicationEngine.load(QUrl{"qml/ui.qml"});
 
-    return application->exec();
+    return QGuiApplication::exec();
 }

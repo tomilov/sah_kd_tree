@@ -220,7 +220,7 @@ MemoryAllocator::Impl::Impl(const Context & contextIn)
         allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_MAINTENANCE5_BIT;
     }
 
-#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
+#ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #define FUNCTION(f) .f = context.getDispatcher().f
 #define FUNCTION_KHR(f) .f##KHR = context.getDispatcher().f
 #else
@@ -254,7 +254,7 @@ MemoryAllocator::Impl::Impl(const Context & contextIn)
         FUNCTION_KHR(vkGetPhysicalDeviceMemoryProperties2),
         FUNCTION(vkGetDeviceBufferMemoryRequirements),
         FUNCTION(vkGetDeviceImageMemoryRequirements),
-#if defined(VK_USE_PLATFORM_WIN32_KHR)
+#ifdef VK_USE_PLATFORM_WIN32_KHR
         FUNCTION(vkGetMemoryWin32HandleKHR),
 #else
         .vkGetMemoryWin32HandleKHR = nullptr,
@@ -310,9 +310,8 @@ vk::DeviceSize MappedMemory<void>::getSize() const
 {
     if (impl_->size == vk::WholeSize) {
         return impl_->buffer->getSize() - impl_->offset;
-    } else {
-        return impl_->size;
     }
+    return impl_->size;
 }
 
 vk::DeviceAddress MappedMemory<void>::getDeviceAddress() const &
@@ -523,8 +522,8 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * bufferIn, vk::DeviceSize off
         INVARIANT(size + offset < buffer->getSize(), "{} + {} ^ {}", size, offset, buffer->getSize());
     }
 
-    auto allocator = buffer->impl_->memoryAllocator.impl_->handle;
-    auto allocation = buffer->impl_->resource->allocation;
+    auto * allocator = buffer->impl_->memoryAllocator.impl_->handle;
+    auto * allocation = buffer->impl_->resource->allocation;
     vk::MemoryPropertyFlags memoryPropertyFlags = buffer->getMemoryPropertyFlags();
     INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
@@ -549,8 +548,8 @@ MappedMemory<void>::Impl::~Impl()
     if (!buffer) {
         return;
     }
-    auto allocator = buffer->impl_->memoryAllocator.impl_->handle;
-    auto allocation = buffer->impl_->resource->allocation;
+    auto * allocator = buffer->impl_->memoryAllocator.impl_->handle;
+    auto * allocation = buffer->impl_->resource->allocation;
     if (mappedData) {
         vmaUnmapMemory(allocator, allocation);
     }
@@ -575,7 +574,7 @@ Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAl
         }
     }
 
-    auto allocator = memoryAllocator.impl_->handle;
+    auto * allocator = memoryAllocator.impl_->handle;
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
@@ -890,7 +889,7 @@ Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocator
         }
     }
 
-    auto allocator = memoryAllocator.impl_->handle;
+    auto * allocator = memoryAllocator.impl_->handle;
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;

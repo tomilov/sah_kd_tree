@@ -10,7 +10,7 @@
 
 using namespace std::string_literals;
 
-#if !defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)
+#ifndef VULKAN_HPP_NO_DEFAULT_DISPATCHER
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #endif
 
@@ -42,7 +42,7 @@ vk::Optional<const vk::AllocationCallbacks> Library::getAllocationCallbacks() co
 
 const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & Library::getDispatcher() const &
 {
-#if defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)
+#ifdef VULKAN_HPP_NO_DEFAULT_DISPATCHER
     return dispatcher;
 #else
     return VULKAN_HPP_DEFAULT_DISPATCHER;
@@ -51,7 +51,7 @@ const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & Library::getDispatcher() const &
 
 VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & Library::getDispatcher() &
 {
-#if defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)
+#ifdef VULKAN_HPP_NO_DEFAULT_DISPATCHER
     return dispatcher;
 #else
     return VULKAN_HPP_DEFAULT_DISPATCHER;

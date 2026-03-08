@@ -91,7 +91,7 @@ public:
         return sceneStatus;
     }
 
-    [[nodiscard]] QVariantList getThrustDeviceSystems() const &;
+    [[nodiscard]] static QVariantList getThrustDeviceSystems();
 
     [[nodiscard]] int getDepth() const &;
 
@@ -208,7 +208,7 @@ public:
     Q_INVOKABLE void roll(float angle);
     Q_INVOKABLE void widen(float angle);
 
-    [[nodiscard]] Q_INVOKABLE float getDefaultFov() const;
+    [[nodiscard]] static Q_INVOKABLE float getDefaultFov();
     [[nodiscard]] Q_INVOKABLE float getFovRatio() const;
 
 public Q_SLOTS:

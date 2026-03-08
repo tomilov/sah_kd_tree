@@ -3,6 +3,7 @@
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 
+#include <algorithm>
 #include <bit>
 #include <iterator>
 #include <limits>

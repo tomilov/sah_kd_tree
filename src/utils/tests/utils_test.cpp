@@ -10,6 +10,8 @@ using ScopeGuard = utils::ScopeGuard<void (*)()>;
 static_assert(!std::is_default_constructible_v<ScopeGuard>, "one-time");
 static_assert(std::is_nothrow_constructible_v<ScopeGuard, void (*)()>, "one-time");
 
+// NOLINTBEGIN(readability-convert-member-functions-to-static)
+
 TEST(getIf, PointerLike)
 {
     static_assert(!utils::PointerLike<int>);
@@ -192,7 +194,7 @@ TEST(getIf, Unary)
             break;
         }
         case 1: {
-            (*p)->reset();
+            (**p).reset();
             ASSERT_TRUE(p && *p && !**p);
             break;
         }
@@ -211,9 +213,9 @@ TEST(getIf, Unary)
         EXPECT_EQ(GET_IF(p), static_cast<A *>(nullptr));
     }
     for (int i = 0; i < 3; ++i) {
-        auto r = &a;
-        auto q = &r;
-        auto p = &q;
+        auto * r = &a;
+        auto * q = &r;
+        auto * p = &q;
         ASSERT_EQ(utils::getIf(p), &a);
         ASSERT_EQ(GET_IF(p), &a);
         switch (i) {
@@ -283,11 +285,11 @@ TEST(getIf, MemberFunction)
         int & f()
         {
             return b;
-        };
+        }
         int & g(int & c)
         {
             return c;
-        };
+        }
     };
 
     A a{};
@@ -357,3 +359,5 @@ TEST(getIf, PerfectForwarding)
     EXPECT_EQ(utils::getIf(std::move(b), a), a.c + 2);
     EXPECT_EQ(utils::getIf(std::move(std::as_const(b)), a), a.c + 3);
 }
+
+// NOLINTEND(readability-convert-member-functions-to-static)

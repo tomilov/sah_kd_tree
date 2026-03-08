@@ -29,7 +29,7 @@ public:
     [[nodiscard]] static Q_INVOKABLE QString toHexFloat(double x);
 
 public Q_SLOTS:
-    void setClipboardImage(QVariant image) const;
+    static void setClipboardImage(QVariant image);
 
 private:
     const QStringList colorNames;
@@ -54,8 +54,8 @@ public:
     [[nodiscard]] static Q_INVOKABLE QString toHexFloat(double x);
 
 public Q_SLOTS:
-    void setClipboardImage(QVariant image) const;
-    void showAboutQt();
+    static void setClipboardImage(QVariant image);
+    static void showAboutQt();
 
 private:
     const QStringList colorNames;

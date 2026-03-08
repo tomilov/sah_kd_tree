@@ -53,14 +53,14 @@ Device::Device(std::string_view nameIn, Library & libraryIn, const Instance & in
         SPDLOG_WARN("{}", name);
     }
 
-    for (const char * requiredExtension : PhysicalDevice::kRequiredExtensions) {
-        if (!enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredExtension);
+    for (const char * requiredDeviceExtension : PhysicalDevice::kRequiredExtensions) {
+        if (!enableExtensionIfAvailable(requiredDeviceExtension)) {
+            INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredDeviceExtension);
         }
     }
-    for (const char * requiredExtension : requiredDeviceExtensions) {
-        if (!enableExtensionIfAvailable(requiredExtension)) {
-            INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredExtension);
+    for (const char * requiredDeviceExtension : requiredDeviceExtensions) {
+        if (!enableExtensionIfAvailable(requiredDeviceExtension)) {
+            INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredDeviceExtension);
         }
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
@@ -81,7 +81,7 @@ Device::Device(std::string_view nameIn, Library & libraryIn, const Instance & in
     deviceHolder = physicalDevice.getHandle().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
     setDebugUtilsObjectName(deviceHolder, name);
 
-#if defined(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC)
+#ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     libraryIn.getDispatcher().init(*deviceHolder);
 #endif
 }

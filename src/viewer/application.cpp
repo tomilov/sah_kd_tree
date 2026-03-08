@@ -104,7 +104,7 @@ QString GuiApplication::toHexFloat(double x)
     return QString::fromStdString(fmt::format("{:a}", x));
 }
 
-void GuiApplication::setClipboardImage(QVariant image) const
+void GuiApplication::setClipboardImage(QVariant image)
 {
     clipboard()->setImage(image.value<QImage>());
 }
@@ -150,7 +150,7 @@ QString Application::toHexFloat(double x)
     return GuiApplication::toHexFloat(x);
 }
 
-void Application::setClipboardImage(QVariant image) const
+void Application::setClipboardImage(QVariant image)
 {
     clipboard()->setImage(image.value<QImage>());
 }
