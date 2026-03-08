@@ -9,7 +9,10 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 include_directories(
     "${CMAKE_CURRENT_BINARY_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}")
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+#set(CMAKE_UNITY_BUILD ON)
 
 add_compile_options(
     -Wall
@@ -83,31 +86,31 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         #-fsanitize=cfi -flto
     )
 
-    option(ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
-    if(ENABLE_CLANG_TIDY)
-        find_program(CLANG_TIDY clang-tidy REQUIRED)
+    option(SAH_KD_TREE_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+    if(SAH_KD_TREE_ENABLE_CLANG_TIDY)
+        find_program(CLANG_TIDY "clang-tidy" REQUIRED)
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy --header-filter=${CMAKE_SOURCE_DIR}/include/.*)
     endif()
 
-    option(ENABLE_CPPCHECK "Enable cppcheck" OFF)
-    if(ENABLE_CPPCHECK)
-        find_program(CPPCHECK cppcheck REQUIRED)
+    option(SAH_KD_TREE_ENABLE_CPPCHECK "Enable cppcheck" OFF)
+    if(SAH_KD_TREE_ENABLE_CPPCHECK)
+        find_program(CPPCHECK "cppcheck" REQUIRED)
         set(CMAKE_CXX_CPPCHECK "${CPPCHECK}" --enable=all --suppress=missingInclude)
     endif()
 
-    option(ENABLE_IWYU "Run include-what-you-use" OFF)
-    if(ENABLE_IWYU)
+    option(SAH_KD_TREE_ENABLE_IWYU "Enable include-what-you-use" OFF)
+    if(SAH_KD_TREE_ENABLE_IWYU)
       find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
       set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
       set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
     endif()
 else()
     add_compile_options(
-        -fstack-protector-strong
-        -D_FORTIFY_SOURCE=3
+        #-fstack-protector-strong
+        #-D_FORTIFY_SOURCE=3
     )
     add_link_options(
-        -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
+        #-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
     )
 endif()
 

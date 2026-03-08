@@ -1,7 +1,8 @@
 project(
     "sah_kd_tree"
     LANGUAGES
-        CUDA)
+        CUDA
+)
 
 skt_add_library(
     "${PROJECT_NAME}"
@@ -56,25 +57,30 @@ skt_add_library(
         "update_splitted_polygon_node.inl"
         "update_splitted_polygon_node.cu"
     PUBLIC_LINKS
-        Thrust)
+        Thrust
+)
 
-if(${SAH_KD_TREE_BUILD_FUZZER})
+if(SAH_KD_TREE_BUILD_FUZZER)
     target_compile_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer-no-link>>)
+            $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=fuzzer-no-link>
+    )
     target_link_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer-no-link>>)
+            $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=fuzzer-no-link>
+    )
     string(REPLACE "." ";" CXX_COMPILER_VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
     list(GET CXX_COMPILER_VERSION_LIST 0 CXX_COMPILER_VERSION_MAJOR)
     target_link_directories(
         "lib${PROJECT_NAME}"
         PUBLIC
-            "/usr/lib/clang/${CXX_COMPILER_VERSION_MAJOR}/lib/linux/")
+            "/usr/lib/clang/${CXX_COMPILER_VERSION_MAJOR}/lib/linux/"
+    )
     target_link_libraries(
         "lib${PROJECT_NAME}"
         PUBLIC
-            "clang_rt.fuzzer_no_main-${CMAKE_SYSTEM_PROCESSOR}")  # not needed for 'fuzzer' target, but works fine
+            "clang_rt.fuzzer_no_main-${CMAKE_SYSTEM_PROCESSOR}"
+    )
 endif()

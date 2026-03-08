@@ -4,7 +4,7 @@ with -fork=0 command line option
 ]]
 project("fuzzer")
 
-if(NOT ${SAH_KD_TREE_BUILD_FUZZER})
+if(NOT SAH_KD_TREE_BUILD_FUZZER})
     return()
 endif()
 
