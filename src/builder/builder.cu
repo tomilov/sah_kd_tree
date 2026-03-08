@@ -1,6 +1,5 @@
 #include <builder/builder.cuh>
 #include <sah_kd_tree/sah_kd_tree.cuh>
-#include <utils/assert.hpp>
 
 #include <memory>
 #include <utility>

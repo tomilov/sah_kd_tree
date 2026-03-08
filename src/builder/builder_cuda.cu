@@ -5,6 +5,7 @@
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/memory_resource.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/system/cuda/memory.h>
 #include <thrust/system/cuda/memory_resource.h>
 #include <thrust/system/cuda/vector.h>
 

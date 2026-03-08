@@ -51,7 +51,7 @@ public:
 
     ~ScopeTimer()
     {
-        fmt::println(stderr, "Time '{}': {}", name, std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start));
+        fmt::println(stderr, "Time '{}': {}", name, std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start));
     }
 
 private:

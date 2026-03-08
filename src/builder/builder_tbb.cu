@@ -1,8 +1,8 @@
-
 #include <builder/builder.cuh>
 #include <sah_kd_tree/sah_kd_tree_inline.cuh>
 
 #include <thrust/system/tbb/execution_policy.h>
+#include <thrust/system/tbb/memory.h>
 #include <thrust/system/tbb/memory_resource.h>
 #include <thrust/system/tbb/vector.h>
 

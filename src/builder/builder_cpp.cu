@@ -2,6 +2,7 @@
 #include <sah_kd_tree/sah_kd_tree_inline.cuh>
 
 #include <thrust/system/cpp/execution_policy.h>
+#include <thrust/system/cpp/memory.h>
 #include <thrust/system/cpp/memory_resource.h>
 #include <thrust/system/cpp/vector.h>
 

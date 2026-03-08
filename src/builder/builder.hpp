@@ -70,11 +70,11 @@ struct Tree
 template<ThrustDeviceSystem Traits>
 [[nodiscard]] TreePtr build(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
 
-extern template TreePtr build<ThrustDeviceSystemDefault>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
-extern template TreePtr build<ThrustDeviceSystemCPP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
-extern template TreePtr build<ThrustDeviceSystemOMP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
-extern template TreePtr build<ThrustDeviceSystemTBB>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
-extern template TreePtr build<ThrustDeviceSystemCUDA>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress) BUILDER_EXPORT;
+extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemDefault>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemCPP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemOMP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemTBB>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemCUDA>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
 
 constexpr auto getBuild(size_t i)
 {
