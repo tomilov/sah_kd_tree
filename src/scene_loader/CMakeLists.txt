@@ -15,5 +15,6 @@ skt_add_library(
         "libscene_data"
         "libutils"
     PRIVATE_LINKS
-        assimp::assimp)
+        assimp::assimp
+)
 

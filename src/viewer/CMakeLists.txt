@@ -24,7 +24,8 @@ qt6_add_qml_module(
         QtQuick.Window
         QtQuick.Layouts
         QtQuick.Dialogs
-        QtQuick3D)
+        QtQuick3D
+)
 set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}")
 
 generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")
@@ -34,7 +35,8 @@ if(TARGET_TYPE STREQUAL "STATIC_LIBRARY")
     target_compile_definitions(
         "${PROJECT_NAME}_item"
         PUBLIC
-            ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE)
+            ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE
+    )
 endif()
 
 target_sources(
@@ -64,7 +66,8 @@ target_sources(
         "renderer.hpp"
         "renderer.cpp"
         "utils.hpp"
-        "utils.cpp")
+        "utils.cpp"
+)
 target_link_libraries(
     "${PROJECT_NAME}_item"
     PRIVATE
@@ -88,7 +91,8 @@ target_link_libraries(
         "libbuilder"
         "gli"
     PUBLIC
-        "libutils")
+        "libutils"
+)
 
 skt_target_shaders(
     "${PROJECT_NAME}_item"
@@ -101,12 +105,14 @@ skt_target_shaders(
         "shaders/trace.comp.glsl"
         "shaders/utils.glsl"
     OUTPUT_VARIABLE
-        compiled_shaders)
+        compiled_shaders
+)
 
 qt6_target_qml_sources(
     "${PROJECT_NAME}_item"
     RESOURCES
-        ${compiled_shaders})
+        ${compiled_shaders}
+)
 
 qt6_add_executable("${PROJECT_NAME}")
 target_sources(
@@ -114,7 +120,8 @@ target_sources(
     PRIVATE
         "application.hpp"
         "application.cpp"
-        "main.cpp")
+        "main.cpp"
+)
 target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
@@ -128,11 +135,13 @@ target_link_libraries(
         Qt6::Qml
         Qt6::Widgets
         Qt6::Quick
-        Qt6::QuickControls2)
+        Qt6::QuickControls2
+)
 target_compile_definitions(
     "${PROJECT_NAME}"
     PRIVATE
-        APPLICATION_NAME="${PROJECT_NAME}")
+        APPLICATION_NAME="${PROJECT_NAME}"
+)
 
 qt6_add_resources(
     "${PROJECT_NAME}"
@@ -148,7 +157,8 @@ qt6_add_resources(
         "qml/components/WheelSpinBox.qml"
         "qml/qmldir"
         "qml/ui.qml"
-        "qml/utils.js")
+        "qml/utils.js"
+)
 
 source_group(
     "UI Files"

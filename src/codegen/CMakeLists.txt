@@ -1,10 +1,6 @@
 project("codegen")
 
-find_program(
-    clang_format_executable
-    NAMES
-        clang-format
-    REQUIRED)
+find_program(clang_format_executable NAMES clang-format REQUIRED)
 
 function(skt_add_codegen_library name)
     cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "DEPENDENCY;COMMAND_ARGUMENT;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES" "")
@@ -39,7 +35,8 @@ function(skt_add_codegen_library name)
                 "${name}.cpp.tmp"
         OUTPUT
             "${name}.hpp"
-            "${name}.cpp")
+            "${name}.cpp"
+    )
 
     skt_add_library(
         "${PROJECT_NAME}_${name}"
@@ -58,7 +55,8 @@ function(skt_add_codegen_library name)
         PUBLIC_LINKS
             ${ARG_PUBLIC_LINKS}
         SYSTEM_PUBLIC_INCLUDES
-            ${ARG_SYSTEM_PUBLIC_INCLUDES})
+        ${ARG_SYSTEM_PUBLIC_INCLUDES}
+    )
 endfunction()
 
 set(spirv_headers_path "${SPIRV-Headers_SOURCE_DIR}/include")
@@ -73,12 +71,14 @@ skt_add_codegen_library(
     PUBLIC_LINKS
         "SPIRV-Reflect"
     SYSTEM_PUBLIC_INCLUDES
-        "${spirv_headers_path}")
+    "${spirv_headers_path}"
+)
 
 target_include_directories(
     "lib${PROJECT_NAME}_spirv_format"
     SYSTEM PUBLIC
-        "${spirv_headers_path}")
+    "${spirv_headers_path}"
+)
 
 get_target_property(vulkan_registry_path Vulkan::Headers VULKAN_REGISTRY_PATH)
 skt_add_codegen_library(
@@ -92,6 +92,7 @@ skt_add_codegen_library(
     PUBLIC_LINKS
         Vulkan::Headers
     SYSTEM_PUBLIC_INCLUDES
-        "${spirv_headers_path}")
+    "${spirv_headers_path}"
+)
 
 

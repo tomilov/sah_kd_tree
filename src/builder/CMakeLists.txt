@@ -22,7 +22,8 @@ skt_add_library(
         "libscene_data"
         "libcompute"
         "libutils"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>")
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
+)
 
 skt_add_executable("${PROJECT_NAME}")
 

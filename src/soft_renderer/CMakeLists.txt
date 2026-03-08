@@ -20,12 +20,14 @@ skt_add_library(
         "libscene_data"
         "libscene_loader"
         CUDA::cuda_driver
-        OpenMP::OpenMP_CXX)
+        OpenMP::OpenMP_CXX
+)
 
 set_source_files_properties(
     "${PROJECT_NAME}.cpp"
     PROPERTIES
-        COMPILE_OPTIONS "-O3;-ffast-math")
+        COMPILE_OPTIONS "-O3;-ffast-math"
+)
 
 find_package(SDL3 REQUIRED)
 skt_add_executable(
@@ -39,6 +41,7 @@ skt_add_executable(
         "libutils"
         "gli"
         Qt::Core
-        SDL3::SDL3)
+        SDL3::SDL3
+)
 
 add_subdirectory("tests")

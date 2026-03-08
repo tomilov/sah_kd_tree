@@ -124,8 +124,9 @@ cmake_dependent_option(
     SAH_KD_TREE_BUILD_FUZZER
     "Whether to build 'fuzzer' target"
         ON
-    "CMAKE_CXX_COMPILER_ID STREQUAL Clang"
-        OFF)
+    "CMAKE_CXX_COMPILER_ID MATCHES Clang"
+        OFF
+)
 
 find_package(OpenMP REQUIRED)
 string(REPLACE " " ";" OpenMP_CXX_FLAGS_LIST "${OpenMP_CXX_FLAGS}")
@@ -133,7 +134,8 @@ foreach(OpenMP_CXX_FLAG IN LISTS OpenMP_CXX_FLAGS_LIST)
     target_compile_options(
         OpenMP::OpenMP_CXX
         INTERFACE
-            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAG}>)
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAG}>
+    )
 endforeach()
 
 link_libraries(fmt::fmt)

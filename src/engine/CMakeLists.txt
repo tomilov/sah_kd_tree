@@ -73,13 +73,14 @@ skt_add_library(
         "nlohmann_json"
     PUBLIC_LINKS
         Vulkan::Headers
-        "libutils")
+        "libutils"
+)
 
 set_source_files_properties(
     "library.cpp"
     PROPERTIES
-        VULKAN_HPP_STORAGE_SHARED_EXPORT
-            1)
+        VULKAN_HPP_STORAGE_SHARED_EXPORT 1
+)
 
 skt_add_executable("${PROJECT_NAME}")
 
@@ -90,5 +91,6 @@ if(${ipo_is_supported})
         "lib${PROJECT_NAME}"
         "${PROJECT_NAME}"
         PROPERTIES
-            INTERPROCEDURAL_OPTIMIZATION TRUE)
+            INTERPROCEDURAL_OPTIMIZATION TRUE
+    )
 endif()

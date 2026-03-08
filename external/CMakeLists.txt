@@ -4,7 +4,8 @@ add_subdirectory("Vulkan-Headers" EXCLUDE_FROM_ALL SYSTEM)
 set_target_properties(
     "Vulkan-Headers"
     PROPERTIES
-        VULKAN_REGISTRY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/registry")
+        VULKAN_REGISTRY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/registry"
+)
 target_compile_definitions(
     Vulkan-Headers
     INTERFACE
@@ -17,17 +18,20 @@ target_compile_definitions(
         VULKAN_HPP_TYPESAFE_CONVERSION
         VULKAN_HPP_ASSERT=ASSERT
         VULKAN_HEADERS_ENABLE_MODULE_STD
-        VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST)
+        VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST
+)
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(
         Vulkan-Headers
         INTERFACE
-            VK_NO_PROTOTYPES)
+            VK_NO_PROTOTYPES
+    )
 else()
     target_link_libraries(
         Vulkan-Headers
         INTERFACE
-            "vulkan")
+            "vulkan"
+    )
 endif()
 set(Vulkan_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
@@ -36,11 +40,13 @@ add_library("VulkanMemoryAllocator" INTERFACE)
 target_include_directories(
     "VulkanMemoryAllocator"
     SYSTEM INTERFACE
-        "${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator/include")
+        "${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator/include"
+)
 target_link_libraries(
     "VulkanMemoryAllocator"
     INTERFACE
-        Vulkan::Headers)
+        Vulkan::Headers
+)
 
 
 set(GLI_TEST_ENABLE OFF CACHE BOOL "" FORCE)
@@ -51,7 +57,8 @@ target_compile_definitions(
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_EXPLICIT_CTOR
         GLM_FORCE_DEPTH_ZERO_TO_ONE
-        GLM_FORCE_LEFT_HANDED)
+        GLM_FORCE_LEFT_HANDED
+)
 
 
 set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
@@ -61,7 +68,8 @@ add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(
     "fmt"
     INTERFACE
-        FMT_USE_BITINT=0)
+        FMT_USE_BITINT=0
+)
 
 
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
@@ -83,19 +91,23 @@ target_sources(
         "SPIRV-Reflect/spirv_reflect.h"
         "SPIRV-Reflect/spirv_reflect.cpp"
         "SPIRV-Reflect/common/output_stream.h"
-        "SPIRV-Reflect/common/output_stream.cpp")
+        "SPIRV-Reflect/common/output_stream.cpp"
+)
 target_include_directories(
     "SPIRV-Reflect"
     SYSTEM PUBLIC
-        "SPIRV-Reflect")
+        "SPIRV-Reflect"
+)
 target_compile_definitions(
     "SPIRV-Reflect"
     PUBLIC
-        SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
+        SPIRV_REFLECT_USE_SYSTEM_SPIRV_H
+)
 target_link_libraries(
     "SPIRV-Reflect"
     PUBLIC
-        "SPIRV-Headers")
+        "SPIRV-Headers"
+)
 
 
 add_subdirectory("nlohmann")

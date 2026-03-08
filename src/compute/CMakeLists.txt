@@ -12,7 +12,8 @@ skt_add_library(
     PUBLIC_LINKS
         CUDA::cuda_driver
         "libutils"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>")
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
+)
 
 skt_add_executable("${PROJECT_NAME}")
 

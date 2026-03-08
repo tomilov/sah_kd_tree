@@ -6,7 +6,8 @@ add_executable("${PROJECT_NAME}_tests")
 target_sources(
     "${PROJECT_NAME}_tests"
     PRIVATE
-        "${PROJECT_NAME}_test.cpp")
+        "${PROJECT_NAME}_test.cpp"
+)
 target_link_libraries(
     "${PROJECT_NAME}_tests"
     PRIVATE
@@ -15,17 +16,20 @@ target_link_libraries(
         GTest::Main
         "libsah_kd_tree"
         "libscene_loader"
-        Qt::Core)
+        Qt::Core
+)
 if(BUILD_SHARED_LIBS)
     target_link_libraries(
         "${PROJECT_NAME}_tests"
         PUBLIC
-            CUDA::cudart)
+            CUDA::cudart
+    )
 else()
     target_link_libraries(
         "${PROJECT_NAME}_tests"
         PUBLIC
-            CUDA::cudart_static)
+            CUDA::cudart_static
+    )
 endif()
 
 gtest_discover_tests(
@@ -33,4 +37,5 @@ gtest_discover_tests(
     WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}/data/scenes"
     PROPERTIES
-        TIMEOUT 10)
+        TIMEOUT 10
+)

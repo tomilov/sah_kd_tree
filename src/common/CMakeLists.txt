@@ -3,7 +3,8 @@ project("common")
 skt_add_library(
     "${PROJECT_NAME}"
     SOURCES
-        "config.hpp")
+        "config.hpp"
+)
 
 find_package(Git REQUIRED)
 execute_process(
@@ -19,7 +20,8 @@ execute_process(
         PROJECT_GIT_HASH
     RESULTS_VARIABLE
         GIT_RETURN_CODE
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 if(NOT GIT_RETURN_CODE STREQUAL "0")
     message(FATAL_ERROR "Not a git repository")
 endif()
@@ -30,4 +32,5 @@ target_sources(
     "lib${PROJECT_NAME}"
     PUBLIC
         "version.hpp.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/version.hpp")
+        "${CMAKE_CURRENT_BINARY_DIR}/version.hpp"
+)

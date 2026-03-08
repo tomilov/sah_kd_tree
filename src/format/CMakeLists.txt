@@ -10,6 +10,7 @@ skt_add_library(
         "glm.cpp"
     PUBLIC_LINKS
         Vulkan::Headers
-        "gli")
+        "gli"
+)
 
 add_subdirectory("tests")

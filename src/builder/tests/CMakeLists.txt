@@ -6,7 +6,8 @@ add_executable("${PROJECT_NAME}_tests")
 target_sources(
     "${PROJECT_NAME}_tests"
     PRIVATE
-        "${PROJECT_NAME}_test.cpp")
+        "${PROJECT_NAME}_test.cpp"
+)
 target_link_libraries(
     "${PROJECT_NAME}_tests"
     PRIVATE
@@ -16,11 +17,13 @@ target_link_libraries(
         "libscene_data"
         "libscene_loader"
         "libcompute"
-        Qt::Core)
+        Qt::Core
+)
 
 gtest_discover_tests(
     "${PROJECT_NAME}_tests"
     WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}/data/scenes"
     PROPERTIES
-        TIMEOUT 10)
+        TIMEOUT 10
+)
