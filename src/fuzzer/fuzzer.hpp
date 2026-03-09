@@ -46,5 +46,7 @@ struct Triangle
     }
 };
 
-void testOneInput(const Params & p, const std::vector<Triangle> & t);
+void testOneInput(
+    const Params & p,
+    const std::vector<Triangle> & t);
 }  // namespace fuzzer

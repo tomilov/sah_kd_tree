@@ -19,7 +19,11 @@
 namespace engine
 {
 
-DescriptorSet::DescriptorSet(std::string_view nameIn, const Context & contextIn, std::shared_ptr<const ShaderStages> shaderStagesIn, uint32_t setIn)
+DescriptorSet::DescriptorSet(
+    std::string_view nameIn,
+    const Context & contextIn,
+    std::shared_ptr<const ShaderStages> shaderStagesIn,
+    uint32_t setIn)
     : name{nameIn}
     , context{contextIn}
     , shaderStages{std::move(shaderStagesIn)}

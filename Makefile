@@ -157,11 +157,17 @@ $(ROOT_DIR)/venv:
 .PHONY: venv
 venv: $(ROOT_DIR)/venv
 
+.PHONY: shell
+shell: venv
+	cd $(ROOT_DIR)
+	. venv/bin/activate
+	$(SHELL)
+
 .PHONY: format
 format: venv
 	cd $(ROOT_DIR)
 	git add --update
-	git clang-format --extensions=cpp,hpp,cu,cuh,inl,js $(shell git rev-list --max-parents=0 HEAD) || true
+	git clang-format --binary=venv/bin/clang-format --extensions=cpp,hpp,cu,cuh,inl,js $(shell git rev-list --max-parents=0 HEAD) || true
 	. venv/bin/activate
 	black src/
 	isort --profile black src/

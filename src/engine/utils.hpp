@@ -119,8 +119,13 @@ private:
     const vk::Flags<BitType> flags;
 };
 
-template<typename ChainHead, typename... ChainTail>
-std::vector<ChainHead> toChainHeads(const std::vector<vk::StructureChain<ChainHead, ChainTail...>> & chains)
+template<
+    typename ChainHead,
+    typename... ChainTail>
+std::vector<ChainHead> toChainHeads(
+    const std::vector<vk::StructureChain<
+        ChainHead,
+        ChainTail...>> & chains)
 {
     std::vector<ChainHead> chainHeads;
     chainHeads.reserve(std::size(chains));
@@ -130,8 +135,17 @@ std::vector<ChainHead> toChainHeads(const std::vector<vk::StructureChain<ChainHe
     return chainHeads;
 }
 
-template<typename Head, typename... Tail, size_t N>
-std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&structureChains)[N])
+template<
+    typename Head,
+    typename... Tail,
+    size_t N>
+std::array<
+    Head,
+    N>
+getHeads(
+    const vk::StructureChain<
+        Head,
+        Tail...> (&structureChains)[N])
 {
     std::array<Head, N> heads;
     size_t i = 0;
@@ -141,8 +155,13 @@ std::array<Head, N> getHeads(const vk::StructureChain<Head, Tail...> (&structure
     return heads;
 }
 
-template<typename Head, typename... Tail>
-std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> & structureChains)
+template<
+    typename Head,
+    typename... Tail>
+std::vector<Head> getHeads(
+    const std::vector<vk::StructureChain<
+        Head,
+        Tail...>> & structureChains)
 {
     std::vector<Head> heads;
     heads.reserve(std::size(structureChains));
@@ -152,7 +171,9 @@ std::vector<Head> getHeads(const std::vector<vk::StructureChain<Head, Tail...>> 
     return heads;
 }
 
-template<typename Type, typename Head>
+template<
+    typename Type,
+    typename Head>
 Type * findInPNextChain(Head * head)
 {
     static_assert(vk::StructExtends<Type, Head>::value);
@@ -167,7 +188,9 @@ Type * findInPNextChain(Head * head)
     return utils::autoCast(currentStruct);
 }
 
-template<typename Type, typename Head>
+template<
+    typename Type,
+    typename Head>
 const Type * findInPNextChain(const Head * head)
 {
     static_assert(vk::StructExtends<Type, Head>::value);
@@ -185,9 +208,13 @@ const Type * findInPNextChain(const Head * head)
 template<vk::IndexType indexType>
 using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
 
-[[nodiscard]] vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment) ENGINE_EXPORT;
+[[nodiscard]] vk::DeviceSize alignedSize(
+    vk::DeviceSize size,
+    vk::DeviceSize alignment) ENGINE_EXPORT;
 [[nodiscard]] vk::Format indexTypeToFormat(vk::IndexType indexType) ENGINE_EXPORT;
 [[nodiscard]] uint32_t indexTypeRank(vk::IndexType indexType) ENGINE_EXPORT;
-[[nodiscard]] bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs) ENGINE_EXPORT;
+[[nodiscard]] bool indexTypeLess(
+    vk::IndexType lhs,
+    vk::IndexType rhs) ENGINE_EXPORT;
 
 }  // namespace engine

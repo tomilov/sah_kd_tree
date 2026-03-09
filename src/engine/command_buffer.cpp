@@ -13,7 +13,10 @@
 namespace engine
 {
 
-CommandBuffers::CommandBuffers(std::string_view nameIn, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
+CommandBuffers::CommandBuffers(
+    std::string_view nameIn,
+    const Context & context,
+    const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
     : name{nameIn}
 {
     const auto & device = context.getDevice();

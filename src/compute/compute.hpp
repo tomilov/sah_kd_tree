@@ -34,7 +34,9 @@ template<>
 struct fmt::formatter<cudaError> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(cudaError error, FormatContext & ctx) const
+    auto format(
+        cudaError error,
+        FormatContext & ctx) const
     {
         const char * errorName = ::cudaGetErrorName(error);
         const char * errorString = ::cudaGetErrorString(error);
@@ -46,7 +48,9 @@ template<>
 struct fmt::formatter<::CUresult> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(::CUresult result, FormatContext & ctx) const
+    auto format(
+        ::CUresult result,
+        FormatContext & ctx) const
     {
         const char * errorName = "unknown";
         const char * errorString = "unknown";
@@ -70,7 +74,11 @@ class COMPUTE_EXPORT OutOfMemoryException : public std::bad_alloc
 class COMPUTE_EXPORT MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
 {
 public:
-    MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSize, ::CUmemGenericAllocationHandle allocationHandle);
+    MappedDeviceMemory(
+        const ::CUmemLocation & location,
+        size_t allocGranularity,
+        size_t alignedAllocationSize,
+        ::CUmemGenericAllocationHandle allocationHandle);
     MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept;
     ~MappedDeviceMemory();
 
@@ -93,8 +101,15 @@ private:
 class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>
 {
 public:
-    DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment = 0);
-    DeviceMemory(::CUdevice cuDev, utils::Fd fd, size_t allocationSize, size_t allocationAlignment = 0);
+    DeviceMemory(
+        ::CUdevice cuDev,
+        size_t allocationSize,
+        size_t allocationAlignment = 0);
+    DeviceMemory(
+        ::CUdevice cuDev,
+        utils::Fd fd,
+        size_t allocationSize,
+        size_t allocationAlignment = 0);
     DeviceMemory(DeviceMemory && rhs) noexcept;
     ~DeviceMemory();
 
@@ -118,7 +133,9 @@ private:
 
     static ::CUmemAllocationProp makeMemAllocationProp(::CUdevice cuDev);
     [[nodiscard]] size_t getAllocationGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const;
-    [[nodiscard]] size_t getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const;
+    [[nodiscard]] size_t getAlignedAllocationSize(
+        size_t allocationSize,
+        size_t allocationAlignment) const;
     [[nodiscard]] ::CUmemGenericAllocationHandle makeMemGenericAllocationHandle() const;
     [[nodiscard]] static ::CUmemGenericAllocationHandle importMemGenericAllocationHandle(utils::Fd fd);
 

@@ -20,7 +20,13 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 {
     vk::ComputePipelineCreateInfo computePipelineCreateInfo;
 
-    ComputePipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfos);
+    ComputePipeline(
+        std::string_view name,
+        const Context & context,
+        vk::PipelineCache pipelineCache,
+        bool descriptorBufferEnabled,
+        const PipelineLayout & pipelineLayout,
+        SpecializationInfos && specializationInfos);
 
     void create();
 

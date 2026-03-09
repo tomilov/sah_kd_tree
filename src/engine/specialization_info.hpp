@@ -18,8 +18,12 @@ namespace engine
 
 struct ENGINE_EXPORT SpecializationInfo final : utils::NonCopyable
 {
-    template<typename SpecializationData, typename SpecializationMap>
-    SpecializationInfo(std::unique_ptr<SpecializationData> && specializationDataIn, SpecializationMap && specializationMapIn)
+    template<
+        typename SpecializationData,
+        typename SpecializationMap>
+    SpecializationInfo(
+        std::unique_ptr<SpecializationData> && specializationDataIn,
+        SpecializationMap && specializationMapIn)
     {
         specializationInfo.setData<SpecializationData>(*specializationDataIn);
         specializationData = std::move(specializationDataIn);

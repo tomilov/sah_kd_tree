@@ -2,7 +2,9 @@
 
 #include <gtest/gtest.h>
 
-TEST(Renderer, SimpleGeometry)
+TEST(
+    Renderer,
+    SimpleGeometry)
 {
     //
 }

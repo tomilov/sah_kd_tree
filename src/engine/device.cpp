@@ -19,7 +19,12 @@ using namespace std::string_view_literals;
 namespace engine
 {
 
-Device::Device(std::string_view nameIn, Library & libraryIn, const Instance & instanceIn, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDeviceIn)
+Device::Device(
+    std::string_view nameIn,
+    Library & libraryIn,
+    const Instance & instanceIn,
+    std::span<const char * const> requiredDeviceExtensions,
+    PhysicalDevice & physicalDeviceIn)
     : name{nameIn}
     , library{libraryIn}
     , instance{instanceIn}

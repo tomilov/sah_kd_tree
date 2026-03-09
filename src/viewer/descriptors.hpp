@@ -36,7 +36,12 @@ using DescriptorBuffer = engine::Buffer<std::byte>;
 class Descriptors : utils::OneTime<Descriptors>
 {
 public:
-    Descriptors(std::string_view name, const engine::Context & context, bool descriptorBufferEnabled, std::shared_ptr<const engine::ShaderStages> shaderStages, uint32_t set /* TODO: hash descriptor set layout */);
+    Descriptors(
+        std::string_view name,
+        const engine::Context & context,
+        bool descriptorBufferEnabled,
+        std::shared_ptr<const engine::ShaderStages> shaderStages,
+        uint32_t set /* TODO: hash descriptor set layout */);
 
     [[nodiscard]] bool getDescriptorBufferEnabled() const
     {
@@ -88,10 +93,17 @@ public:
 
     [[nodiscard]] engine::DescriptorSet createDescriptorSet() const;
     [[nodiscard]] DescriptorBuffer createDescriptorBuffer() const;
-    [[nodiscard]] std::variant<engine::DescriptorSet, DescriptorBuffer> createDescriptors() const;
+    [[nodiscard]] std::variant<
+        engine::DescriptorSet,
+        DescriptorBuffer>
+    createDescriptors() const;
 
-    void fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const;
-    void fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const;
+    void fillDescriptorSet(
+        const engine::DescriptorSet & descriptorSet,
+        std::span<const DescriptorInfo> descriptorSetInfos) const;
+    void fillDescriptorBuffer(
+        const DescriptorBuffer & descriptorBuffer,
+        std::span<const DescriptorInfo> descriptorBufferInfos) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

@@ -17,7 +17,9 @@ public:
     explicit FileIo(const std::filesystem::path & shaderLocation);
 
     [[nodiscard]] std::vector<uint8_t> loadPipelineCache(std::string_view pipelineCacheName) const override;
-    [[nodiscard]] bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override;
+    [[nodiscard]] bool savePipelineCache(
+        const std::vector<uint8_t> & data,
+        std::string_view pipelineCacheName) const override;
 
     [[nodiscard]] std::vector<uint32_t> loadShader(std::string_view shaderName) const override;
 

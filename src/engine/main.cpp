@@ -58,7 +58,9 @@ public:
         return data;
     }
 
-    [[nodiscard]] bool savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const override
+    [[nodiscard]] bool savePipelineCache(
+        const std::vector<uint8_t> & data,
+        std::string_view pipelineCacheName) const override
     {
         std::filesystem::path cacheFilePath{pipelineCacheName};
         cacheFilePath += ".bin";
@@ -109,7 +111,9 @@ public:
 
 }  // namespace
 
-int main(int /*argc*/, char * /*argv*/[])
+int main(
+    int /*argc*/,
+    char * /*argv*/[])
 {
     auto fileIo = std::make_unique<FileIo>();
     engine::Context context;

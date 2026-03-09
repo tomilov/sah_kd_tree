@@ -338,20 +338,26 @@ struct List
     T * ptr;
     uint32_t count;
 
-    List(T * p, uint32_t countIn)
+    List(
+        T * p,
+        uint32_t countIn)
         : ptr{p}
         , count{countIn}
     {}
 };
 
 template<typename T>
-List(T * p, uint32_t count) -> List<T>;
+List(
+    T * p,
+    uint32_t count) -> List<T>;
 
 struct ReflectionStreamedFmt
 {
     const spv_reflect::ShaderModule & shaderModule;
 
-    friend std::ostream & operator<< [[gnu::used]] (std::ostream & out, const ReflectionStreamedFmt & reflectionStreamedFmt)
+    friend std::ostream & operator<< [[gnu::used]] (
+        std::ostream & out,
+        const ReflectionStreamedFmt & reflectionStreamedFmt)
     {
         WriteReflection(reflectionStreamedFmt.shaderModule, false, out);
         return out;
@@ -362,7 +368,9 @@ struct JsonStreamedFmt
 {
     const nlohmann::json & j;
 
-    friend std::ostream & operator<< [[gnu::used]] (std::ostream & out, const JsonStreamedFmt & json)
+    friend std::ostream & operator<< [[gnu::used]] (
+        std::ostream & out,
+        const JsonStreamedFmt & json)
     {
         return out << std::setw(2) << json.j;
     }
@@ -385,7 +393,9 @@ struct fmt::formatter<engine::JsonStreamedFmt> : fmt::ostream_formatter
 template<>
 struct nlohmann::adl_serializer<SpvReflectGenerator>
 {
-    static void to_json(json & j, const SpvReflectGenerator & generator)
+    static void to_json(
+        json & j,
+        const SpvReflectGenerator & generator)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringGenerator(generator);
@@ -398,7 +408,9 @@ struct nlohmann::adl_serializer<SpvReflectGenerator>
 template<>
 struct nlohmann::adl_serializer<SpvReflectShaderStageFlagBits>
 {
-    static void to_json(json & j, const SpvReflectShaderStageFlagBits & shaderStageFlagBits)
+    static void to_json(
+        json & j,
+        const SpvReflectShaderStageFlagBits & shaderStageFlagBits)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringShaderStage(shaderStageFlagBits);
@@ -411,7 +423,9 @@ struct nlohmann::adl_serializer<SpvReflectShaderStageFlagBits>
 template<>
 struct nlohmann::adl_serializer<SpvReflectResourceType>
 {
-    static void to_json(json & j, const SpvReflectResourceType & resourceType)
+    static void to_json(
+        json & j,
+        const SpvReflectResourceType & resourceType)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringResourceType(resourceType);
@@ -424,7 +438,9 @@ struct nlohmann::adl_serializer<SpvReflectResourceType>
 template<>
 struct nlohmann::adl_serializer<SpvReflectDescriptorType>
 {
-    static void to_json(json & j, const SpvReflectDescriptorType & descriptorType)
+    static void to_json(
+        json & j,
+        const SpvReflectDescriptorType & descriptorType)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringDescriptorType(descriptorType);
@@ -437,7 +453,9 @@ struct nlohmann::adl_serializer<SpvReflectDescriptorType>
 template<>
 struct nlohmann::adl_serializer<SpvDim>
 {
-    static void to_json(json & j, const SpvDim & dim)
+    static void to_json(
+        json & j,
+        const SpvDim & dim)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringSpvDim(dim);
@@ -450,7 +468,9 @@ struct nlohmann::adl_serializer<SpvDim>
 template<>
 struct nlohmann::adl_serializer<SpvImageFormat>
 {
-    static void to_json(json & j, const SpvImageFormat & imageFormat)
+    static void to_json(
+        json & j,
+        const SpvImageFormat & imageFormat)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringSpvImageFormat(imageFormat);
@@ -463,7 +483,9 @@ struct nlohmann::adl_serializer<SpvImageFormat>
 template<>
 struct nlohmann::adl_serializer<SpvExecutionModel>
 {
-    static void to_json(json & j, const SpvExecutionModel & executionModel)
+    static void to_json(
+        json & j,
+        const SpvExecutionModel & executionModel)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringSpvExecutionModel(executionModel);
@@ -476,7 +498,9 @@ struct nlohmann::adl_serializer<SpvExecutionModel>
 template<>
 struct nlohmann::adl_serializer<SpvExecutionMode>
 {
-    static void to_json(json & j, const SpvExecutionMode & executionMode)
+    static void to_json(
+        json & j,
+        const SpvExecutionMode & executionMode)
     {
         j = engine::toStringSpv(executionMode);
     }
@@ -485,7 +509,9 @@ struct nlohmann::adl_serializer<SpvExecutionMode>
 template<>
 struct nlohmann::adl_serializer<SpvCapability>
 {
-    static void to_json(json & j, const SpvCapability & capability)
+    static void to_json(
+        json & j,
+        const SpvCapability & capability)
     {
         j = engine::toStringSpv(capability);
     }
@@ -494,7 +520,9 @@ struct nlohmann::adl_serializer<SpvCapability>
 template<>
 struct nlohmann::adl_serializer<SpvStorageClass>
 {
-    static void to_json(json & j, const SpvStorageClass & storageClass)
+    static void to_json(
+        json & j,
+        const SpvStorageClass & storageClass)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringSpvStorageClass(storageClass);
@@ -507,7 +535,9 @@ struct nlohmann::adl_serializer<SpvStorageClass>
 template<>
 struct nlohmann::adl_serializer<SpvSourceLanguage>
 {
-    static void to_json(json & j, const SpvSourceLanguage & sourceLanguage)
+    static void to_json(
+        json & j,
+        const SpvSourceLanguage & sourceLanguage)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringSpvSourceLanguage(sourceLanguage);
@@ -520,7 +550,9 @@ struct nlohmann::adl_serializer<SpvSourceLanguage>
 template<>
 struct nlohmann::adl_serializer<SpvOp>
 {
-    static void to_json(json & j, const SpvOp & spvOp)
+    static void to_json(
+        json & j,
+        const SpvOp & spvOp)
     {
         j = engine::toStringSpv(spvOp);
     }
@@ -529,7 +561,9 @@ struct nlohmann::adl_serializer<SpvOp>
 template<>
 struct nlohmann::adl_serializer<SpvBuiltIn>
 {
-    static void to_json(json & j, const SpvBuiltIn & builtIn)
+    static void to_json(
+        json & j,
+        const SpvBuiltIn & builtIn)
     {
         j = engine::toStringSpv(builtIn);
     }
@@ -538,7 +572,9 @@ struct nlohmann::adl_serializer<SpvBuiltIn>
 template<>
 struct nlohmann::adl_serializer<SpvReflectFormat>
 {
-    static void to_json(json & j, const SpvReflectFormat & format)
+    static void to_json(
+        json & j,
+        const SpvReflectFormat & format)
     {
         if (engine::kUseSpirvReflectConversion) {
             j = ToStringFormat(format);
@@ -551,7 +587,9 @@ struct nlohmann::adl_serializer<SpvReflectFormat>
 template<typename FlagBits>
 struct nlohmann::adl_serializer<engine::Flags<FlagBits>>
 {
-    static void to_json(json & j, const engine::Flags<FlagBits> & flags)
+    static void to_json(
+        json & j,
+        const engine::Flags<FlagBits> & flags)
     {
         j = json::array();
         uint32_t mask = flags.make;
@@ -568,7 +606,9 @@ struct nlohmann::adl_serializer<engine::Flags<FlagBits>>
 template<typename T>
 struct nlohmann::adl_serializer<engine::Nullable<T>>
 {
-    static void to_json(json & j, const engine::Nullable<T> & p)
+    static void to_json(
+        json & j,
+        const engine::Nullable<T> & p)
     {
         if (!p.value) {
             return;
@@ -580,7 +620,9 @@ struct nlohmann::adl_serializer<engine::Nullable<T>>
 template<typename T>
 struct nlohmann::adl_serializer<engine::List<T>>
 {
-    static void to_json(json & j, const engine::List<T> & list)
+    static void to_json(
+        json & j,
+        const engine::List<T> & list)
     {
         if (!list.ptr) {
             return;
@@ -603,7 +645,9 @@ struct nlohmann::adl_serializer<engine::List<T>>
 template<>
 struct nlohmann::adl_serializer<SpvReflectImageTraits>
 {
-    static void to_json(json & j, const SpvReflectImageTraits & imageTraits)
+    static void to_json(
+        json & j,
+        const SpvReflectImageTraits & imageTraits)
     {
         j.emplace("dim", imageTraits.dim);
         j.emplace("depth", imageTraits.depth);
@@ -617,18 +661,40 @@ struct nlohmann::adl_serializer<SpvReflectImageTraits>
 template<>
 struct nlohmann::adl_serializer<SpvReflectNumericTraits>
 {
-    static void to_json(json & j, const SpvReflectNumericTraits & numericTraits)
+    static void to_json(
+        json & j,
+        const SpvReflectNumericTraits & numericTraits)
     {
-        j.emplace("scalar", json::object({{"width", numericTraits.scalar.width}, {"signedness", numericTraits.scalar.signedness}}));
-        j.emplace("vector", json::object({{"component_count", numericTraits.vector.component_count}}));
-        j.emplace("matrix", json::object({{"column_count", numericTraits.matrix.column_count}, {"row_count", numericTraits.matrix.row_count}, {"stride", numericTraits.matrix.stride}}));
+        j.emplace(
+            "scalar",
+            json::object(
+                {
+                    {     "width",      numericTraits.scalar.width},
+                    {"signedness", numericTraits.scalar.signedness}
+        }));
+        j.emplace(
+            "vector",
+            json::object(
+                {
+                    {"component_count", numericTraits.vector.component_count}
+        }));
+        j.emplace(
+            "matrix",
+            json::object(
+                {
+                    {"column_count", numericTraits.matrix.column_count},
+                    {   "row_count",    numericTraits.matrix.row_count},
+                    {      "stride",       numericTraits.matrix.stride}
+        }));
     }
 };
 
 template<>
 struct nlohmann::adl_serializer<SpvReflectArrayTraits>
 {
-    static void to_json(json & j, const SpvReflectArrayTraits & arrayTraits)
+    static void to_json(
+        json & j,
+        const SpvReflectArrayTraits & arrayTraits)
     {
         j.emplace("dims_count", arrayTraits.dims_count);
         j.emplace("dims", engine::List(arrayTraits.dims, arrayTraits.dims_count));
@@ -640,7 +706,9 @@ struct nlohmann::adl_serializer<SpvReflectArrayTraits>
 template<>
 struct nlohmann::adl_serializer<SpvReflectTypeDescription>
 {
-    static void to_json(json & j, const SpvReflectTypeDescription & typeDescription)
+    static void to_json(
+        json & j,
+        const SpvReflectTypeDescription & typeDescription)
     {
         j.emplace("id", typeDescription.id);
         j.emplace("op", typeDescription.op);
@@ -649,7 +717,14 @@ struct nlohmann::adl_serializer<SpvReflectTypeDescription>
         j.emplace("storage_class", typeDescription.storage_class);
         j.emplace("type_flags", engine::Flags<SpvReflectTypeFlagBits>{typeDescription.type_flags});
         j.emplace("decoration_flags", engine::Flags<SpvReflectDecorationFlagBits>{typeDescription.decoration_flags});
-        j.emplace("traits", json::object({{"numeric", typeDescription.traits.numeric}, {"image", typeDescription.traits.image}, {"array", typeDescription.traits.array}}));
+        j.emplace(
+            "traits",
+            json::object(
+                {
+                    {"numeric", typeDescription.traits.numeric},
+                    {  "image",   typeDescription.traits.image},
+                    {  "array",   typeDescription.traits.array}
+        }));
         j.emplace("copied", typeDescription.copied);
         j.emplace("member_count", typeDescription.member_count);
         j.emplace("members", engine::List(typeDescription.members, typeDescription.member_count));
@@ -659,7 +734,9 @@ struct nlohmann::adl_serializer<SpvReflectTypeDescription>
 template<>
 struct nlohmann::adl_serializer<SpvReflectBlockVariable>
 {
-    static void to_json(json & j, const SpvReflectBlockVariable & reflectBlockVariable)
+    static void to_json(
+        json & j,
+        const SpvReflectBlockVariable & reflectBlockVariable)
     {
         j.emplace("spirv_id", reflectBlockVariable.spirv_id);
         j.emplace("name", reflectBlockVariable.name ? reflectBlockVariable.name : "");
@@ -680,7 +757,9 @@ struct nlohmann::adl_serializer<SpvReflectBlockVariable>
 template<>
 struct nlohmann::adl_serializer<SpvReflectBindingArrayTraits>
 {
-    static void to_json(json & j, const SpvReflectBindingArrayTraits & bindingArrayTraits)
+    static void to_json(
+        json & j,
+        const SpvReflectBindingArrayTraits & bindingArrayTraits)
     {
         j.emplace("dims_count", bindingArrayTraits.dims_count);
         j.emplace("dims", engine::List(bindingArrayTraits.dims, bindingArrayTraits.dims_count));
@@ -690,7 +769,9 @@ struct nlohmann::adl_serializer<SpvReflectBindingArrayTraits>
 template<>
 struct nlohmann::adl_serializer<SpvReflectDescriptorBinding>
 {
-    static void to_json(json & j, const SpvReflectDescriptorBinding & descriptorBinding)
+    static void to_json(
+        json & j,
+        const SpvReflectDescriptorBinding & descriptorBinding)
     {
         j.emplace("spirv_id", descriptorBinding.spirv_id);
         j.emplace("name", descriptorBinding.name ? descriptorBinding.name : "");
@@ -707,7 +788,13 @@ struct nlohmann::adl_serializer<SpvReflectDescriptorBinding>
         j.emplace("uav_counter_id", descriptorBinding.uav_counter_id);
         j.emplace("uav_counter_binding", engine::Nullable(descriptorBinding.uav_counter_binding));
         j.emplace("type_description", engine::Nullable(descriptorBinding.type_description));
-        j.emplace("word_offset", json::object({{"binding", descriptorBinding.word_offset.binding}, {"set", descriptorBinding.word_offset.set}}));
+        j.emplace(
+            "word_offset",
+            json::object(
+                {
+                    {"binding", descriptorBinding.word_offset.binding},
+                    {    "set",     descriptorBinding.word_offset.set}
+        }));
         j.emplace("decoration_flags", engine::Flags<SpvReflectDecorationFlagBits>{descriptorBinding.decoration_flags});
     }
 };
@@ -715,7 +802,9 @@ struct nlohmann::adl_serializer<SpvReflectDescriptorBinding>
 template<>
 struct nlohmann::adl_serializer<SpvReflectDescriptorSet>
 {
-    static void to_json(json & j, const SpvReflectDescriptorSet & descriptorSet)
+    static void to_json(
+        json & j,
+        const SpvReflectDescriptorSet & descriptorSet)
     {
         j.emplace("set", descriptorSet.set);
         j.emplace("binding_count", descriptorSet.binding_count);
@@ -726,7 +815,9 @@ struct nlohmann::adl_serializer<SpvReflectDescriptorSet>
 template<>
 struct nlohmann::adl_serializer<SpvReflectInterfaceVariable>
 {
-    static void to_json(json & j, const SpvReflectInterfaceVariable & interfaceVariable)
+    static void to_json(
+        json & j,
+        const SpvReflectInterfaceVariable & interfaceVariable)
     {
         j.emplace("spirv_id", interfaceVariable.spirv_id);
         j.emplace("name", interfaceVariable.name ? interfaceVariable.name : "");
@@ -748,7 +839,9 @@ struct nlohmann::adl_serializer<SpvReflectInterfaceVariable>
 template<>
 struct nlohmann::adl_serializer<SpvReflectEntryPoint>
 {
-    static void to_json(json & j, const SpvReflectEntryPoint & entryPoint)
+    static void to_json(
+        json & j,
+        const SpvReflectEntryPoint & entryPoint)
     {
         j.emplace("name", entryPoint.name ? entryPoint.name : "");
         j.emplace("id", entryPoint.id);
@@ -768,7 +861,14 @@ struct nlohmann::adl_serializer<SpvReflectEntryPoint>
         j.emplace("used_push_constants", engine::List(entryPoint.used_push_constants, entryPoint.used_push_constant_count));
         j.emplace("execution_mode_count", entryPoint.execution_mode_count);
         j.emplace("execution_modes", engine::List(entryPoint.execution_modes, entryPoint.execution_mode_count));
-        j.emplace("local_size", json::object({{"x", entryPoint.local_size.x}, {"y", entryPoint.local_size.y}, {"z", entryPoint.local_size.z}}));
+        j.emplace(
+            "local_size",
+            json::object(
+                {
+                    {"x", entryPoint.local_size.x},
+                    {"y", entryPoint.local_size.y},
+                    {"z", entryPoint.local_size.z}
+        }));
         j.emplace("invocations", entryPoint.invocations);
         j.emplace("output_vertices", entryPoint.output_vertices);
     }
@@ -777,7 +877,9 @@ struct nlohmann::adl_serializer<SpvReflectEntryPoint>
 template<>
 struct nlohmann::adl_serializer<SpvReflectCapability>
 {
-    static void to_json(json & j, const SpvReflectCapability & capability)
+    static void to_json(
+        json & j,
+        const SpvReflectCapability & capability)
     {
         j.emplace("value", capability.value);
         j.emplace("word_offset", capability.word_offset);
@@ -787,7 +889,9 @@ struct nlohmann::adl_serializer<SpvReflectCapability>
 template<>
 struct nlohmann::adl_serializer<SpvReflectShaderModule>
 {
-    static void to_json(json & j, const SpvReflectShaderModule & shaderModule)
+    static void to_json(
+        json & j,
+        const SpvReflectShaderModule & shaderModule)
     {
         j.emplace("generator", shaderModule.generator);
         j.emplace("entry_point_name", shaderModule.entry_point_name ? shaderModule.entry_point_name : "");

@@ -65,32 +65,32 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 
     const vk::AttachmentDescription2 attachmentDecriptions[] = {
         {
-            .format = OffscreenRenderPass::kColorFormat,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eUndefined,
-            .finalLayout = kExternalColorImageLayout,
-        },
+         .format = OffscreenRenderPass::kColorFormat,
+         .samples = vk::SampleCountFlagBits::e1,
+         .loadOp = vk::AttachmentLoadOp::eClear,
+         .storeOp = vk::AttachmentStoreOp::eStore,
+         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+         .initialLayout = vk::ImageLayout::eUndefined,
+         .finalLayout = kExternalColorImageLayout,
+         },
         {
-            .format = depthFormat,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eDontCare,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eUndefined,
-            .finalLayout = depthImageLayout,
-        },
+         .format = depthFormat,
+         .samples = vk::SampleCountFlagBits::e1,
+         .loadOp = vk::AttachmentLoadOp::eClear,
+         .storeOp = vk::AttachmentStoreOp::eDontCare,
+         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+         .initialLayout = vk::ImageLayout::eUndefined,
+         .finalLayout = depthImageLayout,
+         },
     };
 
     const vk::AttachmentReference2 colorAttachmentReferences[] = {
         {
-            .attachment = 0,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        },
+         .attachment = 0,
+         .layout = vk::ImageLayout::eColorAttachmentOptimal,
+         },
     };
 
     const vk::AttachmentReference2 depthAttachmentReference = {
@@ -100,10 +100,10 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 
     vk::SubpassDescription2 subpassDescriptions[] = {
         {
-            .flags = {},
-            .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-            .pDepthStencilAttachment = &depthAttachmentReference,
-        },
+         .flags = {},
+         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+         .pDepthStencilAttachment = &depthAttachmentReference,
+         },
     };
     subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
 
@@ -111,61 +111,53 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     constexpr auto kInternalColorAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
     const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
         {
-            {
-                .srcSubpass = vk::SubpassExternal,
-                .dstSubpass = 0,
-                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-                .viewOffset = 0,
-            },
-            {
-                .srcStageMask = kExternalColorStageMask,
-                .srcAccessMask = kExternalColorAccessMask,
-                .dstStageMask = kInternalColorStageMask,
-                .dstAccessMask = kInternalColorAccessMask,
-            },
-        },
+         {
+         .srcSubpass = vk::SubpassExternal,
+         .dstSubpass = 0,
+         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+         .viewOffset = 0,
+         }, {
+ .srcStageMask = kExternalColorStageMask,
+ .srcAccessMask = kExternalColorAccessMask,
+ .dstStageMask = kInternalColorStageMask,
+ .dstAccessMask = kInternalColorAccessMask,
+ }, },
         {
-            {
-                .srcSubpass = 0,
-                .dstSubpass = vk::SubpassExternal,
-                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-                .viewOffset = 0,
-            },
-            {
-                .srcStageMask = kInternalColorStageMask,
-                .srcAccessMask = kInternalColorAccessMask,
-                .dstStageMask = kExternalColorStageMask,
-                .dstAccessMask = kExternalColorAccessMask,
-            },
-        },
+         {
+         .srcSubpass = 0,
+         .dstSubpass = vk::SubpassExternal,
+         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+         .viewOffset = 0,
+         }, {
+ .srcStageMask = kInternalColorStageMask,
+ .srcAccessMask = kInternalColorAccessMask,
+ .dstStageMask = kExternalColorStageMask,
+ .dstAccessMask = kExternalColorAccessMask,
+ }, },
         {
-            {
-                .srcSubpass = vk::SubpassExternal,
-                .dstSubpass = 0,
-                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-                .viewOffset = 0,
-            },
-            {
-                .srcStageMask = kDepthStageMask,
-                .srcAccessMask = kDepthAccessMask,
-                .dstStageMask = kDepthStageMask,
-                .dstAccessMask = kDepthAccessMask,
-            },
-        },
+         {
+         .srcSubpass = vk::SubpassExternal,
+         .dstSubpass = 0,
+         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+         .viewOffset = 0,
+         }, {
+ .srcStageMask = kDepthStageMask,
+ .srcAccessMask = kDepthAccessMask,
+ .dstStageMask = kDepthStageMask,
+ .dstAccessMask = kDepthAccessMask,
+ }, },
         {
-            {
-                .srcSubpass = 0,
-                .dstSubpass = vk::SubpassExternal,
-                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-                .viewOffset = 0,
-            },
-            {
-                .srcStageMask = kDepthStageMask,
-                .srcAccessMask = kDepthAccessMask,
-                .dstStageMask = kDepthStageMask,
-                .dstAccessMask = kDepthAccessMask,
-            },
-        },
+         {
+         .srcSubpass = 0,
+         .dstSubpass = vk::SubpassExternal,
+         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+         .viewOffset = 0,
+         }, {
+ .srcStageMask = kDepthStageMask,
+ .srcAccessMask = kDepthAccessMask,
+ .dstStageMask = kDepthStageMask,
+ .dstAccessMask = kDepthAccessMask,
+ }, },
     };
 
     auto subpassDependencies = engine::getHeads(subpassDependencyChain);
@@ -186,7 +178,10 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     };
 }
 
-Framebuffer Framebuffer::make(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass)
+Framebuffer Framebuffer::make(
+    const engine::Context & context,
+    const vk::Extent2D & framebufferSize,
+    const OffscreenRenderPass & offscreenRenderPass)
 {
     vk::ImageAspectFlags depthImageAspectMask = vk::ImageAspectFlagBits::eDepth;
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == vk::False) {
@@ -255,13 +250,22 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
     return {getBindingName(), getDescriptorData()};
 }
 
-TraceFrameResources::TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> samplerIn)
-    : image{makeImage(context, imageSize)}
-    , imageView{image.createImageView(vk::ImageViewType::e2D, kImageAspectMask)}
+TraceFrameResources::TraceFrameResources(
+    const engine::Context & context,
+    const vk::Extent2D & imageSize,
+    std::shared_ptr<const vk::UniqueSampler> samplerIn)
+    : image{makeImage(
+          context,
+          imageSize)}
+    , imageView{image.createImageView(
+          vk::ImageViewType::e2D,
+          kImageAspectMask)}
     , sampler{std::move(samplerIn)}
 {}
 
-engine::Image TraceFrameResources::makeImage(const engine::Context & context, const vk::Extent2D & imageSize)
+engine::Image TraceFrameResources::makeImage(
+    const engine::Context & context,
+    const vk::Extent2D & imageSize)
 {
     constexpr auto imageName = "tree render target"sv;
     const uint32_t queueFamilyIndex = context.getPhysicalDevice().computeQueueCreateInfo.familyIndex;
@@ -276,7 +280,9 @@ engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool ta
     return {"display"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
-DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabled, bool target) const
+DescriptorInfo TraceFrameResources::getDescriptorInfo(
+    bool descriptorBufferEnabled,
+    bool target) const
 {
     ASSERT(sampler);
     ASSERT(*sampler);
@@ -295,10 +301,13 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(bool descriptorBufferEnabl
     return {getBindingName(target), getDescriptorData()};
 }
 
-Engine::Engine(const engine::Context & contextIn, const Settings & settingsIn)
+Engine::Engine(
+    const engine::Context & contextIn,
+    const Settings & settingsIn)
     : context{contextIn}
     , settings{settingsIn}
-    , pipelines{context, settings.descriptorBufferEnabled}
+    , pipelines{context,
+          settings.descriptorBufferEnabled}
 {
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
@@ -530,7 +539,10 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
     };
 }
 
-Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const DescriptorInfos & descriptorInfos) const
+Descriptors Engine::makeDescriptors(
+    std::string_view name,
+    std::shared_ptr<const engine::ShaderStages> shaderStages,
+    const DescriptorInfos & descriptorInfos) const
 {
     const uint32_t set = utils::autoCast(shaderStages->findSetByBindingName(std::get<0>(descriptorInfos.at(0))));
     auto shaderBindingName = std::cbegin(shaderStages->setBindingMap.at(set).bindingNames);
@@ -545,7 +557,9 @@ Descriptors Engine::makeDescriptors(std::string_view name, std::shared_ptr<const
     return descriptors;
 }
 
-auto Engine::createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>
+auto Engine::createTransformBuffer(
+    uint32_t instanceCount,
+    const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>
 {
     if (instanceCount == 0) {
         return {};

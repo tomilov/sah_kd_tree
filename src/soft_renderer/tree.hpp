@@ -49,6 +49,11 @@ static_assert(sizeof(Node) == 64);
 
 #pragma pack(pop)
 
-void importTree(builder::Tree tree, utils::MemArray<scene_data::Triangle> & triangles, utils::MemArray<glm::uint> & polygons, utils::MemArray<Node> & nodes, utils::MemArray<glm::uint> & nodeParents);
+void importTree(
+    builder::Tree tree,
+    utils::MemArray<scene_data::Triangle> & triangles,
+    utils::MemArray<glm::uint> & polygons,
+    utils::MemArray<Node> & nodes,
+    utils::MemArray<glm::uint> & nodeParents);
 
 }  // namespace soft_renderer

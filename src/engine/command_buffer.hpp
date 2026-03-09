@@ -17,7 +17,10 @@ namespace engine
 
 struct ENGINE_EXPORT CommandBuffers final : utils::OneTime<CommandBuffers>
 {
-    CommandBuffers(std::string_view name, const Context & context, const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
+    CommandBuffers(
+        std::string_view name,
+        const Context & context,
+        const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo);
 
     [[nodiscard]] const std::vector<vk::CommandBuffer> & getCommandBuffers() const &;
     [[nodiscard]] const vk::CommandBuffer & getCommandBuffer() const &;

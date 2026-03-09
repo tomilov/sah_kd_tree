@@ -12,7 +12,13 @@
 namespace engine
 {
 
-ComputePipeline::ComputePipeline(std::string_view nameIn, const Context & contextIn, vk::PipelineCache pipelineCacheIn, bool descriptorBufferEnabledIn, const PipelineLayout & pipelineLayout, SpecializationInfos && specializationInfosIn)
+ComputePipeline::ComputePipeline(
+    std::string_view nameIn,
+    const Context & contextIn,
+    vk::PipelineCache pipelineCacheIn,
+    bool descriptorBufferEnabledIn,
+    const PipelineLayout & pipelineLayout,
+    SpecializationInfos && specializationInfosIn)
     : name{nameIn}
     , context{contextIn}
     , pipelineCache{pipelineCacheIn}

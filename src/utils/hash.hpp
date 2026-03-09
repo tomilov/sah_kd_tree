@@ -28,7 +28,9 @@ struct Hash<std::tuple<Args...>>
 
 private:
     template<size_t... Indices>
-    [[nodiscard]] size_t getTupleHash(const std::tuple<Args...> & value, std::index_sequence<Indices...>) const noexcept
+    [[nodiscard]] size_t getTupleHash(
+        const std::tuple<Args...> & value,
+        std::index_sequence<Indices...>) const noexcept
     {
         return getHash(std::get<Indices>(value)...);
     }

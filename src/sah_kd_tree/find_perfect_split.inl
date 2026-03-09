@@ -16,7 +16,13 @@
 #include <cstddef>
 
 template<typename Traits>
-void sah_kd_tree::Projection<Traits>::findPerfectSplit(const Params<Traits> & sah, U layerSize, const Vector<U> & layerNodeOffset, const Vector<U> & nodePolygonCount, const Projection & y, const Projection & z)
+void sah_kd_tree::Projection<Traits>::findPerfectSplit(
+    const Params<Traits> & sah,
+    U layerSize,
+    const Vector<U> & layerNodeOffset,
+    const Vector<U> & nodePolygonCount,
+    const Projection & y,
+    const Projection & z)
 {
     {
         event.polygonCountLeft.resize(event.count);

@@ -26,7 +26,11 @@
 #include <cassert>
 
 template<typename Traits>
-void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolygonCount, const Vector<U> & polygonNode, const Vector<U> & splittedPolygon)
+void sah_kd_tree::Projection<Traits>::mergeEvent(
+    U polygonCount,
+    U splittedPolygonCount,
+    const Vector<U> & polygonNode,
+    const Vector<U> & splittedPolygon)
 {
     auto polygonBboxBegin = thrust::make_zip_iterator(polygon.min.cbegin(), polygon.max.cbegin());
     const auto isPlanarPolygon = thrust::make_zip_function([] __host__ __device__(F min, F max) -> bool { return !(min < max); });
@@ -71,8 +75,16 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(U polygonCount, U splittedPolyg
 
     auto eventBothKeyBegin = cuda::std::next(event.node.begin(), eventStorageSize);
     auto eventBothValueBegin = cuda::std::next(eventValueBegin, eventStorageSize);
-    thrust::merge_by_key(exec, eventKeyLeftBegin, cuda::std::next(eventKeyLeftBegin, eventLeftCount), eventKeyRightBegin, cuda::std::next(eventKeyRightBegin, eventRightCount), eventValueLeftBegin, eventValueRightBegin, eventBothKeyBegin,
-                         eventBothValueBegin);
+    thrust::merge_by_key(
+        exec,
+        eventKeyLeftBegin,
+        cuda::std::next(eventKeyLeftBegin, eventLeftCount),
+        eventKeyRightBegin,
+        cuda::std::next(eventKeyRightBegin, eventRightCount),
+        eventValueLeftBegin,
+        eventValueRightBegin,
+        eventBothKeyBegin,
+        eventBothValueBegin);
 
     auto splittedEventOffset = eventStorageSize + eventLeftCount + eventRightCount;
 

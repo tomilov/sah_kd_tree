@@ -133,7 +133,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer"};
     QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer"};
 
-    PhysicalDevice(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions, vk::PhysicalDevice physicalDevice);
+    PhysicalDevice(
+        Library & library,
+        const Instance & instance,
+        std::span<const char * const> requiredDeviceExtensions,
+        vk::PhysicalDevice physicalDevice);
 
     [[nodiscard]] vk::PhysicalDevice getHandle() const &;
     [[nodiscard]] operator vk::PhysicalDevice() const &;  // NOLINT: google-explicit-constructor
@@ -144,8 +148,12 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     [[nodiscard]] const StringUnorderedSet & getExtensions() const &;
     [[nodiscard]] const StringUnorderedMultiMap<const char *> & getExtensionLayers() const &;
     [[nodiscard]] StringUnorderedSet getExtensionsCannotBeEnabled(std::span<const char * const> extensionsToCheck) const;
-    [[nodiscard]] uint32_t findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface = {}) const;
-    [[nodiscard]] bool checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface);
+    [[nodiscard]] uint32_t findQueueFamily(
+        vk::QueueFlags desiredQueueFlags,
+        vk::SurfaceKHR surface = {}) const;
+    [[nodiscard]] bool checkPhysicalDeviceRequirements(
+        vk::PhysicalDeviceType requiredPhysicalDeviceType,
+        vk::SurfaceKHR surface);
 
     [[nodiscard]] const std::vector<vk::DeviceQueueCreateInfo> & getDeviceQueueCreateInfos() const &;
 
@@ -153,8 +161,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
     [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
 
-    [[nodiscard]] uint32_t findMemoryTypeIndex(uint32_t memoryTypeBits, vk::DeviceSize allocationSize, vk::MemoryPropertyFlags requiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                               vk::MemoryHeapFlags requiredMemoryHeapFlags = vk::MemoryHeapFlagBits::eDeviceLocal) const;
+    [[nodiscard]] uint32_t findMemoryTypeIndex(
+        uint32_t memoryTypeBits,
+        vk::DeviceSize allocationSize,
+        vk::MemoryPropertyFlags requiredMemoryPropertyFlags = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        vk::MemoryHeapFlags requiredMemoryHeapFlags = vk::MemoryHeapFlagBits::eDeviceLocal) const;
 
 private:
     const Library & library;
@@ -182,7 +193,10 @@ private:
 
 struct ENGINE_EXPORT PhysicalDevices final : utils::NonCopyable
 {
-    explicit PhysicalDevices(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions);
+    explicit PhysicalDevices(
+        Library & library,
+        const Instance & instance,
+        std::span<const char * const> requiredDeviceExtensions);
 
     [[nodiscard]] PhysicalDevice & pickPhisicalDevice(vk::SurfaceKHR surface);
 

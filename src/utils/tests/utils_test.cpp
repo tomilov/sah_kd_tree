@@ -7,12 +7,20 @@
 
 using ScopeGuard = utils::ScopeGuard<void (*)()>;
 
-static_assert(!std::is_default_constructible_v<ScopeGuard>, "one-time");
-static_assert(std::is_nothrow_constructible_v<ScopeGuard, void (*)()>, "one-time");
+static_assert(
+    !std::is_default_constructible_v<ScopeGuard>,
+    "one-time");
+static_assert(
+    std::is_nothrow_constructible_v<
+        ScopeGuard,
+        void (*)()>,
+    "one-time");
 
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
 
-TEST(getIf, PointerLike)
+TEST(
+    getIf,
+    PointerLike)
 {
     static_assert(!utils::PointerLike<int>);
     static_assert(!utils::PointerLike<int &>);
@@ -32,7 +40,9 @@ TEST(getIf, PointerLike)
     static_assert(utils::PointerLike<int *&>);
 }
 
-TEST(getIf, Basic)
+TEST(
+    getIf,
+    Basic)
 {
     struct B
     {
@@ -102,7 +112,9 @@ TEST(getIf, Basic)
     }
 }
 
-TEST(getIf, Chain)
+TEST(
+    getIf,
+    Chain)
 {
     struct C
     {
@@ -146,7 +158,9 @@ TEST(getIf, Chain)
     EXPECT_EQ(GET_IF(a), static_cast<A *>(nullptr));
 }
 
-TEST(getIf, DoubleIndirection)
+TEST(
+    getIf,
+    DoubleIndirection)
 {
     struct B
     {
@@ -175,7 +189,9 @@ TEST(getIf, DoubleIndirection)
     }
 }
 
-TEST(getIf, Unary)
+TEST(
+    getIf,
+    Unary)
 {
     struct A
     {
@@ -237,7 +253,9 @@ TEST(getIf, Unary)
     }
 }
 
-TEST(getIf, RawPtr)
+TEST(
+    getIf,
+    RawPtr)
 {
     struct B
     {
@@ -253,7 +271,9 @@ TEST(getIf, RawPtr)
     EXPECT_EQ(GET_IF(a, b), &b);
 }
 
-TEST(getIf, FreeFunction)
+TEST(
+    getIf,
+    FreeFunction)
 {
     struct B
     {
@@ -277,7 +297,9 @@ TEST(getIf, FreeFunction)
     EXPECT_EQ(utils::getIf(a, std::ref(f)), &a.b);
 }
 
-TEST(getIf, MemberFunction)
+TEST(
+    getIf,
+    MemberFunction)
 {
     struct A
     {
@@ -304,7 +326,9 @@ TEST(getIf, MemberFunction)
     }
 }
 
-TEST(getIf, Capture)
+TEST(
+    getIf,
+    Capture)
 {
     struct A
     {
@@ -322,7 +346,9 @@ TEST(getIf, Capture)
     }
 }
 
-TEST(getIf, PerfectForwarding)
+TEST(
+    getIf,
+    PerfectForwarding)
 {
     struct C
     {

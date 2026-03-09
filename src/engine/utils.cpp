@@ -7,7 +7,9 @@
 namespace engine
 {
 
-vk::DeviceSize alignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
+vk::DeviceSize alignedSize(
+    vk::DeviceSize size,
+    vk::DeviceSize alignment)
 {
     INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
     --alignment;
@@ -52,7 +54,9 @@ uint32_t indexTypeRank(vk::IndexType indexType)
     INVARIANT(false, "{}", fmt::underlying(indexType));
 }
 
-bool indexTypeLess(vk::IndexType lhs, vk::IndexType rhs)
+bool indexTypeLess(
+    vk::IndexType lhs,
+    vk::IndexType rhs)
 {
     return indexTypeRank(lhs) < indexTypeRank(rhs);
 }

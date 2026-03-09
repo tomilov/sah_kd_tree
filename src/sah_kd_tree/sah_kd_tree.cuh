@@ -33,7 +33,9 @@
 namespace sah_kd_tree
 {
 
-template<typename U, typename T>
+template<
+    typename U,
+    typename T>
 U safeConvert(T size)
 {
     if (!std::in_range<U>(size)) {
@@ -156,7 +158,10 @@ struct Projection
 
     struct ToPair
     {
-        __host__ __device__ cuda::std::pair<U, U> operator()(U value) const
+        __host__ __device__ cuda::std::pair<
+            U,
+            U>
+        operator()(U value) const
         {
             return {value, value};
         }
@@ -164,7 +169,11 @@ struct Projection
 
     struct ToEventPos
     {
-        __host__ __device__ F operator()(I eventKind, cuda::std::tuple<F, F> bbox) const
+        __host__ __device__ F operator()(
+            I eventKind,
+            cuda::std::tuple<
+                F,
+                F> bbox) const
         {
             return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox);
         }
@@ -228,7 +237,9 @@ struct Projection
         : exec{execIn}
     {}
 
-    Projection(const Allocator<std::byte> & allocatorIn, Exec execIn)
+    Projection(
+        const Allocator<std::byte> & allocatorIn,
+        Exec execIn)
         : allocator{allocatorIn}
         , exec{execIn}
     {}
@@ -237,10 +248,22 @@ struct Projection
     void calculateRootNodeBbox();
     void generateInitialEvent();
 
-    void findPerfectSplit(const Params<Traits> & sah, U layerSize, const Vector<U> & layerNodeOffset, const Vector<U> & nodePolygonCount, const Projection & y, const Projection & z);
-    void decoupleEventBoth(const Vector<I> & nodeSplitDimension, const Vector<I> & polygonSide);
+    void findPerfectSplit(
+        const Params<Traits> & sah,
+        U layerSize,
+        const Vector<U> & layerNodeOffset,
+        const Vector<U> & nodePolygonCount,
+        const Projection & y,
+        const Projection & z);
+    void decoupleEventBoth(
+        const Vector<I> & nodeSplitDimension,
+        const Vector<I> & polygonSide);
 
-    void mergeEvent(U polygonCount, U splittedPolygonCount, const Vector<U> & polygonNode, const Vector<U> & splittedPolygon);
+    void mergeEvent(
+        U polygonCount,
+        U splittedPolygonCount,
+        const Vector<U> & polygonNode,
+        const Vector<U> & splittedPolygon);
 };
 
 template<typename Traits = DefaultTraits>
@@ -338,36 +361,67 @@ struct Builder
         : exec{execIn}
     {}
 
-    Builder(const Allocator<std::byte> & allocatorIn, Exec execIn)
+    Builder(
+        const Allocator<std::byte> & allocatorIn,
+        Exec execIn)
         : allocator{allocatorIn}
         , exec{execIn}
     {}
 
     void filterLayerNodeOffset();
-    void selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z);
+    void selectNodeBestSplit(
+        const Params<Traits> & sah,
+        const Projection<Traits> & x,
+        const Projection<Traits> & y,
+        const Projection<Traits> & z);
     template<I dimension>
     void determinePolygonSide(const Projection<Traits> & projection);
     void updateSplittedPolygonCount();
     void separateSplittedPolygon();
     void updatePolygonNode();
     template<I dimension>
-    void splitPolygon(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
+    void splitPolygon(
+        Projection<Traits> & x,
+        const Projection<Traits> & y,
+        const Projection<Traits> & z) const;
     void updateSplittedPolygonNode();
-    void setNodeCount(Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z) const;
+    void setNodeCount(
+        Projection<Traits> & x,
+        Projection<Traits> & y,
+        Projection<Traits> & z) const;
     template<I dimension>
-    void splitNode(U layerBasePrev, Projection<Traits> & projection) const;
+    void splitNode(
+        U layerBasePrev,
+        Projection<Traits> & projection) const;
     void resizeNode();
     void populateNodeParent();
     void populateLeafNodeTriangleRange();
 
-    bool checkBoxes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
-    bool checkNodes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
+    bool checkBoxes(
+        const Projection<Traits> & x,
+        const Projection<Traits> & y,
+        const Projection<Traits> & z) const;
+    bool checkNodes(
+        const Projection<Traits> & x,
+        const Projection<Traits> & y,
+        const Projection<Traits> & z) const;
 
-    template<I dimension, bool forth>
-    void calculateRope(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const;
+    template<
+        I dimension,
+        bool forth>
+    void calculateRope(
+        Projection<Traits> & x,
+        const Projection<Traits> & y,
+        const Projection<Traits> & z) const;
 
     template<typename P = Progress>
-    bool build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree);
+    bool build(
+        const P & progress,
+        const Params<Traits> & sah,
+        Projection<Traits> & x,
+        Projection<Traits> & y,
+        Projection<Traits> & z,
+        Tree<Traits> & tree);
 };
 
 template<typename Traits = DefaultTraits>
@@ -387,7 +441,11 @@ struct Triangle
     {
         __host__ __device__ TransposedTriangleType operator()(const TriangleType & t) const
         {
-            return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
+            return {
+                {t.a.x, t.b.x, t.c.x},
+                {t.a.y, t.b.y, t.c.y},
+                {t.a.z, t.b.z, t.c.z}
+            };
         }
     };
 
@@ -415,7 +473,9 @@ struct Triangle
         : exec{execIn}
     {}
 
-    Triangle(const Allocator<std::byte> & allocatorIn, Exec execIn)
+    Triangle(
+        const Allocator<std::byte> & allocatorIn,
+        Exec execIn)
         : allocator{allocatorIn}
         , exec{execIn}
     {}
@@ -427,7 +487,9 @@ struct Triangle
     // https://forums.developer.nvidia.com/t/cuda-separable-compilation-shared-libraries-invalid-function-error/188476
     // Thus dlink the library only once or use static linking.
     template<typename TriangleIterator>
-    void setTriangle(TriangleIterator triangleBegin, TriangleIterator triangleEnd)
+    void setTriangle(
+        TriangleIterator triangleBegin,
+        TriangleIterator triangleEnd)
     {
         using TriangleType = std::remove_const_t<cuda::std::iter_value_t<TriangleIterator>>;
         thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
@@ -447,9 +509,25 @@ struct Triangle
 };
 
 template<typename Traits = DefaultTraits>
-void linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder);
+void linkTriangles(
+    const Triangle<Traits> & triangle,
+    Projection<Traits> & x,
+    Projection<Traits> & y,
+    Projection<Traits> & z,
+    Builder<Traits> & builder);
 
 }  // namespace sah_kd_tree
 
-extern template bool sah_kd_tree::Builder<>::build<>(const Progress & progress, const Params<> & sah, Projection<> & x, Projection<> & y, Projection<> & z, Tree<> & tree) SAH_KD_TREE_EXPORT;
-extern template void sah_kd_tree::linkTriangles(const Triangle<> & triangle, Projection<> & x, Projection<> & y, Projection<> & z, Builder<> & builder) SAH_KD_TREE_EXPORT;
+extern template bool sah_kd_tree::Builder<>::build<>(
+    const Progress & progress,
+    const Params<> & sah,
+    Projection<> & x,
+    Projection<> & y,
+    Projection<> & z,
+    Tree<> & tree) SAH_KD_TREE_EXPORT;
+extern template void sah_kd_tree::linkTriangles(
+    const Triangle<> & triangle,
+    Projection<> & x,
+    Projection<> & y,
+    Projection<> & z,
+    Builder<> & builder) SAH_KD_TREE_EXPORT;

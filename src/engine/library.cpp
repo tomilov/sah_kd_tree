@@ -17,7 +17,9 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 namespace engine
 {
 
-Library::Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacksIn)
+Library::Library(
+    std::optional<std::string> libraryName,
+    vk::Optional<const vk::AllocationCallbacks> allocationCallbacksIn)
     : allocationCallbacks{allocationCallbacksIn}
 {
     using namespace std::string_view_literals;

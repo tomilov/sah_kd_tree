@@ -53,20 +53,28 @@ using namespace Qt::StringLiterals;
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerMainCategory)
-Q_LOGGING_CATEGORY(viewerMainCategory, "viewer.main")
+Q_LOGGING_CATEGORY(
+    viewerMainCategory,
+    "viewer.main")
 
 using AppPtr = std::unique_ptr<QGuiApplication>;
 
 constexpr bool kUseEngine = true;
 
-AppPtr createApplication(int & argc, char * argv[])
+AppPtr createApplication(
+    int & argc,
+    char * argv[])
 {
     for (int i = 1; i < argc; ++i) {
         if (qstrcmp(argv[i], "--no-widgets") == 0) {
-            return AppPtr{new viewer::GuiApplication{argc, argv}};
+            return AppPtr{
+                new viewer::GuiApplication{argc, argv}
+            };
         }
     }
-    return AppPtr{new viewer::Application{argc, argv}};
+    return AppPtr{
+        new viewer::Application{argc, argv}
+    };
 }
 
 spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
@@ -162,7 +170,9 @@ protected:
 
 }  // namespace
 
-int main(int argc, char * argv[])
+int main(
+    int argc,
+    char * argv[])
 {
     if ((true)) {
         QDirIterator resources{u":/"_s, QDir::Filter::AllEntries, QDirIterator::IteratorFlag::Subdirectories};

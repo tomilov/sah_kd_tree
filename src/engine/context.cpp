@@ -21,8 +21,13 @@ namespace engine
 Context::Context() = default;
 Context::~Context() = default;
 
-void Context::createInstance(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, std::string_view applicationName, uint32_t applicationVersion,
-                             std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute)
+void Context::createInstance(
+    std::optional<std::string> libraryName,
+    vk::Optional<const vk::AllocationCallbacks> allocationCallbacks,
+    std::string_view applicationName,
+    uint32_t applicationVersion,
+    std::initializer_list<uint32_t> mutedMessageIdNumbers,
+    bool mute)
 {
     library = std::make_unique<Library>(libraryName, allocationCallbacks);
     instance = std::make_unique<Instance>(*library, requiredInstanceExtensions, applicationName, applicationVersion, mutedMessageIdNumbers, mute);

@@ -91,7 +91,10 @@ struct Framebuffer final
 
     vk::UniqueFramebuffer framebuffer;
 
-    [[nodiscard]] static Framebuffer make(const engine::Context & context, const vk::Extent2D & size, const OffscreenRenderPass & offscreenRenderPass);
+    [[nodiscard]] static Framebuffer make(
+        const engine::Context & context,
+        const vk::Extent2D & size,
+        const OffscreenRenderPass & offscreenRenderPass);
 
     [[nodiscard]] operator vk::Framebuffer() const &  // NOLINT: google-explicit-constructor
     {
@@ -110,8 +113,15 @@ struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
     Framebuffer framebuffer;
     std::shared_ptr<const vk::UniqueSampler> sampler;
 
-    DrawOffscreenResources(const engine::Context & context, const vk::Extent2D & framebufferSize, const OffscreenRenderPass & offscreenRenderPass, std::shared_ptr<const vk::UniqueSampler> samplerIn)
-        : framebuffer{Framebuffer::make(context, framebufferSize, offscreenRenderPass)}
+    DrawOffscreenResources(
+        const engine::Context & context,
+        const vk::Extent2D & framebufferSize,
+        const OffscreenRenderPass & offscreenRenderPass,
+        std::shared_ptr<const vk::UniqueSampler> samplerIn)
+        : framebuffer{Framebuffer::make(
+              context,
+              framebufferSize,
+              offscreenRenderPass)}
         , sampler{std::move(samplerIn)}
     {}
 
@@ -136,12 +146,19 @@ struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
     vk::UniqueImageView imageView;
     std::shared_ptr<const vk::UniqueSampler> sampler;
 
-    TraceFrameResources(const engine::Context & context, const vk::Extent2D & imageSize, std::shared_ptr<const vk::UniqueSampler> sampler);
+    TraceFrameResources(
+        const engine::Context & context,
+        const vk::Extent2D & imageSize,
+        std::shared_ptr<const vk::UniqueSampler> sampler);
 
-    [[nodiscard]] static engine::Image makeImage(const engine::Context & context, const vk::Extent2D & imageSize);
+    [[nodiscard]] static engine::Image makeImage(
+        const engine::Context & context,
+        const vk::Extent2D & imageSize);
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName(bool target);
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled, bool target) const;
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(
+        bool descriptorBufferEnabled,
+        bool target) const;
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -160,7 +177,9 @@ public:
         bool drawIndirectCountEnabled = true;
     };
 
-    Engine(const engine::Context & context, const Settings & settings);
+    Engine(
+        const engine::Context & context,
+        const Settings & settings);
 
     [[nodiscard]] const Settings & getSettings() const &
     {
@@ -187,10 +206,19 @@ public:
 
     [[nodiscard]] SceneResources makeResources(const scene_data::SceneData & sceneData) const;
 
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const DescriptorInfos & descriptorInfos) const;
+    [[nodiscard]] Descriptors makeDescriptors(
+        std::string_view name,
+        std::shared_ptr<const engine::ShaderStages> shaderStages,
+        const DescriptorInfos & descriptorInfos) const;
 
-    template<typename Resource, typename... Args>
-    [[nodiscard]] Descriptors makeDescriptors(std::string_view name, std::shared_ptr<const engine::ShaderStages> shaderStages, const Resource & resource, Args &&... args) const
+    template<
+        typename Resource,
+        typename... Args>
+    [[nodiscard]] Descriptors makeDescriptors(
+        std::string_view name,
+        std::shared_ptr<const engine::ShaderStages> shaderStages,
+        const Resource & resource,
+        Args &&... args) const
     {
         return makeDescriptors(name, std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorBufferEnabled, std::forward<Args>(args)...)});
     }
@@ -203,7 +231,9 @@ private:
     Pipelines pipelines;
     compute::CudaDevicePtr cudaDevice;
 
-    [[nodiscard]] auto createTransformBuffer(uint32_t instanceCount, const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
+    [[nodiscard]] auto createTransformBuffer(
+        uint32_t instanceCount,
+        const std::vector<std::vector<glm::mat4>> & transforms) const -> std::optional<engine::Buffer<glm::mat4>>;
 };
 
 }  // namespace viewer

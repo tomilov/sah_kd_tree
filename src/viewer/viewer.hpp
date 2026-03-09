@@ -157,7 +157,9 @@ public:
         UseOffscreenTexture = 0x0001,  // TODO: QQuickRhiItem instead?
         DiscardInvisibleFragments = 0x0002,
     };
-    Q_DECLARE_FLAGS(RenderModeFlags, RenderModeFlag)
+    Q_DECLARE_FLAGS(
+        RenderModeFlags,
+        RenderModeFlag)
     Q_FLAG(RenderModeFlags)
 
     enum class TexturingMode
@@ -204,7 +206,9 @@ public:
     using QObject::QObject;
 
     Q_INVOKABLE void shift(const QVector3D & direction);
-    Q_INVOKABLE void rotate(float pan, float tilt);
+    Q_INVOKABLE void rotate(
+        float pan,
+        float tilt);
     Q_INVOKABLE void roll(float angle);
     Q_INVOKABLE void widen(float angle);
 
@@ -303,7 +307,9 @@ private:
     QMetaObject::Connection sceneSettingsTreeStatusChangedConnection;
     QMetaObject::Connection sceneSettingsBuildSettingsChangedConnection;
 
-    void onKeyEvent(QKeyEvent * event, bool isPressed);
+    void onKeyEvent(
+        QKeyEvent * event,
+        bool isPressed);
 
     void wheelEvent(QWheelEvent * event) override;
     void mouseUngrabEvent() override;
@@ -315,7 +321,9 @@ private:
     void keyPressEvent(QKeyEvent * event) override;
     void keyReleaseEvent(QKeyEvent * event) override;
 
-    [[nodiscard]] QSGNode * updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData) override;
+    [[nodiscard]] QSGNode * updatePaintNode(
+        QSGNode * old,
+        UpdatePaintNodeData * updatePaintNodeData) override;
     void releaseResources() override;
 };
 

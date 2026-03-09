@@ -12,7 +12,11 @@
 namespace engine
 {
 
-Fences::Fences(std::string_view nameIn, const Context & contextIn, size_t count, vk::FenceCreateFlags fenceCreateFlagsIn)
+Fences::Fences(
+    std::string_view nameIn,
+    const Context & contextIn,
+    size_t count,
+    vk::FenceCreateFlags fenceCreateFlagsIn)
     : name{nameIn}
     , context{contextIn}
     , fenceCreateFlags{fenceCreateFlagsIn}
@@ -35,12 +39,16 @@ Fences::Fences(std::string_view nameIn, const Context & contextIn, size_t count,
     }
 }
 
-vk::Result Fences::wait(bool waitAll, std::chrono::nanoseconds duration)
+vk::Result Fences::wait(
+    bool waitAll,
+    std::chrono::nanoseconds duration)
 {
     return context.getDevice().getHandle().waitForFences(fences, waitAll ? vk::True : vk::False, utils::autoCast(duration.count()), context.getDispatcher());
 }
 
-vk::Result Fences::wait(size_t fenceIndex, std::chrono::nanoseconds duration)
+vk::Result Fences::wait(
+    size_t fenceIndex,
+    std::chrono::nanoseconds duration)
 {
     return context.getDevice().getHandle().waitForFences(fences.at(fenceIndex), vk::True, utils::autoCast(duration.count()), context.getDispatcher());
 }

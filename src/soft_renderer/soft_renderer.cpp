@@ -35,7 +35,10 @@ const glm::float32 kUlp = std::nextafter(0.0f, 1.0f);
 constexpr glm::float32 kEps = std::numeric_limits<glm::float32>::epsilon();
 
 // https://iquilezles.org/articles/intersectors/
-bool intersectSphere [[maybe_unused]] (const Ray & ray, const glm::vec3 & center, glm::float32 radius)
+bool intersectSphere [[maybe_unused]] (
+    const Ray & ray,
+    const glm::vec3 & center,
+    glm::float32 radius)
 {
     glm::vec3 oc = center - ray.pos;
     glm::float32 l = glm::dot(ray.dir, oc);
@@ -47,7 +50,12 @@ bool intersectSphere [[maybe_unused]] (const Ray & ray, const glm::vec3 & center
 }
 
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
-bool rayTriangleIntersectMoeller [[maybe_unused]] (const Ray & ray, const scene_data::Triangle & triangle, glm::vec3 & uvw, glm::vec3 & normal, glm::float32 & t)
+bool rayTriangleIntersectMoeller [[maybe_unused]] (
+    const Ray & ray,
+    const scene_data::Triangle & triangle,
+    glm::vec3 & uvw,
+    glm::vec3 & normal,
+    glm::float32 & t)
 {
     const glm::vec3 ca = triangle.a - triangle.c;
     const glm::vec3 bc = triangle.c - triangle.b;
@@ -65,7 +73,10 @@ bool rayTriangleIntersectMoeller [[maybe_unused]] (const Ray & ray, const scene_
     return glm::all(glm::lessThanEqual(glm::vec3{-kEps}, uvw));
 }
 
-glm::vec3 stableTriangleNormal(const glm::vec3 & a, const glm::vec3 & b, const glm::vec3 & c)
+glm::vec3 stableTriangleNormal(
+    const glm::vec3 & a,
+    const glm::vec3 & b,
+    const glm::vec3 & c)
 {
     const glm::vec3 ab{a.z * b.y, a.x * b.z, a.y * b.x};
     const glm::vec3 bc{b.z * c.y, b.x * c.z, b.y * c.x};
@@ -74,7 +85,12 @@ glm::vec3 stableTriangleNormal(const glm::vec3 & a, const glm::vec3 & b, const g
     return glm::mix(BC, AB, glm::lessThan(glm::abs(ab), glm::abs(bc)));
 }
 
-bool rayTriangleIntersectPluecker [[maybe_unused]] (const Ray & ray, const scene_data::Triangle triangle, glm::vec3 & uvw, glm::vec3 & normal, glm::float32 & t)
+bool rayTriangleIntersectPluecker [[maybe_unused]] (
+    const Ray & ray,
+    const scene_data::Triangle triangle,
+    glm::vec3 & uvw,
+    glm::vec3 & normal,
+    glm::float32 & t)
 {
     const glm::vec3 a = triangle.a - ray.pos;
     const glm::vec3 b = triangle.b - ray.pos;
@@ -120,14 +136,18 @@ struct SoftRenderer::Impl
     utils::MemArray<Node> nodes;
     utils::MemArray<glm::uint> nodeParents;
 
-    Impl(std::string_view nameIn, const glm::vec4 & clearColorIn)
+    Impl(
+        std::string_view nameIn,
+        const glm::vec4 & clearColorIn)
         : name{nameIn}
         , clearColor{clearColorIn}
     {
         omp_set_num_threads(utils::autoCast(std::thread::hardware_concurrency()));
     }
 
-    [[nodiscard]] glm::uint findNode(glm::uint nodeIndex, const glm::vec3 & pos) const
+    [[nodiscard]] glm::uint findNode(
+        glm::uint nodeIndex,
+        const glm::vec3 & pos) const
     {
         while (nodeIndex != 0u) {
             const Node & node = nodes.at(nodeIndex);
@@ -139,7 +159,9 @@ struct SoftRenderer::Impl
         return nodeIndex;
     }
 
-    [[nodiscard]] bool bruteForceRay(const Ray & ray, Hit & hit) const
+    [[nodiscard]] bool bruteForceRay(
+        const Ray & ray,
+        Hit & hit) const
     {
         bool isHit = false;
         for (const scene_data::Triangle & triangle : triangles) {
@@ -159,7 +181,11 @@ struct SoftRenderer::Impl
         return isHit;
     }
 
-    void traceRay(glm::uint nodeIndex, const Ray & ray, Hit & hit, glm::float32 tMin) const
+    void traceRay(
+        glm::uint nodeIndex,
+        const Ray & ray,
+        Hit & hit,
+        glm::float32 tMin) const
     {
         const glm::vec3 invDir = 1.0f / ray.dir;
         const glm::bvec3 corner = glm::lessThan(invDir, glm::vec3{0.0f});
@@ -200,8 +226,12 @@ struct SoftRenderer::Impl
     }
 };
 
-SoftRenderer::SoftRenderer(std::string_view name, const glm::vec4 & clearColor)
-    : impl_{std::make_unique<Impl>(name, clearColor)}
+SoftRenderer::SoftRenderer(
+    std::string_view name,
+    const glm::vec4 & clearColor)
+    : impl_{std::make_unique<Impl>(
+          name,
+          clearColor)}
 {}
 
 SoftRenderer::~SoftRenderer() = default;
@@ -227,7 +257,9 @@ bool SoftRenderer::hasTree() const
     return true;
 }
 
-void SoftRenderer::render(const FrameSettings & frameSettings, gli::texture2d & target) const
+void SoftRenderer::render(
+    const FrameSettings & frameSettings,
+    gli::texture2d & target) const
 {
     INVARIANT(!target.empty(), "");
     INVARIANT(target.format() == kTargetFormat, "{}", fmt::underlying(target.format()));

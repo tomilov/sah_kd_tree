@@ -11,10 +11,20 @@
 namespace utils
 {
 
-void vAssertFailed [[noreturn]] (bool assert, const char * expression, std::source_location sourceLocation, fmt::string_view format, fmt::format_args args) UTILS_EXPORT;
+void vAssertFailed [[noreturn]] (
+    bool assert,
+    const char * expression,
+    std::source_location sourceLocation,
+    fmt::string_view format,
+    fmt::format_args args) UTILS_EXPORT;
 
 template<typename... Args>
-void assertFailed [[noreturn]] (bool assert, const char * expression, std::source_location sourceLocation, fmt::format_string<Args...> format, Args &&... args)
+void assertFailed [[noreturn]] (
+    bool assert,
+    const char * expression,
+    std::source_location sourceLocation,
+    fmt::format_string<Args...> format,
+    Args &&... args)
 {
     vAssertFailed(assert, expression, sourceLocation, format, fmt::make_format_args(args...));
 }

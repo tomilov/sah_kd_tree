@@ -13,8 +13,12 @@
 namespace utils
 {
 
-template<typename L, typename R>
-constexpr bool isLess(const L & lhs, const R & rhs) noexcept
+template<
+    typename L,
+    typename R>
+constexpr bool isLess(
+    const L & lhs,
+    const R & rhs) noexcept
 {
     static_assert(std::is_arithmetic_v<L>);
     static_assert(!std::is_same_v<L, bool>);
@@ -32,7 +36,9 @@ constexpr bool isLess(const L & lhs, const R & rhs) noexcept
     }
 }
 
-template<typename To, typename From>
+template<
+    typename To,
+    typename From>
 constexpr bool inRange(const From & value) noexcept
 {
     if constexpr (std::is_same_v<To, bool> && (std::is_arithmetic_v<From> || std::is_pointer_v<From>)) {
@@ -42,8 +48,12 @@ constexpr bool inRange(const From & value) noexcept
     }
 }
 
-template<typename To, typename From>
-constexpr To convertIfInRange(From && value, const std::source_location & sourceLocation = std::source_location::current())
+template<
+    typename To,
+    typename From>
+constexpr To convertIfInRange(
+    From && value,
+    const std::source_location & sourceLocation = std::source_location::current())
 {
     INVARIANT_SRCLOC(inRange<To>(value), sourceLocation, "Unable to convert");
     return static_cast<To>(std::forward<From>(value));
@@ -53,7 +63,9 @@ template<typename Source>
 class autoCast
 {
 public:
-    constexpr explicit autoCast(Source && sourceIn, const std::source_location & sourceLocationIn = std::source_location::current()) noexcept
+    constexpr explicit autoCast(
+        Source && sourceIn,
+        const std::source_location & sourceLocationIn = std::source_location::current()) noexcept
         : source{sourceIn}
         , sourceLocation{sourceLocationIn}
     {}
@@ -120,8 +132,12 @@ private:
 template<typename Source>
 autoCast(Source && source) -> autoCast<Source>;
 
-template<typename Destination, typename Source>
-constexpr Destination safeCast(Source && source, const std::source_location & sourceLocation = std::source_location::current())
+template<
+    typename Destination,
+    typename Source>
+constexpr Destination safeCast(
+    Source && source,
+    const std::source_location & sourceLocation = std::source_location::current())
 {
     return autoCast<Source>{std::forward<Source>(source), sourceLocation}.operator Destination();
 }

@@ -29,7 +29,9 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerFileIoCategory)
-Q_LOGGING_CATEGORY(viewerFileIoCategory, "viewer.file_io")
+Q_LOGGING_CATEGORY(
+    viewerFileIoCategory,
+    "viewer.file_io")
 }  // namespace
 
 FileIo::FileIo(const std::filesystem::path & shaderLocationIn)
@@ -77,7 +79,9 @@ std::vector<uint8_t> FileIo::loadPipelineCache(std::string_view pipelineCacheNam
     return {};
 }
 
-bool FileIo::savePipelineCache(const std::vector<uint8_t> & data, std::string_view pipelineCacheName) const
+bool FileIo::savePipelineCache(
+    const std::vector<uint8_t> & data,
+    std::string_view pipelineCacheName) const
 {
     auto cacheFileName = QString::fromStdString(std::string{pipelineCacheName});
     cacheFileName.append(u".bin"_s);

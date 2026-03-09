@@ -15,7 +15,13 @@
 
 template<typename Traits>
 template<typename P>
-bool sah_kd_tree::Builder<Traits>::build(const P & progress, const Params<Traits> & sah, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Tree<Traits> & tree)
+bool sah_kd_tree::Builder<Traits>::build(
+    const P & progress,
+    const Params<Traits> & sah,
+    Projection<Traits> & x,
+    Projection<Traits> & y,
+    Projection<Traits> & z,
+    Tree<Traits> & tree)
 {
     sah_kd_tree::ScopeTimer buildTimer;
 

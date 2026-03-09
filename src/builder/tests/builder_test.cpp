@@ -30,7 +30,9 @@ using namespace Qt::StringLiterals;
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(builderTest)
-Q_LOGGING_CATEGORY(builderTest, "builder.test")
+Q_LOGGING_CATEGORY(
+    builderTest,
+    "builder.test")
 
 constexpr float kEmptinessFactor = 0.8f;
 constexpr float kTraversalCost = 2.0f;
@@ -41,7 +43,12 @@ constexpr int kMaxTreeDepth = 1000;
 class Builder : public testing::Test
 {
 protected:
-    [[nodiscard]] bool buildSceneFromFile(QString sceneFileName, float emptinessFactor = kEmptinessFactor, float traversalCost = kTraversalCost, float intersectionCost = kIntersectionCost, int maxTreeDepth = kMaxTreeDepth) const
+    [[nodiscard]] bool buildSceneFromFile(
+        QString sceneFileName,
+        float emptinessFactor = kEmptinessFactor,
+        float traversalCost = kTraversalCost,
+        float intersectionCost = kIntersectionCost,
+        int maxTreeDepth = kMaxTreeDepth) const
     {
         auto sceneData = std::make_shared<scene_data::SceneData>();
         QFileInfo sceneFileInfo{sceneFileName};
@@ -85,7 +92,9 @@ private:
     const compute::CudaDevice cudaDevice{std::nullopt};
 };
 
-TEST_F(Builder, DISABLED_AllScenes)
+TEST_F(
+    Builder,
+    DISABLED_AllScenes)
 {
     auto scenes = QDir::current().entryList(QStringList() << "*.obj", QDir::Files, QDir::Size | QDir::Reversed);
     for (const auto & sceneFileName : std::as_const(scenes)) {
@@ -97,7 +106,9 @@ struct SceneFile
 {
     QString sceneFileName;
 
-    friend void PrintTo [[maybe_unused]] (const SceneFile & sceneFile, std::ostream * os)
+    friend void PrintTo [[maybe_unused]] (
+        const SceneFile & sceneFile,
+        std::ostream * os)
     {
         *os << sceneFile.sceneFileName.toStdString();
     }
@@ -134,7 +145,9 @@ INSTANTIATE_TEST_SUITE_P(  // clazy:exclude=non-pod-global-static
     );
 // clang-format on
 
-TEST_P(BuilderSceneFile, Build)
+TEST_P(
+    BuilderSceneFile,
+    Build)
 {
     EXPECT_TRUE(buildSceneFromFile(GetParam()));
 }
@@ -148,7 +161,9 @@ struct SceneFileWithParams
     float intersectionCost = kIntersectionCost;
     int maxTreeDepth = kMaxTreeDepth;
 
-    friend void PrintTo [[maybe_unused]] (const SceneFileWithParams & sceneFileWithParams, std::ostream * os)
+    friend void PrintTo [[maybe_unused]] (
+        const SceneFileWithParams & sceneFileWithParams,
+        std::ostream * os)
     {
         *os << sceneFileWithParams.sceneFileName.toStdString() << " " << sceneFileWithParams.emptinessFactor << " " << sceneFileWithParams.traversalCost << " " << sceneFileWithParams.intersectionCost << " " << sceneFileWithParams.maxTreeDepth;
     }
@@ -179,7 +194,9 @@ INSTANTIATE_TEST_SUITE_P(  // clazy:exclude=non-pod-global-static
 );
 // clang-format on
 
-TEST_P(BuilderSceneFileWithParams, Build)
+TEST_P(
+    BuilderSceneFileWithParams,
+    Build)
 {
     EXPECT_TRUE(buildSceneFromFile(GetParam()));
 }

@@ -16,7 +16,10 @@ namespace engine
 
 struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
 {
-    PipelineLayout(std::string_view name, const Context & context, const ShaderStages & shaderStages);
+    PipelineLayout(
+        std::string_view name,
+        const Context & context,
+        const ShaderStages & shaderStages);
 
     [[nodiscard]] const ShaderStages & getShaderStages() const &
     {

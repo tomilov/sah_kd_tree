@@ -10,7 +10,11 @@ namespace engine
 {
 
 template<typename Object>
-void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color)
+void insertDebugUtilsLabel(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    Object object,
+    std::string_view labelName,
+    const LabelColor & color)
 {
     ASSERT_MSG(object, "Expected valid object");
 
@@ -25,13 +29,25 @@ void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher
     object.insertDebugUtilsLabelEXT(debugUtilsLabel, dispatcher);
 }
 
-template void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, std::string_view labelName, const LabelColor & color);
-template void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, std::string_view labelName, const LabelColor & color);
+template void insertDebugUtilsLabel<vk::Queue>(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    vk::Queue object,
+    std::string_view labelName,
+    const LabelColor & color);
+template void insertDebugUtilsLabel<vk::CommandBuffer>(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    vk::CommandBuffer object,
+    std::string_view labelName,
+    const LabelColor & color);
 
 template<typename Object>
 ScopedDebugUtilsLabel<Object>::ScopedDebugUtilsLabel(ScopedDebugUtilsLabel && rhs) noexcept
-    : dispatcher{std::exchange(rhs.dispatcher, nullptr)}
-    , object{std::exchange(rhs.object, nullptr)}
+    : dispatcher{std::exchange(
+          rhs.dispatcher,
+          nullptr)}
+    , object{std::exchange(
+          rhs.object,
+          nullptr)}
 {}
 
 template<typename Object>
@@ -58,7 +74,11 @@ ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 }
 
 template<typename Object>
-auto ScopedDebugUtilsLabel<Object>::create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color) -> ScopedDebugUtilsLabel
+auto ScopedDebugUtilsLabel<Object>::create(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    Object object,
+    std::string_view labelName,
+    const LabelColor & color) -> ScopedDebugUtilsLabel
 {
     ASSERT_MSG(object, "Expected valid object");
 

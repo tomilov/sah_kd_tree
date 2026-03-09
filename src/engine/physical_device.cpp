@@ -30,7 +30,11 @@
 namespace engine
 {
 
-PhysicalDevice::PhysicalDevice(Library & libraryIn, const Instance & instanceIn, std::span<const char * const> requiredDeviceExtensionsIn, vk::PhysicalDevice physicalDeviceIn)
+PhysicalDevice::PhysicalDevice(
+    Library & libraryIn,
+    const Instance & instanceIn,
+    std::span<const char * const> requiredDeviceExtensionsIn,
+    vk::PhysicalDevice physicalDeviceIn)
     : library{libraryIn}
     , instance{instanceIn}
     , requiredDeviceExtensions{requiredDeviceExtensionsIn}
@@ -139,7 +143,9 @@ auto PhysicalDevice::getExtensionsCannotBeEnabled(std::span<const char * const> 
     return missingExtensions;
 }
 
-uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::SurfaceKHR surface) const
+uint32_t PhysicalDevice::findQueueFamily(
+    vk::QueueFlags desiredQueueFlags,
+    vk::SurfaceKHR surface) const
 {
     uint32_t bestMatchQueueFamily = vk::QueueFamilyIgnored;
     vk::QueueFlags bestMatchQueueFalgs;
@@ -176,7 +182,9 @@ uint32_t PhysicalDevice::findQueueFamily(vk::QueueFlags desiredQueueFlags, vk::S
     return bestMatchQueueFamily;
 }
 
-bool PhysicalDevice::checkPhysicalDeviceRequirements(vk::PhysicalDeviceType requiredPhysicalDeviceType, vk::SurfaceKHR surface)
+bool PhysicalDevice::checkPhysicalDeviceRequirements(
+    vk::PhysicalDeviceType requiredPhysicalDeviceType,
+    vk::SurfaceKHR surface)
 {
     const auto & properties = properties2Chain.get<vk::PhysicalDeviceProperties2>().properties;
     auto physicalDeviceType = properties.deviceType;
@@ -459,7 +467,11 @@ size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) cons
     INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
 }
 
-uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::DeviceSize allocationSize, vk::MemoryPropertyFlags requiredMemoryPropertyFlags, vk::MemoryHeapFlags requiredMemoryHeapFlags) const
+uint32_t PhysicalDevice::findMemoryTypeIndex(
+    uint32_t memoryTypeBits,
+    vk::DeviceSize allocationSize,
+    vk::MemoryPropertyFlags requiredMemoryPropertyFlags,
+    vk::MemoryHeapFlags requiredMemoryHeapFlags) const
 {
     const auto & physicalDeviceMemoryProperties = memoryProperties2Chain.get<vk::PhysicalDeviceMemoryProperties2>().memoryProperties;
     for (uint32_t memoryTypeIndex = 0; memoryTypeIndex < physicalDeviceMemoryProperties.memoryTypeCount; ++memoryTypeIndex) {
@@ -486,7 +498,10 @@ uint32_t PhysicalDevice::findMemoryTypeIndex(uint32_t memoryTypeBits, vk::Device
     return vk::MaxMemoryTypes;
 }
 
-PhysicalDevices::PhysicalDevices(Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions)
+PhysicalDevices::PhysicalDevices(
+    Library & library,
+    const Instance & instance,
+    std::span<const char * const> requiredDeviceExtensions)
 {
     [[maybe_unused]] size_t i = 0;
     for (vk::PhysicalDevice physicalDevice : instance.getPhysicalDevices()) {
@@ -502,7 +517,11 @@ PhysicalDevices::PhysicalDevices(Library & library, const Instance & instance, s
 auto PhysicalDevices::pickPhisicalDevice(vk::SurfaceKHR surface) -> PhysicalDevice &
 {
     static constexpr auto kPhysicalDeviceTypesPrioritized = {
-        vk::PhysicalDeviceType::eDiscreteGpu, vk::PhysicalDeviceType::eIntegratedGpu, vk::PhysicalDeviceType::eVirtualGpu, vk::PhysicalDeviceType::eCpu, vk::PhysicalDeviceType::eOther,
+        vk::PhysicalDeviceType::eDiscreteGpu,
+        vk::PhysicalDeviceType::eIntegratedGpu,
+        vk::PhysicalDeviceType::eVirtualGpu,
+        vk::PhysicalDeviceType::eCpu,
+        vk::PhysicalDeviceType::eOther,
     };
     PhysicalDevice * bestPhysicalDevice = nullptr;
     for (vk::PhysicalDeviceType physicalDeviceType : kPhysicalDeviceTypesPrioritized) {

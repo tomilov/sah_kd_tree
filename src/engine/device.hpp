@@ -24,13 +24,20 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
 {
     PrependTypeToStructureChainT<vk::DeviceCreateInfo, DeviceFeatures> createInfoChain;
 
-    Device(std::string_view name, Library & library, const Instance & instance, std::span<const char * const> requiredDeviceExtensions, PhysicalDevice & physicalDevice);
+    Device(
+        std::string_view name,
+        Library & library,
+        const Instance & instance,
+        std::span<const char * const> requiredDeviceExtensions,
+        PhysicalDevice & physicalDevice);
 
     [[nodiscard]] const std::vector<const char *> & getEnabledExtensions() const &;
     [[nodiscard]] bool isExtensionEnabled(const char * extension) const;
 
     template<typename Object>
-    void setDebugUtilsObjectName(const Object & object, const char * objectName) const
+    void setDebugUtilsObjectName(
+        const Object & object,
+        const char * objectName) const
     {
         vk::DebugUtilsObjectNameInfoEXT debugUtilsObjectNameInfo;
         fillDebugUtilsObjectInfo(debugUtilsObjectNameInfo, object);
@@ -39,19 +46,28 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
     }
 
     template<typename Object>
-    void setDebugUtilsObjectName(const Object & object, const std::string & objectName) const
+    void setDebugUtilsObjectName(
+        const Object & object,
+        const std::string & objectName) const
     {
         return setDebugUtilsObjectName(object, objectName.c_str());
     }
 
     template<typename Object>
-    void setDebugUtilsObjectName(const Object & object, std::string_view objectName) const
+    void setDebugUtilsObjectName(
+        const Object & object,
+        std::string_view objectName) const
     {
         return setDebugUtilsObjectName(object, std::string{objectName});
     }
 
-    template<typename Object, typename T>
-    void setDelbugUtilsObjectTag(const Object & object, uint64_t tagName, vk::ArrayProxyNoTemporaries<const T> tag) const
+    template<
+        typename Object,
+        typename T>
+    void setDelbugUtilsObjectTag(
+        const Object & object,
+        uint64_t tagName,
+        vk::ArrayProxyNoTemporaries<const T> tag) const
     {
         vk::DebugUtilsObjectTagInfoEXT debugUtilsObjectTagInfo;
         fillDebugUtilsObjectInfo(debugUtilsObjectTagInfo, object);
@@ -77,14 +93,24 @@ private:
 
     vk::UniqueDevice deviceHolder;
 
-    template<typename DebugUtilsObjectInfo, typename Object>
-    static void fillDebugUtilsObjectInfo(DebugUtilsObjectInfo & debugUtilsObjectInfo, const vk::UniqueHandle<Object, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE> & object)
+    template<
+        typename DebugUtilsObjectInfo,
+        typename Object>
+    static void fillDebugUtilsObjectInfo(
+        DebugUtilsObjectInfo & debugUtilsObjectInfo,
+        const vk::UniqueHandle<
+            Object,
+            VULKAN_HPP_DEFAULT_DISPATCHER_TYPE> & object)
     {
         fillDebugUtilsObjectInfo(debugUtilsObjectInfo, *object);
     }
 
-    template<typename DebugUtilsObjectInfo, typename Object>
-    static void fillDebugUtilsObjectInfo(DebugUtilsObjectInfo & debugUtilsObjectInfo, Object object)
+    template<
+        typename DebugUtilsObjectInfo,
+        typename Object>
+    static void fillDebugUtilsObjectInfo(
+        DebugUtilsObjectInfo & debugUtilsObjectInfo,
+        Object object)
     {
         debugUtilsObjectInfo.objectType = object.objectType;
         debugUtilsObjectInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));

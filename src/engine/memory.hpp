@@ -45,10 +45,19 @@ struct ENGINE_EXPORT AllocationCallbacks final : utils::NonCopyable
         return allocationCallbacksOut;
     }();
 
-    [[nodiscard]] static void * allocation(size_t size, size_t alignment, vk::SystemAllocationScope allocationScope);
+    [[nodiscard]] static void * allocation(
+        size_t size,
+        size_t alignment,
+        vk::SystemAllocationScope allocationScope);
     static void free(void * pMemory);
-    static void internalAllocation(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
-    static void internalFreeNotification(size_t size, vk::InternalAllocationType allocationType, vk::SystemAllocationScope allocationScope);
+    static void internalAllocation(
+        size_t size,
+        vk::InternalAllocationType allocationType,
+        vk::SystemAllocationScope allocationScope);
+    static void internalFreeNotification(
+        size_t size,
+        vk::InternalAllocationType allocationType,
+        vk::SystemAllocationScope allocationScope);
 };
 
 template<typename T, vk::SystemAllocationScope systemAllocationScope>
@@ -72,7 +81,10 @@ public:
     {}
 
     template<typename R>
-    explicit Allocator(const Allocator<R, systemAllocationScope> & rhs) noexcept
+    explicit Allocator(
+        const Allocator<
+            R,
+            systemAllocationScope> & rhs) noexcept
         : allocationCallbacks{rhs.allocationCallbacks}
     {}
 
@@ -94,7 +106,9 @@ public:
         return static_cast<T *>(p);
     }
 
-    void deallocate(T * p, [[maybe_unused]] size_t n) const noexcept
+    void deallocate(
+        T * p,
+        [[maybe_unused]] size_t n) const noexcept
     {
         if (!p) {
             return;
@@ -106,13 +120,17 @@ public:
     }
 
     template<typename R>
-    bool operator==(const Allocator<R, systemAllocationScope> & rhs) noexcept
+    bool operator==(const Allocator<
+        R,
+        systemAllocationScope> & rhs) noexcept
     {
         return allocationCallbacks == rhs.allocationCallbacks;
     }
 
     template<typename R>
-    bool operator!=(const Allocator<R, systemAllocationScope> & rhs) noexcept
+    bool operator!=(const Allocator<
+        R,
+        systemAllocationScope> & rhs) noexcept
     {
         return !operator==(rhs);
     }

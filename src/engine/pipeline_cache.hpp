@@ -21,7 +21,10 @@ struct ENGINE_EXPORT PipelineCache final : utils::OneTime<PipelineCache>
 {
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
-    PipelineCache(std::string_view name, const Context & context, const FileIo & fileIo);
+    PipelineCache(
+        std::string_view name,
+        const Context & context,
+        const FileIo & fileIo);
     PipelineCache(PipelineCache &&) noexcept = default;
     ~PipelineCache();
 

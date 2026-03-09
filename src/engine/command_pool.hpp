@@ -17,7 +17,10 @@ namespace engine
 
 struct ENGINE_EXPORT CommandPool final
 {
-    CommandPool(std::string_view name, const Context & context, uint32_t queueFamilyIndex);
+    CommandPool(
+        std::string_view name,
+        const Context & context,
+        uint32_t queueFamilyIndex);
     CommandPool(CommandPool &&) noexcept = default;
 
     [[nodiscard]] vk::CommandPool getHandle() const &;

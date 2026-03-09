@@ -18,7 +18,9 @@ class GuiApplication : public QGuiApplication
     Q_PROPERTY(QStringList colorNames MEMBER colorNames CONSTANT)
 
 public:
-    GuiApplication(int & argc, char ** argv);
+    GuiApplication(
+        int & argc,
+        char ** argv);
 
     [[nodiscard]] static Q_INVOKABLE QString keySequenceToString(QVariant keySequence);
     [[nodiscard]] static Q_INVOKABLE QString getWindowIconFilepath();
@@ -43,7 +45,9 @@ class Application : public QApplication
     Q_PROPERTY(QStringList colorNames MEMBER colorNames CONSTANT)
 
 public:
-    Application(int & argc, char ** argv);
+    Application(
+        int & argc,
+        char ** argv);
 
     [[nodiscard]] static Q_INVOKABLE QString keySequenceToString(QVariant keySequence);
     [[nodiscard]] static Q_INVOKABLE QString getWindowIconFilepath();

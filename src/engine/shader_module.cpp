@@ -90,7 +90,9 @@ template<>
 struct fmt::formatter<SpvReflectResult> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(SpvReflectResult reflectResult, FormatContext & ctx) const
+    auto format(
+        SpvReflectResult reflectResult,
+        FormatContext & ctx) const
     {
         return fmt::formatter<fmt::string_view>::format(engine::spvReflectResultToString(reflectResult), ctx);
     }
@@ -338,7 +340,10 @@ namespace
 
 }  // namespace
 
-ShaderModule::ShaderModule(const Context & contextIn, const FileIo & fileIoIn, std::string_view shaderNameIn)
+ShaderModule::ShaderModule(
+    const Context & contextIn,
+    const FileIo & fileIoIn,
+    std::string_view shaderNameIn)
     : context{contextIn}
     , fileIo{fileIoIn}
     , shaderName{shaderNameIn}
@@ -365,12 +370,16 @@ ShaderModule::operator vk::ShaderModule() const &
     return getHandle();
 }
 
-ShaderModuleReflection::ShaderModuleReflection(const Context & contextIn, const ShaderModule & shaderModule, std::string_view entryPointNameIn)
+ShaderModuleReflection::ShaderModuleReflection(
+    const Context & contextIn,
+    const ShaderModule & shaderModule,
+    std::string_view entryPointNameIn)
     : context{contextIn}
     , shaderModuleName{shaderModule.getShaderName()}
     , shaderStage{shaderModule.getStage()}
     , entryPointName{entryPointNameIn}
-    , reflectionModule{shaderModule.getSpirv(), SPV_REFLECT_MODULE_FLAG_NO_COPY}
+    , reflectionModule{shaderModule.getSpirv(),
+          SPV_REFLECT_MODULE_FLAG_NO_COPY}
 {
     auto reflectionResult = reflectionModule->GetResult();
     INVARIANT(reflectionResult == SPV_REFLECT_RESULT_SUCCESS, "spvReflectCreateShaderModule returned {} for shader module '{}'", reflectionResult, shaderModuleName);
@@ -563,12 +572,16 @@ void ShaderModuleReflection::reflect()
     }
 }
 
-ShaderStages::ShaderStages(const Context & contextIn, uint32_t vertexBufferBindingIn)
+ShaderStages::ShaderStages(
+    const Context & contextIn,
+    uint32_t vertexBufferBindingIn)
     : context{contextIn}
     , vertexBufferBinding{vertexBufferBindingIn}
 {}
 
-bool ShaderStages::checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagBits shaderStage) const
+bool ShaderStages::checkSubgroupSize(
+    uint32_t subgroupSize,
+    vk::ShaderStageFlagBits shaderStage) const
 {
     const auto & subgroupSizeControlProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceVulkan13Properties>();
     if (subgroupSize < subgroupSizeControlProperties.minSubgroupSize) {
@@ -583,7 +596,10 @@ bool ShaderStages::checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagB
     return true;
 }
 
-void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::optional<uint32_t> subgroupSize)
+void ShaderStages::add(
+    const ShaderModule & shaderModule,
+    const ShaderModuleReflection & shaderModuleReflection,
+    std::optional<uint32_t> subgroupSize)
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.push_back(entryPointName);
@@ -660,7 +676,9 @@ void ShaderStages::add(const ShaderModule & shaderModule, const ShaderModuleRefl
     }
 }
 
-void ShaderStages::createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
+void ShaderStages::createDescriptorSetLayouts(
+    std::string_view name,
+    vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
 {
     size_t setCount = std::size(setBindingMap);
     descriptorSetLayoutCreateInfoChains.reserve(setCount);

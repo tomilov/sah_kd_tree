@@ -37,11 +37,20 @@ struct Tree::Impl
     vk::UniqueBuffer buffer;  // buffer should be destructed first
     vk::DeviceAddress deviceAddress = 0;
 
-    Impl(std::string_view name, const engine::Context & context, builder::Tree builderTree);
+    Impl(
+        std::string_view name,
+        const engine::Context & context,
+        builder::Tree builderTree);
 };
 
-Tree::Tree(std::string_view name, const engine::Context & context, builder::Tree && builderTree)
-    : impl_{std::make_unique<Impl>(name, context, std::move(builderTree))}
+Tree::Tree(
+    std::string_view name,
+    const engine::Context & context,
+    builder::Tree && builderTree)
+    : impl_{std::make_unique<Impl>(
+          name,
+          context,
+          std::move(builderTree))}
 {}
 
 Tree::Tree(Tree &&) noexcept = default;
@@ -124,7 +133,10 @@ vk::DeviceAddress Tree::getNodeParentAddress() const &
     return deviceAddress;
 }
 
-Tree::Impl::Impl(std::string_view nameIn, const engine::Context & contextIn, builder::Tree builderTree)
+Tree::Impl::Impl(
+    std::string_view nameIn,
+    const engine::Context & contextIn,
+    builder::Tree builderTree)
     : name{nameIn}
     , context{contextIn}
     , triangleCount{utils::autoCast(builderTree.triangleCount)}
@@ -152,8 +164,11 @@ Tree::Impl::Impl(std::string_view nameIn, const engine::Context & contextIn, bui
     };
     vk::ExternalMemoryProperties externalMemoryProperties = context.getPhysicalDevice().getHandle().getExternalBufferProperties(physicalDeviceExternalBufferInfo, context.getDispatcher()).externalMemoryProperties;
     vk::ExternalMemoryFeatureFlags externalMemoryFeatures = externalMemoryProperties.externalMemoryFeatures;
-    SPDLOG_INFO("External memory properties: externalMemoryFeatures {}, compatibleHandleTypes {}, exportFromImportedHandleTypes {}", externalMemoryFeatures, externalMemoryProperties.compatibleHandleTypes,
-                externalMemoryProperties.exportFromImportedHandleTypes);
+    SPDLOG_INFO(
+        "External memory properties: externalMemoryFeatures {}, compatibleHandleTypes {}, exportFromImportedHandleTypes {}",
+        externalMemoryFeatures,
+        externalMemoryProperties.compatibleHandleTypes,
+        externalMemoryProperties.exportFromImportedHandleTypes);
     INVARIANT(externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable, "");
 
     vk::StructureChain<vk::BufferCreateInfo, vk::ExternalMemoryBufferCreateInfoKHR> bufferCreateInfoChain;

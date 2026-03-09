@@ -17,13 +17,17 @@ namespace
 
 struct PushConstantRangeLess
 {
-    bool operator()(const vk::PushConstantRange & lhs, const vk::PushConstantRange & rhs) const noexcept
+    bool operator()(
+        const vk::PushConstantRange & lhs,
+        const vk::PushConstantRange & rhs) const noexcept
     {
         return lhs.offset + lhs.size <= rhs.offset;
     }
 };
 
-void widenPushConstantRange(vk::PushConstantRange & lhs, const vk::PushConstantRange & rhs)
+void widenPushConstantRange(
+    vk::PushConstantRange & lhs,
+    const vk::PushConstantRange & rhs)
 {
     lhs.size = std::max(lhs.offset + lhs.size, rhs.offset + rhs.size);
     lhs.offset = std::min(lhs.offset, rhs.offset);

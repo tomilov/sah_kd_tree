@@ -15,7 +15,9 @@ Fd::Fd(int file)
 }
 
 Fd::Fd(Fd && file) noexcept
-    : fd{std::exchange(file.fd, -1)}
+    : fd{std::exchange(
+          file.fd,
+          -1)}
 {
     INVARIANT(fd >= 0, "{}", fd);
 }

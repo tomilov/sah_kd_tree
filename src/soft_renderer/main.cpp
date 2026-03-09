@@ -46,7 +46,9 @@ using namespace std::string_view_literals;
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(softRendererMain)
-Q_LOGGING_CATEGORY(softRendererMain, "soft_renderer.main")
+Q_LOGGING_CATEGORY(
+    softRendererMain,
+    "soft_renderer.main")
 
 constexpr float kEmptinessFactor = 0.8f;
 constexpr float kTraversalCost = 2.0f;
@@ -62,7 +64,10 @@ enum class ThrustDeviceSystem
     ThrustDeviceSystemCUDA,
 };
 
-scene_data::SceneDataPtr getScene(QString sceneFileName, glm::vec3 & sceneCenter, glm::float32 & mainDiagonal)
+scene_data::SceneDataPtr getScene(
+    QString sceneFileName,
+    glm::vec3 & sceneCenter,
+    glm::float32 & mainDiagonal)
 {
     scene_data::SceneData sceneData;
     QFileInfo sceneFileInfo{sceneFileName};
@@ -97,7 +102,12 @@ glm::float32 getSpeedModifier()
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
-std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepath, std::FILE * stream)
+std::unique_ptr<
+    std::FILE,
+    decltype(&std::fclose)>
+openFile(
+    const char * filepath,
+    std::FILE * stream)
 {
 #pragma GCC diagnostic pop
     if (filepath == "-"sv) {
@@ -112,7 +122,10 @@ std::unique_ptr<std::FILE, decltype(&std::fclose)> openFile(const char * filepat
 
 struct FPSCounter
 {
-    bool operator()(std::string & windowTitle, glm::float32 & dt, Uint64 updateIntervalMs = 500)
+    bool operator()(
+        std::string & windowTitle,
+        glm::float32 & dt,
+        Uint64 updateIntervalMs = 500)
     {
         const Uint64 timeNow = SDL_GetPerformanceCounter();
         const Uint64 timeDelta = timeNow - std::exchange(timePrev, timeNow);
@@ -150,7 +163,9 @@ private:
         }                                                                        \
     while (false)
 
-int main(int argc, char * argv[])
+int main(
+    int argc,
+    char * argv[])
 {
     glm::float32 mainDiagonal{-1.0f};
     glm::vec3 sceneCenter{0.0f};
@@ -235,7 +250,10 @@ int main(int argc, char * argv[])
 
     const auto createTarget = [&width, &height]() -> gli::texture2d
     {
-        return {soft_renderer::SoftRenderer::kTargetFormat, gli::extent2d{width, height}};
+        return {
+            soft_renderer::SoftRenderer::kTargetFormat,
+            gli::extent2d{width, height}
+        };
     };
     auto rgbaTarget = createTarget();
 

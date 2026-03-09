@@ -37,14 +37,18 @@ public:
 
     using PixelType = glm::u8vec4;
 
-    SoftRenderer(std::string_view name, const glm::vec4 & clearColor);
+    SoftRenderer(
+        std::string_view name,
+        const glm::vec4 & clearColor);
     SoftRenderer(SoftRenderer &&) noexcept;
     ~SoftRenderer();
 
     void setTree(builder::Tree && builderTree);
     [[nodiscard]] bool hasTree() const;
 
-    void render(const FrameSettings & frameSettings, gli::texture2d & target) const;
+    void render(
+        const FrameSettings & frameSettings,
+        gli::texture2d & target) const;
 
 private:
     struct Impl;

@@ -66,7 +66,9 @@ namespace scene_loader
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(sceneLoaderLog)
-Q_LOGGING_CATEGORY(sceneLoaderLog, "scene_loader")
+Q_LOGGING_CATEGORY(
+    sceneLoaderLog,
+    "scene_loader")
 
 constexpr qint32 kCurrentCacheFormatVersion = 1;
 
@@ -76,7 +78,9 @@ class File : utils::OneTime<File>
 {
 public:
     File(File && file) noexcept
-        : f{std::exchange(file.f, nullptr)}
+        : f{std::exchange(
+              file.f,
+              nullptr)}
     {}
 
     ~File()
@@ -95,7 +99,9 @@ private:
     FILE * f = nullptr;
 
     explicit File(int fd)
-        : f{::fdopen(fd, "rb")}
+        : f{::fdopen(
+              fd,
+              "rb")}
     {}
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -120,12 +126,16 @@ template<typename Type>
 }
 
 template<typename T>
-[[nodiscard]] QString formattedDataSize(const T & value, int precision = 3)
+[[nodiscard]] QString formattedDataSize(
+    const T & value,
+    int precision = 3)
 {
     return QLocale::c().formattedDataSize(utils::autoCast(value), precision);
 }
 
-[[nodiscard]] bool checkDataStreamStatus(QDataStream & dataStream, QString description)
+[[nodiscard]] bool checkDataStreamStatus(
+    QDataStream & dataStream,
+    QString description)
 {
     auto status = dataStream.status();
     if (status != QDataStream::Ok) {
@@ -137,12 +147,16 @@ template<typename T>
 
 [[nodiscard]] constexpr glm::vec3 assimpToGlmVector [[maybe_unused]] (const aiVector3D & v)
 {
-    return glm::vec3{glm::tvec3<ai_real>{v.x, v.y, v.z}};
+    return glm::vec3{
+        glm::tvec3<ai_real>{v.x, v.y, v.z}
+    };
 }
 
 [[nodiscard]] constexpr glm::quat assimpToGlmQuaternion [[maybe_unused]] (const aiQuaternion & q)
 {
-    return glm::quat{glm::tquat<ai_real>{q.w, q.x, q.y, q.z}};
+    return glm::quat{
+        glm::tquat<ai_real>{q.w, q.x, q.y, q.z}
+    };
 }
 
 [[nodiscard]] constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)
@@ -168,7 +182,9 @@ template<typename T>
     };
 }
 
-[[nodiscard]] QFileInfo getCacheFileInfo(QFileInfo sceneFileInfo, QDir cacheDir)
+[[nodiscard]] QFileInfo getCacheFileInfo(
+    QFileInfo sceneFileInfo,
+    QDir cacheDir)
 {
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
@@ -184,7 +200,9 @@ template<typename T>
     return cacheFileInfo;
 }
 
-[[nodiscard]] bool loadFromCache(scene_data::SceneData & sceneData, QFileInfo cacheFileInfo)
+[[nodiscard]] bool loadFromCache(
+    scene_data::SceneData & sceneData,
+    QFileInfo cacheFileInfo)
 {
     QFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::ReadOnly)) {
@@ -301,7 +319,9 @@ template<typename T>
     return true;
 }
 
-[[nodiscard]] bool storeToCache(scene_data::SceneData & sceneData, QFileInfo cacheFileInfo)
+[[nodiscard]] bool storeToCache(
+    scene_data::SceneData & sceneData,
+    QFileInfo cacheFileInfo)
 {
     QSaveFile cacheFile{cacheFileInfo.filePath()};
     if (!cacheFile.open(QFile::OpenModeFlag::WriteOnly)) {
@@ -425,7 +445,9 @@ QStringList getSupportedExtensions()
     return globs;
 }
 
-bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
+bool load(
+    scene_data::SceneData & sceneData,
+    QFileInfo sceneFileInfo)
 {
     INVARIANT(sceneFileInfo.isFile(), "Scene filepath: '{}'. Current dir: '{}'", sceneFileInfo.filePath().toStdString(), QDir::currentPath().toStdString());
 
@@ -693,7 +715,10 @@ bool load(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo)
     return true;
 }
 
-bool cachingLoad(scene_data::SceneData & sceneData, QFileInfo sceneFileInfo, QDir cacheDir)
+bool cachingLoad(
+    scene_data::SceneData & sceneData,
+    QFileInfo sceneFileInfo,
+    QDir cacheDir)
 {
     if ((true)) {
         QStringList nameFilters;

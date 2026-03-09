@@ -60,8 +60,13 @@ struct TreeBuildContext : Tree
 
     static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type, thrust::cuda::tag>;
 
-    TreeBuildContext(const Settings & settingsIn, const compute::CudaDevice & cudaDeviceIn, const scene_data::SceneDataPtr & sceneDataIn)
-        : Tree{settingsIn, cudaDeviceIn, sceneDataIn}
+    TreeBuildContext(
+        const Settings & settingsIn,
+        const compute::CudaDevice & cudaDeviceIn,
+        const scene_data::SceneDataPtr & sceneDataIn)
+        : Tree{settingsIn,
+              cudaDeviceIn,
+              sceneDataIn}
     {
         ASSERT(sceneData);
     }
@@ -229,7 +234,11 @@ struct TreeBuildContext : Tree
 };
 
 template<ThrustDeviceSystem Traits>
-TreePtr build(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress)
+TreePtr build(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress)
 {
     TreeBuildContext<Traits> treeBuildContext{settings, cudaDevice, sceneData};
     if (!treeBuildContext.build(progress)) {

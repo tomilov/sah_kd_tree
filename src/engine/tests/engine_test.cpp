@@ -2,7 +2,9 @@
 
 #include <gtest/gtest.h>
 
-TEST(Engine, SimpleGeometry)
+TEST(
+    Engine,
+    SimpleGeometry)
 {
     [[maybe_unused]] engine::Context context;
 }

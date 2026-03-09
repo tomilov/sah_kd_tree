@@ -34,7 +34,14 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
     vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
     vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
 
-    GraphicsPipeline(std::string_view name, const Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, const PipelineLayout & pipelineLayout, vk::RenderPass renderPass, SpecializationInfos && specializationInfos);
+    GraphicsPipeline(
+        std::string_view name,
+        const Context & context,
+        vk::PipelineCache pipelineCache,
+        bool descriptorBufferEnabled,
+        const PipelineLayout & pipelineLayout,
+        vk::RenderPass renderPass,
+        SpecializationInfos && specializationInfos);
 
     void create();
 

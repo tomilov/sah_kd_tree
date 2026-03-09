@@ -28,7 +28,9 @@ namespace
     return colorVectors;
 }
 
-[[nodiscard]] int getIndexOfClosestNamedColor(QColor color, const QList<QVector4D> & colorVectors)
+[[nodiscard]] int getIndexOfClosestNamedColor(
+    QColor color,
+    const QList<QVector4D> & colorVectors)
 {
     float r, g, b, a;
     color.getRgbF(&r, &g, &b, &a);
@@ -49,8 +51,11 @@ namespace
 
 }  // namespace
 
-GuiApplication::GuiApplication(int & argc, char ** argv)
-    : QGuiApplication{argc, argv}
+GuiApplication::GuiApplication(
+    int & argc,
+    char ** argv)
+    : QGuiApplication{argc,
+          argv}
     , colorNames{QColor::colorNames()}
     , colorVectors{getColorVectors(colorNames)}
 {}
@@ -109,8 +114,11 @@ void GuiApplication::setClipboardImage(QVariant image)
     clipboard()->setImage(image.value<QImage>());
 }
 
-Application::Application(int & argc, char ** argv)
-    : QApplication{argc, argv}
+Application::Application(
+    int & argc,
+    char ** argv)
+    : QApplication{argc,
+          argv}
     , colorNames{QColor::colorNames()}
     , colorVectors{getColorVectors(colorNames)}
 {}

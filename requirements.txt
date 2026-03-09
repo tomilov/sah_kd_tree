@@ -5,3 +5,4 @@ mypy
 pytest
 termcolor
 vulkan-object
+clang-format

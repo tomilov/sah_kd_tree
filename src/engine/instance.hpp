@@ -45,11 +45,21 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {};
 
-    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled = true) const;
-    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled = true) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard muteDebugUtilsMessages(
+        std::span<const uint32_t> messageIdNumbers,
+        bool enabled = true) const;
+    [[nodiscard]] DebugUtilsMessageMuteGuard unmuteDebugUtilsMessages(
+        std::span<const uint32_t> messageIdNumbers,
+        bool enabled = true) const;
     [[nodiscard]] bool shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const;
 
-    Instance(Library & library, std::span<const char * const> requiredInstanceExtensions, std::string_view applicationName, uint32_t applicationVersion, std::initializer_list<uint32_t> mutedMessageIdNumbers, bool mute);
+    Instance(
+        Library & library,
+        std::span<const char * const> requiredInstanceExtensions,
+        std::string_view applicationName,
+        uint32_t applicationVersion,
+        std::initializer_list<uint32_t> mutedMessageIdNumbers,
+        bool mute);
 
     [[nodiscard]] const StringUnorderedSet & getLayers() const &;
     [[nodiscard]] const StringUnorderedSet & getEnabledLayers() const &;
@@ -62,30 +72,45 @@ struct ENGINE_EXPORT Instance final : utils::NonCopyable
     [[nodiscard]] operator vk::Instance() const &;  // NOLINT: google-explicit-constructor
 
     template<typename Object>
-    void insert(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    void insert(
+        Object object,
+        const char * labelName,
+        const LabelColor & color = kDefaultLabelColor) const
     {
         return insertDebugUtilsLabel<Object>(library.getDispatcher(), object, labelName, color);
     }
 
     template<typename Object>
-    void insert(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    void insert(
+        Object object,
+        const std::string & labelName,
+        const LabelColor & color = kDefaultLabelColor) const
     {
         return insert<Object>(library.getDispatcher(), object, labelName.c_str(), color);
     }
 
     template<typename Object>
-    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const char * labelName, const LabelColor & color = kDefaultLabelColor) const
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(
+        Object object,
+        const char * labelName,
+        const LabelColor & color = kDefaultLabelColor) const
     {
         return ScopedDebugUtilsLabel<Object>::create(library.getDispatcher(), object, labelName, color);
     }
 
     template<typename Object>
-    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(Object object, const std::string & labelName, const LabelColor & color = kDefaultLabelColor) const
+    [[nodiscard]] ScopedDebugUtilsLabel<Object> create(
+        Object object,
+        const std::string & labelName,
+        const LabelColor & color = kDefaultLabelColor) const
     {
         return create<Object>(object, labelName.c_str(), color);
     }
 
-    void submitDebugUtilsMessage(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+    void submitDebugUtilsMessage(
+        vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+        const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
     {
         instanceHolder->submitDebugUtilsMessageEXT(messageSeverity, messageTypes, callbackData, library.getDispatcher());
     }
@@ -127,8 +152,14 @@ private:
 
     vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
 
-    [[nodiscard]] static vk::Bool32 userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData);
-    [[nodiscard]] vk::Bool32 userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
+    [[nodiscard]] static vk::Bool32 userDebugUtilsCallback(
+        vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+        const vk::DebugUtilsMessengerCallbackDataEXT & callbackData);
+    [[nodiscard]] vk::Bool32 userDebugUtilsCallbackWrapper(
+        vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+        const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const;
 };
 
 }  // namespace engine

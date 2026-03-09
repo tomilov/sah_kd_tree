@@ -59,7 +59,11 @@ struct Instance::DebugUtilsMessageMuteGuard::Impl
     const Action action;
     const std::vector<uint32_t> messageIdNumbers;
 
-    Impl(std::mutex & mutex, std::unordered_multiset<uint32_t> & mutedMessageIdNumbers, Action action, std::span<const uint32_t> messageIdNumbers);
+    Impl(
+        std::mutex & mutex,
+        std::unordered_multiset<uint32_t> & mutedMessageIdNumbers,
+        Action action,
+        std::span<const uint32_t> messageIdNumbers);
     ~Impl();
 
     void mute();
@@ -87,11 +91,16 @@ Instance::DebugUtilsMessageMuteGuard::Impl::~Impl()
     }
 }
 
-Instance::DebugUtilsMessageMuteGuard::Impl::Impl(std::mutex & mutexIn, std::unordered_multiset<uint32_t> & mutedMessageIdNumbersIn, Action actionIn, std::span<const uint32_t> messageIdNumbersIn)
+Instance::DebugUtilsMessageMuteGuard::Impl::Impl(
+    std::mutex & mutexIn,
+    std::unordered_multiset<uint32_t> & mutedMessageIdNumbersIn,
+    Action actionIn,
+    std::span<const uint32_t> messageIdNumbersIn)
     : mutex{mutexIn}
     , mutedMessageIdNumbers{mutedMessageIdNumbersIn}
     , action{actionIn}
-    , messageIdNumbers{std::cbegin(messageIdNumbersIn), std::cend(messageIdNumbersIn)}
+    , messageIdNumbers{std::cbegin(messageIdNumbersIn),
+          std::cend(messageIdNumbersIn)}
 {
     switch (action) {
     case Action::kMute: {
@@ -127,12 +136,16 @@ void Instance::DebugUtilsMessageMuteGuard::Impl::unmute()
     }
 }
 
-auto Instance::muteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Instance::muteDebugUtilsMessages(
+    std::span<const uint32_t> messageIdNumbers,
+    bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kMute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
 
-auto Instance::unmuteDebugUtilsMessages(std::span<const uint32_t> messageIdNumbers, bool enabled) const -> DebugUtilsMessageMuteGuard
+auto Instance::unmuteDebugUtilsMessages(
+    std::span<const uint32_t> messageIdNumbers,
+    bool enabled) const -> DebugUtilsMessageMuteGuard
 {
     return {mutex, mutedMessageIdNumbers, DebugUtilsMessageMuteGuard::Impl::Action::kUnmute, enabled ? messageIdNumbers : decltype(messageIdNumbers){}};
 }
@@ -143,12 +156,20 @@ bool Instance::shouldMuteDebugUtilsMessage(uint32_t messageIdNumber) const
     return mutedMessageIdNumbers.contains(messageIdNumber);
 }
 
-Instance::Instance(Library & libraryIn, std::span<const char * const> requiredInstanceExtensionsIn, std::string_view applicationNameIn, uint32_t applicationVersionIn, std::initializer_list<uint32_t> mutedMessageIdNumbersIn, bool mute)
+Instance::Instance(
+    Library & libraryIn,
+    std::span<const char * const> requiredInstanceExtensionsIn,
+    std::string_view applicationNameIn,
+    uint32_t applicationVersionIn,
+    std::initializer_list<uint32_t> mutedMessageIdNumbersIn,
+    bool mute)
     : library{libraryIn}
     , requiredInstanceExtensions{requiredInstanceExtensionsIn}
     , applicationName{applicationNameIn}
     , applicationVersion{applicationVersionIn}
-    , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(mutedMessageIdNumbersIn, mute)}
+    , debugUtilsMessageMuteGuard{muteDebugUtilsMessages(
+          mutedMessageIdNumbersIn,
+          mute)}
 {
 #ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     if (library.getDispatcher().vkEnumerateInstanceVersion) {
@@ -157,8 +178,13 @@ Instance::Instance(Library & libraryIn, std::span<const char * const> requiredIn
 #else
     apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
 #endif
-    INVARIANT((vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 4), "Expected Vulkan version 1.4, got version {}.{}.{}.{}", vk::apiVersionMajor(apiVersion), vk::apiVersionMinor(apiVersion), vk::apiVersionPatch(apiVersion),
-              vk::apiVersionVariant(apiVersion));
+    INVARIANT(
+        (vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 4),
+        "Expected Vulkan version 1.4, got version {}.{}.{}.{}",
+        vk::apiVersionMajor(apiVersion),
+        vk::apiVersionMinor(apiVersion),
+        vk::apiVersionPatch(apiVersion),
+        vk::apiVersionVariant(apiVersion));
 
     extensionPropertyList = vk::enumerateInstanceExtensionProperties(nullptr, library.getDispatcher());
     for (const vk::ExtensionProperties & extensionProperties : extensionPropertyList) {
@@ -383,7 +409,10 @@ Instance::operator vk::Instance() const &
     return getHandle();
 }
 
-vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData)
+vk::Bool32 Instance::userDebugUtilsCallback(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+    const vk::DebugUtilsMessengerCallbackDataEXT & callbackData)
 {
     auto lvl = vkMessageSeveretyToSpdlogLvl(messageSeverity);
     if (!spdlog::should_log(lvl)) {
@@ -394,20 +423,21 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     // auto queues = fmt::join(callbackData.pQueueLabels, callbackData.pQueueLabels + callbackData.queueLabelCount, ", ");
     // auto buffers = fmt::join(callbackData.pCmdBufLabels, callbackData.pCmdBufLabels + callbackData.cmdBufLabelCount, ", ");
     auto messageIdNumber = static_cast<uint32_t>(callbackData.messageIdNumber);
-    spdlog::log(  //
-        lvl,      //
-        // FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"),  //
-        FMT_STRING("[ {} ] {} {:<{}} | MessageID = {:#x} | {}"),  //
-        callbackData.pMessageIdName,                              //
-        messageTypes,                                             //
-        messageSeverity,                                          //
-        messageSeverityMaxLength,
-        // std::move(objects),
-        // std::move(queues),
-        // std::move(buffers),
-        messageIdNumber,       //
-        callbackData.pMessage  //
-    );
+    spdlog::
+        log(      //
+            lvl,  //
+            // FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"),  //
+            FMT_STRING("[ {} ] {} {:<{}} | MessageID = {:#x} | {}"),  //
+            callbackData.pMessageIdName,                              //
+            messageTypes,                                             //
+            messageSeverity,                                          //
+            messageSeverityMaxLength,
+            // std::move(objects),
+            // std::move(queues),
+            // std::move(buffers),
+            messageIdNumber,       //
+            callbackData.pMessage  //
+        );
     // clang-format off
     static const std::unordered_set<uint32_t> kMessageIdNumbers = {
         // 0x215f02cd,
@@ -444,7 +474,10 @@ vk::Bool32 Instance::userDebugUtilsCallback(vk::DebugUtilsMessageSeverityFlagBit
     return vk::False;
 }
 
-vk::Bool32 Instance::userDebugUtilsCallbackWrapper(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
+vk::Bool32 Instance::userDebugUtilsCallbackWrapper(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+    const vk::DebugUtilsMessengerCallbackDataEXT & callbackData) const
 {
     static const std::unordered_set<uint32_t> kMutedMessageIdNumbers = {
         0x79de34d4,  // vkCreateDevice(): pCreateInfo->ppEnabledExtensionNames[9] VK_KHR_index_type_uint8 is not supported by this layer.  Using this extension may adversely affect validation results and/or produce undefined behavior.

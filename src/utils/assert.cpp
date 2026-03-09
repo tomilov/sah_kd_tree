@@ -12,7 +12,12 @@
 namespace utils
 {
 
-void vAssertFailed(bool assert, const char * expression, std::source_location sourceLocation, fmt::string_view format, fmt::format_args args)
+void vAssertFailed(
+    bool assert,
+    const char * expression,
+    std::source_location sourceLocation,
+    fmt::string_view format,
+    fmt::format_args args)
 {
     std::string errorMessage;
     if (std::size(format) == 0) {

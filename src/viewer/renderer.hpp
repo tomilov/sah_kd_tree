@@ -60,7 +60,11 @@ struct FrameSettings
 class Renderer : utils::NonCopyable
 {
 public:
-    Renderer(std::string_view name, const engine::Context & context, const Engine & engine, uint32_t framesInFlight);
+    Renderer(
+        std::string_view name,
+        const engine::Context & context,
+        const Engine & engine,
+        uint32_t framesInFlight);
     ~Renderer();
 
     [[nodiscard]] uint32_t getFramesInFlight() const;
@@ -73,8 +77,14 @@ public:
 
     void setTree(builder::TreePtr builderTree);
 
-    void advance(vk::CommandBuffer commandBuffer, uint32_t currentFrameSlot);
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged, uint32_t currentFrameSlot);
+    void advance(
+        vk::CommandBuffer commandBuffer,
+        uint32_t currentFrameSlot);
+    void render(
+        vk::CommandBuffer commandBuffer,
+        vk::RenderPass renderPass,
+        bool isRenderPassFormatChanged,
+        uint32_t currentFrameSlot);
 
 private:
     struct Impl;
@@ -88,7 +98,9 @@ template<>
 struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const viewer::FrameSettings & frameSettings, FormatContext & ctx) const
+    auto format(
+        const viewer::FrameSettings & frameSettings,
+        FormatContext & ctx) const
     {
         constexpr auto fmtString
             = "{{"  //
@@ -108,22 +120,23 @@ struct fmt::formatter<viewer::FrameSettings> : fmt::formatter<fmt::string_view>
               ".windowMvp = {}, "
               ".clearColor = {}"
               "}}";
-        return fmt::format_to(ctx.out(),                          //
-                              fmtString,                          //
-                              frameSettings.useOffscreenTexture,  //
-                              frameSettings.discardInvisible,     //
-                              frameSettings.wireframe,            //
-                              frameSettings.position,             //
-                              frameSettings.orientation,          //
-                              frameSettings.fov,                  //
-                              frameSettings.zNear,                //
-                              frameSettings.zFar,                 //
-                              frameSettings.alpha,                //
-                              frameSettings.width,                //
-                              frameSettings.height,               //
-                              frameSettings.viewport,             //
-                              frameSettings.scissor,              //
-                              frameSettings.windowMvp,            //
-                              frameSettings.clearColor);          //
+        return fmt::format_to(
+            ctx.out(),                          //
+            fmtString,                          //
+            frameSettings.useOffscreenTexture,  //
+            frameSettings.discardInvisible,     //
+            frameSettings.wireframe,            //
+            frameSettings.position,             //
+            frameSettings.orientation,          //
+            frameSettings.fov,                  //
+            frameSettings.zNear,                //
+            frameSettings.zFar,                 //
+            frameSettings.alpha,                //
+            frameSettings.width,                //
+            frameSettings.height,               //
+            frameSettings.viewport,             //
+            frameSettings.scissor,              //
+            frameSettings.windowMvp,            //
+            frameSettings.clearColor);          //
     }
 };

@@ -61,7 +61,10 @@ F genFloat()
     return std::generate_canonical<F, kFloatDigits>(utils::defaultRandom());
 }
 
-void genComponent(F & f, int min = 0, int max = +kIntBboxSize)
+void genComponent(
+    F & f,
+    int min = 0,
+    int max = +kIntBboxSize)
 {
     assert(!(max < min));
     f = static_cast<F>(uniformInt(utils::defaultRandom(), UniformIntDistributionParam{min, max}));
@@ -106,7 +109,10 @@ void genTriangle(Triangle & triangle)
 }
 
 template<typename TriangleOutputIterator>
-TriangleOutputIterator putBox(TriangleOutputIterator out, const Vertex & a, const Vertex & b)
+TriangleOutputIterator putBox(
+    TriangleOutputIterator out,
+    const Vertex & a,
+    const Vertex & b)
 {
     assert(a.x < b.x);
     assert(a.y < b.y);
@@ -149,7 +155,9 @@ TriangleOutputIterator generateBox(TriangleOutputIterator out)
 }
 
 template<typename TriangleRandomAccessIterator>
-bool checkItems(TriangleRandomAccessIterator beg, TriangleRandomAccessIterator end)
+bool checkItems(
+    TriangleRandomAccessIterator beg,
+    TriangleRandomAccessIterator end)
 {
     if (boxWorld) {
         assert((utils::safeCast<size_t>(std::distance(beg, end)) % kBoxTriangleCount) == 0);
@@ -232,7 +240,9 @@ struct TestInput
         }
     }
 
-    bool read(const uint8_t * data, size_t size)
+    bool read(
+        const uint8_t * data,
+        size_t size)
     {
         if (size < sizeof(Params) + itemSize()) {
             return false;
@@ -298,7 +308,9 @@ struct TestInput
         return true;
     }
 
-    size_t write(uint8_t * data, size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
+    size_t write(
+        uint8_t * data,
+        size_t maxSize) const  // Possibly lossy if triangles not fit in maxSize.
     {
         assert(!(maxSize < sizeof(Params) + itemSize()));
         assert(checkItems(std::cbegin(triangles), std::cend(triangles)));
@@ -571,7 +583,10 @@ struct TestInput
     }
 };
 
-char ** findArg(char ** beg, char ** end, const char * arg)
+char ** findArg(
+    char ** beg,
+    char ** end,
+    const char * arg)
 {
     size_t argLen = std::strlen(arg);
     for (; beg != end; ++beg) {
@@ -582,7 +597,9 @@ char ** findArg(char ** beg, char ** end, const char * arg)
     return nullptr;
 }
 
-size_t readIntArg(char * arg, size_t argSize)
+size_t readIntArg(
+    char * arg,
+    size_t argSize)
 {
     size_t result = 0;
     auto * argBeg = arg + argSize;
@@ -595,7 +612,10 @@ size_t readIntArg(char * arg, size_t argSize)
     return result;
 }
 
-void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
+void writeIntArg(
+    std::string & arg,
+    size_t argSize,
+    size_t argValue)
 {
     arg.resize(argSize + std::numeric_limits<decltype(argValue)>::digits10 + 1);
     char * s = arg.data();
@@ -612,7 +632,9 @@ void writeIntArg(std::string & arg, size_t argSize, size_t argValue)
 
 extern "C"
 {
-int LLVMFuzzerInitialize(int * argc, char *** argv)
+int LLVMFuzzerInitialize(
+    int * argc,
+    char *** argv)
 {
     static std::string maxLenOption = "-max_len=";
     static const size_t maxLenSize = std::size(maxLenOption);
@@ -673,7 +695,11 @@ int LLVMFuzzerInitialize(int * argc, char *** argv)
     return 0;
 }
 
-size_t LLVMFuzzerCustomMutator(uint8_t * data, size_t size, size_t maxSize, unsigned int seed)
+size_t LLVMFuzzerCustomMutator(
+    uint8_t * data,
+    size_t size,
+    size_t maxSize,
+    unsigned int seed)
 {
     fuzzer::setSeed(seed);
 
@@ -686,7 +712,14 @@ size_t LLVMFuzzerCustomMutator(uint8_t * data, size_t size, size_t maxSize, unsi
     return testInput.write(data, maxSize);
 }
 
-size_t LLVMFuzzerCustomCrossOver(const uint8_t * data1, size_t size1, const uint8_t * data2, size_t size2, uint8_t * out, size_t maxOutSize, unsigned int seed)
+size_t LLVMFuzzerCustomCrossOver(
+    const uint8_t * data1,
+    size_t size1,
+    const uint8_t * data2,
+    size_t size2,
+    uint8_t * out,
+    size_t maxOutSize,
+    unsigned int seed)
 {
     fuzzer::setSeed(seed);
 
@@ -702,7 +735,9 @@ size_t LLVMFuzzerCustomCrossOver(const uint8_t * data1, size_t size1, const uint
     return testInput1.write(out, maxOutSize);
 }
 
-int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
+int LLVMFuzzerTestOneInput(
+    const uint8_t * data,
+    size_t size)
 {
     fuzzer::TestInput testInput;
     if (!testInput.read(data, size)) {

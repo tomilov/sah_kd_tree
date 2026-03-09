@@ -12,13 +12,23 @@ DerivePointerAlignment: false
 PointerAlignment: Middle
 ReferenceAlignment: Middle
 QualifierAlignment: Left
-AlignArrayOfStructures: None
-AllowAllArgumentsOnNextLine: true
+AlignArrayOfStructures: Right
+AllowAllArgumentsOnNextLine: false
 AllowShortEnumsOnASingleLine: false
+AlignAfterOpenBracket: false
 BreakBeforeBraces: Custom
-BreakBeforeBinaryOperators: All
-IndentCaseLabels: false
+BinPackArguments: false
+BinPackLongBracedList: false
+BinPackParameters: AlwaysOnePerLine
+InsertBraces: true
+InsertNewlineAtEOF: true
+InsertTrailingCommas: Wrapped
+IndentRequiresClause: true
 IndentExternBlock: NoIndent
+IndentExportBlock: false
+IndentCaseLabels: false
+BreakBeforeBinaryOperators: All
+BreakAfterOpenBracketFunction: true
 BraceWrapping:
     AfterFunction: true
     AfterCaseLabel: false
@@ -67,6 +77,7 @@ StatementMacros:
   - QML_NAMED_ELEMENT
   - QML_SINGLETON
   - QML_FOREIGN
+AlignEscapedNewlines: LeftWithLastLine
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 SpaceAfterTemplateKeyword: false

@@ -14,7 +14,9 @@ class FastPimpl final
 {
 public:
     template<typename... Args>
-    explicit FastPimpl(Args &&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    explicit FastPimpl(Args &&... args) noexcept(std::is_nothrow_constructible_v<
+        T,
+        Args...>)
     {
         new (static_cast<void *>(get())) T{std::forward<Args>(args)...};
     }

@@ -51,7 +51,10 @@ private:
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize);  // NOLINT: google-explicit-constructor
+    MappedMemory(
+        const Buffer<void> * buffer,
+        vk::DeviceSize offset = 0,
+        vk::DeviceSize size = vk::WholeSize);  // NOLINT: google-explicit-constructor
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -112,8 +115,14 @@ private:
     MappedMemory<void> mappedMemory;
     const vk::DeviceSize count;
 
-    MappedMemory(const Buffer<void> * buffer, vk::DeviceSize countIn, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize)  // NOLINT: google-explicit-constructor
-        : mappedMemory{buffer, offset, size}
+    MappedMemory(
+        const Buffer<void> * buffer,
+        vk::DeviceSize countIn,
+        vk::DeviceSize offset = 0,
+        vk::DeviceSize size = vk::WholeSize)  // NOLINT: google-explicit-constructor
+        : mappedMemory{buffer,
+              offset,
+              size}
         , count{countIn}
     {
         ASSERT(count > 0);
@@ -151,15 +160,29 @@ public:
     [[nodiscard]] MappedMemory<void> map() const &;
 
     template<typename T>
-    [[nodiscard]] MappedMemory<T> map(vk::DeviceSize count = 1, vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize) const &
+    [[nodiscard]] MappedMemory<T> map(
+        vk::DeviceSize count = 1,
+        vk::DeviceSize offset = 0,
+        vk::DeviceSize size = vk::WholeSize) const &
     {
         return {this, count, offset, size};
     }
 
-    [[nodiscard]] bool barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
+    [[nodiscard]] bool barrier(
+        vk::CommandBuffer cb,
+        vk::PipelineStageFlags2 stageMask,
+        vk::AccessFlags2 accessMask,
+        uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
+        vk::DependencyFlags dependencyFlags = {});
 
-    void copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize dstAllocationOffset);
-    void copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::DeviceSize size) const;
+    void copyFrom(
+        const void * p,
+        vk::DeviceSize size,
+        vk::DeviceSize dstAllocationOffset);
+    void copyTo(
+        vk::DeviceSize srcAllocationOffset,
+        void * p,
+        vk::DeviceSize size) const;
 
 private:
     friend class MappedMemory<void>;
@@ -174,8 +197,15 @@ private:
 
     [[nodiscard]] void * getMappedData() const &;
 
-    Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex,
-           float priority);
+    Buffer(
+        std::string_view name,
+        const MemoryAllocator & memoryAllocator,
+        const vk::BufferCreateInfo & createInfo,
+        AllocationType allocationType,
+        vk::MemoryPropertyFlags requiredFlags,
+        vk::DeviceSize minAlignment,
+        uint32_t queueFamilyIndex,
+        float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -256,12 +286,18 @@ public:
         return {&buffer, count};
     }
 
-    void copyFrom(const T * p, vk::DeviceSize countIn, vk::DeviceSize dstOffset)
+    void copyFrom(
+        const T * p,
+        vk::DeviceSize countIn,
+        vk::DeviceSize dstOffset)
     {
         return buffer.copyFrom(p, sizeof(T) * countIn, sizeof(T) * dstOffset);
     }
 
-    void copyTo(vk::DeviceSize srcOffset, T * p, vk::DeviceSize size) const
+    void copyTo(
+        vk::DeviceSize srcOffset,
+        T * p,
+        vk::DeviceSize size) const
     {
         return buffer.copyTo(sizeof(T) * srcOffset, p, sizeof(T) * size);
     }

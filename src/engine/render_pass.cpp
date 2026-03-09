@@ -9,7 +9,9 @@
 namespace engine
 {
 
-RenderPass::RenderPass(std::string_view nameIn, const Context & contextIn)
+RenderPass::RenderPass(
+    std::string_view nameIn,
+    const Context & contextIn)
     : name{nameIn}
     , context{contextIn}
 {

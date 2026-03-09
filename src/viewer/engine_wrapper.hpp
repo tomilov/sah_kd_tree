@@ -57,7 +57,9 @@ class VIEWER_EXPORT EngineSingletonForeign
 public:
     static void setEngine(EngineWrapper * engine) VIEWER_EXPORT;
 
-    [[nodiscard]] static EngineWrapper * create(QQmlEngine * qmlEngine, QJSEngine * jsEngine);
+    [[nodiscard]] static EngineWrapper * create(
+        QQmlEngine * qmlEngine,
+        QJSEngine * jsEngine);
 
 private:
     inline static utils::CheckedPtr<EngineWrapper> engine = nullptr;

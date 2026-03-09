@@ -40,6 +40,10 @@ struct ThrustDeviceSystemOMP
 };
 
 template class TreeBuildContext<ThrustDeviceSystemOMP>;
-template TreePtr build<ThrustDeviceSystemOMP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+template TreePtr build<ThrustDeviceSystemOMP>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
 
 }  // namespace builder

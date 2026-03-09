@@ -31,9 +31,17 @@ struct ShaderModule final : utils::OneTime<ShaderModule>
     engine::ShaderModule shaderModule;
     engine::ShaderModuleReflection shaderReflection;
 
-    ShaderModule(const engine::Context & context, const engine::FileIo & fileIo, std::string_view shaderName, std::string_view entryPoint)
-        : shaderModule{context, fileIo, shaderName}
-        , shaderReflection{context, shaderModule, entryPoint}
+    ShaderModule(
+        const engine::Context & context,
+        const engine::FileIo & fileIo,
+        std::string_view shaderName,
+        std::string_view entryPoint)
+        : shaderModule{context,
+              fileIo,
+              shaderName}
+        , shaderReflection{context,
+              shaderModule,
+              entryPoint}
     {}
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -54,14 +62,25 @@ class Shaders final
 public:
     static const std::string_view kDefaultEntryPoint;
 
-    Shaders(Private, std::string_view name, const engine::Context & context, std::shared_ptr<const engine::FileIo> fileIo, bool descriptorBufferEnabled);
+    Shaders(
+        Private,
+        std::string_view name,
+        const engine::Context & context,
+        std::shared_ptr<const engine::FileIo> fileIo,
+        bool descriptorBufferEnabled);
 
-    [[nodiscard]] static std::shared_ptr<Shaders> make(std::string_view name, const engine::Context & context, std::shared_ptr<const engine::FileIo> fileIo, bool descriptorBufferEnabled)
+    [[nodiscard]] static std::shared_ptr<Shaders> make(
+        std::string_view name,
+        const engine::Context & context,
+        std::shared_ptr<const engine::FileIo> fileIo,
+        bool descriptorBufferEnabled)
     {
         return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorBufferEnabled);
     }
 
-    void addShader(std::string_view shaderName, std::string_view entryPoint = kDefaultEntryPoint);
+    void addShader(
+        std::string_view shaderName,
+        std::string_view entryPoint = kDefaultEntryPoint);
     void create();
 
     [[nodiscard]] bool getDescriptorBufferEnabled() const
@@ -117,8 +136,13 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
 
     explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders);
 
-    [[nodiscard]] engine::GraphicsPipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass,
-                                                          engine::SpecializationInfos && specializationInfos);
+    [[nodiscard]] engine::GraphicsPipeline & initPipeline(
+        std::string_view name,
+        const engine::Context & context,
+        vk::PipelineCache pipelineCache,
+        bool descriptorBufferEnabled,
+        vk::RenderPass renderPass,
+        engine::SpecializationInfos && specializationInfos);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -135,7 +159,12 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
 
     explicit ComputePipeline(std::shared_ptr<const Shaders> shaders);
 
-    [[nodiscard]] engine::ComputePipeline & initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, engine::SpecializationInfos && specializationInfos);
+    [[nodiscard]] engine::ComputePipeline & initPipeline(
+        std::string_view name,
+        const engine::Context & context,
+        vk::PipelineCache pipelineCache,
+        bool descriptorBufferEnabled,
+        engine::SpecializationInfos && specializationInfos);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -146,7 +175,9 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
 class Pipelines : utils::OneTime<Pipelines>
 {
 public:
-    explicit Pipelines(const engine::Context & context, bool descriptorBufferEnabled);
+    explicit Pipelines(
+        const engine::Context & context,
+        bool descriptorBufferEnabled);
     Pipelines(Pipelines && rhs) noexcept = default;
     ~Pipelines();
 

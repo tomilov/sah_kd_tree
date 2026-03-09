@@ -16,7 +16,9 @@ namespace engine
 
 struct ENGINE_EXPORT Library final : utils::NonCopyable
 {
-    Library(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks);
+    Library(
+        std::optional<std::string> libraryName,
+        vk::Optional<const vk::AllocationCallbacks> allocationCallbacks);
 
     [[nodiscard]] vk::Optional<const vk::AllocationCallbacks> getAllocationCallbacks() const &;
     [[nodiscard]] const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & getDispatcher() const &;

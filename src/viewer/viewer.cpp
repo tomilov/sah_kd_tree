@@ -53,7 +53,9 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerCategory)
-Q_LOGGING_CATEGORY(viewerCategory, "viewer.viewer")
+Q_LOGGING_CATEGORY(
+    viewerCategory,
+    "viewer.viewer")
 
 }  // namespace
 
@@ -390,7 +392,9 @@ void CameraView::shift(const QVector3D & direction)
     setPosition(newPosition);
 }
 
-void CameraView::rotate(float pan, float tilt)
+void CameraView::rotate(
+    float pan,
+    float tilt)
 {
     if ((false)) {
         auto tiltRotation = QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, tilt);
@@ -762,7 +766,9 @@ void Viewer::handleKeyboardInput()
     }
 }
 
-void Viewer::onKeyEvent(QKeyEvent * event, bool isPressed)
+void Viewer::onKeyEvent(
+    QKeyEvent * event,
+    bool isPressed)
 {
     keyboardModifiers = event->modifiers();
     Qt::Key key = utils::autoCast(event->key());
@@ -938,7 +944,9 @@ void Viewer::keyReleaseEvent(QKeyEvent * event)
     }
 }
 
-QSGNode * Viewer::updatePaintNode(QSGNode * old, UpdatePaintNodeData * updatePaintNodeData)
+QSGNode * Viewer::updatePaintNode(
+    QSGNode * old,
+    UpdatePaintNodeData * updatePaintNodeData)
 {
     if (!window() || !engineWrapper) {
         return QQuickItem::updatePaintNode(old, updatePaintNodeData);

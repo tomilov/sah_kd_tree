@@ -84,7 +84,10 @@ void Renderdoc::FrameCapture::completeClassContext()
     checkTraits();
 }
 
-Renderdoc::FrameCapture::FrameCapture(const Impl & implIn, vk::Instance instanceIn, WindowHandle windowIn)
+Renderdoc::FrameCapture::FrameCapture(
+    const Impl & implIn,
+    vk::Instance instanceIn,
+    WindowHandle windowIn)
     : impl{implIn}
     , instance{instanceIn}
     , window{windowIn}
@@ -99,7 +102,9 @@ Renderdoc::FrameCapture::FrameCapture(const Impl & implIn, vk::Instance instance
     ASSERT(Renderdoc::isFrameCapturing());
 }
 
-auto Renderdoc::makeFrameCapture(vk::Instance instance, WindowHandle window) -> FrameCapture
+auto Renderdoc::makeFrameCapture(
+    vk::Instance instance,
+    WindowHandle window) -> FrameCapture
 {
     return {*renderdoc().impl_, instance, window};
 }

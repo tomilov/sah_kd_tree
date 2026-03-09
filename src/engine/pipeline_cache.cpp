@@ -53,7 +53,10 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
     return cacheData;
 }
 
-PipelineCache::PipelineCache(std::string_view nameIn, const Context & contextIn, const FileIo & fileIoIn)
+PipelineCache::PipelineCache(
+    std::string_view nameIn,
+    const Context & contextIn,
+    const FileIo & fileIoIn)
     : name{nameIn}
     , context{contextIn}
     , fileIo{fileIoIn}

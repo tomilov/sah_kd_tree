@@ -19,7 +19,9 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(engineWrapperCategory)
-Q_LOGGING_CATEGORY(engineWrapperCategory, "viewer.engine_wrapper")
+Q_LOGGING_CATEGORY(
+    engineWrapperCategory,
+    "viewer.engine_wrapper")
 
 // clang-format off
 constexpr std::initializer_list<uint32_t> kMutedMessageIdNumbers = {
@@ -100,7 +102,9 @@ void EngineSingletonForeign::setEngine(EngineWrapper * engineIn)
     INVARIANT(EngineSingletonForeign::engine, "Nullptr should not be passed");
 }
 
-EngineWrapper * EngineSingletonForeign::create(QQmlEngine * /*qmlEngine*/, QJSEngine * jsEngineIn)
+EngineWrapper * EngineSingletonForeign::create(
+    QQmlEngine * /*qmlEngine*/,
+    QJSEngine * jsEngineIn)
 {
     INVARIANT(jsEngineIn->thread() == engine->thread(), "The engine has to have the same thread affinity as the singleton");
     if (EngineSingletonForeign::jsEngine) {

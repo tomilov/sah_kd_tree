@@ -13,23 +13,29 @@
 namespace compute
 {
 
-MappedDeviceMemory::MappedDeviceMemory(const ::CUmemLocation & location, size_t allocGranularity, size_t alignedAllocationSizeIn, ::CUmemGenericAllocationHandle allocationHandle)
+MappedDeviceMemory::MappedDeviceMemory(
+    const ::CUmemLocation & location,
+    size_t allocGranularity,
+    size_t alignedAllocationSizeIn,
+    ::CUmemGenericAllocationHandle allocationHandle)
     : alignedAllocationSize{alignedAllocationSizeIn}
 {
     CU_CHECK_ERROR(cuMemAddressReserve, &devPtr, alignedAllocationSize, allocGranularity, devPtr, 0);
     CU_CHECK_ERROR(cuMemMap, devPtr, alignedAllocationSize, 0, allocationHandle, 0);
     ::CUmemAccessDesc accessDescriptor[] = {
         {
-            .location = location,
-            .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
-        },
+         .location = location,
+         .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
+         },
     };
     CU_CHECK_ERROR(cuMemSetAccess, devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor));
 }
 
 MappedDeviceMemory::MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
     : alignedAllocationSize{rhs.alignedAllocationSize}
-    , devPtr{std::exchange(rhs.devPtr, ::CUdeviceptr{})}
+    , devPtr{std::exchange(
+          rhs.devPtr,
+          ::CUdeviceptr{})}
 {}
 
 MappedDeviceMemory::~MappedDeviceMemory()
@@ -41,17 +47,28 @@ MappedDeviceMemory::~MappedDeviceMemory()
     CU_CHECK_ERROR(cuMemAddressFree, devPtr, alignedAllocationSize);
 }
 
-DeviceMemory::DeviceMemory(::CUdevice cuDev, size_t allocationSize, size_t allocationAlignment)
+DeviceMemory::DeviceMemory(
+    ::CUdevice cuDev,
+    size_t allocationSize,
+    size_t allocationAlignment)
     : memAllocationProp{makeMemAllocationProp(cuDev)}
     , allocGranularity{getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
-    , alignedAllocationSize{getAlignedAllocationSize(allocationSize, allocationAlignment)}
+    , alignedAllocationSize{getAlignedAllocationSize(
+          allocationSize,
+          allocationAlignment)}
     , allocationHandle{makeMemGenericAllocationHandle()}
 {}
 
-DeviceMemory::DeviceMemory(::CUdevice cuDev, utils::Fd fd, size_t allocationSize, size_t allocationAlignment)
+DeviceMemory::DeviceMemory(
+    ::CUdevice cuDev,
+    utils::Fd fd,
+    size_t allocationSize,
+    size_t allocationAlignment)
     : memAllocationProp{makeMemAllocationProp(cuDev)}
     , allocGranularity{getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_MINIMUM)}
-    , alignedAllocationSize{getAlignedAllocationSize(allocationSize, allocationAlignment)}
+    , alignedAllocationSize{getAlignedAllocationSize(
+          allocationSize,
+          allocationAlignment)}
     , allocationHandle{importMemGenericAllocationHandle(std::move(fd))}
 {}
 
@@ -59,7 +76,9 @@ DeviceMemory::DeviceMemory(DeviceMemory && rhs) noexcept
     : memAllocationProp{rhs.memAllocationProp}
     , allocGranularity{rhs.allocGranularity}
     , alignedAllocationSize{rhs.alignedAllocationSize}
-    , allocationHandle{std::exchange(rhs.allocationHandle, ::CUmemGenericAllocationHandle{})}
+    , allocationHandle{std::exchange(
+          rhs.allocationHandle,
+          ::CUmemGenericAllocationHandle{})}
 {}
 
 DeviceMemory::~DeviceMemory()
@@ -116,7 +135,9 @@ size_t DeviceMemory::getAllocationGranularity(CUmemAllocationGranularity_flags_e
     return allocGranularityOut;
 }
 
-size_t DeviceMemory::getAlignedAllocationSize(size_t allocationSize, size_t allocationAlignment) const
+size_t DeviceMemory::getAlignedAllocationSize(
+    size_t allocationSize,
+    size_t allocationAlignment) const
 {
     const size_t recommendedAllocGranularity = getAllocationGranularity(CU_MEM_ALLOC_GRANULARITY_RECOMMENDED);
     return utils::alignUp(std::max(allocationSize, allocationAlignment), recommendedAllocGranularity);

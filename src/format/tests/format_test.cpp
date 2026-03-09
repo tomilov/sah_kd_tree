@@ -2,7 +2,9 @@
 
 #include <gtest/gtest.h>
 
-TEST(Format, Basic)
+TEST(
+    Format,
+    Basic)
 {
     //
 }

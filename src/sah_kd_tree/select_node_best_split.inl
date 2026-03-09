@@ -13,7 +13,11 @@
 #include <cassert>
 
 template<typename Traits>
-void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sah, const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z)
+void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(
+    const Params<Traits> & sah,
+    const Projection<Traits> & x,
+    const Projection<Traits> & y,
+    const Projection<Traits> & z)
 {
     auto layerNodeBegin = thrust::make_counting_iterator<U>(0);
     auto layerNodeEnd = thrust::make_counting_iterator<U>(layer.size);
@@ -40,8 +44,20 @@ void sah_kd_tree::Builder<Traits>::selectNodeBestSplit(const Params<Traits> & sa
 
     auto nodeBestSplitBegin = thrust::make_zip_iterator(node.splitDimension.begin(), node.splitPos.begin(), node.polygonCountLeft.begin(), node.polygonCountRight.begin());
     using NodeBestSplitType = cuda::std::iter_value_t<decltype(nodeBestSplitBegin)>;
-    const auto toNodeBestSplit = [sah, nodeXSplitCosts, nodeYSplitCosts, nodeZSplitCosts, nodeXLeftChildPolygonCounts, nodeYLeftChildPolygonCounts, nodeZLeftChildPolygonCounts, nodeXRightChildPolygonCounts, nodeYRightChildPolygonCounts,
-                                  nodeZRightChildPolygonCounts, nodePolygonCounts, nodeXSplitPositions, nodeYSplitPositions, nodeZSplitPositions] __host__
+    const auto toNodeBestSplit = [sah,
+                                     nodeXSplitCosts,
+                                     nodeYSplitCosts,
+                                     nodeZSplitCosts,
+                                     nodeXLeftChildPolygonCounts,
+                                     nodeYLeftChildPolygonCounts,
+                                     nodeZLeftChildPolygonCounts,
+                                     nodeXRightChildPolygonCounts,
+                                     nodeYRightChildPolygonCounts,
+                                     nodeZRightChildPolygonCounts,
+                                     nodePolygonCounts,
+                                     nodeXSplitPositions,
+                                     nodeYSplitPositions,
+                                     nodeZSplitPositions] __host__
                                  __device__(U layerNode) -> NodeBestSplitType
     {
         U nodePolygonCount = nodePolygonCounts[layerNode];

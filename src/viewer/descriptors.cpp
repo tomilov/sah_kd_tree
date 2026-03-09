@@ -16,7 +16,12 @@
 namespace viewer
 {
 
-Descriptors::Descriptors(std::string_view nameIn, const engine::Context & contextIn, bool descriptorBufferEnabledIn, std::shared_ptr<const engine::ShaderStages> shaderStagesIn, uint32_t setIn)
+Descriptors::Descriptors(
+    std::string_view nameIn,
+    const engine::Context & contextIn,
+    bool descriptorBufferEnabledIn,
+    std::shared_ptr<const engine::ShaderStages> shaderStagesIn,
+    uint32_t setIn)
     : name{nameIn}
     , context{contextIn}
     , descriptorBufferEnabled{descriptorBufferEnabledIn}
@@ -76,7 +81,9 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
     return descriptorBuffer;
 }
 
-auto Descriptors::createDescriptors() const -> std::variant<engine::DescriptorSet, DescriptorBuffer>
+auto Descriptors::createDescriptors() const -> std::variant<
+    engine::DescriptorSet,
+    DescriptorBuffer>
 {
     if (descriptorBufferEnabled) {
         return createDescriptorBuffer();
@@ -84,7 +91,9 @@ auto Descriptors::createDescriptors() const -> std::variant<engine::DescriptorSe
     return createDescriptorSet();
 }
 
-void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet, std::span<const DescriptorInfo> descriptorSetInfos) const
+void Descriptors::fillDescriptorSet(
+    const engine::DescriptorSet & descriptorSet,
+    std::span<const DescriptorInfo> descriptorSetInfos) const
 {
     std::vector<vk::StructureChain<vk::WriteDescriptorSet, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>> writeDescriptorSetChains;
     writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
@@ -188,7 +197,9 @@ void Descriptors::fillDescriptorSet(const engine::DescriptorSet & descriptorSet,
     context.getDevice().getHandle().updateDescriptorSets(writeDescriptorSets, kDescriptorCopies, context.getDispatcher());
 }
 
-void Descriptors::fillDescriptorBuffer(const DescriptorBuffer & descriptorBuffer, std::span<const DescriptorInfo> descriptorBufferInfos) const
+void Descriptors::fillDescriptorBuffer(
+    const DescriptorBuffer & descriptorBuffer,
+    std::span<const DescriptorInfo> descriptorBufferInfos) const
 {
     const auto & dispatcher = context.getDispatcher();
     const auto & device = context.getDevice();

@@ -38,8 +38,14 @@ public:
     using QAbstractTableModel::QAbstractTableModel;
     ~TaskQueue() override;
 
-    template<typename Task, typename... Args>
-    [[nodiscard]] auto runTask(QString name, QString description, Task && task, Args &&... args)
+    template<
+        typename Task,
+        typename... Args>
+    [[nodiscard]] auto runTask(
+        QString name,
+        QString description,
+        Task && task,
+        Args &&... args)
     {
         return addTask(qMove(name), qMove(description), QtConcurrent::run(threadPool, std::forward<Task>(task), std::forward<Args>(args)...));
     }
@@ -48,15 +54,28 @@ public:
 
     [[nodiscard]] Qt::ItemFlags flags(const QModelIndex & index) const override;
 
-    [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
+    [[nodiscard]] QHash<
+        int,
+        QByteArray>
+    roleNames() const override;
 
     [[nodiscard]] int rowCount(const QModelIndex & parent = {}) const override;
     [[nodiscard]] int columnCount(const QModelIndex & parent = {}) const override;
 
-    void multiData(const QModelIndex & index, QModelRoleDataSpan roleDataSpan) const override;
-    [[nodiscard]] QVariant data(const QModelIndex & index, int role) const override;
-    [[nodiscard]] bool setData(const QModelIndex & index, const QVariant & value, int role) override;
-    [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+    void multiData(
+        const QModelIndex & index,
+        QModelRoleDataSpan roleDataSpan) const override;
+    [[nodiscard]] QVariant data(
+        const QModelIndex & index,
+        int role) const override;
+    [[nodiscard]] bool setData(
+        const QModelIndex & index,
+        const QVariant & value,
+        int role) override;
+    [[nodiscard]] QVariant headerData(
+        int section,
+        Qt::Orientation orientation,
+        int role) const override;
 
 Q_SIGNALS:
     void removeRowDelayChanged();
@@ -105,7 +124,9 @@ private:
         QMap<ResultRange, QString> resultReadyState;
         Qt::CheckState checkState = Qt::CheckState::Unchecked;
 
-        void insertRange(int beginIndex, int endIndex);
+        void insertRange(
+            int beginIndex,
+            int endIndex);
     };
 
     int removeRowDelay = 3000;
@@ -121,7 +142,10 @@ private:
     QHash<QPersistentModelIndex, QPair<int, int>> indexToId;
 
     template<typename T>
-    [[nodiscard]] auto addTask(QString && name, QString && description, QFuture<T> future)
+    [[nodiscard]] auto addTask(
+        QString && name,
+        QString && description,
+        QFuture<T> future)
     {
         auto futureWatcher = QSharedPointer<QFutureWatcher<T>>::create();
         futureWatcher->setFuture(future);
@@ -130,8 +154,16 @@ private:
     }
 
     [[nodiscard]] TaskInfo & getTaskInfo(int id);
-    void emitDataChanged(int id, int col, std::initializer_list<int> roles = {Qt::ItemDataRole::DisplayRole, Qt::ItemDataRole::ToolTipRole});
-    void addTask(QString && name, QString && description, QSharedPointer<QFutureWatcherBase> futureWatcher, int id);
+    void emitDataChanged(
+        int id,
+        int col,
+        std::initializer_list<int> roles = {Qt::ItemDataRole::DisplayRole,
+            Qt::ItemDataRole::ToolTipRole});
+    void addTask(
+        QString && name,
+        QString && description,
+        QSharedPointer<QFutureWatcherBase> futureWatcher,
+        int id);
 
     [[nodiscard]] float getProgress() const;
 };

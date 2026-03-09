@@ -18,15 +18,33 @@ using LabelColor = std::array<float, 4>;
 inline constexpr LabelColor kDefaultLabelColor = {1.0f, 1.0f, 1.0f, 1.0f};
 
 template<typename Object>
-void insertDebugUtilsLabel(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color = kDefaultLabelColor) ENGINE_EXPORT;
+void insertDebugUtilsLabel(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    Object object,
+    std::string_view labelName,
+    const LabelColor & color = kDefaultLabelColor) ENGINE_EXPORT;
 
-extern template void insertDebugUtilsLabel<vk::Queue>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::Queue object, std::string_view labelName, const LabelColor & color);
-extern template void insertDebugUtilsLabel<vk::CommandBuffer>(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, vk::CommandBuffer object, std::string_view labelName, const LabelColor & color);
+extern template void insertDebugUtilsLabel<vk::Queue>(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    vk::Queue object,
+    std::string_view labelName,
+    const LabelColor & color);
+extern template void insertDebugUtilsLabel<vk::CommandBuffer>(
+    const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+    vk::CommandBuffer object,
+    std::string_view labelName,
+    const LabelColor & color);
 
 template<typename Object>
 class ENGINE_EXPORT ScopedDebugUtilsLabel
 {
-    static_assert(std::is_same_v<Object, vk::Queue> || std::is_same_v<Object, vk::CommandBuffer>);
+    static_assert(
+        std::is_same_v<
+            Object,
+            vk::Queue>
+        || std::is_same_v<
+            Object,
+            vk::CommandBuffer>);
 
     ScopedDebugUtilsLabel() = default;
 
@@ -38,7 +56,11 @@ public:
 
     ~ScopedDebugUtilsLabel();
 
-    static ScopedDebugUtilsLabel create(const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher, Object object, std::string_view labelName, const LabelColor & color = kDefaultLabelColor);
+    static ScopedDebugUtilsLabel create(
+        const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE & dispatcher,
+        Object object,
+        std::string_view labelName,
+        const LabelColor & color = kDefaultLabelColor);
 
 private:
     const VULKAN_HPP_DEFAULT_DISPATCHER_TYPE * dispatcher = nullptr;

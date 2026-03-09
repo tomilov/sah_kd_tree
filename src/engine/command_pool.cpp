@@ -12,7 +12,10 @@
 namespace engine
 {
 
-CommandPool::CommandPool(std::string_view nameIn, const Context & contextIn, uint32_t queueFamilyIndex)
+CommandPool::CommandPool(
+    std::string_view nameIn,
+    const Context & contextIn,
+    uint32_t queueFamilyIndex)
     : name{nameIn}
     , context{contextIn}
 {

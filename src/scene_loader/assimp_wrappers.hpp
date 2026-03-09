@@ -31,7 +31,9 @@ struct AssimpIOSystem : Assimp::IOSystem
 
     [[nodiscard]] bool Exists(const char * pFile) const override;
     [[nodiscard]] char getOsSeparator() const override;
-    [[nodiscard]] Assimp::IOStream * Open(const char * pFile, const char * pMode) override;
+    [[nodiscard]] Assimp::IOStream * Open(
+        const char * pFile,
+        const char * pMode) override;
     void Close(Assimp::IOStream * pFile) override;
 
 private:

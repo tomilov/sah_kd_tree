@@ -2,7 +2,9 @@
 
 #include <gtest/gtest.h>
 
-TEST(Renderdoc, Basic)
+TEST(
+    Renderdoc,
+    Basic)
 {
     [[maybe_unused]] const auto & renderdoc = debug_utils::Renderdoc::renderdoc();
     [[maybe_unused]] auto capture = debug_utils::Renderdoc::makeFrameCapture();

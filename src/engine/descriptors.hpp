@@ -19,7 +19,11 @@ namespace engine
 
 struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 {
-    DescriptorSet(std::string_view name, const Context & context, std::shared_ptr<const ShaderStages> shaderStages, uint32_t set /* TODO: hash descriptor set layout */);
+    DescriptorSet(
+        std::string_view name,
+        const Context & context,
+        std::shared_ptr<const ShaderStages> shaderStages,
+        uint32_t set /* TODO: hash descriptor set layout */);
 
     [[nodiscard]] const std::shared_ptr<const ShaderStages> & getShaderStages() const &
     {

@@ -14,15 +14,23 @@ namespace viewer
 
 const std::string_view Shaders::kDefaultEntryPoint = "main"sv;
 
-Shaders::Shaders(Private, std::string_view nameIn, const engine::Context & contextIn, std::shared_ptr<const engine::FileIo> fileIoIn, bool descriptorBufferEnabledIn)
+Shaders::Shaders(
+    Private,
+    std::string_view nameIn,
+    const engine::Context & contextIn,
+    std::shared_ptr<const engine::FileIo> fileIoIn,
+    bool descriptorBufferEnabledIn)
     : name{nameIn}
     , context{contextIn}
     , fileIo{std::move(fileIoIn)}
     , descriptorBufferEnabled{descriptorBufferEnabledIn}
-    , shaderStages{context, kVertexBufferBinding}
+    , shaderStages{context,
+          kVertexBufferBinding}
 {}
 
-void Shaders::addShader(std::string_view shaderName, std::string_view entryPoint)
+void Shaders::addShader(
+    std::string_view shaderName,
+    std::string_view entryPoint)
 {
     shaderModules.emplace_back(context, *fileIo, shaderName, entryPoint);
 }
@@ -49,8 +57,13 @@ GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shadersIn)
     ASSERT(shaders);
 }
 
-engine::GraphicsPipeline & GraphicsPipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, vk::RenderPass renderPass,
-                                                          engine::SpecializationInfos && specializationInfos)
+engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
+    std::string_view name,
+    const engine::Context & context,
+    vk::PipelineCache pipelineCache,
+    bool descriptorBufferEnabled,
+    vk::RenderPass renderPass,
+    engine::SpecializationInfos && specializationInfos)
 {
     ASSERT(shaders);
     ASSERT(!pipeline);
@@ -64,7 +77,12 @@ ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shadersIn)
     ASSERT(shaders);
 }
 
-engine::ComputePipeline & ComputePipeline::initPipeline(std::string_view name, const engine::Context & context, vk::PipelineCache pipelineCache, bool descriptorBufferEnabled, engine::SpecializationInfos && specializationInfos)
+engine::ComputePipeline & ComputePipeline::initPipeline(
+    std::string_view name,
+    const engine::Context & context,
+    vk::PipelineCache pipelineCache,
+    bool descriptorBufferEnabled,
+    engine::SpecializationInfos && specializationInfos)
 {
     ASSERT(shaders);
     ASSERT(!pipeline);
@@ -72,11 +90,15 @@ engine::ComputePipeline & ComputePipeline::initPipeline(std::string_view name, c
     return *pipeline;
 }
 
-Pipelines::Pipelines(const engine::Context & contextIn, bool descriptorBufferEnabledIn)
+Pipelines::Pipelines(
+    const engine::Context & contextIn,
+    bool descriptorBufferEnabledIn)
     : context{contextIn}
     , descriptorBufferEnabled{descriptorBufferEnabledIn}
     , fileIo{std::make_shared<FileIo>("shaders:"sv)}
-    , pipelineCache{"rasterization"sv, context, *fileIo}
+    , pipelineCache{"rasterization"sv,
+          context,
+          *fileIo}
 {}
 
 std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const

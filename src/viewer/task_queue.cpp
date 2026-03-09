@@ -18,7 +18,9 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerTaskQueueCategory)
-Q_LOGGING_CATEGORY(viewerTaskQueueCategory, "viewer.task_queue")
+Q_LOGGING_CATEGORY(
+    viewerTaskQueueCategory,
+    "viewer.task_queue")
 
 constexpr auto kTypeUserRole = Qt::ItemDataRole::UserRole + 0;
 
@@ -84,7 +86,10 @@ Qt::ItemFlags TaskQueue::flags(const QModelIndex & index) const
     return flags;
 }
 
-QHash<int, QByteArray> TaskQueue::roleNames() const
+QHash<
+    int,
+    QByteArray>
+TaskQueue::roleNames() const
 {
     auto roleNames = QAbstractTableModel::roleNames();
     roleNames.insert(Qt::ItemDataRole::CheckStateRole, QByteArrayLiteral("checkState"));
@@ -104,7 +109,9 @@ int TaskQueue::columnCount(const QModelIndex & parent) const  // NOLINT: google-
     return utils::autoCast(headers.size());
 }
 
-void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleDataSpan) const
+void TaskQueue::multiData(
+    const QModelIndex & index,
+    QModelRoleDataSpan roleDataSpan) const
 {
     Q_ASSERT(index.isValid());
     const auto i = indexToId.constFind(index);
@@ -257,14 +264,19 @@ void TaskQueue::multiData(const QModelIndex & index, QModelRoleDataSpan roleData
     }
 }
 
-QVariant TaskQueue::data(const QModelIndex & index, int role) const
+QVariant TaskQueue::data(
+    const QModelIndex & index,
+    int role) const
 {
     QModelRoleData roleData{role};
     multiData(index, roleData);
     return roleData.data();
 }
 
-bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int role)
+bool TaskQueue::setData(
+    const QModelIndex & index,
+    const QVariant & value,
+    int role)
 {
     switch (role) {
     case Qt::ItemDataRole::CheckStateRole: {
@@ -349,7 +361,10 @@ bool TaskQueue::setData(const QModelIndex & index, const QVariant & value, int r
     qFatal("unreachable");
 }
 
-QVariant TaskQueue::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant TaskQueue::headerData(
+    int section,
+    Qt::Orientation orientation,
+    int role) const
 {
     switch (orientation) {
     case Qt::Orientation::Horizontal: {
@@ -411,7 +426,9 @@ void TaskQueue::resumeChecked()
     Q_EMIT checkedResumed();
 }
 
-void TaskQueue::TaskInfo::insertRange(int beginIndex, int endIndex)
+void TaskQueue::TaskInfo::insertRange(
+    int beginIndex,
+    int endIndex)
 {
     auto [lo, hi] = resultReadyState.equal_range(ResultRange{beginIndex, endIndex});
     for (auto it = lo; it != hi; ++it) {
@@ -436,7 +453,10 @@ auto TaskQueue::getTaskInfo(int id) -> TaskInfo &
     return *it;
 }
 
-void TaskQueue::emitDataChanged(int id, int col, std::initializer_list<int> roles)
+void TaskQueue::emitDataChanged(
+    int id,
+    int col,
+    std::initializer_list<int> roles)
 {
     const auto key = qMakePair(id, col);
     const QModelIndex i = idToIndex.value(key);
@@ -444,7 +464,11 @@ void TaskQueue::emitDataChanged(int id, int col, std::initializer_list<int> role
     Q_EMIT dataChanged(i, i, roles);
 }
 
-void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<QFutureWatcherBase> futureWatcher, int id)
+void TaskQueue::addTask(
+    QString && name,
+    QString && description,
+    QSharedPointer<QFutureWatcherBase> futureWatcher,
+    int id)
 {
     TaskInfo taskInfo;
     taskInfo.name = qMove(name);
@@ -539,12 +563,12 @@ void TaskQueue::addTask(QString && name, QString && description, QSharedPointer<
         };
         using StatusSignal = void (QFutureWatcherBase::*)();
         static constexpr QPair<StatusSignal, const char8_t *> statusSignals[] = {
-            {&QFutureWatcherBase::started, u8"started"},        //
-            {&QFutureWatcherBase::finished, u8"finished"},      //
-            {&QFutureWatcherBase::canceled, u8"canceled"},      //
-            {&QFutureWatcherBase::suspending, u8"suspending"},  //
-            {&QFutureWatcherBase::suspended, u8"suspended"},    //
-            {&QFutureWatcherBase::resumed, u8"resumed"},        //
+            {   &QFutureWatcherBase::started,    u8"started"}, //
+            {  &QFutureWatcherBase::finished,   u8"finished"}, //
+            {  &QFutureWatcherBase::canceled,   u8"canceled"}, //
+            {&QFutureWatcherBase::suspending, u8"suspending"}, //
+            { &QFutureWatcherBase::suspended,  u8"suspended"}, //
+            {   &QFutureWatcherBase::resumed,    u8"resumed"}, //
         };
         for (const auto & [signal, signalName] : statusSignals) {
             const auto onStatusChanged = [this, id, signal, signalName, removeRow]

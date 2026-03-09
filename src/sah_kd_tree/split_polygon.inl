@@ -17,7 +17,10 @@ namespace sah_kd_tree
 {
 template<typename Traits>
 template<typename Traits::I dimension>
-void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+void sah_kd_tree::Builder<Traits>::splitPolygon(
+    Projection<Traits> & x,
+    const Projection<Traits> & y,
+    const Projection<Traits> & z) const
 {
     // node of right part of splitted polygon (starting from polygon.count) is still node from previous layer
 
@@ -58,7 +61,10 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
         F polygonSplitPos = nodeSplitPositions[polygonNode];
         if (polygonSplitDimension == dimension) {
             assert(!(polygonSplitPos < min) && !(max < polygonSplitPos));
-            return {{min, polygonSplitPos}, {polygonSplitPos, max}};
+            return {
+                {            min, polygonSplitPos},
+                {polygonSplitPos,             max}
+            };
         } else if (!(min < max)) {
             return {bbox, bbox};
         }
@@ -148,7 +154,10 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(Projection<Traits> & x, const Pr
         }
         assert(!(lmax < lmin));
         assert(!(rmax < rmin));
-        return {{lmin, lmax}, {rmin, rmax}};
+        return {
+            {lmin, lmax},
+            {rmin, rmax}
+        };
     };
     auto polygonBegin = thrust::make_counting_iterator<U>(polygon.count);
     thrust::transform(exec, polygonLeftBboxBegin, cuda::std::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, toSplittedPolygon);

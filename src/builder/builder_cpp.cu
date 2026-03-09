@@ -40,6 +40,10 @@ struct ThrustDeviceSystemCPP
 };
 
 template class TreeBuildContext<ThrustDeviceSystemCPP>;
-template TreePtr build<ThrustDeviceSystemCPP>(const Settings & settings, const compute::CudaDevice & cudaDevice, const scene_data::SceneDataPtr & sceneData, const std::function<bool(size_t progressValue)> & progress);
+template TreePtr build<ThrustDeviceSystemCPP>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
 
 }  // namespace builder

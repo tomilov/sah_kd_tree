@@ -26,7 +26,10 @@ public:
     {
         friend Renderdoc;
 
-        FrameCapture(const Impl & impl, vk::Instance instance, WindowHandle window);
+        FrameCapture(
+            const Impl & impl,
+            vk::Instance instance,
+            WindowHandle window);
 
     public:
         FrameCapture(FrameCapture && frameCapture) noexcept = default;
@@ -45,7 +48,9 @@ public:
     ~Renderdoc();
 
     [[nodiscard]] static const Renderdoc & renderdoc();
-    [[nodiscard]] static FrameCapture makeFrameCapture(vk::Instance instance = VK_NULL_HANDLE, WindowHandle window = nullptr);
+    [[nodiscard]] static FrameCapture makeFrameCapture(
+        vk::Instance instance = VK_NULL_HANDLE,
+        WindowHandle window = nullptr);
     [[nodiscard]] static bool isFrameCapturing();
 
 private:

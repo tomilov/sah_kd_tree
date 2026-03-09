@@ -1,7 +1,12 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
 template<typename Traits>
-void sah_kd_tree::linkTriangles(const Triangle<Traits> & triangle, Projection<Traits> & x, Projection<Traits> & y, Projection<Traits> & z, Builder<Traits> & builder)
+void sah_kd_tree::linkTriangles(
+    const Triangle<Traits> & triangle,
+    Projection<Traits> & x,
+    Projection<Traits> & y,
+    Projection<Traits> & z,
+    Builder<Traits> & builder)
 {
     x.triangle.count = triangle.count;
     x.triangle.a = triangle.x.a.data();

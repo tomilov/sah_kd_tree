@@ -16,7 +16,9 @@ namespace engine
 
 struct ENGINE_EXPORT RenderPass final : utils::OneTime<RenderPass>
 {
-    explicit RenderPass(std::string_view name, const Context & context);
+    explicit RenderPass(
+        std::string_view name,
+        const Context & context);
 
 private:
     std::string name;

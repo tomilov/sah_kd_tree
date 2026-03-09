@@ -12,12 +12,23 @@
 namespace engine
 {
 
-Queue::Queue(std::string_view nameIn, const Context & contextIn, const QueueCreateInfo & queueCreateInfoIn)
-    : name{fmt::format("{} {}", queueCreateInfoIn.name, nameIn)}
+Queue::Queue(
+    std::string_view nameIn,
+    const Context & contextIn,
+    const QueueCreateInfo & queueCreateInfoIn)
+    : name{fmt::format(
+          "{} {}",
+          queueCreateInfoIn.name,
+          nameIn)}
     , context{contextIn}
     , queueCreateInfo{queueCreateInfoIn}
-    , commandPool{name, context, queueCreateInfo.familyIndex}
-    , queue{context.getDevice().getHandle().getQueue(queueCreateInfo.familyIndex, queueCreateInfo.index, context.getLibrary().getDispatcher())}
+    , commandPool{name,
+          context,
+          queueCreateInfo.familyIndex}
+    , queue{context.getDevice().getHandle().getQueue(
+          queueCreateInfo.familyIndex,
+          queueCreateInfo.index,
+          context.getLibrary().getDispatcher())}
 {
     context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);
 }
@@ -27,7 +38,9 @@ const QueueCreateInfo & Queue::getQueueCreateInfo() const &
     return queueCreateInfo;
 }
 
-void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
+void Queue::submit(
+    vk::CommandBuffer commandBuffer,
+    vk::Fence fence) const
 {
     vk::StructureChain<vk::SubmitInfo2, vk::PerformanceQuerySubmitInfoKHR> submitInfoStructureChain;
 
@@ -42,12 +55,16 @@ void Queue::submit(vk::CommandBuffer commandBuffer, vk::Fence fence) const
     submit(submitInfo2, fence);
 }
 
-void Queue::submit(const vk::SubmitInfo & submitInfo, vk::Fence fence) const
+void Queue::submit(
+    const vk::SubmitInfo & submitInfo,
+    vk::Fence fence) const
 {
     queue.submit(submitInfo, fence, context.getDispatcher());
 }
 
-void Queue::submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence) const
+void Queue::submit(
+    const vk::SubmitInfo2 & submitInfo2,
+    vk::Fence fence) const
 {
     queue.submit2(submitInfo2, fence, context.getDispatcher());
 }
@@ -57,7 +74,10 @@ void Queue::waitIdle() const
     queue.waitIdle(context.getDispatcher());
 }
 
-CommandBuffers Queue::allocateCommandBuffers(std::string_view commandBuffersName, uint32_t count, vk::CommandBufferLevel level) const
+CommandBuffers Queue::allocateCommandBuffers(
+    std::string_view commandBuffersName,
+    uint32_t count,
+    vk::CommandBufferLevel level) const
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo = {
         .commandPool = commandPool,

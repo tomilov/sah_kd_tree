@@ -40,7 +40,10 @@ using DescriptorBindingNameAndType = std::tuple<std::string, vk::DescriptorType>
 
 struct ENGINE_EXPORT ShaderModule final : utils::OneTime<ShaderModule>
 {
-    ShaderModule(const Context & context, const FileIo & fileIo, std::string_view shaderName);
+    ShaderModule(
+        const Context & context,
+        const FileIo & fileIo,
+        std::string_view shaderName);
 
     [[nodiscard]] const std::string & getShaderName() const &
     {
@@ -101,7 +104,10 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleR
     std::unordered_map<std::string, uint32_t> specializationConstants;
     std::optional<vk::PushConstantRange> pushConstantRange;
 
-    ShaderModuleReflection(const Context & context, const ShaderModule & shaderModule, std::string_view entryPointName);
+    ShaderModuleReflection(
+        const Context & context,
+        const ShaderModule & shaderModule,
+        std::string_view entryPointName);
     ShaderModuleReflection(ShaderModuleReflection &&) noexcept;
     ~ShaderModuleReflection();
 
@@ -145,7 +151,9 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
             return &bindings.at(bindingIndex->second);
         }
 
-        [[nodiscard]] const vk::DescriptorSetLayoutBinding * getBinding(const std::string & variableName, vk::DescriptorType descriptorType) const &
+        [[nodiscard]] const vk::DescriptorSetLayoutBinding * getBinding(
+            const std::string & variableName,
+            vk::DescriptorType descriptorType) const &
         {
             return getBinding(DescriptorBindingNameAndType{variableName, descriptorType});
         }
@@ -166,12 +174,21 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
     std::vector<vk::UniqueDescriptorSetLayout> descriptorSetLayoutHolders;
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;  // ordered in the same way as setBindings: descriptorSetLayouts[descriptorSetLayouts[set].setIndex]
 
-    ShaderStages(const Context & context, uint32_t vertexBufferBinding);
+    ShaderStages(
+        const Context & context,
+        uint32_t vertexBufferBinding);
 
-    bool checkSubgroupSize(uint32_t subgroupSize, vk::ShaderStageFlagBits shaderStage) const;
+    bool checkSubgroupSize(
+        uint32_t subgroupSize,
+        vk::ShaderStageFlagBits shaderStage) const;
 
-    void add(const ShaderModule & shaderModule, const ShaderModuleReflection & shaderModuleReflection, std::optional<uint32_t> subgroupSize);
-    void createDescriptorSetLayouts(std::string_view name, vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
+    void add(
+        const ShaderModule & shaderModule,
+        const ShaderModuleReflection & shaderModuleReflection,
+        std::optional<uint32_t> subgroupSize);
+    void createDescriptorSetLayouts(
+        std::string_view name,
+        vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     size_t findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const;
 

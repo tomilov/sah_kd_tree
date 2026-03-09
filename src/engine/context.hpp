@@ -29,8 +29,13 @@ public:
     std::vector<const char *> requiredInstanceExtensions;
     std::vector<const char *> requiredDeviceExtensions;
 
-    void createInstance(std::optional<std::string> libraryName, vk::Optional<const vk::AllocationCallbacks> allocationCallbacks, std::string_view applicationName, uint32_t applicationVersion, std::initializer_list<uint32_t> mutedMessageIdNumbers,
-                        bool mute = true);
+    void createInstance(
+        std::optional<std::string> libraryName,
+        vk::Optional<const vk::AllocationCallbacks> allocationCallbacks,
+        std::string_view applicationName,
+        uint32_t applicationVersion,
+        std::initializer_list<uint32_t> mutedMessageIdNumbers,
+        bool mute = true);
 
     void createDevice(vk::SurfaceKHR surface = {});
 

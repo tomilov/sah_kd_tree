@@ -22,8 +22,14 @@ constexpr auto * getIf(Leaf && leaf)
     }
 }
 
-template<typename Root, typename Head, typename... Tail>
-constexpr auto * getIf(Root && root, Head && head, Tail &&... tail)
+template<
+    typename Root,
+    typename Head,
+    typename... Tail>
+constexpr auto * getIf(
+    Root && root,
+    Head && head,
+    Tail &&... tail)
 {
     if constexpr (PointerLike<Root>) {
         return root ? ::utils::getIf(*std::forward<Root>(root), std::forward<Head>(head), std::forward<Tail>(tail)...) : nullptr;
@@ -34,7 +40,7 @@ constexpr auto * getIf(Root && root, Head && head, Tail &&... tail)
 
 }  // namespace utils
 
-#define GET_IF_MEMBER_ACCESSOR(head) \
+#define GET_IF_MEMBER_ACCESSOR(head)                                                                    \
     , ([&]<typename Root>(Root && root) constexpr -> auto && { return std::forward<Root>(root).head; })
 
 #define GET_IF(first, ...) ::utils::getIf(first FOR_EACH(GET_IF_MEMBER_ACCESSOR, __VA_ARGS__))

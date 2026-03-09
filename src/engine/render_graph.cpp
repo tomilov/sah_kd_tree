@@ -3,7 +3,11 @@
 namespace engine::render_graph
 {
 
-Builder::Builder(std::string_view nameIn, const Context & contextIn, CommandList & /*commandList*/, BuilderFlags /*flags*/)
+Builder::Builder(
+    std::string_view nameIn,
+    const Context & contextIn,
+    CommandList & /*commandList*/,
+    BuilderFlags /*flags*/)
     : name{nameIn}
     , context{contextIn}
 {}

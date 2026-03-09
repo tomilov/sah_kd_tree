@@ -19,17 +19,29 @@ namespace engine
 
 struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
 {
-    Queue(std::string_view name, const Context & context, const QueueCreateInfo & queueCreateInfo);
+    Queue(
+        std::string_view name,
+        const Context & context,
+        const QueueCreateInfo & queueCreateInfo);
 
     [[nodiscard]] const QueueCreateInfo & getQueueCreateInfo() const &;
 
-    void submit(vk::CommandBuffer commandBuffer, vk::Fence fence = {}) const;
-    void submit(const vk::SubmitInfo & submitInfo, vk::Fence fence = {}) const;
-    void submit(const vk::SubmitInfo2 & submitInfo2, vk::Fence fence = {}) const;
+    void submit(
+        vk::CommandBuffer commandBuffer,
+        vk::Fence fence = {}) const;
+    void submit(
+        const vk::SubmitInfo & submitInfo,
+        vk::Fence fence = {}) const;
+    void submit(
+        const vk::SubmitInfo2 & submitInfo2,
+        vk::Fence fence = {}) const;
 
     void waitIdle() const;
 
-    [[nodiscard]] CommandBuffers allocateCommandBuffers(std::string_view name, uint32_t count = 1, vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
+    [[nodiscard]] CommandBuffers allocateCommandBuffers(
+        std::string_view name,
+        uint32_t count = 1,
+        vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 
 private:
     std::string name;

@@ -18,7 +18,10 @@ namespace viewer
 class Tree : utils::OneTime<Tree>
 {
 public:
-    explicit Tree(std::string_view name, const engine::Context & context, builder::Tree && builderTree);
+    explicit Tree(
+        std::string_view name,
+        const engine::Context & context,
+        builder::Tree && builderTree);
     Tree(Tree &&) noexcept;
     ~Tree();
 

@@ -10,7 +10,10 @@
 namespace sah_kd_tree
 {
 template<typename Traits>
-bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+bool Builder<Traits>::checkBoxes(
+    const Projection<Traits> & x,
+    const Projection<Traits> & y,
+    const Projection<Traits> & z) const
 {
     U triangleCount = x.triangle.count;
     auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
@@ -78,8 +81,20 @@ bool Builder<Traits>::checkBoxes(const Projection<Traits> & x, const Projection<
     return true;
 }
 
-template<typename F, typename U>
-__host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * nodeXMaxs, const F * nodeYMins, const F * nodeYMaxs, const F * nodeZMins, const F * nodeZMaxs, F splitPos, U node, U leftChild, U rightChild)
+template<
+    typename F,
+    typename U>
+__host__ __device__ bool checkNodeProjection(
+    const F * nodeXMins,
+    const F * nodeXMaxs,
+    const F * nodeYMins,
+    const F * nodeYMaxs,
+    const F * nodeZMins,
+    const F * nodeZMaxs,
+    F splitPos,
+    U node,
+    U leftChild,
+    U rightChild)
 {
     if (nodeXMins[leftChild] != nodeXMins[node]) {
         return false;
@@ -104,7 +119,10 @@ __host__ __device__ bool checkNodeProjection(const F * nodeXMins, const F * node
 }
 
 template<typename Traits>
-bool Builder<Traits>::checkNodes(const Projection<Traits> & x, const Projection<Traits> & y, const Projection<Traits> & z) const
+bool Builder<Traits>::checkNodes(
+    const Projection<Traits> & x,
+    const Projection<Traits> & y,
+    const Projection<Traits> & z) const
 {
     auto parents = thrust::raw_pointer_cast(node.parent.data());
     auto leftChildren = thrust::raw_pointer_cast(node.leftChild.data());

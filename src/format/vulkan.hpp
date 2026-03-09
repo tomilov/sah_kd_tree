@@ -40,7 +40,9 @@ template<typename T>
 struct fmt::formatter<T, char, std::void_t<decltype(vk::to_string(std::declval<const T &>()))>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const T & value, FormatContext & ctx) const
+    auto format(
+        const T & value,
+        FormatContext & ctx) const
     {
         return fmt::formatter<fmt::string_view>::format(vk::to_string(value), ctx);
     }
@@ -50,7 +52,9 @@ template<typename FlagBitsType>
 struct fmt::formatter<vk::Flags<FlagBitsType>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Flags<FlagBitsType> & flags, FormatContext & ctx) const
+    auto format(
+        const vk::Flags<FlagBitsType> & flags,
+        FormatContext & ctx) const
     {
         using FlagTraits = vk::FlagTraits<FlagBitsType>;
         static_assert(FlagTraits::isBitmask);
@@ -82,7 +86,9 @@ template<>
 struct fmt::formatter<vk::DebugUtilsLabelEXT> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::DebugUtilsLabelEXT & debugUtilsLabel, FormatContext & ctx) const
+    auto format(
+        const vk::DebugUtilsLabelEXT & debugUtilsLabel,
+        FormatContext & ctx) const
     {
         auto color = debugUtilsLabel.color;
         auto clamp = [](float colorComponent) -> uint8_t
@@ -99,7 +105,9 @@ template<>
 struct fmt::formatter<vk::DebugUtilsObjectNameInfoEXT> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo, FormatContext & ctx) const
+    auto format(
+        const vk::DebugUtilsObjectNameInfoEXT & debugUtilsObjectNameInfo,
+        FormatContext & ctx) const
     {
         auto objectName = debugUtilsObjectNameInfo.pObjectName;
         return fmt::format_to(ctx.out(), "{{ handle = {:#x}, type = {}, name = '{}' }}", debugUtilsObjectNameInfo.objectHandle, debugUtilsObjectNameInfo.objectType, objectName ? objectName : "");
@@ -110,7 +118,9 @@ template<>
 struct fmt::formatter<vk::PushConstantRange> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::PushConstantRange & pushConstantRange, FormatContext & ctx) const
+    auto format(
+        const vk::PushConstantRange & pushConstantRange,
+        FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{stageFlags = {}, offset = {}, size = {}}}", pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size);
     }
@@ -120,12 +130,22 @@ template<>
 struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, vk::UuidSize>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::ArrayWrapper1D<uint8_t, vk::UuidSize> & uuid, FormatContext & ctx) const
+    auto format(
+        const vk::ArrayWrapper1D<
+            uint8_t,
+            vk::UuidSize> & uuid,
+        FormatContext & ctx) const
     {
         static_assert(vk::UuidSize == 16);
         auto data = uuid.data();
-        return fmt::format_to(ctx.out(), "{:02x}-{:02x}-{:02x}-{:02x}-{:02x}", fmt::join(data, data + 4, ""), fmt::join(data + 4, data + 6, ""), fmt::join(data + 6, data + 8, ""), fmt::join(data + 8, data + 10, ""),
-                              fmt::join(data + 10, data + 16, ""));
+        return fmt::format_to(
+            ctx.out(),
+            "{:02x}-{:02x}-{:02x}-{:02x}-{:02x}",
+            fmt::join(data, data + 4, ""),
+            fmt::join(data + 4, data + 6, ""),
+            fmt::join(data + 6, data + 8, ""),
+            fmt::join(data + 8, data + 10, ""),
+            fmt::join(data + 10, data + 16, ""));
     }
 };
 
@@ -133,7 +153,11 @@ template<>
 struct fmt::formatter<vk::ArrayWrapper1D<uint8_t, vk::LuidSize>> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::ArrayWrapper1D<uint8_t, vk::LuidSize> & luid, FormatContext & ctx) const
+    auto format(
+        const vk::ArrayWrapper1D<
+            uint8_t,
+            vk::LuidSize> & luid,
+        FormatContext & ctx) const
     {
         static_assert(vk::LuidSize == 8);
         auto data = luid.data();
@@ -145,7 +169,9 @@ template<>
 struct fmt::formatter<vk::DrawIndexedIndirectCommand> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::DrawIndexedIndirectCommand & drawIndexedIndirectCommand, FormatContext & ctx) const
+    auto format(
+        const vk::DrawIndexedIndirectCommand & drawIndexedIndirectCommand,
+        FormatContext & ctx) const
     {
         const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] = drawIndexedIndirectCommand;
         return fmt::format_to(ctx.out(), "{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
@@ -156,7 +182,9 @@ template<>
 struct fmt::formatter<vk::Offset2D> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Offset2D & offset, FormatContext & ctx) const
+    auto format(
+        const vk::Offset2D & offset,
+        FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{.x = {}, .y = {}}}", offset.x, offset.y);
     }
@@ -166,7 +194,9 @@ template<>
 struct fmt::formatter<vk::Extent2D> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Extent2D & extent, FormatContext & ctx) const
+    auto format(
+        const vk::Extent2D & extent,
+        FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{.width = {}, .height = {}}}", extent.width, extent.height);
     }
@@ -176,7 +206,9 @@ template<>
 struct fmt::formatter<vk::Rect2D> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Rect2D & rect2D, FormatContext & ctx) const
+    auto format(
+        const vk::Rect2D & rect2D,
+        FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{.offset = {}, .extent = {}}}", rect2D.offset, rect2D.extent);
     }
@@ -186,7 +218,9 @@ template<>
 struct fmt::formatter<vk::Viewport> : fmt::formatter<fmt::string_view>
 {
     template<typename FormatContext>
-    auto format(const vk::Viewport & viewport, FormatContext & ctx) const
+    auto format(
+        const vk::Viewport & viewport,
+        FormatContext & ctx) const
     {
         return fmt::format_to(ctx.out(), "{{.x = {}, .y = {}, .width = {}, .height = {}}}", viewport.x, viewport.y, viewport.width, viewport.height);
     }

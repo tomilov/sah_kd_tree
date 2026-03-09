@@ -6,7 +6,9 @@
 
 namespace fuzzer
 {
-void testOneInput(const Params & p, const std::vector<Triangle> & t)
+void testOneInput(
+    const Params & p,
+    const std::vector<Triangle> & t)
 {
     using Traits = sah_kd_tree::DefaultTraits;
 

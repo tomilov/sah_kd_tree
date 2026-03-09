@@ -23,7 +23,10 @@ struct Scene;
 class RenderNode final : public QSGRenderNode
 {
 public:
-    explicit RenderNode(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper);
+    explicit RenderNode(
+        QString name,
+        QQuickWindow * window,
+        const EngineWrapper & engineWrapper);
 
     void unsetScene();
     void updateScene(const scene_data::SceneDataPtr & sceneData);
@@ -32,8 +35,17 @@ public:
     void setTree(builder::TreePtr && tree);
 
     void updateRect(const QRectF & rect);
-    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe);
-    void updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar);
+    void updateMode(
+        bool traceSahKdTree,
+        bool useOffscreenTexture,
+        bool discardInvisible,
+        bool wireframe);
+    void updateCamera(
+        const QVector3D & cameraPosition,
+        const QQuaternion & cameraOrientation,
+        float cameraFov,
+        float zNear,
+        float zFar);
     void updateClearColor(const QColor & clearColor);
     void updateRenderdocCaptureFrameCounter(int renderdocCaptureFrameCounter);
     void updateDirty();

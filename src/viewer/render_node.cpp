@@ -59,9 +59,13 @@ namespace viewer
 namespace
 {
 Q_DECLARE_LOGGING_CATEGORY(viewerRenderNodeCategory)
-Q_LOGGING_CATEGORY(viewerRenderNodeCategory, "viewer.render_node")
+Q_LOGGING_CATEGORY(
+    viewerRenderNodeCategory,
+    "viewer.render_node")
 
-void checkContext(QQuickWindow * window, const engine::Context & context)
+void checkContext(
+    QQuickWindow * window,
+    const engine::Context & context)
 {
     Q_CHECK_PTR(window);
 
@@ -132,7 +136,10 @@ struct RenderNode::Impl
 
     bool update = false;
 
-    Impl(QString nameIn, QQuickWindow * windowIn, const EngineWrapper & engineWrapper)
+    Impl(
+        QString nameIn,
+        QQuickWindow * windowIn,
+        const EngineWrapper & engineWrapper)
         : name{nameIn}
         , window{windowIn}
         , context{engineWrapper.getContext()}
@@ -142,8 +149,13 @@ struct RenderNode::Impl
         checkContext(window, context);
     }
 
-    template<typename Dst, typename Src>
-    [[maybe_unused]] bool updateState(Dst & lhs, Src && rhs, [[maybe_unused]] const char * stateName)
+    template<
+        typename Dst,
+        typename Src>
+    [[maybe_unused]] bool updateState(
+        Dst & lhs,
+        Src && rhs,
+        [[maybe_unused]] const char * stateName)
     {
         if (lhs == rhs) {
             return false;
@@ -179,7 +191,11 @@ struct RenderNode::Impl
         UPDATE_STATE(rect, rectIn);
     }
 
-    void updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
+    void updateMode(
+        bool traceSahKdTree,
+        bool useOffscreenTexture,
+        bool discardInvisible,
+        bool wireframe)
     {
         UPDATE_STATE(frameSettings.traceSahKdTree, traceSahKdTree);
         UPDATE_STATE(frameSettings.useOffscreenTexture, useOffscreenTexture);
@@ -187,7 +203,12 @@ struct RenderNode::Impl
         UPDATE_STATE(frameSettings.wireframe, wireframe);
     }
 
-    void updateCamera(const glm::vec3 & position, const glm::quat & orientation, float fov, float zNear, float zFar)
+    void updateCamera(
+        const glm::vec3 & position,
+        const glm::quat & orientation,
+        float fov,
+        float zNear,
+        float zFar)
     {
         UPDATE_STATE(frameSettings.position, position);
         UPDATE_STATE(frameSettings.orientation, orientation);
@@ -217,7 +238,10 @@ struct RenderNode::Impl
         return true;
     }
 
-    [[nodiscard]] QRectF getScissorRect(int width, int height, const QMatrix4x4 & mvp) const
+    [[nodiscard]] QRectF getScissorRect(
+        int width,
+        int height,
+        const QMatrix4x4 & mvp) const
     {
         QRectF scissorRect = mvp.mapRect(rect);
         scissorRect.translate(1.0, 1.0);
@@ -265,7 +289,12 @@ struct RenderNode::Impl
         renderer.value().advance(commandBuffer, utils::autoCast(graphicsStateInfo.currentFrameSlot));
     }
 
-    void prepare(vk::CommandBuffer commandBuffer, float alpha, const QSize & renderTargetSize, const QMatrix4x4 & mvp, bool isAxisAligned)
+    void prepare(
+        vk::CommandBuffer commandBuffer,
+        float alpha,
+        const QSize & renderTargetSize,
+        const QMatrix4x4 & mvp,
+        bool isAxisAligned)
     {
         if (!rect.isValid()) {
             return;
@@ -308,7 +337,10 @@ struct RenderNode::Impl
         advance(commandBuffer);
     }
 
-    void render(vk::CommandBuffer commandBuffer, vk::RenderPass renderPass, bool isRenderPassFormatChanged)
+    void render(
+        vk::CommandBuffer commandBuffer,
+        vk::RenderPass renderPass,
+        bool isRenderPassFormatChanged)
     {
         if (!rect.isValid()) {
             return;
@@ -343,8 +375,14 @@ struct RenderNode::Impl
     }
 };
 
-RenderNode::RenderNode(QString name, QQuickWindow * window, const EngineWrapper & engineWrapper)
-    : impl_{std::make_unique<Impl>(name, window, engineWrapper)}
+RenderNode::RenderNode(
+    QString name,
+    QQuickWindow * window,
+    const EngineWrapper & engineWrapper)
+    : impl_{std::make_unique<Impl>(
+          name,
+          window,
+          engineWrapper)}
 {}
 
 void RenderNode::unsetScene()
@@ -372,12 +410,21 @@ void RenderNode::updateRect(const QRectF & rect)
     impl_->updateRect(rect);
 }
 
-void RenderNode::updateMode(bool traceSahKdTree, bool useOffscreenTexture, bool discardInvisible, bool wireframe)
+void RenderNode::updateMode(
+    bool traceSahKdTree,
+    bool useOffscreenTexture,
+    bool discardInvisible,
+    bool wireframe)
 {
     impl_->updateMode(traceSahKdTree, useOffscreenTexture, discardInvisible, wireframe);
 }
 
-void RenderNode::updateCamera(const QVector3D & cameraPosition, const QQuaternion & cameraOrientation, float cameraFov, float zNear, float zFar)
+void RenderNode::updateCamera(
+    const QVector3D & cameraPosition,
+    const QQuaternion & cameraOrientation,
+    float cameraFov,
+    float zNear,
+    float zFar)
 {
     glm::vec3 position{cameraPosition.x(), cameraPosition.y(), cameraPosition.z()};
     glm::quat orientation{cameraOrientation.scalar(), cameraOrientation.x(), cameraOrientation.y(), cameraOrientation.z()};

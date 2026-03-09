@@ -7,7 +7,9 @@ namespace sah_kd_tree
 {
 template<typename Traits>
 template<typename Traits::I dimension>
-void Builder<Traits>::splitNode(U layerBasePrev, Projection<Traits> & projection) const
+void Builder<Traits>::splitNode(
+    U layerBasePrev,
+    Projection<Traits> & projection) const
 {
     auto nodeSplitPosBegin = cuda::std::next(node.splitPos.cbegin(), layerBasePrev);
     auto nodeSplitPosEnd = cuda::std::next(node.splitPos.cbegin(), layer.base);

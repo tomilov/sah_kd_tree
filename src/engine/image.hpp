@@ -43,11 +43,31 @@ public:
     [[nodiscard]] uint32_t getQueueFamilyIndex() const;
 
     void setLayout(vk::ImageLayout layout);
-    void barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
-    void release(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
-    void acquire(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex = vk::QueueFamilyIgnored, vk::DependencyFlags dependencyFlags = {});
+    void barrier(
+        vk::CommandBuffer cb,
+        vk::PipelineStageFlags2 stageMask,
+        vk::AccessFlags2 accessMask,
+        vk::ImageLayout layout,
+        uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
+        vk::DependencyFlags dependencyFlags = {});
+    void release(
+        vk::CommandBuffer cb,
+        vk::PipelineStageFlags2 stageMask,
+        vk::AccessFlags2 accessMask,
+        vk::ImageLayout layout,
+        uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
+        vk::DependencyFlags dependencyFlags = {});
+    void acquire(
+        vk::CommandBuffer cb,
+        vk::PipelineStageFlags2 stageMask,
+        vk::AccessFlags2 accessMask,
+        vk::ImageLayout layout,
+        uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
+        vk::DependencyFlags dependencyFlags = {});
 
-    [[nodiscard]] vk::UniqueImageView createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const;
+    [[nodiscard]] vk::UniqueImageView createImageView(
+        vk::ImageViewType viewType,
+        vk::ImageAspectFlags imageAspectMask) const;
 
 private:
     struct Impl;
@@ -58,8 +78,15 @@ private:
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
-    Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex,
-          float priority = 0.5f);
+    Image(
+        std::string_view name,
+        const MemoryAllocator & memoryAllocator,
+        const vk::ImageCreateInfo & createInfo,
+        AllocationType allocationType,
+        vk::MemoryPropertyFlags requiredFlags,
+        vk::ImageAspectFlags imageAspectMask,
+        uint32_t queueFamilyIndex,
+        float priority = 0.5f);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

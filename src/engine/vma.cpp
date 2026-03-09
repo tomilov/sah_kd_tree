@@ -54,13 +54,17 @@ constexpr vk::AccessFlags2 kAccessMaskBufferWrite = kAccessMaskWrite | vk::Acces
                                                     | vk::AccessFlagBits2::eAccelerationStructureWriteKHR | vk::AccessFlagBits2::eMicromapWriteEXT;
 constexpr vk::AccessFlags2 kAccessMaskImageWrite = kAccessMaskWrite | vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 
-template<typename BitType, typename MaskType = typename vk::Flags<BitType>::MaskType>
+template<
+    typename BitType,
+    typename MaskType = typename vk::Flags<BitType>::MaskType>
 [[nodiscard]] MaskType toCMask(vk::Flags<BitType> flags)
 {
     return static_cast<MaskType>(flags);
 }
 
-[[nodiscard]] VmaAllocationCreateInfo makeAllocationCreateInfo(AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags)
+[[nodiscard]] VmaAllocationCreateInfo makeAllocationCreateInfo(
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags)
 {
     VmaAllocationCreateInfo allocationCreateInfo = {
         .flags = {},
@@ -130,42 +134,83 @@ void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
     vmaSetCurrentFrameIndex(impl_->handle, frameIndex);
 }
 
-auto MemoryAllocator::createBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, std::optional<vk::DeviceSize> minAlignment, uint32_t queueFamilyIndex,
-                                   float priority) const & -> Buffer<void>
+auto MemoryAllocator::createBuffer(
+    std::string_view name,
+    const vk::BufferCreateInfo & bufferCreateInfo,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    std::optional<vk::DeviceSize> minAlignment,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Buffer<void>
 {
     return {name, *this, bufferCreateInfo, allocationType, requiredFlags, minAlignment.value_or(impl_->context.getPhysicalDevice().getMinAlignment()), queueFamilyIndex, priority};
 }
 
-auto MemoryAllocator::createStagingBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::MemoryPropertyFlags requiredFlags, std::optional<vk::DeviceSize> minAlignment, uint32_t queueFamilyIndex,
-                                          float priority) const & -> Buffer<void>
+auto MemoryAllocator::createStagingBuffer(
+    std::string_view name,
+    const vk::BufferCreateInfo & bufferCreateInfo,
+    vk::MemoryPropertyFlags requiredFlags,
+    std::optional<vk::DeviceSize> minAlignment,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Buffer<void>
 {
     return createBuffer(name, bufferCreateInfo, AllocationType::kStaging, requiredFlags, minAlignment, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createReadbackBuffer(std::string_view name, const vk::BufferCreateInfo & bufferCreateInfo, vk::MemoryPropertyFlags requiredFlags, std::optional<vk::DeviceSize> minAlignment, uint32_t queueFamilyIndex,
-                                           float priority) const & -> Buffer<void>
+auto MemoryAllocator::createReadbackBuffer(
+    std::string_view name,
+    const vk::BufferCreateInfo & bufferCreateInfo,
+    vk::MemoryPropertyFlags requiredFlags,
+    std::optional<vk::DeviceSize> minAlignment,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Buffer<void>
 {
     return createBuffer(name, bufferCreateInfo, AllocationType::kReadback, requiredFlags, minAlignment, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex,
-                                  float priority) const & -> Image
+auto MemoryAllocator::createImage(
+    std::string_view name,
+    const vk::ImageCreateInfo & imageCreateInfo,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMask,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Image
 {
     return {name, *this, imageCreateInfo, allocationType, requiredFlags, imageAspectMask, queueFamilyIndex, priority};
 }
 
-auto MemoryAllocator::createStagingImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const & -> Image
+auto MemoryAllocator::createStagingImage(
+    std::string_view name,
+    const vk::ImageCreateInfo & imageCreateInfo,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMask,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Image
 {
     return createImage(name, imageCreateInfo, AllocationType::kStaging, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
 }
 
-auto MemoryAllocator::createReadbackImage(std::string_view name, const vk::ImageCreateInfo & imageCreateInfo, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex, float priority) const & -> Image
+auto MemoryAllocator::createReadbackImage(
+    std::string_view name,
+    const vk::ImageCreateInfo & imageCreateInfo,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMask,
+    uint32_t queueFamilyIndex,
+    float priority) const & -> Image
 {
     return createImage(name, imageCreateInfo, AllocationType::kReadback, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
 }
 
-Image MemoryAllocator::createImage2D(std::string_view name, vk::Format format, const vk::Extent2D & size, vk::ImageUsageFlags imageUsage, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex,
-                                     float priority) const &
+Image MemoryAllocator::createImage2D(
+    std::string_view name,
+    vk::Format format,
+    const vk::Extent2D & size,
+    vk::ImageUsageFlags imageUsage,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMask,
+    uint32_t queueFamilyIndex,
+    float priority) const &
 {
     vk::ImageCreateInfo imageCreateInfo = {
         .flags = {},
@@ -282,7 +327,10 @@ struct MappedMemory<void>::Impl final : utils::OneTime<Impl>
 
     void * mappedData = nullptr;
 
-    Impl(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size);
+    Impl(
+        const Buffer<void> * buffer,
+        vk::DeviceSize offset,
+        vk::DeviceSize size);
     Impl(Impl && rhs) noexcept;
     ~Impl();
 
@@ -319,8 +367,13 @@ vk::DeviceAddress MappedMemory<void>::getDeviceAddress() const &
     return impl_->buffer->getDeviceAddress() + impl_->offset;
 }
 
-MappedMemory<void>::MappedMemory(const Buffer<void> * buffer, vk::DeviceSize offset, vk::DeviceSize size)
-    : impl_{buffer, offset, size}
+MappedMemory<void>::MappedMemory(
+    const Buffer<void> * buffer,
+    vk::DeviceSize offset,
+    vk::DeviceSize size)
+    : impl_{buffer,
+          offset,
+          size}
 {}
 
 namespace
@@ -333,7 +386,11 @@ struct BufferResource final : utils::NonCopyable
     const VkBuffer buffer;
     const VmaAllocation allocation;
 
-    BufferResource(std::string_view nameIn, VmaAllocator allocatorIn, VkBuffer bufferIn, VmaAllocation allocationIn)
+    BufferResource(
+        std::string_view nameIn,
+        VmaAllocator allocatorIn,
+        VkBuffer bufferIn,
+        VmaAllocation allocationIn)
         : name{nameIn}
         , allocator{allocatorIn}
         , buffer{bufferIn}
@@ -369,8 +426,15 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
     vk::AccessFlags2 accessMask = vk::AccessFlagBits2::eNone;
     uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
-    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::DeviceSize minAlignment, uint32_t queueFamilyIndex,
-         float priority);
+    Impl(
+        std::string_view name,
+        const MemoryAllocator & memoryAllocator,
+        const vk::BufferCreateInfo & createInfo,
+        AllocationType allocationType,
+        vk::MemoryPropertyFlags requiredFlags,
+        vk::DeviceSize minAlignment,
+        uint32_t queueFamilyIndex,
+        float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -460,7 +524,12 @@ MappedMemory<void> Buffer<void>::map() const &
     return {this};
 }
 
-bool Buffer<void>::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+bool Buffer<void>::barrier(
+    vk::CommandBuffer cb,
+    vk::PipelineStageFlags2 stageMask,
+    vk::AccessFlags2 accessMask,
+    uint32_t queueFamilyIndex,
+    vk::DependencyFlags dependencyFlags)
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, queueFamilyIndex)) {
         if (!((impl_->accessMask & kAccessMaskBufferWrite) || (accessMask & kAccessMaskBufferWrite))) {
@@ -486,14 +555,20 @@ bool Buffer<void>::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMa
     return true;
 }
 
-void Buffer<void>::copyFrom(const void * p, vk::DeviceSize size, vk::DeviceSize dstAllocationOffset)
+void Buffer<void>::copyFrom(
+    const void * p,
+    vk::DeviceSize size,
+    vk::DeviceSize dstAllocationOffset)
 {
     ASSERT(p);
     ASSERT(dstAllocationOffset + size < getSize());
     CHECK_VK_RESULT(vmaCopyMemoryToAllocation, impl_->memoryAllocator.impl_->handle, p, impl_->resource->allocation, dstAllocationOffset, size);
 }
 
-void Buffer<void>::copyTo(vk::DeviceSize srcAllocationOffset, void * p, vk::DeviceSize size) const
+void Buffer<void>::copyTo(
+    vk::DeviceSize srcAllocationOffset,
+    void * p,
+    vk::DeviceSize size) const
 {
     ASSERT(p);
     ASSERT(srcAllocationOffset + size < getSize());
@@ -505,12 +580,29 @@ void * Buffer<void>::getMappedData() const &
     return impl_->allocationInfo.allocationInfo.pMappedData;
 }
 
-Buffer<void>::Buffer(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::BufferCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::DeviceSize minAlignment,
-                     uint32_t queueFamilyIndex, float priority)
-    : impl_{name, memoryAllocator, createInfo, allocationType, requiredFlags, minAlignment, queueFamilyIndex, priority}
+Buffer<void>::Buffer(
+    std::string_view name,
+    const MemoryAllocator & memoryAllocator,
+    const vk::BufferCreateInfo & createInfo,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::DeviceSize minAlignment,
+    uint32_t queueFamilyIndex,
+    float priority)
+    : impl_{name,
+          memoryAllocator,
+          createInfo,
+          allocationType,
+          requiredFlags,
+          minAlignment,
+          queueFamilyIndex,
+          priority}
 {}
 
-MappedMemory<void>::Impl::Impl(const Buffer<void> * bufferIn, vk::DeviceSize offsetIn, vk::DeviceSize sizeIn)
+MappedMemory<void>::Impl::Impl(
+    const Buffer<void> * bufferIn,
+    vk::DeviceSize offsetIn,
+    vk::DeviceSize sizeIn)
     : buffer{bufferIn}
     , offset{offsetIn}
     , size{sizeIn}
@@ -537,10 +629,14 @@ MappedMemory<void>::Impl::Impl(const Buffer<void> * bufferIn, vk::DeviceSize off
 }
 
 MappedMemory<void>::Impl::Impl(Impl && rhs) noexcept
-    : buffer{std::exchange(rhs.buffer, nullptr)}
+    : buffer{std::exchange(
+          rhs.buffer,
+          nullptr)}
     , offset{rhs.offset}
     , size{rhs.size}
-    , mappedData{std::exchange(rhs.mappedData, nullptr)}
+    , mappedData{std::exchange(
+          rhs.mappedData,
+          nullptr)}
 {}
 
 MappedMemory<void>::Impl::~Impl()
@@ -559,11 +655,20 @@ MappedMemory<void>::Impl::~Impl()
     }
 }
 
-Buffer<void>::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocatorIn, const vk::BufferCreateInfo & createInfoIn, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::DeviceSize minAlignmentIn,
-                         uint32_t queueFamilyIndexIn, float priority)
+Buffer<void>::Impl::Impl(
+    std::string_view name,
+    const MemoryAllocator & memoryAllocatorIn,
+    const vk::BufferCreateInfo & createInfoIn,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::DeviceSize minAlignmentIn,
+    uint32_t queueFamilyIndexIn,
+    float priority)
     : memoryAllocator{memoryAllocatorIn}
     , createInfo{createInfoIn}
-    , allocationCreateInfo{makeAllocationCreateInfo(allocationType, requiredFlags)}
+    , allocationCreateInfo{makeAllocationCreateInfo(
+          allocationType,
+          requiredFlags)}
     , minAlignment{minAlignmentIn}
     , queueFamilyIndex{queueFamilyIndexIn}
 {
@@ -626,7 +731,11 @@ struct ImageResource final : utils::NonCopyable
     const VkImage image;
     const VmaAllocation allocation;
 
-    ImageResource(std::string_view nameIn, VmaAllocator allocatorIn, VkImage imageIn, VmaAllocation allocationIn)
+    ImageResource(
+        std::string_view nameIn,
+        VmaAllocator allocatorIn,
+        VkImage imageIn,
+        VmaAllocation allocationIn)
         : name{nameIn}
         , allocator{allocatorIn}
         , image{imageIn}
@@ -663,8 +772,15 @@ struct Image::Impl final : utils::OneTime<Impl>
     mutable vk::ImageLayout layout = vk::ImageLayout::eUndefined;
     mutable uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
-    Impl(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask, uint32_t queueFamilyIndex,
-         float priority);
+    Impl(
+        std::string_view name,
+        const MemoryAllocator & memoryAllocator,
+        const vk::ImageCreateInfo & createInfo,
+        AllocationType allocationType,
+        vk::MemoryPropertyFlags requiredFlags,
+        vk::ImageAspectFlags imageAspectMask,
+        uint32_t queueFamilyIndex,
+        float priority);
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {
@@ -751,7 +867,13 @@ void Image::setLayout(vk::ImageLayout layout)
     impl_->layout = layout;
 }
 
-void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+void Image::barrier(
+    vk::CommandBuffer cb,
+    vk::PipelineStageFlags2 stageMask,
+    vk::AccessFlags2 accessMask,
+    vk::ImageLayout layout,
+    uint32_t queueFamilyIndex,
+    vk::DependencyFlags dependencyFlags)
 {
     if (std::tie(impl_->stageMask, impl_->accessMask, impl_->layout, impl_->queueFamilyIndex) == std::tie(stageMask, accessMask, layout, queueFamilyIndex)) {
         if (!((impl_->accessMask & kAccessMaskImageWrite) || (accessMask & kAccessMaskImageWrite))) {
@@ -788,7 +910,13 @@ void Image::barrier(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
 }
 
-void Image::release(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+void Image::release(
+    vk::CommandBuffer cb,
+    vk::PipelineStageFlags2 stageMask,
+    vk::AccessFlags2 accessMask,
+    vk::ImageLayout layout,
+    uint32_t queueFamilyIndex,
+    vk::DependencyFlags dependencyFlags)
 {
     vk::ImageMemoryBarrier2 imageMemoryBarrier = {
         .srcStageMask = std::exchange(impl_->stageMask, stageMask),
@@ -815,7 +943,13 @@ void Image::release(vk::CommandBuffer cb, vk::PipelineStageFlags2 stageMask, vk:
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
 }
 
-void Image::acquire(vk::CommandBuffer cb, [[maybe_unused]] vk::PipelineStageFlags2 stageMask, [[maybe_unused]] vk::AccessFlags2 accessMask, vk::ImageLayout layout, uint32_t queueFamilyIndex, vk::DependencyFlags dependencyFlags)
+void Image::acquire(
+    vk::CommandBuffer cb,
+    [[maybe_unused]] vk::PipelineStageFlags2 stageMask,
+    [[maybe_unused]] vk::AccessFlags2 accessMask,
+    vk::ImageLayout layout,
+    uint32_t queueFamilyIndex,
+    vk::DependencyFlags dependencyFlags)
 {
     vk::ImageMemoryBarrier2 imageMemoryBarrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
@@ -842,7 +976,9 @@ void Image::acquire(vk::CommandBuffer cb, [[maybe_unused]] vk::PipelineStageFlag
     cb.pipelineBarrier2(dependencyInfo, impl_->memoryAllocator.impl_->context.getDispatcher());
 }
 
-vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::ImageAspectFlags imageAspectMask) const
+vk::UniqueImageView Image::createImageView(
+    vk::ImageViewType viewType,
+    vk::ImageAspectFlags imageAspectMask) const
 {
     ASSERT_MSG(impl_->imageAspectMask & imageAspectMask, "{} ^ {}", impl_->imageAspectMask, imageAspectMask);
     vk::ImageViewCreateInfo imageViewCreateInfo = {
@@ -868,16 +1004,39 @@ vk::UniqueImageView Image::createImageView(vk::ImageViewType viewType, vk::Image
     return context.getDevice().getHandle().createImageViewUnique(imageViewCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 }
 
-Image::Image(std::string_view name, const MemoryAllocator & memoryAllocator, const vk::ImageCreateInfo & createInfo, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMask,
-             uint32_t queueFamilyIndex, float priority)
-    : impl_{name, memoryAllocator, createInfo, allocationType, requiredFlags, imageAspectMask, queueFamilyIndex, priority}
+Image::Image(
+    std::string_view name,
+    const MemoryAllocator & memoryAllocator,
+    const vk::ImageCreateInfo & createInfo,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMask,
+    uint32_t queueFamilyIndex,
+    float priority)
+    : impl_{name,
+          memoryAllocator,
+          createInfo,
+          allocationType,
+          requiredFlags,
+          imageAspectMask,
+          queueFamilyIndex,
+          priority}
 {}
 
-Image::Impl::Impl(std::string_view name, const MemoryAllocator & memoryAllocatorIn, const vk::ImageCreateInfo & createInfoIn, AllocationType allocationType, vk::MemoryPropertyFlags requiredFlags, vk::ImageAspectFlags imageAspectMaskIn,
-                  uint32_t queueFamilyIndexIn, float priority)
+Image::Impl::Impl(
+    std::string_view name,
+    const MemoryAllocator & memoryAllocatorIn,
+    const vk::ImageCreateInfo & createInfoIn,
+    AllocationType allocationType,
+    vk::MemoryPropertyFlags requiredFlags,
+    vk::ImageAspectFlags imageAspectMaskIn,
+    uint32_t queueFamilyIndexIn,
+    float priority)
     : memoryAllocator{memoryAllocatorIn}
     , createInfo{createInfoIn}
-    , allocationCreateInfo{makeAllocationCreateInfo(allocationType, requiredFlags)}
+    , allocationCreateInfo{makeAllocationCreateInfo(
+          allocationType,
+          requiredFlags)}
     , imageAspectMask{imageAspectMaskIn}
     , layout{createInfo.initialLayout}
     , queueFamilyIndex{queueFamilyIndexIn}

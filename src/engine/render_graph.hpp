@@ -28,7 +28,10 @@ namespace engine::render_graph
 
 struct CommandList : utils::NonCopyable
 {
-    void LockBuffer(rhi::Buffer * buffer, vk::DeviceSize offset, vk::DeviceSize size);
+    void LockBuffer(
+        rhi::Buffer * buffer,
+        vk::DeviceSize offset,
+        vk::DeviceSize size);
     void UnlockBuffer(rhi::Buffer * buffer);
 };
 
@@ -65,10 +68,20 @@ struct ENGINE_EXPORT Builder final : utils::NonCopyable
         std::vector<ResourceRef> renderTargets;
     };
 
-    Builder(std::string_view name, const Context & context, CommandList & commandList, BuilderFlags flags = BuilderFlags::None);
+    Builder(
+        std::string_view name,
+        const Context & context,
+        CommandList & commandList,
+        BuilderFlags flags = BuilderFlags::None);
 
-    template<typename ParameterStruct, typename F>
-    PassRef AddPass(std::string_view passName, const ParameterStruct * parameterStruct, PassFlags flags, F && f);
+    template<
+        typename ParameterStruct,
+        typename F>
+    PassRef AddPass(
+        std::string_view passName,
+        const ParameterStruct * parameterStruct,
+        PassFlags flags,
+        F && f);
 
 private:
     std::string name;

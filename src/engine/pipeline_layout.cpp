@@ -8,7 +8,10 @@
 namespace engine
 {
 
-PipelineLayout::PipelineLayout(std::string_view nameIn, const Context & contextIn, const ShaderStages & shaderStagesIn)
+PipelineLayout::PipelineLayout(
+    std::string_view nameIn,
+    const Context & contextIn,
+    const ShaderStages & shaderStagesIn)
     : name{nameIn}
     , context{contextIn}
     , shaderStages{shaderStagesIn}
