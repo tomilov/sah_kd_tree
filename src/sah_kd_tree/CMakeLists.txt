@@ -60,16 +60,22 @@ skt_add_library(
         Thrust
 )
 
+set_target_properties(
+    "lib${PROJECT_NAME}"
+    PROPERTIES
+        UNITY_BUILD_BATCH_SIZE 2
+)
+
 if(SAH_KD_TREE_BUILD_FUZZER)
     target_compile_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=fuzzer-no-link>
+            -fsanitize=fuzzer-no-link
     )
     target_link_options(
         "lib${PROJECT_NAME}"
         PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=fuzzer-no-link>
+            -fsanitize=fuzzer-no-link
     )
     string(REPLACE "." ";" CXX_COMPILER_VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
     list(GET CXX_COMPILER_VERSION_LIST 0 CXX_COMPILER_VERSION_MAJOR)

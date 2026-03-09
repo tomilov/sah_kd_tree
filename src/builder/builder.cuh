@@ -1,3 +1,5 @@
+#pragma once
+
 #include <builder/builder.hpp>
 #include <compute/compute.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>

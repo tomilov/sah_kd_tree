@@ -25,6 +25,12 @@ skt_add_library(
         "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
 )
 
+set_target_properties(
+    "lib${PROJECT_NAME}"
+    PROPERTIES
+        UNITY_BUILD OFF
+)
+
 skt_add_executable("${PROJECT_NAME}")
 
 add_subdirectory("tests")

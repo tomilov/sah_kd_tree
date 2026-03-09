@@ -21,7 +21,7 @@ function(skt_snake_to_camel SNAKE_STR OUTPUT_VAR)
     set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
 endfunction()
 
-option(SAH_KD_TREE_ENABLE_IPO "Enable IPO/LTO" ON)
+option(SAH_KD_TREE_ENABLE_IPO "Enable IPO/LTO" OFF)
 if(SAH_KD_TREE_ENABLE_IPO)
     include(CheckIPOSupported)
     check_ipo_supported(
@@ -68,6 +68,14 @@ function(skt_enable_target_ipo target)
         set_property(TARGET "${target}" PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
         message(STATUS "LTO for ${target} is ON")
     endif()
+endfunction()
+
+function(skt_setup_target_unity_build target)
+    set_target_properties(
+        "${target}"
+        PROPERTIES
+            UNITY_BUILD_UNIQUE_ID "SAH_KD_TREE_UNITY_ID"
+    )
 endfunction()
 
 function(skt_add_library target)
@@ -129,6 +137,7 @@ function(skt_add_library target)
     if(NOT ARG_FORCE_DISABLE_IPO)
         skt_enable_target_ipo("lib${target}")
     endif()
+    skt_setup_target_unity_build("lib${target}")
 endfunction()
 
 function(skt_add_executable target)
@@ -160,4 +169,5 @@ function(skt_add_executable target)
     if(NOT ARG_FORCE_DISABLE_IPO)
         skt_enable_target_ipo("${target}")
     endif()
+    skt_setup_target_unity_build("${target}")
 endfunction()
