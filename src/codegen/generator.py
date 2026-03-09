@@ -474,7 +474,8 @@ def main() -> None:
         formatted = _clang_format(args, unformatted)
         if unformatted != formatted:
             _print_diff(unformatted, formatted, file_name=file_name)
-            assert not args.fail_on_format_mismatch, "Failed on formats mismatch"
+            if args.fail_on_format_mismatch:
+                raise RuntimeError("Failed on formats mismatch")
         with open(f"{file_name}.tmp", "wb") as tmp:
             tmp.write(unformatted.encode())
 

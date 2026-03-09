@@ -12,6 +12,8 @@ skt_add_library(
         "auto_cast.hpp"
         "checked_ptr.cpp"
         "checked_ptr.hpp"
+        "demangle.cpp"
+        "demangle.hpp"
         "exception.cpp"
         "exception.hpp"
         "fast_pimpl.cpp"

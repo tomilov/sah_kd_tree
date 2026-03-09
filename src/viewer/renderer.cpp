@@ -161,10 +161,7 @@ private:
             std::unique_ptr<Storage> storage{static_cast<Storage *>(p)};
             std::invoke(std::forward<F>(std::get<0>(*storage)), std::forward<Args>(std::get<1 + Indices>(*storage))...);
         };
-        return {
-            new Storage{std::forward<F>(f), std::forward<Args>(args)...},
-            recycle
-        };
+        return {new Storage{std::forward<F>(f), std::forward<Args>(args)...}, recycle};
     }
 
     static constexpr void completeClassContext [[maybe_unused]] ()
@@ -1041,30 +1038,30 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     };
     const std::initializer_list<vk::SpecializationMapEntry> specializationMapEntries = {
         {
-         .constantID = 0,
-         .offset = offsetof(SpecializationData, kGroupSizeX),
-         .size = sizeof(SpecializationData::kGroupSizeX),
-         },
+            .constantID = 0,
+            .offset = offsetof(SpecializationData, kGroupSizeX),
+            .size = sizeof(SpecializationData::kGroupSizeX),
+        },
         {
-         .constantID = 1,
-         .offset = offsetof(SpecializationData, kGroupSizeY),
-         .size = sizeof(SpecializationData::kGroupSizeY),
-         },
+            .constantID = 1,
+            .offset = offsetof(SpecializationData, kGroupSizeY),
+            .size = sizeof(SpecializationData::kGroupSizeY),
+        },
         {
-         .constantID = 2,
-         .offset = offsetof(SpecializationData,        kUlp),
-         .size = sizeof(SpecializationData::kUlp),
-         },
+            .constantID = 2,
+            .offset = offsetof(SpecializationData, kUlp),
+            .size = sizeof(SpecializationData::kUlp),
+        },
         {
-         .constantID = 3,
-         .offset = offsetof(SpecializationData,        kEps),
-         .size = sizeof(SpecializationData::kEps),
-         },
+            .constantID = 3,
+            .offset = offsetof(SpecializationData, kEps),
+            .size = sizeof(SpecializationData::kEps),
+        },
         {
-         .constantID = 4,
-         .offset = offsetof(SpecializationData,        kInf),
-         .size = sizeof(SpecializationData::kInf),
-         },
+            .constantID = 4,
+            .offset = offsetof(SpecializationData, kInf),
+            .size = sizeof(SpecializationData::kInf),
+        },
     };
     engine::SpecializationInfos specializationInfos;
     specializationInfos.try_emplace(vk::ShaderStageFlagBits::eCompute, std::make_unique<SpecializationData>(specializationData), specializationMapEntries);

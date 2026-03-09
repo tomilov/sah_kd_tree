@@ -6,6 +6,7 @@
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/demangle.hpp>
 #include <utils/math.hpp>
 
 #include <thrust/iterator/iterator_traits.h>
@@ -23,6 +24,7 @@
 #include <iterator>
 #include <numeric>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 #include <cstddef>
@@ -58,7 +60,8 @@ struct TreeBuildContext : Tree
     template<typename T>
     using Vector = typename BaseTraits::template Vector<T>;
 
-    static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type, thrust::cuda::tag>;
+    using System = typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type;
+    static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<System, thrust::cuda::tag>;
 
     TreeBuildContext(
         const Settings & settingsIn,
@@ -105,7 +108,7 @@ struct TreeBuildContext : Tree
 
     static void printThrustVersion()
     {
-        SPDLOG_INFO("Thrust version: {}.{}.{}.{}", THRUST_MAJOR_VERSION, THRUST_MINOR_VERSION, THRUST_SUBMINOR_VERSION, THRUST_PATCH_NUMBER);
+        SPDLOG_INFO("THRUST_VERSION: {}.{}.{}.{}", THRUST_MAJOR_VERSION, THRUST_MINOR_VERSION, THRUST_SUBMINOR_VERSION, THRUST_PATCH_NUMBER);
         {
             const char * hostSystem = nullptr;
             switch (THRUST_HOST_SYSTEM) {
@@ -120,7 +123,7 @@ struct TreeBuildContext : Tree
                 break;
             }
             INVARIANT(hostSystem, "{}", THRUST_HOST_SYSTEM);
-            SPDLOG_INFO("Thrust host system: {}", hostSystem);
+            SPDLOG_INFO("THRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_{}", hostSystem);
         }
         {
             const char * deviceSystem = nullptr;
@@ -139,7 +142,7 @@ struct TreeBuildContext : Tree
                 break;
             }
             INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
-            SPDLOG_INFO("Thrust device system: {}", deviceSystem);
+            SPDLOG_INFO("THRUST_DEVICE_SYSTEM: THRUST_DEVICE_SYSTEM_{}", deviceSystem);
         }
     }
 
@@ -147,7 +150,8 @@ struct TreeBuildContext : Tree
     {
         cudaDevice.setCurrentDevice();
         printThrustVersion();
-        SPDLOG_INFO("Builder kind: {}", __PRETTY_FUNCTION__);
+        SPDLOG_INFO("ThrustDeviceSystem: {}", utils::demangle(typeid(Traits).name()));
+        SPDLOG_INFO("system: {}", utils::demangle(typeid(System).name()));
         auto triangles = sceneData->makeTriangles();
         triangleCount = triangles.getCount();
         typename Traits::TreeContext treeContext;

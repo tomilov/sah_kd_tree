@@ -1,6 +1,6 @@
 project("codegen")
 
-find_program(clang_format_executable NAMES clang-format REQUIRED)
+option(SAH_KD_TREE_CODEGEN_FAIL_ON_FORMAT_MISMATCH "Fail on generated C++ sources format mismatch" ON)
 
 function(skt_add_codegen_library name)
     cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "DEPENDENCY;COMMAND_ARGUMENT;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES" "")
@@ -17,8 +17,9 @@ function(skt_add_codegen_library name)
             Python3::Interpreter
                 "${CMAKE_CURRENT_SOURCE_DIR}/generator.py"
                 --source-dir="${CMAKE_CURRENT_SOURCE_DIR}"
-                --clang-format-executable="${clang_format_executable}"
+                --clang-format-executable="${CMAKE_SOURCE_DIR}/venv/bin/clang-format"
                 --clang-format-config="${CMAKE_SOURCE_DIR}/_clang-format"
+                $<$<BOOL:${SAH_KD_TREE_CODEGEN_FAIL_ON_FORMAT_MISMATCH}>:--fail-on-format-mismatch>
                 "${name}"
                 "${ARG_COMMAND_ARGUMENT}"
         COMMAND

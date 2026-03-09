@@ -665,27 +665,9 @@ struct nlohmann::adl_serializer<SpvReflectNumericTraits>
         json & j,
         const SpvReflectNumericTraits & numericTraits)
     {
-        j.emplace(
-            "scalar",
-            json::object(
-                {
-                    {     "width",      numericTraits.scalar.width},
-                    {"signedness", numericTraits.scalar.signedness}
-        }));
-        j.emplace(
-            "vector",
-            json::object(
-                {
-                    {"component_count", numericTraits.vector.component_count}
-        }));
-        j.emplace(
-            "matrix",
-            json::object(
-                {
-                    {"column_count", numericTraits.matrix.column_count},
-                    {   "row_count",    numericTraits.matrix.row_count},
-                    {      "stride",       numericTraits.matrix.stride}
-        }));
+        j.emplace("scalar", json::object({{"width", numericTraits.scalar.width}, {"signedness", numericTraits.scalar.signedness}}));
+        j.emplace("vector", json::object({{"component_count", numericTraits.vector.component_count}}));
+        j.emplace("matrix", json::object({{"column_count", numericTraits.matrix.column_count}, {"row_count", numericTraits.matrix.row_count}, {"stride", numericTraits.matrix.stride}}));
     }
 };
 
@@ -717,14 +699,7 @@ struct nlohmann::adl_serializer<SpvReflectTypeDescription>
         j.emplace("storage_class", typeDescription.storage_class);
         j.emplace("type_flags", engine::Flags<SpvReflectTypeFlagBits>{typeDescription.type_flags});
         j.emplace("decoration_flags", engine::Flags<SpvReflectDecorationFlagBits>{typeDescription.decoration_flags});
-        j.emplace(
-            "traits",
-            json::object(
-                {
-                    {"numeric", typeDescription.traits.numeric},
-                    {  "image",   typeDescription.traits.image},
-                    {  "array",   typeDescription.traits.array}
-        }));
+        j.emplace("traits", json::object({{"numeric", typeDescription.traits.numeric}, {"image", typeDescription.traits.image}, {"array", typeDescription.traits.array}}));
         j.emplace("copied", typeDescription.copied);
         j.emplace("member_count", typeDescription.member_count);
         j.emplace("members", engine::List(typeDescription.members, typeDescription.member_count));
@@ -788,13 +763,7 @@ struct nlohmann::adl_serializer<SpvReflectDescriptorBinding>
         j.emplace("uav_counter_id", descriptorBinding.uav_counter_id);
         j.emplace("uav_counter_binding", engine::Nullable(descriptorBinding.uav_counter_binding));
         j.emplace("type_description", engine::Nullable(descriptorBinding.type_description));
-        j.emplace(
-            "word_offset",
-            json::object(
-                {
-                    {"binding", descriptorBinding.word_offset.binding},
-                    {    "set",     descriptorBinding.word_offset.set}
-        }));
+        j.emplace("word_offset", json::object({{"binding", descriptorBinding.word_offset.binding}, {"set", descriptorBinding.word_offset.set}}));
         j.emplace("decoration_flags", engine::Flags<SpvReflectDecorationFlagBits>{descriptorBinding.decoration_flags});
     }
 };
@@ -861,14 +830,7 @@ struct nlohmann::adl_serializer<SpvReflectEntryPoint>
         j.emplace("used_push_constants", engine::List(entryPoint.used_push_constants, entryPoint.used_push_constant_count));
         j.emplace("execution_mode_count", entryPoint.execution_mode_count);
         j.emplace("execution_modes", engine::List(entryPoint.execution_modes, entryPoint.execution_mode_count));
-        j.emplace(
-            "local_size",
-            json::object(
-                {
-                    {"x", entryPoint.local_size.x},
-                    {"y", entryPoint.local_size.y},
-                    {"z", entryPoint.local_size.z}
-        }));
+        j.emplace("local_size", json::object({{"x", entryPoint.local_size.x}, {"y", entryPoint.local_size.y}, {"z", entryPoint.local_size.z}}));
         j.emplace("invocations", entryPoint.invocations);
         j.emplace("output_vertices", entryPoint.output_vertices);
     }

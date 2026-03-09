@@ -563,12 +563,12 @@ void TaskQueue::addTask(
         };
         using StatusSignal = void (QFutureWatcherBase::*)();
         static constexpr QPair<StatusSignal, const char8_t *> statusSignals[] = {
-            {   &QFutureWatcherBase::started,    u8"started"}, //
-            {  &QFutureWatcherBase::finished,   u8"finished"}, //
-            {  &QFutureWatcherBase::canceled,   u8"canceled"}, //
-            {&QFutureWatcherBase::suspending, u8"suspending"}, //
-            { &QFutureWatcherBase::suspended,  u8"suspended"}, //
-            {   &QFutureWatcherBase::resumed,    u8"resumed"}, //
+            {&QFutureWatcherBase::started, u8"started"},        //
+            {&QFutureWatcherBase::finished, u8"finished"},      //
+            {&QFutureWatcherBase::canceled, u8"canceled"},      //
+            {&QFutureWatcherBase::suspending, u8"suspending"},  //
+            {&QFutureWatcherBase::suspended, u8"suspended"},    //
+            {&QFutureWatcherBase::resumed, u8"resumed"},        //
         };
         for (const auto & [signal, signalName] : statusSignals) {
             const auto onStatusChanged = [this, id, signal, signalName, removeRow]

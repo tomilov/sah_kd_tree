@@ -24,9 +24,9 @@ MappedDeviceMemory::MappedDeviceMemory(
     CU_CHECK_ERROR(cuMemMap, devPtr, alignedAllocationSize, 0, allocationHandle, 0);
     ::CUmemAccessDesc accessDescriptor[] = {
         {
-         .location = location,
-         .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
-         },
+            .location = location,
+            .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
+        },
     };
     CU_CHECK_ERROR(cuMemSetAccess, devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor));
 }

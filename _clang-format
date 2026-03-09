@@ -12,7 +12,7 @@ DerivePointerAlignment: false
 PointerAlignment: Middle
 ReferenceAlignment: Middle
 QualifierAlignment: Left
-AlignArrayOfStructures: Right
+AlignArrayOfStructures: None
 AllowAllArgumentsOnNextLine: false
 AllowShortEnumsOnASingleLine: false
 AlignAfterOpenBracket: false

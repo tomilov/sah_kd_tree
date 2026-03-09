@@ -250,10 +250,7 @@ int main(
 
     const auto createTarget = [&width, &height]() -> gli::texture2d
     {
-        return {
-            soft_renderer::SoftRenderer::kTargetFormat,
-            gli::extent2d{width, height}
-        };
+        return {soft_renderer::SoftRenderer::kTargetFormat, gli::extent2d{width, height}};
     };
     auto rgbaTarget = createTarget();
 

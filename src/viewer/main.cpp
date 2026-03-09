@@ -67,14 +67,10 @@ AppPtr createApplication(
 {
     for (int i = 1; i < argc; ++i) {
         if (qstrcmp(argv[i], "--no-widgets") == 0) {
-            return AppPtr{
-                new viewer::GuiApplication{argc, argv}
-            };
+            return AppPtr{new viewer::GuiApplication{argc, argv}};
         }
     }
-    return AppPtr{
-        new viewer::Application{argc, argv}
-    };
+    return AppPtr{new viewer::Application{argc, argv}};
 }
 
 spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)

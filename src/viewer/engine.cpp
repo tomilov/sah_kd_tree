@@ -65,32 +65,32 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 
     const vk::AttachmentDescription2 attachmentDecriptions[] = {
         {
-         .format = OffscreenRenderPass::kColorFormat,
-         .samples = vk::SampleCountFlagBits::e1,
-         .loadOp = vk::AttachmentLoadOp::eClear,
-         .storeOp = vk::AttachmentStoreOp::eStore,
-         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-         .initialLayout = vk::ImageLayout::eUndefined,
-         .finalLayout = kExternalColorImageLayout,
-         },
+            .format = OffscreenRenderPass::kColorFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = kExternalColorImageLayout,
+        },
         {
-         .format = depthFormat,
-         .samples = vk::SampleCountFlagBits::e1,
-         .loadOp = vk::AttachmentLoadOp::eClear,
-         .storeOp = vk::AttachmentStoreOp::eDontCare,
-         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-         .initialLayout = vk::ImageLayout::eUndefined,
-         .finalLayout = depthImageLayout,
-         },
+            .format = depthFormat,
+            .samples = vk::SampleCountFlagBits::e1,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eDontCare,
+            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout = vk::ImageLayout::eUndefined,
+            .finalLayout = depthImageLayout,
+        },
     };
 
     const vk::AttachmentReference2 colorAttachmentReferences[] = {
         {
-         .attachment = 0,
-         .layout = vk::ImageLayout::eColorAttachmentOptimal,
-         },
+            .attachment = 0,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        },
     };
 
     const vk::AttachmentReference2 depthAttachmentReference = {
@@ -100,10 +100,10 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 
     vk::SubpassDescription2 subpassDescriptions[] = {
         {
-         .flags = {},
-         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-         .pDepthStencilAttachment = &depthAttachmentReference,
-         },
+            .flags = {},
+            .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+            .pDepthStencilAttachment = &depthAttachmentReference,
+        },
     };
     subpassDescriptions[0].setColorAttachments(colorAttachmentReferences);
 
@@ -111,53 +111,61 @@ OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
     constexpr auto kInternalColorAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite;
     const vk::StructureChain<vk::SubpassDependency2, vk::MemoryBarrier2> subpassDependencyChain[] = {
         {
-         {
-         .srcSubpass = vk::SubpassExternal,
-         .dstSubpass = 0,
-         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-         .viewOffset = 0,
-         }, {
- .srcStageMask = kExternalColorStageMask,
- .srcAccessMask = kExternalColorAccessMask,
- .dstStageMask = kInternalColorStageMask,
- .dstAccessMask = kInternalColorAccessMask,
- }, },
+            {
+                .srcSubpass = vk::SubpassExternal,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kExternalColorStageMask,
+                .srcAccessMask = kExternalColorAccessMask,
+                .dstStageMask = kInternalColorStageMask,
+                .dstAccessMask = kInternalColorAccessMask,
+            },
+        },
         {
-         {
-         .srcSubpass = 0,
-         .dstSubpass = vk::SubpassExternal,
-         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-         .viewOffset = 0,
-         }, {
- .srcStageMask = kInternalColorStageMask,
- .srcAccessMask = kInternalColorAccessMask,
- .dstStageMask = kExternalColorStageMask,
- .dstAccessMask = kExternalColorAccessMask,
- }, },
+            {
+                .srcSubpass = 0,
+                .dstSubpass = vk::SubpassExternal,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kInternalColorStageMask,
+                .srcAccessMask = kInternalColorAccessMask,
+                .dstStageMask = kExternalColorStageMask,
+                .dstAccessMask = kExternalColorAccessMask,
+            },
+        },
         {
-         {
-         .srcSubpass = vk::SubpassExternal,
-         .dstSubpass = 0,
-         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-         .viewOffset = 0,
-         }, {
- .srcStageMask = kDepthStageMask,
- .srcAccessMask = kDepthAccessMask,
- .dstStageMask = kDepthStageMask,
- .dstAccessMask = kDepthAccessMask,
- }, },
+            {
+                .srcSubpass = vk::SubpassExternal,
+                .dstSubpass = 0,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
         {
-         {
-         .srcSubpass = 0,
-         .dstSubpass = vk::SubpassExternal,
-         .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-         .viewOffset = 0,
-         }, {
- .srcStageMask = kDepthStageMask,
- .srcAccessMask = kDepthAccessMask,
- .dstStageMask = kDepthStageMask,
- .dstAccessMask = kDepthAccessMask,
- }, },
+            {
+                .srcSubpass = 0,
+                .dstSubpass = vk::SubpassExternal,
+                .dependencyFlags = vk::DependencyFlagBits::eByRegion,
+                .viewOffset = 0,
+            },
+            {
+                .srcStageMask = kDepthStageMask,
+                .srcAccessMask = kDepthAccessMask,
+                .dstStageMask = kDepthStageMask,
+                .dstAccessMask = kDepthAccessMask,
+            },
+        },
     };
 
     auto subpassDependencies = engine::getHeads(subpassDependencyChain);

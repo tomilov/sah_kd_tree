@@ -147,16 +147,12 @@ template<typename T>
 
 [[nodiscard]] constexpr glm::vec3 assimpToGlmVector [[maybe_unused]] (const aiVector3D & v)
 {
-    return glm::vec3{
-        glm::tvec3<ai_real>{v.x, v.y, v.z}
-    };
+    return glm::vec3{glm::tvec3<ai_real>{v.x, v.y, v.z}};
 }
 
 [[nodiscard]] constexpr glm::quat assimpToGlmQuaternion [[maybe_unused]] (const aiQuaternion & q)
 {
-    return glm::quat{
-        glm::tquat<ai_real>{q.w, q.x, q.y, q.z}
-    };
+    return glm::quat{glm::tquat<ai_real>{q.w, q.x, q.y, q.z}};
 }
 
 [[nodiscard]] constexpr glm::mat3 assimpToGlmMatrix [[maybe_unused]] (const aiMatrix3x3 & m)

@@ -441,11 +441,7 @@ struct Triangle
     {
         __host__ __device__ TransposedTriangleType operator()(const TriangleType & t) const
         {
-            return {
-                {t.a.x, t.b.x, t.c.x},
-                {t.a.y, t.b.y, t.c.y},
-                {t.a.z, t.b.z, t.c.z}
-            };
+            return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
         }
     };
 

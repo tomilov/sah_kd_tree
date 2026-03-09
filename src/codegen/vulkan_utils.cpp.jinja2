@@ -160,7 +160,9 @@ const std::unordered_map<SpvImageFormat, vk::Format> kSpvImageFormatToVkFormat =
     {% endfor %}
 };
 
-vk::DeviceSize formatElementSize(vk::Format format, vk::ImageAspectFlagBits imageAspect)
+vk::DeviceSize formatElementSize(
+    vk::Format format,
+    vk::ImageAspectFlagBits imageAspect)
 {
     if (imageAspect == vk::ImageAspectFlagBits::eStencil) {
         return formatStencilBitSize(format);

@@ -121,9 +121,9 @@ endif()
 cmake_dependent_option(
     SAH_KD_TREE_BUILD_FUZZER
     "Whether to build 'fuzzer' target"
-        ON
+    ON
     "CMAKE_CXX_COMPILER_ID MATCHES Clang"
-        OFF
+    OFF
 )
 
 find_package(OpenMP REQUIRED)

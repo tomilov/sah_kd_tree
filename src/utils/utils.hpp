@@ -3,6 +3,7 @@
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
+#include <utils/demangle.hpp>
 #include <utils/exception.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/fd.hpp>
