@@ -295,7 +295,7 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(
     ASSERT(sampler);
     ASSERT(*sampler);
     vk::DescriptorImageInfo descriptorImageInfo = {
-        .sampler = !target ? **sampler : VK_NULL_HANDLE,
+        .sampler = !target ? **sampler : nullptr,
         .imageView = *imageView,
         .imageLayout = target ? kInternalImageLayout : kExternalImageLayout,
     };

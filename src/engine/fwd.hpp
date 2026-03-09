@@ -22,4 +22,12 @@ struct Fences;
 struct VertexInputState;
 struct ShaderStages;
 struct RenderPass;
+
+template<typename T>
+class MappedMemory;
+
+template<typename T>
+class Buffer;
+
+class Image;
 }  // namespace engine

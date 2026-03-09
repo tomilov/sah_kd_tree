@@ -8,6 +8,6 @@ using namespace compute;
 
 int main()
 {
-    CudaDevicePtr cudaDevice = makeCudaDevice(std::nullopt);
+    [[maybe_unused]] auto cudaDevice = makeCudaDevice(std::nullopt);
     return EXIT_SUCCESS;
 }

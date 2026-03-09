@@ -52,10 +52,10 @@ static_assert(std::is_trivially_copyable_v<AABB>);
 
 struct SCENE_DATA_EXPORT Node
 {
-    size_t parent = 0;  // index in scene_data::Nodes
+    size_t parent = 0;  // index in scene_data::nodes
     glm::mat4 transform{1.0f};
     std::vector<size_t> meshes;    // indices in Scene::meshes
-    std::vector<size_t> children;  // indices in scene_data::Nodes
+    std::vector<size_t> children;  // indices in Scene::nodes
     AABB aabb = {};
 };
 

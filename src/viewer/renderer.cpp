@@ -586,7 +586,7 @@ public:
         submitInfo.setWaitDstStageMask(waitDstStageMasks);
         submitInfo.setSignalSemaphores(signalSemaphores);
         submitInfo.setCommandBuffers(commandBuffer);
-        queue.submit(submitInfo, completionFence ? **completionFence : VK_NULL_HANDLE);
+        queue.submit(submitInfo, completionFence ? **completionFence : nullptr);
 
         if (waitIdle) {
             if (completionFence) {
@@ -1169,7 +1169,7 @@ void Renderer::Impl::drawScene(
             }
             ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
             ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
-            return VK_NULL_HANDLE;
+            return nullptr;
         };
         vk::Buffer vertexBuffer = bufferOrNull(sceneResources.vertexBuffer);
         constexpr vk::DeviceSize kVertexBufferOffset = 0;
@@ -1289,7 +1289,7 @@ void Renderer::Impl::drawDisplay(
 
     {
         constexpr uint32_t kFirstBinding = 0;
-        constexpr vk::Buffer kVertexBuffer = VK_NULL_HANDLE;
+        constexpr vk::Buffer kVertexBuffer = nullptr;
         constexpr vk::DeviceSize kVertexBufferOffset = 0;
         commandBuffer.bindVertexBuffers(kFirstBinding, kVertexBuffer, kVertexBufferOffset, context.getDispatcher());
     }

@@ -42,7 +42,7 @@ class SceneSettings : public QObject
     Q_PROPERTY(QString sceneStatus READ getSceneStatus NOTIFY sceneStatusChanged)
 
     Q_PROPERTY(QVariantList thrustDeviceSystems READ getThrustDeviceSystems CONSTANT)
-    Q_PROPERTY(ThrustDeviceSystem thrustDeviceSystem MEMBER thrustDeviceSystem NOTIFY thrustDeviceSystemChanged)
+    Q_PROPERTY(ThrustDeviceSystem thrustDeviceSystem MEMBER thrustDeviceSystem NOTIFY treeSettingsChanged)
 
     Q_PROPERTY(bool traceTree MEMBER traceTree NOTIFY treeSettingsChanged)
 
@@ -107,8 +107,6 @@ Q_SIGNALS:
     void urlChanged();
     void sceneChanged();
     void sceneStatusChanged();
-
-    void thrustDeviceSystemChanged();
 
     void treeSettingsChanged();
     void treeChanged();

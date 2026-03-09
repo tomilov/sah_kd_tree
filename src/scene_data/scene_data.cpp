@@ -1,4 +1,3 @@
-#include <scene_data/fwd.hpp>
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/mem_array.hpp>

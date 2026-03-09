@@ -9,6 +9,7 @@ set_target_properties(
 target_compile_definitions(
     Vulkan-Headers
     INTERFACE
+        VK_USE_64_BIT_PTR_DEFINES=1
         VK_ENABLE_BETA_EXTENSIONS
         VK_USE_PLATFORM_XCB_KHR
         VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
@@ -65,11 +66,6 @@ set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
 set(FMT_SYSTEM_HEADERS ON CACHE BOOL "" FORCE)
 set(FMT_USE_BITINT OFF CACHE BOOL "" FORCE)
 add_subdirectory("fmt" EXCLUDE_FROM_ALL SYSTEM)
-target_compile_definitions(
-    "fmt"
-    INTERFACE
-        FMT_USE_BITINT=0
-)
 
 
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)

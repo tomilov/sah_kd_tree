@@ -7,7 +7,6 @@
 #include <vulkan/vulkan.hpp>
 
 #include <algorithm>
-#include <array>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -15,8 +14,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-
-#include <format/format_export.h>
 
 template<typename FlagBitsType>
 size_t getFlagBitsMaxNameLength()
@@ -28,9 +25,7 @@ size_t getFlagBitsMaxNameLength()
         auto nextMask = mask & (mask - 1);
         auto bit = nextMask ^ mask;
         size_t length = fmt::formatted_size("{}", FlagBitsType{bit});
-        if (maxLength < length) {
-            maxLength = length;
-        }
+        maxLength = std::max(maxLength, length);
         mask = nextMask;
     }
     return maxLength;

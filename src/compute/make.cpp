@@ -1,6 +1,8 @@
 #include <compute/compute.hpp>
 #include <compute/make.hpp>
 
+#include <memory>
+
 namespace compute
 {
 

@@ -8,6 +8,8 @@
 
 #include <mutex>
 
+#include <cstddef>
+
 #include <debug_utils/debug_utils_export.h>
 
 namespace debug_utils
@@ -49,7 +51,7 @@ public:
 
     [[nodiscard]] static const Renderdoc & renderdoc();
     [[nodiscard]] static FrameCapture makeFrameCapture(
-        vk::Instance instance = VK_NULL_HANDLE,
+        vk::Instance instance = {},
         WindowHandle window = nullptr);
     [[nodiscard]] static bool isFrameCapturing();
 

@@ -47,7 +47,6 @@ void assertFailed [[noreturn]] (
     } while (false)
 
 #define ASSERT_MSG(condition, format, ...) ASSERT_MSG_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
-
 #define ASSERT_SRCLOC(condition, srcLoc) ASSERT_MSG_SRCLOC(condition, srcLoc, "")
 #define ASSERT(condition) ASSERT_MSG(condition, "")
 

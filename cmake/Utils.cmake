@@ -1,8 +1,8 @@
-function(skt_env_or_default variable_name default_value)
-    if(DEFINED ENV{${variable_name}})
-        set(${variable_name} "$ENV{${variable_name}}" PARENT_SCOPE)
+function(skt_env_or_default VARIABLE_NAME DEFAULT_VALUE)
+    if(DEFINED ENV{${VARIABLE_NAME}})
+        set(${VARIABLE_NAME} "$ENV{${VARIABLE_NAME}}" PARENT_SCOPE)
     else()
-        set(${variable_name} "${default_value}" PARENT_SCOPE)
+        set(${VARIABLE_NAME} "${DEFAULT_VALUE}" PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -78,96 +78,110 @@ function(skt_setup_target_unity_build target)
     )
 endfunction()
 
-function(skt_add_library target)
-    cmake_parse_arguments(
-        ARG
-        "FORCE_DISABLE_IPO"
-        "BASE_NAME"
-        "SOURCES;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES"
-        ${ARGN}
-    )
-    if(NOT ARG_BASE_NAME)
-        set(ARG_BASE_NAME "${target}")
-    endif()
-    add_library("lib${target}")
-    set_target_properties(
-        "lib${target}"
-        PROPERTIES
-            LIBRARY_OUTPUT_NAME "${target}"
-            ARCHIVE_OUTPUT_NAME "${target}"
-    )
-    generate_export_header("lib${target}" BASE_NAME "${ARG_BASE_NAME}")
-    get_target_property(TARGET_TYPE "lib${target}" TYPE)
+function(skt_generate_export_header target base_name)
+    generate_export_header("${target}" BASE_NAME "${base_name}")
+    get_target_property(TARGET_TYPE "${target}" TYPE)
     if(TARGET_TYPE STREQUAL "STATIC_LIBRARY")
-        string(TOUPPER "${ARG_BASE_NAME}" STATIC_DEFINE_PREFIX)
+        string(TOUPPER "${base_name}" STATIC_DEFINE_PREFIX)
         target_compile_definitions(
-            "lib${target}"
+            "${target}"
             PUBLIC
                 ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE
         )
     endif()
-    if(ARG_SOURCES)
-        target_sources(
-            "lib${target}"
-            PRIVATE
-                ${ARG_SOURCES}
-        )
-    endif()
-    if(ARG_PRIVATE_LINKS)
-        target_link_libraries(
-            "lib${target}"
-            PRIVATE
-                ${ARG_PRIVATE_LINKS}
-        )
-    endif()
-    if(ARG_PUBLIC_LINKS)
-        target_link_libraries(
-            "lib${target}"
-            PUBLIC
-                ${ARG_PUBLIC_LINKS}
-        )
-    endif()
-    if(ARG_SYSTEM_PUBLIC_INCLUDES)
-        target_include_directories(
-            "lib${target}"
-            SYSTEM PUBLIC
-                ${ARG_SYSTEM_PUBLIC_INCLUDES}
-        )
-    endif()
-    if(NOT ARG_FORCE_DISABLE_IPO)
-        skt_enable_target_ipo("lib${target}")
-    endif()
-    skt_setup_target_unity_build("lib${target}")
 endfunction()
 
-function(skt_add_executable target)
+function(skt_add_library)
     cmake_parse_arguments(
-        ARG
-        "FORCE_DISABLE_IPO"
-        ""
-        "SOURCES;PRIVATE_LINKS"
+        "arg"
+        "INTERFACE"
+        "TARGET;BASE_NAME"
+        "SOURCES;PUBLIC_LINKS;PRIVATE_LINKS;SYSTEM_PUBLIC_INCLUDES"
         ${ARGN}
     )
-    add_executable("${target}")
+    if(DEFINED arg_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
+    endif()
+    if(NOT DEFINED arg_TARGET)
+        set(arg_TARGET "lib${PROJECT_NAME}")
+    endif()
+    if(arg_INTERFACE)
+        add_library("${arg_TARGET}" INTERFACE)
+    else()
+        add_library("${arg_TARGET}")
+    endif()
+    string(REGEX REPLACE "^lib" "" output_name "${arg_TARGET}")
+    set_target_properties(
+        "${arg_TARGET}"
+        PROPERTIES
+            LIBRARY_OUTPUT_NAME "${output_name}"
+            ARCHIVE_OUTPUT_NAME "${output_name}"
+    )
+    if(NOT DEFINED arg_BASE_NAME)
+        set(arg_BASE_NAME "${PROJECT_NAME}")
+    endif()
+    skt_generate_export_header("${arg_TARGET}" "${arg_BASE_NAME}")
     target_sources(
-        "${target}"
+        "${arg_TARGET}"
         PRIVATE
-            "main.cpp"
-            ${ARG_SOURCES}
+            ${arg_SOURCES}
     )
     target_link_libraries(
-        "${target}"
+        "${arg_TARGET}"
+        PUBLIC
+            ${arg_PUBLIC_LINKS}
         PRIVATE
-            "lib${target}"
-            ${ARG_PRIVATE_LINKS}
+            ${arg_PRIVATE_LINKS}
+    )
+    target_include_directories(
+        "${arg_TARGET}"
+        SYSTEM PUBLIC
+            ${arg_SYSTEM_PUBLIC_INCLUDES}
+    )
+    skt_enable_target_ipo("${arg_TARGET}")
+    skt_setup_target_unity_build("${arg_TARGET}")
+endfunction()
+
+function(skt_add_executable)
+    cmake_parse_arguments(
+        "arg"
+        "EXTERNAL"
+        "TARGET;MAIN_SOURCE;MAIN_LINK"
+        "SOURCES;LINKS"
+        ${ARGN}
+    )
+    if(DEFINED arg_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
+    endif()
+    if(NOT DEFINED arg_TARGET)
+        set(arg_TARGET "${PROJECT_NAME}")
+    endif()
+    if(NOT arg_EXTERNAL)
+        add_executable("${arg_TARGET}")
+    endif()
+    if(NOT DEFINED arg_MAIN_SOURCE)
+        set(arg_MAIN_SOURCE "main.cpp")
+    endif()
+    target_sources(
+        "${arg_TARGET}"
+        PRIVATE
+            "${arg_MAIN_SOURCE}"
+            ${arg_SOURCES}
+    )
+    if(NOT DEFINED arg_MAIN_LINK)
+        set(arg_MAIN_LINK "lib${arg_TARGET}")
+    endif()
+    target_link_libraries(
+        "${arg_TARGET}"
+        PRIVATE
+            "${arg_MAIN_LINK}"
+            ${arg_LINKS}
     )
     target_compile_definitions(
-        "${target}"
+        "${arg_TARGET}"
         PRIVATE
-            APPLICATION_NAME="${target}"
+            APPLICATION_NAME="${arg_TARGET}"
     )
-    if(NOT ARG_FORCE_DISABLE_IPO)
-        skt_enable_target_ipo("${target}")
-    endif()
-    skt_setup_target_unity_build("${target}")
+    skt_enable_target_ipo("${arg_TARGET}")
+    skt_setup_target_unity_build("${arg_TARGET}")
 endfunction()

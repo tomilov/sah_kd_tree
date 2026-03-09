@@ -1,7 +1,6 @@
 project("soft_renderer")
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
@@ -13,7 +12,7 @@ skt_add_library(
         "libbuilder"
         "libutils"
         "gli"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
     PRIVATE_LINKS
         "libsah_kd_tree"
         "libbuilder"
@@ -31,8 +30,7 @@ set_source_files_properties(
 
 find_package(SDL3 REQUIRED)
 skt_add_executable(
-    "${PROJECT_NAME}"
-    PRIVATE_LINKS
+    LINKS
         "lib${PROJECT_NAME}"
         "libscene_data"
         "libscene_loader"

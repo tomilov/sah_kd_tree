@@ -3,7 +3,6 @@ project("scene_loader")
 include(Assimp)
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"

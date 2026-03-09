@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25..3.25 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.2.3..4.2.3 FATAL_ERROR)
 project(
     "sah_kd_tree"
     LANGUAGES

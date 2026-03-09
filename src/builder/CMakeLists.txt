@@ -1,7 +1,6 @@
 project("builder")
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
@@ -22,15 +21,17 @@ skt_add_library(
         "libscene_data"
         "libcompute"
         "libutils"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
 )
 
-set_target_properties(
-    "lib${PROJECT_NAME}"
-    PROPERTIES
-        UNITY_BUILD OFF
-)
+if(NOT CMAKE_UNITY_BUILD_BATCH_SIZE STREQUAL 0)
+    set_target_properties(
+        "lib${PROJECT_NAME}"
+        PROPERTIES
+            UNITY_BUILD OFF
+    )
+endif()
 
-skt_add_executable("${PROJECT_NAME}")
+skt_add_executable()
 
 add_subdirectory("tests")

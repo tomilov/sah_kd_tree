@@ -2,11 +2,11 @@ project("viewer")
 
 skt_snake_to_camel("${CMAKE_PROJECT_NAME}" CAMEL_CASE_CMAKE_PROJECT_NAME)
 
-set(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}" CACHE STRING "" FORCE)
+list(APPEND QML_IMPORT_PATH "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}")
 
 qt6_add_qml_module(
     "${PROJECT_NAME}_item"
-    ${QML_MODULE_TYPE}
+    "${QML_MODULE_TYPE}"
     URI
         "${CAMEL_CASE_CMAKE_PROJECT_NAME}"
     VERSION
@@ -26,19 +26,12 @@ qt6_add_qml_module(
         QtQuick.Dialogs
         QtQuick3D
 )
-set_target_properties("${PROJECT_NAME}_item" PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}")
-
-generate_export_header("${PROJECT_NAME}_item" BASE_NAME "${PROJECT_NAME}")
-get_target_property(TARGET_TYPE "${PROJECT_NAME}_item" TYPE)
-if(TARGET_TYPE STREQUAL "STATIC_LIBRARY")
-    string(TOUPPER ${PROJECT_NAME} STATIC_DEFINE_PREFIX)
-    target_compile_definitions(
-        "${PROJECT_NAME}_item"
-        PUBLIC
-            ${STATIC_DEFINE_PREFIX}_STATIC_DEFINE
-    )
-endif()
-
+set_target_properties(
+    "${PROJECT_NAME}_item"
+    PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CAMEL_CASE_CMAKE_PROJECT_NAME}"
+)
+skt_generate_export_header("${PROJECT_NAME}_item" "${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}_item"
     PRIVATE
@@ -93,7 +86,6 @@ target_link_libraries(
     PUBLIC
         "libutils"
 )
-
 skt_target_shaders(
     "${PROJECT_NAME}_item"
     SHADERS
@@ -107,7 +99,6 @@ skt_target_shaders(
     OUTPUT_VARIABLE
         compiled_shaders
 )
-
 qt6_target_qml_sources(
     "${PROJECT_NAME}_item"
     RESOURCES
@@ -115,17 +106,13 @@ qt6_target_qml_sources(
 )
 
 qt6_add_executable("${PROJECT_NAME}")
-target_sources(
-    "${PROJECT_NAME}"
-    PRIVATE
+skt_add_executable(
+    EXTERNAL
+    MAIN_LINK "${PROJECT_NAME}_item"
+    SOURCES
         "application.hpp"
         "application.cpp"
-        "main.cpp"
-)
-target_link_libraries(
-    "${PROJECT_NAME}"
-    PRIVATE
-        "${PROJECT_NAME}_item"
+    LINKS
         "libutils"
         "libcommon"
         "libformat"
@@ -137,12 +124,6 @@ target_link_libraries(
         Qt6::Quick
         Qt6::QuickControls2
 )
-target_compile_definitions(
-    "${PROJECT_NAME}"
-    PRIVATE
-        APPLICATION_NAME="${PROJECT_NAME}"
-)
-
 qt6_add_resources(
     "${PROJECT_NAME}"
     "ui"
@@ -159,10 +140,5 @@ qt6_add_resources(
         "qml/ui.qml"
         "qml/utils.js"
 )
-
-source_group(
-    "UI Files"
-    REGULAR_EXPRESSION
-        "$(.*_)?ui.qml$")
 
 add_subdirectory("tests")

@@ -112,11 +112,7 @@ else()
     )
 endif()
 
-include(CTest)
-if(BUILD_TESTING)
-    find_package(GTest REQUIRED)
-    include(GoogleTest)
-endif()
+include(Tests)
 
 cmake_dependent_option(
     SAH_KD_TREE_BUILD_FUZZER
@@ -146,8 +142,8 @@ include(Thrust)
 
 add_subdirectory("sah_kd_tree")
 
-include(Python)
 include(Qt)
+include(Python)
 include(Shaders)
 
 add_subdirectory("common")
@@ -163,4 +159,3 @@ add_subdirectory("codegen")
 add_subdirectory("engine")
 add_subdirectory("soft_renderer")
 add_subdirectory("viewer")
-

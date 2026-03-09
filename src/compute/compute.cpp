@@ -1,5 +1,7 @@
 #include <compute/compute.hpp>
+#include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/fd.hpp>
 #include <utils/math.hpp>
 
 #include <spdlog/spdlog.h>

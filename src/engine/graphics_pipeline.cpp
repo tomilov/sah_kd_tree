@@ -129,7 +129,7 @@ GraphicsPipeline::GraphicsPipeline(
     graphicsPipelineCreateInfo.layout = pipelineLayout;
     graphicsPipelineCreateInfo.renderPass = renderPass;
     graphicsPipelineCreateInfo.subpass = 0;
-    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+    graphicsPipelineCreateInfo.basePipelineHandle = nullptr;
     graphicsPipelineCreateInfo.basePipelineIndex = 0;
 }
 

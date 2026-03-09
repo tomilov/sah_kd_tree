@@ -4,6 +4,9 @@ option(SAH_KD_TREE_CODEGEN_FAIL_ON_FORMAT_MISMATCH "Fail on generated C++ source
 
 function(skt_add_codegen_library name)
     cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "DEPENDENCY;COMMAND_ARGUMENT;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES" "")
+    if(DEFINED arg_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
+    endif()
     add_custom_command(
         MAIN_DEPENDENCY
             "generator.py"
@@ -38,11 +41,9 @@ function(skt_add_codegen_library name)
             "${name}.hpp"
             "${name}.cpp"
     )
-
     skt_add_library(
-        "${PROJECT_NAME}_${name}"
-        BASE_NAME
-            "${name}"
+        TARGET "lib${PROJECT_NAME}_${name}"
+        BASE_NAME "${name}"
         SOURCES
             "generator.py"
             "${name}.hpp.jinja2"
@@ -56,7 +57,7 @@ function(skt_add_codegen_library name)
         PUBLIC_LINKS
             ${ARG_PUBLIC_LINKS}
         SYSTEM_PUBLIC_INCLUDES
-        ${ARG_SYSTEM_PUBLIC_INCLUDES}
+            ${ARG_SYSTEM_PUBLIC_INCLUDES}
     )
 endfunction()
 
@@ -72,13 +73,7 @@ skt_add_codegen_library(
     PUBLIC_LINKS
         "SPIRV-Reflect"
     SYSTEM_PUBLIC_INCLUDES
-    "${spirv_headers_path}"
-)
-
-target_include_directories(
-    "lib${PROJECT_NAME}_spirv_format"
-    SYSTEM PUBLIC
-    "${spirv_headers_path}"
+        "${spirv_headers_path}"
 )
 
 get_target_property(vulkan_registry_path Vulkan::Headers VULKAN_REGISTRY_PATH)
@@ -93,7 +88,7 @@ skt_add_codegen_library(
     PUBLIC_LINKS
         Vulkan::Headers
     SYSTEM_PUBLIC_INCLUDES
-    "${spirv_headers_path}"
+        "${spirv_headers_path}"
 )
 
 

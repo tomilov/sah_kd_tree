@@ -29,13 +29,15 @@ find_program(spirv-val NAMES spirv-val)
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
 function(skt_target_shaders target)
-    cmake_parse_arguments(PARSE_ARGV 1 ARG "" "OUTPUT_VARIABLE" "SHADERS")
+    cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "OUTPUT_VARIABLE" "SHADERS")
+    if(DEFINED arg_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
+    endif()
     foreach(shader_file IN LISTS ARG_SHADERS)
         target_sources(
             "${target}"
             PRIVATE
                 "${shader_file}")
-
         if(NOT shader_file MATCHES "${stage_shader_regex}")
             message(STATUS "Shader ${shader_file} is not stage file. Will not be compiled.")
             continue()

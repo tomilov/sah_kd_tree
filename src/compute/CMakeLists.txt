@@ -1,7 +1,6 @@
 project("compute")
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "fwd.hpp"
         "${PROJECT_NAME}_export.h"
@@ -12,9 +11,9 @@ skt_add_library(
     PUBLIC_LINKS
         CUDA::cuda_driver
         "libutils"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
 )
 
-skt_add_executable("${PROJECT_NAME}")
+skt_add_executable()
 
 add_subdirectory("tests")

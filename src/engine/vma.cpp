@@ -11,8 +11,11 @@
 #include <utils/noncopyable.hpp>
 #include <utils/pp.hpp>
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_funcs.hpp>
+#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_hpp_macros.hpp>
 
+#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -24,14 +27,17 @@
 #include <cstdint>
 
 // clang-format off
+#define VMA_ASSERT ASSERT
+#define VMA_ASSERT_LEAK(condition) INVARIANT(condition, "VMA_ASSERT_LEAK")
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #ifndef NDEBUG
-#define VMA_DEBUG_ALWAYS_DEDICATED_MEMORY 1
+#define VMA_DEBUG_MARGIN 64
 #define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
-#define VMA_DEBUG_GLOBAL_MUTEX 1
+#define VMA_DEBUG_DETECT_CORRUPTION 1
 #define VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT 1
+#define VMA_DEBUG_DONT_EXCEED_HEAP_SIZE_WITH_ALLOCATION_SIZE 1
 #endif
 #include <vk_mem_alloc.h>
 // clang-format on
@@ -72,7 +78,7 @@ template<
         .requiredFlags = toCMask(requiredFlags),
         .preferredFlags = 0,
         .memoryTypeBits = 0,
-        .pool = VK_NULL_HANDLE,
+        .pool = nullptr,
         .pUserData = nullptr,
         .priority = 1.0f,
     };
@@ -101,7 +107,7 @@ struct MemoryAllocator::Impl final : utils::NonCopyable
 {
     const Context & context;
 
-    VmaAllocator handle = VK_NULL_HANDLE;
+    VmaAllocator handle = nullptr;
 
     Impl(const Context & context);  // NOLINT: google-explicit-constructor
     ~Impl();
@@ -681,8 +687,8 @@ Buffer<void>::Impl::Impl(
 
     auto * allocator = memoryAllocator.impl_->handle;
     const vk::BufferCreateInfo::NativeType & bufferCreateInfo = createInfo;
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
+    VkBuffer buffer = nullptr;
+    VmaAllocation allocation = nullptr;
     CHECK_VK_RESULT(vmaCreateBufferWithAlignment, allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &buffer, &allocation, nullptr);
     resource = std::make_unique<BufferResource>(name, allocator, buffer, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
@@ -1050,8 +1056,8 @@ Image::Impl::Impl(
 
     auto * allocator = memoryAllocator.impl_->handle;
     const vk::ImageCreateInfo::NativeType & imageCreateInfo = createInfo;
-    VkImage image = VK_NULL_HANDLE;
-    VmaAllocation allocation = VK_NULL_HANDLE;
+    VkImage image = nullptr;
+    VmaAllocation allocation = nullptr;
     CHECK_VK_RESULT(vmaCreateImage, allocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, nullptr);
     resource = std::make_unique<ImageResource>(name, allocator, image, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);

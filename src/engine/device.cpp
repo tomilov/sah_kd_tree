@@ -6,6 +6,7 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
+#include <utils/pp.hpp>
 
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
@@ -99,7 +100,7 @@ const std::vector<const char *> & Device::getEnabledExtensions() const &
 bool Device::isExtensionEnabled(const char * extension) const
 {
     const auto extensionPromotionVersion = vk::getExtensionPromotedTo(extension);
-    for (auto vkVersion : {"VK_VERSION_1_0"sv, "VK_VERSION_1_1"sv, "VK_VERSION_1_2"sv, "VK_VERSION_1_3"sv}) {
+    for (auto vkVersion : {STRINGIZE(VK_VERSION_1_0) ""sv, STRINGIZE(VK_VERSION_1_1) ""sv, STRINGIZE(VK_VERSION_1_2) ""sv, STRINGIZE(VK_VERSION_1_3) ""sv}) {
         if (vkVersion == extensionPromotionVersion) {
             return true;
         }

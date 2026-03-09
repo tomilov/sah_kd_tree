@@ -142,7 +142,7 @@ struct TreeBuildContext : Tree
                 break;
             }
             INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
-            SPDLOG_INFO("THRUST_DEVICE_SYSTEM: THRUST_DEVICE_SYSTEM_{}", deviceSystem);
+            SPDLOG_INFO("THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_{}", deviceSystem);
         }
     }
 

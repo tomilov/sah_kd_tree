@@ -102,7 +102,7 @@ void checkContext(
     INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
     INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
     {
-        VkQueue q = VK_NULL_HANDLE;
+        VkQueue q = nullptr;
         vkGetDeviceQueue(*device, *queueFamilyIndex, *queueIndex, &q);
         INVARIANT(*queue == vk::Queue(q), "Should match");
     }

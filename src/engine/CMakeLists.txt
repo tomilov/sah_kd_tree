@@ -1,7 +1,6 @@
 project("engine")
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "${PROJECT_NAME}_export.h"
         "context.hpp"
@@ -82,7 +81,7 @@ set_source_files_properties(
         VULKAN_HPP_STORAGE_SHARED_EXPORT 1
 )
 
-skt_add_executable("${PROJECT_NAME}")
+skt_add_executable()
 
 add_subdirectory("tests")
 

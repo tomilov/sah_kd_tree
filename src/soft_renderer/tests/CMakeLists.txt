@@ -1,41 +1,9 @@
-if(NOT BUILD_TESTING)
-    return()
-endif()
-
-add_executable("${PROJECT_NAME}_tests")
-target_sources(
-    "${PROJECT_NAME}_tests"
-    PRIVATE
-        "${PROJECT_NAME}_test.cpp"
-)
-target_link_libraries(
-    "${PROJECT_NAME}_tests"
-    PRIVATE
-        "lib${PROJECT_NAME}"
-        GTest::GTest
-        GTest::Main
+skt_add_tests(
+    WORKING_DIRECTORY
+        "${CMAKE_SOURCE_DIR}/data/scenes"
+    LINKS
         "libsah_kd_tree"
         "libscene_loader"
         Qt::Core
-)
-if(BUILD_SHARED_LIBS)
-    target_link_libraries(
-        "${PROJECT_NAME}_tests"
-        PUBLIC
-            CUDA::cudart
-    )
-else()
-    target_link_libraries(
-        "${PROJECT_NAME}_tests"
-        PUBLIC
-            CUDA::cudart_static
-    )
-endif()
-
-gtest_discover_tests(
-    "${PROJECT_NAME}_tests"
-    WORKING_DIRECTORY
-        "${CMAKE_SOURCE_DIR}/data/scenes"
-    PROPERTIES
-        TIMEOUT 10
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
 )

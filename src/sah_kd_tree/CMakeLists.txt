@@ -5,7 +5,6 @@ project(
 )
 
 skt_add_library(
-    "${PROJECT_NAME}"
     SOURCES
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.cuh"
@@ -60,11 +59,13 @@ skt_add_library(
         Thrust
 )
 
-set_target_properties(
-    "lib${PROJECT_NAME}"
-    PROPERTIES
-        UNITY_BUILD_BATCH_SIZE 2
-)
+if(NOT CMAKE_UNITY_BUILD_BATCH_SIZE STREQUAL 0)
+    set_target_properties(
+        "lib${PROJECT_NAME}"
+        PROPERTIES
+            UNITY_BUILD_BATCH_SIZE 2
+    )
+endif()
 
 if(SAH_KD_TREE_BUILD_FUZZER)
     target_compile_options(

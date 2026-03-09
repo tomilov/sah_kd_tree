@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -16,16 +17,6 @@
 
 namespace engine
 {
-
-class Context;
-
-template<typename T>
-class MappedMemory;
-
-template<typename T>
-class Buffer;
-
-class Image;
 
 enum class AllocationType
 {

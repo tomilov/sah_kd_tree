@@ -1,7 +1,7 @@
 project("common")
 
 skt_add_library(
-    "${PROJECT_NAME}"
+    INTERFACE
     SOURCES
         "config.hpp"
 )
