@@ -10,9 +10,8 @@ skt_add_library(
         "tree.cu"
     PUBLIC_LINKS
         "libbuilder"
-        "libutils"
         "gli"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
     PRIVATE_LINKS
         "libsah_kd_tree"
         "libbuilder"
@@ -36,7 +35,6 @@ skt_add_executable(
         "libscene_loader"
         "libbuilder"
         "libcompute"
-        "libutils"
         "gli"
         Qt::Core
         SDL3::SDL3

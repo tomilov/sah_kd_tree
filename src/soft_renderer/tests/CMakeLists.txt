@@ -5,5 +5,5 @@ skt_add_tests(
         "libsah_kd_tree"
         "libscene_loader"
         Qt::Core
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
 )

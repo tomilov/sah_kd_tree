@@ -8,7 +8,6 @@ skt_add_library(
         "${PROJECT_NAME}.cpp"
     PUBLIC_LINKS
         "gli"
-        "libutils"
 )
 
 skt_add_executable()

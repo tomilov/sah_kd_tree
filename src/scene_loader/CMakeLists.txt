@@ -12,7 +12,6 @@ skt_add_library(
     PUBLIC_LINKS
         Qt6::Core
         "libscene_data"
-        "libutils"
     PRIVATE_LINKS
         assimp::assimp
 )

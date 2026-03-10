@@ -6,7 +6,6 @@ skt_add_library(
         "renderdoc.hpp"
         "renderdoc.cpp"
     PUBLIC_LINKS
-        "libutils"
         Vulkan::Headers
 )
 

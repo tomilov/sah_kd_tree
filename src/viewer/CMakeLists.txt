@@ -83,8 +83,6 @@ target_link_libraries(
         "libcompute"
         "libbuilder"
         "gli"
-    PUBLIC
-        "libutils"
 )
 skt_target_shaders(
     "${PROJECT_NAME}_item"
@@ -113,7 +111,6 @@ skt_add_executable(
         "application.hpp"
         "application.cpp"
     LINKS
-        "libutils"
         "libcommon"
         "libformat"
         "libengine"

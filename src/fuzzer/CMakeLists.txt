@@ -20,7 +20,6 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
-        "libutils"
 )
 target_compile_options(
     "${PROJECT_NAME}"

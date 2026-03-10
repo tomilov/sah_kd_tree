@@ -1,4 +1,5 @@
 #include <builder/builder.hpp>
+#include <compute/assert.hpp>
 #include <compute/compute.hpp>
 #include <scene_data/scene_data.hpp>
 #include <soft_renderer/tree.hpp>
@@ -29,13 +30,13 @@ void importTree(
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)
     {
         v = utils::MemArray<T>{count};
-        CU_CHECK_ERROR(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
+        CU_CALL(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
     scatterDeviceData(tree.triangleOffset, tree.triangleCount, triangles);
     scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
     scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);
     scatterDeviceData(tree.nodeParentOffset, tree.nodeCount, nodeParents);
-    CUDA_CHECK_ERROR(cudaDeviceSynchronize);
+    CUDA_CALL(cudaDeviceSynchronize);
 }
 
 }  // namespace soft_renderer

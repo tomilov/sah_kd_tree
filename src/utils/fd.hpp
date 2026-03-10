@@ -2,6 +2,8 @@
 
 #include <utils/noncopyable.hpp>
 
+#include <optional>
+
 #include <utils/utils_export.h>
 
 namespace utils
@@ -14,9 +16,10 @@ public:
     Fd(Fd && file) noexcept;
     ~Fd();
 
+    [[nodiscard]] static std::optional<Fd> openDirect(const char * filepath);
     [[nodiscard]] static Fd dup(int file);
 
-    [[nodiscard]] const int & getFd() const &;
+    [[nodiscard]] int getFd() const &;
     [[nodiscard]] int release() &&;
     [[nodiscard]] Fd clone() const;
 

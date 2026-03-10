@@ -147,7 +147,11 @@ include(Python)
 include(Shaders)
 
 add_subdirectory("common")
+link_libraries("libcommon")
+
 add_subdirectory("utils")
+link_libraries("libutils")
+
 add_subdirectory("debug_utils")
 add_subdirectory("scene_data")
 add_subdirectory("scene_loader")

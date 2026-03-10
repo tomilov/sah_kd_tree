@@ -3,6 +3,7 @@
 
 #include <utility>
 
+#include <fcntl.h>
 #include <unistd.h>
 
 namespace utils
@@ -30,6 +31,15 @@ Fd::~Fd()
     ::close(fd);
 }
 
+std::optional<Fd> Fd::openDirect(const char * filepath)
+{
+    const int file = ::open(filepath, O_RDONLY | O_DIRECT);
+    if (file < 0) {
+        return std::nullopt;
+    }
+    return Fd{file};
+}
+
 Fd Fd::dup(int file)
 {
     INVARIANT(file >= 0, "{}", file);
@@ -38,7 +48,7 @@ Fd Fd::dup(int file)
     return Fd{file};
 }
 
-const int & Fd::getFd() const &
+int Fd::getFd() const &
 {
     return fd;
 }

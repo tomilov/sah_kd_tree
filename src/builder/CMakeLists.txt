@@ -20,8 +20,7 @@ skt_add_library(
     PUBLIC_LINKS
         "libscene_data"
         "libcompute"
-        "libutils"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,${CUDA_cudart_LIBRARY},${CUDA_cudart_static_LIBRARY}>"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
 )
 
 if(NOT CMAKE_UNITY_BUILD_BATCH_SIZE STREQUAL 0)

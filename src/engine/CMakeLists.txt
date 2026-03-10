@@ -72,7 +72,6 @@ skt_add_library(
         "nlohmann_json"
     PUBLIC_LINKS
         Vulkan::Headers
-        "libutils"
 )
 
 set_source_files_properties(

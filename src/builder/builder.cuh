@@ -1,6 +1,7 @@
 #pragma once
 
 #include <builder/builder.hpp>
+#include <compute/assert.hpp>
 #include <compute/compute.hpp>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 #include <scene_data/scene_data.hpp>
@@ -208,14 +209,14 @@ struct TreeBuildContext : Tree
                 const size_t size = std::size(v) * sizeof(T);
                 if constexpr (kIsThrustDeviceSystemCUDA) {
                     const ::CUdeviceptr src = utils::autoCast(srcPtr);
-                    CU_CHECK_ERROR(::cuMemcpyDtoD, devPtr + offset, src, size);
+                    CU_CALL(::cuMemcpyDtoD, devPtr + offset, src, size);
                 } else {
-                    CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
+                    CU_CALL(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
                 }
             };
             {
                 constexpr size_t kTriangleSize = sizeof(scene_data::Triangle);
-                CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
+                CU_CALL(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
@@ -226,11 +227,11 @@ struct TreeBuildContext : Tree
                     Vector<NodeType> nodes{tree.allocator};
                     nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
                     auto srcPtr = thrust::raw_pointer_cast(nodes.data());
-                    CU_CHECK_ERROR(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
+                    CU_CALL(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
                 }
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);
-            CUDA_CHECK_ERROR(cudaDeviceSynchronize);
+            CUDA_CALL(cudaDeviceSynchronize);
         }
         fd.emplace(deviceMemory.exportMemoryObject());
         return true;

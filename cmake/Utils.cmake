@@ -120,7 +120,9 @@ function(skt_add_library)
     if(NOT DEFINED arg_BASE_NAME)
         set(arg_BASE_NAME "${PROJECT_NAME}")
     endif()
-    skt_generate_export_header("${arg_TARGET}" "${arg_BASE_NAME}")
+    if(NOT arg_INTERFACE)
+        skt_generate_export_header("${arg_TARGET}" "${arg_BASE_NAME}")
+    endif()
     target_sources(
         "${arg_TARGET}"
         PRIVATE

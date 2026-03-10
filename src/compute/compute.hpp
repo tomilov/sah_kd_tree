@@ -4,9 +4,7 @@
 #include <utils/assert.hpp>
 #include <utils/fd.hpp>
 #include <utils/noncopyable.hpp>
-#include <utils/pp.hpp>
-
-#include <fmt/format.h>
+#include <utils/scope_guard.hpp>
 
 #include <new>
 #include <optional>
@@ -15,50 +13,9 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cufile.h>
 
 #include <compute/compute_export.h>
-
-#define CU_CHECK_ERROR(f, ...)                                                         \
-    do {                                                                               \
-        ::CUresult result{(f(__VA_ARGS__))};                                           \
-        INVARIANT(result == CUDA_SUCCESS, STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
-    } while (false)
-
-#define CUDA_CHECK_ERROR(f, ...)                                                    \
-    do {                                                                            \
-        cudaError error{(f(__VA_ARGS__))};                                          \
-        INVARIANT(error == cudaSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
-    } while (false)
-
-template<>
-struct fmt::formatter<cudaError> : fmt::formatter<fmt::string_view>
-{
-    template<typename FormatContext>
-    auto format(
-        cudaError error,
-        FormatContext & ctx) const
-    {
-        const char * errorName = ::cudaGetErrorName(error);
-        const char * errorString = ::cudaGetErrorString(error);
-        return fmt::format_to(ctx.out(), "{}: {}", errorName, errorString);
-    }
-};
-
-template<>
-struct fmt::formatter<::CUresult> : fmt::formatter<fmt::string_view>
-{
-    template<typename FormatContext>
-    auto format(
-        ::CUresult result,
-        FormatContext & ctx) const
-    {
-        const char * errorName = "unknown";
-        const char * errorString = "unknown";
-        ::cuGetErrorName(result, &errorName);
-        ::cuGetErrorString(result, &errorString);
-        return fmt::format_to(ctx.out(), "{}: {}", errorName, errorString);
-    }
-};
 
 namespace compute
 {
@@ -211,6 +168,39 @@ private:
 #endif
     cudaStream_t cudaStream = cudaStreamPerThread;
 #pragma GCC diagnostic pop
+};
+
+class CudaFile;
+
+class COMPUTE_EXPORT CudaFileDriver : utils::OneTime<CudaFileDriver>
+{
+public:
+    CudaFileDriver();
+    ~CudaFileDriver();
+
+    static CudaFile createFile(utils::Fd && fd);
+};
+
+class COMPUTE_EXPORT CudaFile : utils::OneTime<CudaFile>
+{
+public:
+    // TODO:
+private:
+    friend CudaFileDriver;
+
+    using FileHolder = utils::ScopeGuard<decltype(&cuFileHandleDeregister), CUfileHandle_t>;
+
+    utils::Fd fd;
+    FileHolder fileHandle;
+
+    static CUfileHandle_t makeFileHandle(int fd);
+
+    explicit CudaFile(utils::Fd && fd);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
 };
 
 }  // namespace compute

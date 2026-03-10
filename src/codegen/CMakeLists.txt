@@ -52,7 +52,6 @@ function(skt_add_codegen_library name)
             "${name}.cpp"
         PRIVATE_LINKS
             "libformat"
-            "libutils"
             ${ARG_PRIVATE_LINKS}
         PUBLIC_LINKS
             ${ARG_PUBLIC_LINKS}
