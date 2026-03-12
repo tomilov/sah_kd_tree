@@ -12,7 +12,8 @@
 namespace builder
 {
 
-struct ThrustDeviceSystemCUDA
+template<>
+struct BuilderContext<ThrustDeviceSystem::CUDA>
 {
     using F = sah_kd_tree::DefaultTraits::F;
     using I = sah_kd_tree::DefaultTraits::I;
@@ -28,7 +29,7 @@ struct ThrustDeviceSystemCUDA
         MemoryResource memoryResource;
         const Allocator<std::byte> allocator{&memoryResource};
 
-        sah_kd_tree::Tree<ThrustDeviceSystemCUDA> tree{allocator};
+        sah_kd_tree::Tree<BuilderContext> tree{allocator};
     };
 
     using Exec = thrust::cuda_cub::par_nosync_t::execute_with_allocator_type<Allocator<std::byte>>::type;
@@ -40,10 +41,10 @@ struct ThrustDeviceSystemCUDA
         const compute::CudaStream cudaStream;
         const Exec exec;
 
-        sah_kd_tree::Builder<ThrustDeviceSystemCUDA> builder{allocator, exec};
-        sah_kd_tree::Projection<ThrustDeviceSystemCUDA> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
+        sah_kd_tree::Builder<BuilderContext> builder{allocator, exec};
+        sah_kd_tree::Projection<BuilderContext> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
 
-        sah_kd_tree::Triangle<ThrustDeviceSystemCUDA> triangle{allocator, exec};
+        sah_kd_tree::Triangle<BuilderContext> triangle{allocator, exec};
 
         explicit BuildContext(const TreeContext & treeContext)
             : allocator{treeContext.allocator}
@@ -57,8 +58,7 @@ struct ThrustDeviceSystemCUDA
     };
 };
 
-template class TreeBuildContext<ThrustDeviceSystemCUDA>;
-template TreePtr build<ThrustDeviceSystemCUDA>(
+template TreePtr build<ThrustDeviceSystem::CUDA>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,

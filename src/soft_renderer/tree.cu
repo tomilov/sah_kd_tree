@@ -24,7 +24,7 @@ void importTree(
     utils::MemArray<glm::uint> & nodeParents)
 {
     const compute::CudaDevice & cudaDevice = tree.cudaDevice;
-    compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment};
+    const auto deviceMemory = cudaDevice.makeDeviceMemory(std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment);
     const auto mappedDeviceMemory = deviceMemory.map();
     const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)

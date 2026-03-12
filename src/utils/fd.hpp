@@ -17,11 +17,14 @@ public:
     ~Fd();
 
     [[nodiscard]] static std::optional<Fd> openDirect(const char * filepath);
-    [[nodiscard]] static Fd dup(int file);
+    [[nodiscard]] static std::optional<Fd> createDirect(const char * filepath);
+    [[nodiscard]] static std::optional<Fd> dup(int file);
 
     [[nodiscard]] int getFd() const &;
     [[nodiscard]] int release() &&;
-    [[nodiscard]] Fd clone() const;
+    [[nodiscard]] std::optional<Fd> dup() const;
+
+    void swap(Fd & rhs) noexcept;
 
 private:
     int fd = -1;
@@ -31,5 +34,9 @@ private:
         checkTraits();
     }
 };
+
+void swap(
+    Fd & lhs,
+    Fd & rhs) noexcept UTILS_EXPORT;
 
 }  // namespace utils

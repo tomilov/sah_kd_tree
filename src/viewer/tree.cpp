@@ -197,7 +197,7 @@ Tree::Impl::Impl(
 
     const uint32_t memoryTypeIndex = context.getPhysicalDevice().findMemoryTypeIndex(memoryRequirements.memoryTypeBits, allocationSize);
 
-    utils::Fd fd = builderTree.fd.value().clone();
+    auto fd = builderTree.fd.value().dup().value();
 
     vk::StructureChain<vk::MemoryAllocateInfo, vk::ImportMemoryFdInfoKHR, vk::MemoryAllocateFlagsInfo, vk::MemoryDedicatedAllocateInfo> memoryAllocationInfoChain;
     auto & memoryAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryAllocateInfo>();
@@ -218,7 +218,9 @@ Tree::Impl::Impl(
         const bool requiresDedicatedAllocation = memoryDedicatedRequirements.requiresDedicatedAllocation != vk::False;
         const bool prefersDedicatedAllocation = memoryDedicatedRequirements.prefersDedicatedAllocation != vk::False;
         const bool dedicatedOnly = (externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly) == vk::ExternalMemoryFeatureFlagBits::eDedicatedOnly;
-        SPDLOG_INFO("{}requiresDedicatedAllocation, {}prefersDedicatedAllocation, {}dedicatedOnly", requiresDedicatedAllocation ? "" : "not ", prefersDedicatedAllocation ? "" : "not ", dedicatedOnly ? "" : "not ");
+        SPDLOG_INFO("{}requiresDedicatedAllocation", requiresDedicatedAllocation ? "" : "not ");
+        SPDLOG_INFO("{}prefersDedicatedAllocation", prefersDedicatedAllocation ? "" : "not ");
+        SPDLOG_INFO("{}dedicatedOnly", dedicatedOnly ? "" : "not ");
         if (requiresDedicatedAllocation || prefersDedicatedAllocation || dedicatedOnly) {
             auto & memoryDedicatedAllocateInfo = memoryAllocationInfoChain.get<vk::MemoryDedicatedAllocateInfo>();
             {

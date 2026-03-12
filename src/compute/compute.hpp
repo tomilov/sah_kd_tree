@@ -6,7 +6,6 @@
 #include <utils/noncopyable.hpp>
 #include <utils/scope_guard.hpp>
 
-#include <new>
 #include <optional>
 
 #include <cstddef>
@@ -20,117 +19,27 @@
 namespace compute
 {
 
-class COMPUTE_EXPORT OutOfMemoryException : public std::bad_alloc
-{
-    [[nodiscard]] const char * what() const noexcept override
-    {
-        return "OutOfMemoryException: out of memory";
-    }
-};
-
-class COMPUTE_EXPORT MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
-{
-public:
-    MappedDeviceMemory(
-        const ::CUmemLocation & location,
-        size_t allocGranularity,
-        size_t alignedAllocationSize,
-        ::CUmemGenericAllocationHandle allocationHandle);
-    MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept;
-    ~MappedDeviceMemory();
-
-    [[nodiscard]] ::CUdeviceptr getPtr() const &
-    {
-        return devPtr;
-    }
-
-private:
-    const size_t alignedAllocationSize;
-
-    ::CUdeviceptr devPtr = {};
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
-
-class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>
-{
-public:
-    DeviceMemory(
-        ::CUdevice cuDev,
-        size_t allocationSize,
-        size_t allocationAlignment = 0);
-    DeviceMemory(
-        ::CUdevice cuDev,
-        utils::Fd fd,
-        size_t allocationSize,
-        size_t allocationAlignment = 0);
-    DeviceMemory(DeviceMemory && rhs) noexcept;
-    ~DeviceMemory();
-
-    [[nodiscard]] MappedDeviceMemory map() const &;
-    [[nodiscard]] utils::Fd exportMemoryObject() const;
-
-    [[nodiscard]] size_t getSize() const
-    {
-        return alignedAllocationSize;
-    }
-
-private:
-    // Win32 CU_MEM_HANDLE_TYPE_WIN32
-    static constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
-
-    const ::CUmemAllocationProp memAllocationProp;
-    const size_t allocGranularity;
-    const size_t alignedAllocationSize;
-
-    ::CUmemGenericAllocationHandle allocationHandle = {};
-
-    static ::CUmemAllocationProp makeMemAllocationProp(::CUdevice cuDev);
-    [[nodiscard]] size_t getAllocationGranularity(CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag) const;
-    [[nodiscard]] size_t getAlignedAllocationSize(
-        size_t allocationSize,
-        size_t allocationAlignment) const;
-    [[nodiscard]] ::CUmemGenericAllocationHandle makeMemGenericAllocationHandle() const;
-    [[nodiscard]] static ::CUmemGenericAllocationHandle importMemGenericAllocationHandle(utils::Fd fd);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
-};
-
 class COMPUTE_EXPORT CudaDevice
 {
 public:
-    explicit CudaDevice(const std::optional<DeviceUuidType> & deviceUuid);
+    CudaDevice();
+    explicit CudaDevice(const DeviceUuidType & deviceUuid);
 
-    [[nodiscard]] const std::optional<DeviceUuidType> & getDeviceUuid() const &
-    {
-        return deviceUuid;
-    }
-
-    [[nodiscard]] bool operator==(const CudaDevice & rhs) const noexcept
-    {
-        return deviceUuid == rhs.deviceUuid;
-    }
-
-    [[nodiscard]] int getCudaRuntimeDev() const &
-    {
-        return cudaDev;
-    }
+    [[nodiscard]] bool operator==(const CudaDevice & rhs) const noexcept;
 
     void setCurrentDevice() const;
 
-    [[nodiscard]] ::CUdevice getCudaDriverDev() const &
-    {
-        return cuDev;
-    }
+    [[nodiscard]] DeviceMemory makeDeviceMemory(
+        size_t allocationSize,
+        size_t allocationAlignment = 0) const &;
+
+    [[nodiscard]] DeviceMemory makeDeviceMemory(
+        utils::Fd && fd,
+        size_t allocationSize,
+        size_t allocationAlignment = 0) const &;
 
 private:
-    const std::optional<DeviceUuidType> deviceUuid;
+    cudaDeviceProp devProp = {};
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -170,21 +79,98 @@ private:
 #pragma GCC diagnostic pop
 };
 
-class CudaFile;
+class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>
+{
+public:
+    DeviceMemory(DeviceMemory && rhs) noexcept;
+    ~DeviceMemory();
+
+    [[nodiscard]] MappedDeviceMemory map() const &;
+    [[nodiscard]] std::optional<utils::Fd> exportMemoryObject() const;
+
+    [[nodiscard]] size_t getSize() const
+    {
+        return alignedAllocationSize;
+    }
+
+private:
+    friend CudaDevice;
+
+    const ::CUmemAllocationProp memAllocationProp;
+    const size_t allocMinimumGranularity;
+    const size_t alignedAllocationSize;
+
+    ::CUmemGenericAllocationHandle allocationHandle = {};
+
+    DeviceMemory(
+        ::CUdevice cuDev,
+        size_t allocationSize,
+        size_t allocationAlignment);
+
+    DeviceMemory(
+        ::CUdevice cuDev,
+        utils::Fd && fd,
+        size_t allocationSize,
+        size_t allocationAlignment);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
+class COMPUTE_EXPORT MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
+{
+public:
+    MappedDeviceMemory(
+        const ::CUmemLocation & location,
+        size_t allocGranularity,
+        size_t alignedAllocationSize,
+        ::CUmemGenericAllocationHandle allocationHandle);
+    MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept;
+    ~MappedDeviceMemory();
+
+    [[nodiscard]] ::CUdeviceptr getPtr() const &
+    {
+        return devPtr;
+    }
+
+private:
+    const size_t alignedAllocationSize;
+
+    ::CUdeviceptr devPtr = {};
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
 
 class COMPUTE_EXPORT CudaFileDriver : utils::OneTime<CudaFileDriver>
 {
 public:
-    CudaFileDriver();
+    CudaFileDriver() noexcept;
+    CudaFileDriver(CudaFileDriver &&) noexcept = default;
     ~CudaFileDriver();
 
-    static CudaFile createFile(utils::Fd && fd);
+    CudaFile createFile(utils::Fd && fd) const &;
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
 };
 
 class COMPUTE_EXPORT CudaFile : utils::OneTime<CudaFile>
 {
 public:
-    // TODO:
+    std::optional<size_t> readAsync(
+        intptr_t fileOffset,
+        const DeviceMemory & deviceMemory,
+        size_t size,
+        intptr_t memOffset,
+        const CudaStream & stream);
+
 private:
     friend CudaFileDriver;
 
@@ -196,6 +182,17 @@ private:
     static CUfileHandle_t makeFileHandle(int fd);
 
     explicit CudaFile(utils::Fd && fd);
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
+};
+
+class COMPUTE_EXPORT CudaFileReader : utils::OneTime<CudaFile>
+{
+public:
+    CudaFileReader();
 
     static constexpr void completeClassContext [[maybe_unused]] ()
     {

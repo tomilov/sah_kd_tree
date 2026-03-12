@@ -9,7 +9,8 @@
 namespace builder
 {
 
-struct ThrustDeviceSystemCPP
+template<>
+struct BuilderContext<ThrustDeviceSystem::CPP>
 {
     using F = sah_kd_tree::DefaultTraits::F;
     using I = sah_kd_tree::DefaultTraits::I;
@@ -21,7 +22,7 @@ struct ThrustDeviceSystemCPP
 
     struct TreeContext
     {
-        sah_kd_tree::Tree<ThrustDeviceSystemCPP> tree;
+        sah_kd_tree::Tree<BuilderContext> tree;
     };
 
     using Exec = decltype(thrust::cpp::par);
@@ -29,18 +30,17 @@ struct ThrustDeviceSystemCPP
 
     struct BuildContext
     {
-        sah_kd_tree::Builder<ThrustDeviceSystemCPP> builder;
-        sah_kd_tree::Projection<ThrustDeviceSystemCPP> x, y, z;
+        sah_kd_tree::Builder<BuilderContext> builder;
+        sah_kd_tree::Projection<BuilderContext> x, y, z;
 
-        sah_kd_tree::Triangle<ThrustDeviceSystemCPP> triangle;
+        sah_kd_tree::Triangle<BuilderContext> triangle;
 
         explicit BuildContext(const TreeContext &)
         {}
     };
 };
 
-template class TreeBuildContext<ThrustDeviceSystemCPP>;
-template TreePtr build<ThrustDeviceSystemCPP>(
+template TreePtr build<ThrustDeviceSystem::CPP>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,

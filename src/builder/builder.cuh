@@ -35,26 +35,55 @@
 namespace builder
 {
 
-template<typename Traits>
-struct GetBaseTraits
+extern template TreePtr build<ThrustDeviceSystem::Default>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
+extern template TreePtr build<ThrustDeviceSystem::CPP>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
+extern template TreePtr build<ThrustDeviceSystem::OMP>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
+extern template TreePtr build<ThrustDeviceSystem::TBB>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
+extern template TreePtr build<ThrustDeviceSystem::CUDA>(
+    const Settings & settings,
+    const compute::CudaDevice & cudaDevice,
+    const scene_data::SceneDataPtr & sceneData,
+    const std::function<bool(size_t progressValue)> & progress);
+
+template<typename BuilderContext>
+struct GetTraits
 {
-    using Type = Traits;
+    using Type = BuilderContext;
 };
 
-template<typename Traits>
-    requires requires { typename Traits::Traits; }
-struct GetBaseTraits<Traits>
+template<typename BuilderContext>
+    requires requires { typename BuilderContext::Traits; }
+struct GetTraits<BuilderContext>
 {
-    using Type = typename Traits::Traits;
+    using Type = typename BuilderContext::Traits;
 };
 
-template<typename Traits>
-using GetBaseTraitsType = typename GetBaseTraits<Traits>::Type;
+template<typename BuilderContext>
+using GetTraitsType = typename GetTraits<BuilderContext>::Type;
 
-template<ThrustDeviceSystem Traits>
-struct TreeBuildContext : Tree
+template<ThrustDeviceSystem thrustDeviceSystem>
+struct BuilderContext;
+
+template<ThrustDeviceSystem thrustDeviceSystem>
+struct Builder : Tree
 {
-    using BaseTraits = GetBaseTraitsType<Traits>;
+    using BaseTraits = GetTraitsType<BuilderContext<thrustDeviceSystem>>;
 
     template<typename T>
     using Allocator = typename BaseTraits::template Allocator<T>;
@@ -64,7 +93,7 @@ struct TreeBuildContext : Tree
     using System = typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type;
     static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<System, thrust::cuda::tag>;
 
-    TreeBuildContext(
+    Builder(
         const Settings & settingsIn,
         const compute::CudaDevice & cudaDeviceIn,
         const scene_data::SceneDataPtr & sceneDataIn)
@@ -111,39 +140,38 @@ struct TreeBuildContext : Tree
     {
         SPDLOG_INFO("THRUST_VERSION: {}.{}.{}.{}", THRUST_MAJOR_VERSION, THRUST_MINOR_VERSION, THRUST_SUBMINOR_VERSION, THRUST_PATCH_NUMBER);
         {
-            const char * hostSystem = nullptr;
-            switch (THRUST_HOST_SYSTEM) {
-            case THRUST_HOST_SYSTEM_OMP:
-                hostSystem = "OMP";
-                break;
-            case THRUST_HOST_SYSTEM_TBB:
-                hostSystem = "TBB";
-                break;
-            case THRUST_HOST_SYSTEM_CPP:
-                hostSystem = "CPP";
-                break;
-            }
-            INVARIANT(hostSystem, "{}", THRUST_HOST_SYSTEM);
-            SPDLOG_INFO("THRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_{}", hostSystem);
+            constexpr auto getHostSystemName = []() constexpr -> const char *
+            {
+                switch (THRUST_HOST_SYSTEM) {
+                case THRUST_HOST_SYSTEM_OMP:
+                    return "OMP";
+                case THRUST_HOST_SYSTEM_TBB:
+                    return "TBB";
+                case THRUST_HOST_SYSTEM_CPP:
+                    return "CPP";
+                }
+                return nullptr;
+            };
+            static_assert(getHostSystemName());
+            SPDLOG_INFO("THRUST_HOST_SYSTEM=THRUST_HOST_SYSTEM_{}", getHostSystemName());
         }
         {
-            const char * deviceSystem = nullptr;
-            switch (THRUST_DEVICE_SYSTEM) {
-            case THRUST_DEVICE_SYSTEM_CUDA:
-                deviceSystem = "CUDA";
-                break;
-            case THRUST_DEVICE_SYSTEM_OMP:
-                deviceSystem = "OMP";
-                break;
-            case THRUST_DEVICE_SYSTEM_TBB:
-                deviceSystem = "TBB";
-                break;
-            case THRUST_DEVICE_SYSTEM_CPP:
-                deviceSystem = "CPP";
-                break;
-            }
-            INVARIANT(deviceSystem, "{}", THRUST_DEVICE_SYSTEM);
-            SPDLOG_INFO("THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_{}", deviceSystem);
+            constexpr auto getDeviceSystemName = []() constexpr -> const char *
+            {
+                switch (THRUST_DEVICE_SYSTEM) {
+                case THRUST_DEVICE_SYSTEM_CUDA:
+                    return "CUDA";
+                case THRUST_DEVICE_SYSTEM_OMP:
+                    return "OMP";
+                case THRUST_DEVICE_SYSTEM_TBB:
+                    return "TBB";
+                case THRUST_DEVICE_SYSTEM_CPP:
+                    return "CPP";
+                }
+                return nullptr;
+            };
+            static_assert(getDeviceSystemName());
+            SPDLOG_INFO("THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_{}", getDeviceSystemName());
         }
     }
 
@@ -151,13 +179,13 @@ struct TreeBuildContext : Tree
     {
         cudaDevice.setCurrentDevice();
         printThrustVersion();
-        SPDLOG_INFO("ThrustDeviceSystem: {}", utils::demangle(typeid(Traits).name()));
+        SPDLOG_INFO("BuilderContext: {}", utils::demangle(typeid(BuilderContext<thrustDeviceSystem>).name()));
         SPDLOG_INFO("system: {}", utils::demangle(typeid(System).name()));
         auto triangles = sceneData->makeTriangles();
         triangleCount = triangles.getCount();
-        typename Traits::TreeContext treeContext;
+        typename BuilderContext<thrustDeviceSystem>::TreeContext treeContext;
         {
-            typename Traits::BuildContext buildContext{treeContext};
+            typename BuilderContext<thrustDeviceSystem>::BuildContext buildContext{treeContext};
             buildContext.triangle.setTriangle(triangles.begin(), triangles.end());
             sah_kd_tree::linkTriangles(buildContext.triangle, buildContext.x, buildContext.y, buildContext.z, buildContext.builder);
             const sah_kd_tree::Params<BaseTraits> params = {
@@ -197,7 +225,7 @@ struct TreeBuildContext : Tree
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
         ASSERT(dataSize > 0);
         ASSERT(dataAlignment > 0);
-        const compute::DeviceMemory deviceMemory{cudaDevice.getCudaDriverDev(), dataSize, dataAlignment};
+        const auto deviceMemory = cudaDevice.makeDeviceMemory(dataSize, dataAlignment);
         allocationSize = deviceMemory.getSize();
         SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}", dataSize, dataAlignment, allocationSize);
         {
@@ -233,23 +261,23 @@ struct TreeBuildContext : Tree
             gatherDeviceData(nodeParentOffset, tree.node.parent);
             CUDA_CALL(cudaDeviceSynchronize);
         }
-        fd.emplace(deviceMemory.exportMemoryObject());
-        return true;
+        deviceMemory.exportMemoryObject().swap(fd);
+        return fd.has_value();
     }
 };
 
-template<ThrustDeviceSystem Traits>
+template<ThrustDeviceSystem thrustDeviceSystem>
 TreePtr build(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,
     const std::function<bool(size_t progressValue)> & progress)
 {
-    TreeBuildContext<Traits> treeBuildContext{settings, cudaDevice, sceneData};
-    if (!treeBuildContext.build(progress)) {
+    Builder<thrustDeviceSystem> Builder{settings, cudaDevice, sceneData};
+    if (!Builder.build(progress)) {
         return nullptr;
     }
-    return makeTreePtr(std::move(treeBuildContext));
+    return makeTreePtr(std::move(Builder));
 }
 
 }  // namespace builder

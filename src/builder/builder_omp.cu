@@ -9,7 +9,8 @@
 namespace builder
 {
 
-struct ThrustDeviceSystemOMP
+template<>
+struct BuilderContext<ThrustDeviceSystem::OMP>
 {
     using F = sah_kd_tree::DefaultTraits::F;
     using I = sah_kd_tree::DefaultTraits::I;
@@ -21,7 +22,7 @@ struct ThrustDeviceSystemOMP
 
     struct TreeContext
     {
-        sah_kd_tree::Tree<ThrustDeviceSystemOMP> tree;
+        sah_kd_tree::Tree<BuilderContext> tree;
     };
 
     using Exec = decltype(thrust::omp::par);
@@ -29,18 +30,17 @@ struct ThrustDeviceSystemOMP
 
     struct BuildContext
     {
-        sah_kd_tree::Builder<ThrustDeviceSystemOMP> builder;
-        sah_kd_tree::Projection<ThrustDeviceSystemOMP> x, y, z;
+        sah_kd_tree::Builder<BuilderContext> builder;
+        sah_kd_tree::Projection<BuilderContext> x, y, z;
 
-        sah_kd_tree::Triangle<ThrustDeviceSystemOMP> triangle;
+        sah_kd_tree::Triangle<BuilderContext> triangle;
 
         explicit BuildContext(const TreeContext &)
         {}
     };
 };
 
-template class TreeBuildContext<ThrustDeviceSystemOMP>;
-template TreePtr build<ThrustDeviceSystemOMP>(
+template TreePtr build<ThrustDeviceSystem::OMP>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,

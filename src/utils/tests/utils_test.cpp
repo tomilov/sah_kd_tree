@@ -16,6 +16,8 @@ static_assert(
         void (*)()>,
     "one-time");
 
+static_assert(std::is_nothrow_swappable_v<utils::Fd>);
+
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
 
 TEST(

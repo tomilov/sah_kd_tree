@@ -7,6 +7,8 @@
 namespace builder
 {
 
+enum class ThrustDeviceSystem;
+struct Settings;
 struct Tree;
 
 struct TreeDeleter

@@ -1,15 +1,28 @@
 #include <builder/builder.cuh>
 #include <sah_kd_tree/sah_kd_tree.cuh>
 
+#include <initializer_list>
 #include <memory>
 #include <utility>
 
 namespace builder
 {
 
+decltype(&build<>) getBuild(size_t i)
+{
+    std::initializer_list<decltype(&build<>)> builds = {
+        &build<ThrustDeviceSystem::Default>,  //
+        &build<ThrustDeviceSystem::CPP>,      //
+        &build<ThrustDeviceSystem::OMP>,      //
+        &build<ThrustDeviceSystem::TBB>,      //
+        &build<ThrustDeviceSystem::CUDA>,     //
+    };
+    return (i < std::size(builds)) ? builds.begin()[i] : nullptr;
+}
+
 void TreeDeleter::operator()(Tree * tree) const noexcept
 {
-    return std::default_delete<Tree>{}(tree);
+    std::default_delete<Tree>{}(tree);
 }
 
 TreePtr makeTreePtr(Tree && tree)
@@ -17,7 +30,8 @@ TreePtr makeTreePtr(Tree && tree)
     return {new Tree{std::move(tree)}, TreeDeleter{}};
 }
 
-struct ThrustDeviceSystemDefault
+template<>
+struct BuilderContext<ThrustDeviceSystem::Default>
 {
     using Traits = sah_kd_tree::DefaultTraits;
 
@@ -38,8 +52,7 @@ struct ThrustDeviceSystemDefault
     };
 };
 
-template class TreeBuildContext<ThrustDeviceSystemDefault>;
-template TreePtr build<ThrustDeviceSystemDefault>(
+template TreePtr build<ThrustDeviceSystem::Default>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,

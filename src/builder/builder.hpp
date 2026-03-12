@@ -6,9 +6,7 @@
 #include <utils/fd.hpp>
 #include <utils/noncopyable.hpp>
 
-#include <concepts>
 #include <functional>
-#include <initializer_list>
 #include <optional>
 #include <vector>
 
@@ -20,14 +18,14 @@
 namespace builder
 {
 
-struct ThrustDeviceSystemDefault;
-struct ThrustDeviceSystemCPP;
-struct ThrustDeviceSystemOMP;
-struct ThrustDeviceSystemTBB;
-struct ThrustDeviceSystemCUDA;
-
-template<typename T>
-concept ThrustDeviceSystem = std::same_as<T, ThrustDeviceSystemDefault> || std::same_as<T, ThrustDeviceSystemCPP> || std::same_as<T, ThrustDeviceSystemOMP> || std::same_as<T, ThrustDeviceSystemTBB> || std::same_as<T, ThrustDeviceSystemCUDA>;
+enum class ThrustDeviceSystem
+{
+    Default,
+    CPP,
+    OMP,
+    TBB,
+    CUDA,
+};
 
 struct Settings
 {
@@ -67,49 +65,13 @@ struct Tree
     }
 };
 
-template<ThrustDeviceSystem Traits>
+template<ThrustDeviceSystem thrustDeviceSystem = ThrustDeviceSystem::Default>
 [[nodiscard]] TreePtr build(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,
     const std::function<bool(size_t progressValue)> & progress);
 
-extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemDefault>(
-    const Settings & settings,
-    const compute::CudaDevice & cudaDevice,
-    const scene_data::SceneDataPtr & sceneData,
-    const std::function<bool(size_t progressValue)> & progress);
-extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemCPP>(
-    const Settings & settings,
-    const compute::CudaDevice & cudaDevice,
-    const scene_data::SceneDataPtr & sceneData,
-    const std::function<bool(size_t progressValue)> & progress);
-extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemOMP>(
-    const Settings & settings,
-    const compute::CudaDevice & cudaDevice,
-    const scene_data::SceneDataPtr & sceneData,
-    const std::function<bool(size_t progressValue)> & progress);
-extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemTBB>(
-    const Settings & settings,
-    const compute::CudaDevice & cudaDevice,
-    const scene_data::SceneDataPtr & sceneData,
-    const std::function<bool(size_t progressValue)> & progress);
-extern template BUILDER_EXPORT TreePtr build<ThrustDeviceSystemCUDA>(
-    const Settings & settings,
-    const compute::CudaDevice & cudaDevice,
-    const scene_data::SceneDataPtr & sceneData,
-    const std::function<bool(size_t progressValue)> & progress);
-
-constexpr auto getBuild(size_t i)
-{
-    auto builds = {
-        &builder::build<builder::ThrustDeviceSystemDefault>,  //
-        &builder::build<builder::ThrustDeviceSystemCPP>,      //
-        &builder::build<builder::ThrustDeviceSystemOMP>,      //
-        &builder::build<builder::ThrustDeviceSystemTBB>,      //
-        &builder::build<builder::ThrustDeviceSystemCUDA>,     //
-    };
-    return (i < std::size(builds)) ? builds.begin()[i] : nullptr;
-}
+decltype(&build<>) getBuild(size_t i) BUILDER_EXPORT;
 
 }  // namespace builder

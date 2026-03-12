@@ -22,6 +22,7 @@ skt_add_library(
         "libcompute"
         "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,CUDA::cudart,CUDA::cudart_static>"
 )
+source_group("Header Files" FILES "${PROJECT_NAME}.cuh")
 
 if(NOT CMAKE_UNITY_BUILD_BATCH_SIZE STREQUAL 0)
     set_target_properties(

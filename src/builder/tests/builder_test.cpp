@@ -89,7 +89,7 @@ protected:
     }
 
 private:
-    const compute::CudaDevice cudaDevice{std::nullopt};
+    const compute::CudaDevice cudaDevice;
 };
 
 TEST_F(

@@ -12,7 +12,7 @@ namespace utils
 Fd::Fd(int file)
     : fd{file}
 {
-    INVARIANT(fd >= 0, "{}", fd);
+    ASSERT_MSG(fd >= 0, "{}", fd);
 }
 
 Fd::Fd(Fd && file) noexcept
@@ -20,7 +20,7 @@ Fd::Fd(Fd && file) noexcept
           file.fd,
           -1)}
 {
-    INVARIANT(fd >= 0, "{}", fd);
+    ASSERT_MSG(fd >= 0, "{}", fd);
 }
 
 Fd::~Fd()
@@ -40,11 +40,22 @@ std::optional<Fd> Fd::openDirect(const char * filepath)
     return Fd{file};
 }
 
-Fd Fd::dup(int file)
+std::optional<Fd> Fd::createDirect(const char * filepath)
 {
-    INVARIANT(file >= 0, "{}", file);
+    const int file = ::open(filepath, O_WRONLY | O_CREAT | O_DIRECT, 0644);
+    if (file < 0) {
+        return std::nullopt;
+    }
+    return Fd{file};
+}
+
+std::optional<Fd> Fd::dup(int file)
+{
+    ASSERT_MSG(file >= 0, "{}", file);
     file = ::dup(file);
-    INVARIANT(file >= 0, "{}", file);
+    if (file < 0) {
+        return std::nullopt;
+    }
     return Fd{file};
 }
 
@@ -58,9 +69,21 @@ int Fd::release() &&
     return std::exchange(fd, -1);
 }
 
-Fd Fd::clone() const
+std::optional<Fd> Fd::dup() const
 {
     return Fd::dup(fd);
+}
+
+void Fd::swap(Fd & rhs) noexcept
+{
+    std::swap(fd, rhs.fd);
+}
+
+void swap(
+    Fd & lhs,
+    Fd & rhs) noexcept
+{
+    lhs.swap(rhs);
 }
 
 }  // namespace utils
