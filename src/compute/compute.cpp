@@ -34,7 +34,7 @@ constexpr ::CUmemAllocationHandleType kHandleType = CU_MEM_HANDLE_TYPE_POSIX_FIL
         },
         .win32HandleMetaData = nullptr,  // Win32 Samples/3_CUDA_Features/memMapIPCDrv/memMapIpc.cpp
         .allocFlags = {},
-        };
+    };
 }
 
 size_t getAllocationGranularity(
@@ -42,7 +42,7 @@ size_t getAllocationGranularity(
     CUmemAllocationGranularity_flags_enum memAllocationGranularityFlag)
 {
     size_t allocGranularityOut = 0;
-    CU_CALL(cuMemGetAllocationGranularity, &allocGranularityOut, &memAllocationPropIn, memAllocationGranularityFlag);
+    CU_CALL_CHECK(cuMemGetAllocationGranularity, &allocGranularityOut, &memAllocationPropIn, memAllocationGranularityFlag);
     SPDLOG_INFO("{} alloc granularity {}", memAllocationGranularityFlag, allocGranularityOut);
     return allocGranularityOut;
 }
@@ -61,14 +61,14 @@ size_t getAlignedAllocationSize(
     const ::CUmemAllocationProp & memAllocationPropIn)
 {
     ::CUmemGenericAllocationHandle allocationHandleOut = {};
-    CU_CALL(cuMemCreate, &allocationHandleOut, alignedAllocationSizeIn, &memAllocationPropIn, 0);
+    CU_CALL_CHECK(cuMemCreate, &allocationHandleOut, alignedAllocationSizeIn, &memAllocationPropIn, 0);
     return allocationHandleOut;
 }
 
 ::CUmemGenericAllocationHandle importMemGenericAllocationHandle(utils::Fd && fd)
 {
     ::CUmemGenericAllocationHandle allocationHandleOut = {};
-    CU_CALL(cuMemImportFromShareableHandle, &allocationHandleOut, utils::autoCast(fd.getFd()), kHandleType);
+    CU_CALL_CHECK(cuMemImportFromShareableHandle, &allocationHandleOut, utils::autoCast(fd.getFd()), kHandleType);
     return allocationHandleOut;
 }
 
@@ -77,9 +77,9 @@ int selectCudaDevice(
     const DeviceUuidType & deviceUuid)
 {
     int devCount = 0;
-    CUDA_CALL(cudaGetDeviceCount, &devCount);
+    CUDA_CALL_CHECK(cudaGetDeviceCount, &devCount);
     for (int cudaDev = 0; cudaDev < devCount; ++cudaDev) {
-        CUDA_CALL(cudaGetDeviceProperties, &devProp, cudaDev);
+        CUDA_CALL_CHECK(cudaGetDeviceProperties, &devProp, cudaDev);
         if (std::bit_cast<DeviceUuidType>(devProp.uuid) == deviceUuid) {
             return cudaDev;
         }
@@ -87,30 +87,30 @@ int selectCudaDevice(
     return cudaInvalidDeviceId;
 }
 
-::CUdevice selectCuDevice(const cudaDeviceProp & devProp)
+::CUdevice findCuDevice(const cudaDeviceProp & devProp)
 {
     ::CUdevice cuDev = CU_DEVICE_INVALID;
     ::CUuuid uuid = {};
     int cuDevCount = 0;
-    CU_CALL(cuDeviceGetCount, &cuDevCount);
+    CU_CALL_CHECK(cuDeviceGetCount, &cuDevCount);
     for (int cuDevIndex = 0; cuDevIndex < cuDevCount; ++cuDevIndex) {
-        CU_CALL(cuDeviceGet, &cuDev, cuDevIndex);
-        CU_CALL(cuDeviceGetUuid, &uuid, cuDev);
+        CU_CALL_CHECK(cuDeviceGet, &cuDev, cuDevIndex);
+        CU_CALL_CHECK(cuDeviceGetUuid, &uuid, cuDev);
         if (std::bit_cast<DeviceUuidType>(devProp.uuid) == std::bit_cast<DeviceUuidType>(uuid)) {
             {
                 int deviceAttribute = 0;
-                CU_CALL(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev);
+                CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev);
                 INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
             }
             {
                 int deviceAttribute = 0;
-                CU_CALL(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev);
+                CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev);
                 INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
             }
             {
                 int deviceAttribute = 0;
                 // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
-                CU_CALL(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev);
+                CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev);
                 INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
             }
             return cuDev;
@@ -128,15 +128,15 @@ MappedDeviceMemory::MappedDeviceMemory(
     ::CUmemGenericAllocationHandle allocationHandle)
     : alignedAllocationSize{alignedAllocationSizeIn}
 {
-    CU_CALL(cuMemAddressReserve, &devPtr, alignedAllocationSize, allocGranularity, devPtr, 0);
-    CU_CALL(cuMemMap, devPtr, alignedAllocationSize, 0, allocationHandle, 0);
+    CU_CALL_CHECK(cuMemAddressReserve, &devPtr, alignedAllocationSize, allocGranularity, devPtr, 0);
+    CU_CALL_CHECK(cuMemMap, devPtr, alignedAllocationSize, 0, allocationHandle, 0);
     ::CUmemAccessDesc accessDescriptor[] = {
         {
             .location = location,
             .flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
         },
     };
-    CU_CALL(cuMemSetAccess, devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor));
+    CU_CALL_CHECK(cuMemSetAccess, devPtr, alignedAllocationSize, std::data(accessDescriptor), std::size(accessDescriptor));
 }
 
 MappedDeviceMemory::MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept
@@ -151,8 +151,8 @@ MappedDeviceMemory::~MappedDeviceMemory()
     if (devPtr == ::CUdeviceptr{}) {
         return;
     }
-    CU_CALL(cuMemUnmap, devPtr, alignedAllocationSize);
-    CU_CALL(cuMemAddressFree, devPtr, alignedAllocationSize);
+    CU_CALL_CHECK(cuMemUnmap, devPtr, alignedAllocationSize);
+    CU_CALL_CHECK(cuMemAddressFree, devPtr, alignedAllocationSize);
 }
 
 DeviceMemory::DeviceMemory(DeviceMemory && rhs) noexcept
@@ -169,7 +169,7 @@ DeviceMemory::~DeviceMemory()
     if (allocationHandle == ::CUmemGenericAllocationHandle{}) {
         return;
     }
-    CU_CALL(cuMemRelease, allocationHandle);  // after both cuMemExportToShareableHandle and cuMemMap
+    CU_CALL_CHECK(cuMemRelease, allocationHandle);  // after both cuMemExportToShareableHandle and cuMemMap
 }
 
 MappedDeviceMemory DeviceMemory::map() const &
@@ -180,7 +180,7 @@ MappedDeviceMemory DeviceMemory::map() const &
 std::optional<utils::Fd> DeviceMemory::exportMemoryObject() const
 {
     int fd = -1;
-    CU_CALL(cuMemExportToShareableHandle, &fd, allocationHandle, kHandleType, 0);
+    CU_CALL_CHECK(cuMemExportToShareableHandle, &fd, allocationHandle, kHandleType, 0);
     if (fd < 0) {
         return std::nullopt;
     }
@@ -220,22 +220,11 @@ DeviceMemory::DeviceMemory(
     , allocationHandle{importMemGenericAllocationHandle(std::move(fd))}
 {}
 
-CudaDevice::CudaDevice()
-{
-    int devCount = 0;
-    CUDA_CALL(cudaGetDeviceCount, &devCount);
-    INVARIANT(devCount != 0, "No UUID devices found using CUDA Runtime API");
-    cudaDev = 0;
-    CUDA_CALL(cudaGetDeviceProperties, &devProp, cudaDev);
-    cuDev = selectCuDevice(devProp);
-    INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
-}
-
 CudaDevice::CudaDevice(const DeviceUuidType & deviceUuid)
 {
     cudaDev = selectCudaDevice(devProp, deviceUuid);
     INVARIANT(cudaDev != cudaInvalidDeviceId, "No matching by UUID devices found using CUDA Runtime API");
-    cuDev = selectCuDevice(devProp);
+    cuDev = findCuDevice(devProp);
     INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
 }
 
@@ -244,9 +233,42 @@ bool CudaDevice::operator==(const CudaDevice & rhs) const noexcept
     return std::bit_cast<DeviceUuidType>(devProp.uuid) == std::bit_cast<DeviceUuidType>(rhs.devProp.uuid);
 }
 
+int CudaDevice::getDeviceCount()
+{
+    int devCount = 0;
+    CUDA_CALL_CHECK(cudaGetDeviceCount, &devCount);
+    return devCount;
+}
+
+CudaDevice CudaDevice::getInvalidDevice()
+{
+    return {};
+}
+
+CudaDevice CudaDevice::getCurrentDevice()
+{
+    int cudaDev = cudaInvalidDeviceId;
+    CUDA_CALL_CHECK(cudaGetDevice, &cudaDev);
+    return CudaDevice{cudaDev};
+}
+
+CudaDevice CudaDevice::chooseDevice()
+{
+    cudaDeviceProp devProp = {};
+    devProp.canMapHostMemory = 1;
+    int cudaDev = cudaInvalidDeviceId;
+    CUDA_CALL_CHECK(cudaChooseDevice, &cudaDev, &devProp);
+    return CudaDevice{cudaDev};
+}
+
 void CudaDevice::setCurrentDevice() const
 {
-    CUDA_CALL(cudaSetDevice, cudaDev);
+    CUDA_CALL_CHECK(cudaSetDevice, cudaDev);
+}
+
+void CudaDevice::synchronize()
+{
+    CUDA_CALL_CHECK(cudaDeviceSynchronize);
 }
 
 DeviceMemory CudaDevice::makeDeviceMemory(
@@ -264,29 +286,38 @@ DeviceMemory CudaDevice::makeDeviceMemory(
     return {cuDev, std::move(fd), allocationSize, allocationAlignment};
 }
 
+CudaDevice::CudaDevice(int cudaDevIn)
+    : cudaDev{cudaDevIn}
+{
+    CUDA_CALL_CHECK(cudaGetDeviceProperties, &devProp, cudaDev);
+    cuDev = findCuDevice(devProp);
+    INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
+}
+
 CudaStream::CudaStream()
 {
-    CUDA_CALL(cudaStreamCreate, &cudaStream);
+    CUDA_CALL_CHECK(cudaStreamCreateWithFlags, &cudaStream, cudaStreamNonBlocking);
 }
 
 CudaStream::~CudaStream()
 {
-    CUDA_CALL(cudaStreamDestroy, cudaStream);
+    synchronize();
+    CUDA_CALL_CHECK(cudaStreamDestroy, cudaStream);
 }
 
 void CudaStream::synchronize() const
 {
-    CUDA_CALL(cudaStreamSynchronize, cudaStream);
+    CUDA_CALL_CHECK(cudaStreamSynchronize, cudaStream);
 }
 
 CudaFileDriver::CudaFileDriver() noexcept
 {
-    CUFILE_CALL(cuFileDriverOpen);
+    CUFILE_CALL_CHECK(cuFileDriverOpen);
 }
 
 CudaFileDriver::~CudaFileDriver()
 {
-    CUFILE_CALL(cuFileDriverClose);
+    CUFILE_CALL_CHECK(cuFileDriverClose);
 }
 
 CudaFile CudaFileDriver::createFile(utils::Fd && fd) const &  // NOLINT: readability-convert-member-functions-to-static
@@ -314,7 +345,7 @@ auto CudaFile::makeFileHandle(int fd) -> CUfileHandle_t
     fileDescr.handle.fd = fd;
     fileDescr.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     CUfileHandle_t fileHandleOut = {};
-    CUFILE_CALL(cuFileHandleRegister, &fileHandleOut, &fileDescr);
+    CUFILE_CALL_CHECK(cuFileHandleRegister, &fileHandleOut, &fileDescr);
     return fileHandleOut;
 }
 

@@ -488,7 +488,7 @@ struct Triangle
         TriangleIterator triangleEnd)
     {
         using TriangleType = std::remove_const_t<cuda::std::iter_value_t<TriangleIterator>>;
-        thrust::device_vector<TriangleType, Allocator<TriangleType>> t{allocator};
+        Vector<TriangleType> t{allocator};
         t.assign(triangleBegin, triangleEnd);
         count = safeConvert<U>(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)
@@ -512,18 +512,18 @@ void linkTriangles(
     Projection<Traits> & z,
     Builder<Traits> & builder);
 
-}  // namespace sah_kd_tree
-
-extern template bool sah_kd_tree::Builder<>::build<>(
+extern template bool Builder<>::build<>(
     const Progress & progress,
     const Params<> & sah,
     Projection<> & x,
     Projection<> & y,
     Projection<> & z,
     Tree<> & tree) SAH_KD_TREE_EXPORT;
-extern template void sah_kd_tree::linkTriangles(
+extern template void linkTriangles(
     const Triangle<> & triangle,
     Projection<> & x,
     Projection<> & y,
     Projection<> & z,
     Builder<> & builder) SAH_KD_TREE_EXPORT;
+
+}  // namespace sah_kd_tree

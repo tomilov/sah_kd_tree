@@ -39,8 +39,7 @@ void assertFailed [[noreturn]] (
 #define ASSERT_MSG_SRCLOC(condition, srcLoc, format, ...)                                           \
     do {                                                                                            \
         if constexpr (sah_kd_tree::kIsDebugBuild) {                                                 \
-            if (condition) {                                                                        \
-            } else {                                                                                \
+            if (!(condition)) [[unlikely]] {                                                        \
                 ::utils::assertFailed(true, #condition, srcLoc, FMT_STRING(format), ##__VA_ARGS__); \
             }                                                                                       \
         }                                                                                           \
@@ -52,8 +51,7 @@ void assertFailed [[noreturn]] (
 
 #define INVARIANT_SRCLOC(condition, srcLoc, format, ...)                                                              \
     do {                                                                                                              \
-        if (condition) {                                                                                              \
-        } else {                                                                                                      \
+        if (!(condition)) [[unlikely]] {                                                                              \
             ::utils::assertFailed(sah_kd_tree::kIsDebugBuild, #condition, srcLoc, FMT_STRING(format), ##__VA_ARGS__); \
         }                                                                                                             \
     } while (false)

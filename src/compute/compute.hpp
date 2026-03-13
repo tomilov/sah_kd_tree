@@ -22,12 +22,18 @@ namespace compute
 class COMPUTE_EXPORT CudaDevice
 {
 public:
-    CudaDevice();
     explicit CudaDevice(const DeviceUuidType & deviceUuid);
 
     [[nodiscard]] bool operator==(const CudaDevice & rhs) const noexcept;
 
+    [[nodiscard]] static int getDeviceCount() COMPUTE_EXPORT;
+
+    static CudaDevice getInvalidDevice() COMPUTE_EXPORT;
+    static CudaDevice getCurrentDevice() COMPUTE_EXPORT;
+    static CudaDevice chooseDevice() COMPUTE_EXPORT;
+
     void setCurrentDevice() const;
+    static void synchronize();
 
     [[nodiscard]] DeviceMemory makeDeviceMemory(
         size_t allocationSize,
@@ -39,6 +45,10 @@ public:
         size_t allocationAlignment = 0) const &;
 
 private:
+    friend CudaDevice getInvalidDevice();
+    friend CudaDevice getCurrentDevice();
+    friend CudaDevice chooseDevice();
+
     cudaDeviceProp devProp = {};
 
 #pragma GCC diagnostic push
@@ -49,13 +59,18 @@ private:
     int cudaDev = cudaInvalidDeviceId;
     ::CUdevice cuDev = CU_DEVICE_INVALID;
 #pragma GCC diagnostic pop
+
+    CudaDevice() = default;
+    explicit CudaDevice(int cudaDevIn);
 };
 
-class COMPUTE_EXPORT CudaStream
+class COMPUTE_EXPORT CudaStream : utils::Copyable<CudaStream>
 {
 public:
     CudaStream();
-    ~CudaStream();
+    CudaStream(const CudaStream &) noexcept = default;
+    CudaStream & operator=(const CudaStream &) noexcept = default;
+    ~CudaStream();  // quote: "Note that destroying a stream is an asynchronous operation"
 
     [[nodiscard]] bool operator==(const CudaStream & rhs) const noexcept
     {
@@ -77,6 +92,11 @@ private:
 #endif
     cudaStream_t cudaStream = cudaStreamPerThread;
 #pragma GCC diagnostic pop
+
+    static constexpr void completeClassContext [[maybe_unused]] ()
+    {
+        checkTraits();
+    }
 };
 
 class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>
@@ -130,7 +150,7 @@ public:
     MappedDeviceMemory(MappedDeviceMemory && rhs) noexcept;
     ~MappedDeviceMemory();
 
-    [[nodiscard]] ::CUdeviceptr getPtr() const &
+    [[nodiscard]] ::CUdeviceptr getCuDevPtr() const &
     {
         return devPtr;
     }

@@ -230,21 +230,21 @@ struct Builder : Tree
         SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}", dataSize, dataAlignment, allocationSize);
         {
             const auto mappedDeviceMemory = deviceMemory.map();
-            const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
+            const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
             const auto gatherDeviceData = [devPtr]<typename T>(size_t offset, const Vector<T> & v)
             {
                 const T * const srcPtr = thrust::raw_pointer_cast(std::data(v));
                 const size_t size = std::size(v) * sizeof(T);
                 if constexpr (kIsThrustDeviceSystemCUDA) {
                     const ::CUdeviceptr src = utils::autoCast(srcPtr);
-                    CU_CALL(::cuMemcpyDtoD, devPtr + offset, src, size);
+                    CU_CALL_CHECK(::cuMemcpyDtoD, devPtr + offset, src, size);
                 } else {
-                    CU_CALL(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
+                    CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
                 }
             };
             {
                 constexpr size_t kTriangleSize = sizeof(scene_data::Triangle);
-                CU_CALL(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
+                CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
             }
             gatherDeviceData(polygonOffset, tree.polygonTriangle);
             {
@@ -255,11 +255,11 @@ struct Builder : Tree
                     Vector<NodeType> nodes{tree.allocator};
                     nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
                     auto srcPtr = thrust::raw_pointer_cast(nodes.data());
-                    CU_CALL(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
+                    CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
                 }
             }
             gatherDeviceData(nodeParentOffset, tree.node.parent);
-            CUDA_CALL(cudaDeviceSynchronize);
+            cudaDevice.synchronize();
         }
         deviceMemory.exportMemoryObject().swap(fd);
         return fd.has_value();

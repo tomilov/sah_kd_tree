@@ -23,20 +23,19 @@ void importTree(
     utils::MemArray<Node> & nodes,
     utils::MemArray<glm::uint> & nodeParents)
 {
-    const compute::CudaDevice & cudaDevice = tree.cudaDevice;
-    const auto deviceMemory = cudaDevice.makeDeviceMemory(std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment);
+    const auto deviceMemory = tree.cudaDevice.makeDeviceMemory(std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment);
     const auto mappedDeviceMemory = deviceMemory.map();
-    const ::CUdeviceptr devPtr = mappedDeviceMemory.getPtr();
+    const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
     const auto scatterDeviceData = [devPtr]<typename T>(size_t offset, size_t count, utils::MemArray<T> & v)
     {
         v = utils::MemArray<T>{count};
-        CU_CALL(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
+        CU_CALL_CHECK(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
     scatterDeviceData(tree.triangleOffset, tree.triangleCount, triangles);
     scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
     scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);
     scatterDeviceData(tree.nodeParentOffset, tree.nodeCount, nodeParents);
-    CUDA_CALL(cudaDeviceSynchronize);
+    compute::CudaDevice::synchronize();
 }
 
 }  // namespace soft_renderer

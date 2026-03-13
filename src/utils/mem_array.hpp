@@ -80,4 +80,30 @@ private:
     std::unique_ptr<T[]> p = nullptr;
 };
 
+static_assert(std::is_nothrow_swappable_v<MemArray<int>>);
+
+template<typename T>
+const T * begin(const MemArray<T> & memArray)
+{
+    return memArray.begin();
+}
+
+template<typename T>
+const T * end(const MemArray<T> & memArray)
+{
+    return memArray.end();
+}
+
+template<typename T>
+T * begin(MemArray<T> & memArray)
+{
+    return memArray.begin();
+}
+
+template<typename T>
+T * end(MemArray<T> & memArray)
+{
+    return memArray.end();
+}
+
 }  // namespace utils

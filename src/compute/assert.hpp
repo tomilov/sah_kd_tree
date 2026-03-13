@@ -9,19 +9,19 @@
 
 #include <compute/compute_export.h>
 
-#define CU_CALL(f, ...)                                                                \
+#define CU_CALL_CHECK(f, ...)                                                          \
     do {                                                                               \
         ::CUresult result{(f(__VA_ARGS__))};                                           \
         INVARIANT(result == CUDA_SUCCESS, STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
     } while (false)
 
-#define CUDA_CALL(f, ...)                                                           \
+#define CUDA_CALL_CHECK(f, ...)                                                     \
     do {                                                                            \
         cudaError error{(f(__VA_ARGS__))};                                          \
         INVARIANT(error == cudaSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
     } while (false)
 
-#define CUFILE_CALL(f, ...)                                                                                     \
+#define CUFILE_CALL_CHECK(f, ...)                                                                               \
     do {                                                                                                        \
         constexpr auto abs = [](CUfileOpError opError) -> CUfileOpError                                         \
         {                                                                                                       \

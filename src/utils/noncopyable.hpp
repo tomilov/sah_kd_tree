@@ -30,6 +30,7 @@ struct OneTime
         static_assert(std::is_nothrow_move_constructible_v<Derived>);
         static_assert(!std::is_move_assignable_v<Derived>);
         static_assert(std::is_nothrow_destructible_v<Derived>);
+        //static_assert(std::is_nothrow_swappable_v<Derived>);
     }
 
     static constexpr void checkTraitsThrow()
@@ -39,6 +40,7 @@ struct OneTime
         static_assert(std::is_move_constructible_v<Derived>);
         static_assert(!std::is_move_assignable_v<Derived>);
         static_assert(std::is_destructible_v<Derived>);
+        //static_assert(std::is_nothrow_swappable_v<Derived>);
     }
 };
 

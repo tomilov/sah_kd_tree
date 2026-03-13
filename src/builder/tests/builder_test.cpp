@@ -89,7 +89,7 @@ protected:
     }
 
 private:
-    const compute::CudaDevice cudaDevice;
+    const compute::CudaDevice cudaDevice = compute::CudaDevice::chooseDevice();
 };
 
 TEST_F(
