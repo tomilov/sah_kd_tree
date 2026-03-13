@@ -44,11 +44,8 @@ private:
     struct Impl;
 
     std::unique_ptr<Impl> impl_;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace viewer
+
+template struct utils::OneTime<viewer::Tree>::CheckTraits;

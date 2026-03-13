@@ -43,11 +43,6 @@ struct ShaderModule final : utils::OneTime<ShaderModule>
               shaderModule,
               entryPoint}
     {}
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class Shaders final
@@ -143,11 +138,6 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
         bool descriptorBufferEnabled,
         vk::RenderPass renderPass,
         engine::SpecializationInfos && specializationInfos);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct ComputePipeline : utils::OneTime<ComputePipeline>
@@ -165,11 +155,6 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
         vk::PipelineCache pipelineCache,
         bool descriptorBufferEnabled,
         engine::SpecializationInfos && specializationInfos);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class Pipelines : utils::OneTime<Pipelines>
@@ -199,11 +184,11 @@ private:
     mutable std::weak_ptr<Shaders> sceneShaders;
     mutable std::weak_ptr<Shaders> displayShaders;
     mutable std::weak_ptr<Shaders> traceSahKdTreeShaders;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace viewer
+
+template struct utils::OneTime<viewer::ShaderModule>::CheckTraits;
+template struct utils::OneTime<viewer::GraphicsPipeline>::CheckTraits;
+template struct utils::OneTime<viewer::ComputePipeline>::CheckTraits;
+template struct utils::OneTime<viewer::Pipelines>::CheckTraits;

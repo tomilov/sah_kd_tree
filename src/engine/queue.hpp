@@ -50,11 +50,6 @@ private:
 
     CommandPool commandPool;
     vk::Queue queue;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct ENGINE_EXPORT Queues final : utils::NonCopyable
@@ -67,3 +62,5 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::Queue>::CheckTraits;

@@ -28,15 +28,8 @@ public:
 
 private:
     int fd = -1;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
-void swap(
-    Fd & lhs,
-    Fd & rhs) noexcept UTILS_EXPORT;
-
 }  // namespace utils
+
+template struct utils::OneTime<utils::Fd>::CheckTraits;

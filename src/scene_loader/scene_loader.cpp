@@ -103,11 +103,6 @@ private:
               fd,
               "rb")}
     {}
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 [[nodiscard]] inline File fileFromQFileDevice [[maybe_unused]] (const QFileDevice & qf)
@@ -754,4 +749,7 @@ bool cachingLoad(
     }
     return true;
 }
+
 }  // namespace scene_loader
+
+template struct utils::OneTime<scene_loader::File>::CheckTraits;

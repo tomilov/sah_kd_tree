@@ -58,11 +58,6 @@ struct Tree
     size_t nodeParentOffset = 0;
 
     std::optional<utils::Fd> fd = std::nullopt;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        utils::OneTime<Tree>::checkTraits();
-    }
 };
 
 template<ThrustDeviceSystem thrustDeviceSystem = ThrustDeviceSystem::Default>
@@ -75,3 +70,5 @@ template<ThrustDeviceSystem thrustDeviceSystem = ThrustDeviceSystem::Default>
 decltype(&build<>) getBuild(size_t i) BUILDER_EXPORT;
 
 }  // namespace builder
+
+template struct utils::OneTime<builder::Tree>::CheckTraits;

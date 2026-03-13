@@ -31,11 +31,8 @@ private:
     vk::RenderPassCreateInfo renderPassCreateInfo;
     vk::UniqueRenderPass renderPassHolder;
     vk::RenderPass renderPass;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::RenderPass>::CheckTraits;

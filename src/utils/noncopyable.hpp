@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <utility>
 
 namespace utils
 {
@@ -23,25 +24,38 @@ struct OneTime
     OneTime(OneTime &&) noexcept = default;
     OneTime & operator=(OneTime &&) noexcept = delete;
 
-    static constexpr void checkTraits()
-    {
-        static_assert(!std::is_copy_constructible_v<Derived>);
-        static_assert(!std::is_copy_assignable_v<Derived>);
-        static_assert(std::is_nothrow_move_constructible_v<Derived>);
-        static_assert(!std::is_move_assignable_v<Derived>);
-        static_assert(std::is_nothrow_destructible_v<Derived>);
-        //static_assert(std::is_nothrow_swappable_v<Derived>);
-    }
+    struct CheckTraits;
+    struct CheckTraitsThrow;
 
-    static constexpr void checkTraitsThrow()
+private:
+    friend void swap(
+        Derived & lhs,
+        Derived & rhs) noexcept
     {
-        static_assert(!std::is_copy_constructible_v<Derived>);
-        static_assert(!std::is_copy_assignable_v<Derived>);
-        static_assert(std::is_move_constructible_v<Derived>);
-        static_assert(!std::is_move_assignable_v<Derived>);
-        static_assert(std::is_destructible_v<Derived>);
-        //static_assert(std::is_nothrow_swappable_v<Derived>);
+        static_assert(std::is_nothrow_swappable_v<Derived>);
+        using std::swap;
+        lhs.swap(rhs);
     }
+};
+
+template<typename Derived>
+struct OneTime<Derived>::CheckTraits
+{
+    static_assert(!std::is_copy_constructible_v<Derived>);
+    static_assert(!std::is_copy_assignable_v<Derived>);
+    static_assert(std::is_nothrow_move_constructible_v<Derived>);
+    static_assert(!std::is_move_assignable_v<Derived>);
+    static_assert(std::is_nothrow_destructible_v<Derived>);
+};
+
+template<typename Derived>
+struct OneTime<Derived>::CheckTraitsThrow
+{
+    static_assert(!std::is_copy_constructible_v<Derived>);
+    static_assert(!std::is_copy_assignable_v<Derived>);
+    static_assert(!std::is_nothrow_move_constructible_v<Derived> && std::is_move_constructible_v<Derived>);
+    static_assert(!std::is_move_assignable_v<Derived>);
+    static_assert(std::is_nothrow_destructible_v<Derived>);
 };
 
 template<typename Derived>
@@ -53,13 +67,16 @@ struct Copyable
     Copyable(Copyable &&) noexcept = default;
     Copyable & operator=(Copyable &&) noexcept = default;
 
-    static constexpr void checkTraits()
-    {
-        static_assert(std::is_copy_constructible_v<Derived>);
-        static_assert(std::is_copy_assignable_v<Derived>);
-        static_assert(std::is_nothrow_move_constructible_v<Derived>);
-        static_assert(std::is_nothrow_move_assignable_v<Derived>);
-    }
+    struct CheckTraits;
+};
+
+template<typename Derived>
+struct Copyable<Derived>::CheckTraits
+{
+    static_assert(std::is_copy_constructible_v<Derived>);
+    static_assert(std::is_copy_assignable_v<Derived>);
+    static_assert(std::is_nothrow_move_constructible_v<Derived>);
+    static_assert(std::is_nothrow_move_assignable_v<Derived>);
 };
 
 }  // namespace utils

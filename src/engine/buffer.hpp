@@ -51,15 +51,11 @@ private:
     static constexpr size_t kAlignment = 8;
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
+    // NOLINTNEXTLINE: google-explicit-constructor
     MappedMemory(
         const Buffer<void> * buffer,
         vk::DeviceSize offset = 0,
-        vk::DeviceSize size = vk::WholeSize);  // NOLINT: google-explicit-constructor
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
+        vk::DeviceSize size = vk::WholeSize);
 };
 
 template<typename T>
@@ -128,11 +124,6 @@ private:
         ASSERT(count > 0);
         ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
         ASSERT_MSG((mappedMemory.getSize() / count) >= sizeof(T), "Size of buffer mapping element {} is less than static element size {}", mappedMemory.getSize() / count, sizeof(T));
-    }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        MappedMemory<char>::checkTraits();
     }
 };
 
@@ -206,11 +197,6 @@ private:
         vk::DeviceSize minAlignment,
         uint32_t queueFamilyIndex,
         float priority);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 template<typename T>
@@ -315,11 +301,11 @@ public:
 private:
     Buffer<void> buffer;
     const vk::DeviceSize count;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        Buffer<char>::checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::MappedMemory<void>>::CheckTraits;
+template struct utils::OneTime<engine::MappedMemory<std::byte>>::CheckTraits;
+template struct utils::OneTime<engine::Buffer<void>>::CheckTraits;
+template struct utils::OneTime<engine::Buffer<std::byte>>::CheckTraits;

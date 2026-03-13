@@ -42,11 +42,8 @@ private:
     vk::UniquePipelineCache pipelineCacheHolder;
 
     [[nodiscard]] std::vector<uint8_t> loadPipelineCacheData() const;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::PipelineCache>::CheckTraits;

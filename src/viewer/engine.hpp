@@ -40,11 +40,6 @@ struct SceneResources final
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        utils::OneTime<SceneResources>::checkTraits();
-    }
 };
 
 struct OffscreenRenderPass final
@@ -67,13 +62,6 @@ struct OffscreenRenderPass final
     {
         ASSERT(renderPass);
         return *renderPass;
-    }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-#if !__GNUC__
-        utils::OneTime<OffscreenRenderPass>::checkTraits();
-#endif
     }
 };
 
@@ -101,11 +89,6 @@ struct Framebuffer final
         ASSERT(framebuffer);
         return *framebuffer;
     }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        utils::OneTime<Framebuffer>::checkTraits();
-    }
 };
 
 struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
@@ -127,11 +110,6 @@ struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
     [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
@@ -159,11 +137,6 @@ struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
     [[nodiscard]] DescriptorInfo getDescriptorInfo(
         bool descriptorBufferEnabled,
         bool target) const;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class Engine final : utils::NonCopyable
@@ -237,3 +210,11 @@ private:
 };
 
 }  // namespace viewer
+
+template struct utils::OneTime<viewer::SceneResources>::CheckTraits;
+template struct utils::OneTime<viewer::Framebuffer>::CheckTraits;
+template struct utils::OneTime<viewer::DrawOffscreenResources>::CheckTraits;
+#if !__GNUC__
+template struct utils::OneTime<viewer::OffscreenRenderPass>::CheckTraits;
+#endif
+template struct utils::OneTime<viewer::TraceFrameResources>::CheckTraits;

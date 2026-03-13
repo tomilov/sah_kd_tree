@@ -92,11 +92,6 @@ private:
 #endif
     cudaStream_t cudaStream = cudaStreamPerThread;
 #pragma GCC diagnostic pop
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>
@@ -132,11 +127,6 @@ private:
         utils::Fd && fd,
         size_t allocationSize,
         size_t allocationAlignment);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class COMPUTE_EXPORT MappedDeviceMemory : utils::OneTime<MappedDeviceMemory>
@@ -159,11 +149,6 @@ private:
     const size_t alignedAllocationSize;
 
     ::CUdeviceptr devPtr = {};
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class COMPUTE_EXPORT CudaFileDriver : utils::OneTime<CudaFileDriver>
@@ -174,11 +159,6 @@ public:
     ~CudaFileDriver();
 
     CudaFile createFile(utils::Fd && fd) const &;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class COMPUTE_EXPORT CudaFile : utils::OneTime<CudaFile>
@@ -202,22 +182,19 @@ private:
     static CUfileHandle_t makeFileHandle(int fd);
 
     explicit CudaFile(utils::Fd && fd);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 class COMPUTE_EXPORT CudaFileReader : utils::OneTime<CudaFile>
 {
 public:
     CudaFileReader();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace compute
+
+template struct utils::OneTime<compute::DeviceMemory>::CheckTraits;
+template struct utils::Copyable<compute::CudaStream>::CheckTraits;
+template struct utils::OneTime<compute::MappedDeviceMemory>::CheckTraits;
+template struct utils::OneTime<compute::CudaFileDriver>::CheckTraits;
+template struct utils::OneTime<compute::CudaFile>::CheckTraits;
+template struct utils::OneTime<compute::CudaFileReader>::CheckTraits;

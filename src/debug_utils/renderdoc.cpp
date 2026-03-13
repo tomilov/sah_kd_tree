@@ -79,11 +79,6 @@ Renderdoc::FrameCapture::~FrameCapture()
     ASSERT(!Renderdoc::isFrameCapturing());
 }
 
-void Renderdoc::FrameCapture::completeClassContext()
-{
-    checkTraits();
-}
-
 Renderdoc::FrameCapture::FrameCapture(
     const Impl & implIn,
     vk::Instance instanceIn,

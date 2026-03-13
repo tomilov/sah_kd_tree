@@ -87,11 +87,8 @@ private:
         vk::ImageAspectFlags imageAspectMask,
         uint32_t queueFamilyIndex,
         float priority = 0.5f);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::Image>::CheckTraits;

@@ -339,11 +339,6 @@ struct MappedMemory<void>::Impl final : utils::OneTime<Impl>
         vk::DeviceSize size);
     Impl(Impl && rhs) noexcept;
     ~Impl();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 MappedMemory<void>::MappedMemory(MappedMemory &&) noexcept = default;
@@ -441,11 +436,6 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
         vk::DeviceSize minAlignment,
         uint32_t queueFamilyIndex,
         float priority);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 Buffer<void>::Buffer(Buffer &&) noexcept = default;
@@ -787,11 +777,6 @@ struct Image::Impl final : utils::OneTime<Impl>
         vk::ImageAspectFlags imageAspectMask,
         uint32_t queueFamilyIndex,
         float priority);
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 Image::Image(Image &&) noexcept = default;
@@ -1077,3 +1062,7 @@ Image::Impl::Impl(
 }
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::MappedMemory<void>::Impl>::CheckTraits;
+template struct utils::OneTime<engine::Buffer<void>::Impl>::CheckTraits;
+template struct utils::OneTime<engine::Image::Impl>::CheckTraits;

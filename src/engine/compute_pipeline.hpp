@@ -54,11 +54,8 @@ private:
 
     SpecializationInfos specializationInfos;
     vk::UniquePipeline pipeline;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::ComputePipeline>::CheckTraits;

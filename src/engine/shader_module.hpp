@@ -72,11 +72,6 @@ private:
     std::vector<uint32_t> spirv;
 
     vk::UniqueShaderModule shaderModuleHolder;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct ENGINE_EXPORT VertexInputState final : utils::OneTime<VertexInputState>
@@ -85,11 +80,6 @@ struct ENGINE_EXPORT VertexInputState final : utils::OneTime<VertexInputState>
     std::vector<vk::VertexInputAttributeDescription> vertexInputAttributeDescriptions;
     std::vector<vk::VertexInputBindingDescription> vertexInputBindingDescriptions;
     vk::PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleReflection>
@@ -126,11 +116,6 @@ private:
     utils::FastPimpl<spv_reflect::ShaderModule, kSize, kAlignment> reflectionModule;
 
     void reflect();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
@@ -195,11 +180,11 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 private:
     const Context & context;
     const uint32_t vertexBufferBinding;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraitsThrow();  // 'throw' because unoredered_map is not nothrow_move_*
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::ShaderModule>::CheckTraits;
+template struct utils::OneTime<engine::VertexInputState>::CheckTraits;
+template struct utils::OneTime<engine::ShaderModuleReflection>::CheckTraits;
+template struct utils::OneTime<engine::ShaderStages>::CheckTraitsThrow;

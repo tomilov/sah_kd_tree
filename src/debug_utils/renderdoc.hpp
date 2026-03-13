@@ -43,8 +43,6 @@ public:
         const WindowHandle window;
 
         std::unique_lock<std::mutex> lock;
-
-        static void completeClassContext [[maybe_unused]] ();
     };
 
     ~Renderdoc();
@@ -62,3 +60,5 @@ private:
 };
 
 }  // namespace debug_utils
+
+template struct utils::OneTime<debug_utils::Renderdoc::FrameCapture>::CheckTraits;

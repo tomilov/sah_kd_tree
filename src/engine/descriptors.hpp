@@ -62,11 +62,8 @@ private:
     vk::UniqueDescriptorSet descriptorSet;
 
     void init();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::DescriptorSet>::CheckTraits;

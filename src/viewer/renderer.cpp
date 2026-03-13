@@ -124,9 +124,10 @@ public:
     template<
         typename F,
         typename... Args>
+    // NOLINTNEXTLINE: google-explicit-constructor
     Recycler(
         F && f,
-        Args &&... args)  // NOLINT: google-explicit-constructor
+        Args &&... args)
         : holder{makeHolder<
               F,
               Args...>(
@@ -162,11 +163,6 @@ private:
             std::invoke(std::forward<F>(std::get<0>(*storage)), std::forward<Args>(std::get<1 + Indices>(*storage))...);
         };
         return {new Storage{std::forward<F>(f), std::forward<Args>(args)...}, recycle};
-    }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
     }
 };
 
@@ -336,11 +332,6 @@ struct UniformBufferResource final
         };
         return {getBindingName(), getDescriptorData()};
     }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        utils::OneTime<UniformBufferResource>::checkTraits();
-    }
 };
 
 struct TraceSceneResources final
@@ -363,11 +354,6 @@ struct TraceSceneResources final
             return DescriptorData{std::in_place_type<DescriptorSetData>, treeUniformBuffer.getDescriptorBufferInfo()};
         };
         return {getBindingName(), getDescriptorData()};
-    }
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        utils::OneTime<TraceSceneResources>::checkTraits();
     }
 };
 
@@ -641,11 +627,6 @@ private:
     std::vector<vk::Semaphore> waitSemaphores;
     std::vector<vk::PipelineStageFlags> waitDstStageMasks;
     std::vector<vk::Semaphore> signalSemaphores;
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 constexpr std::initializer_list<uint32_t> kUnmutedMessageIdNumbers = {
@@ -1554,3 +1535,8 @@ void Renderer::Impl::putTraceFrameDescriptors(std::shared_ptr<TraceFrameResource
 }
 
 }  // namespace viewer
+
+template struct utils::OneTime<viewer::Recycler>::CheckTraits;
+template struct utils::OneTime<viewer::UniformBufferResource>::CheckTraits;
+template struct utils::OneTime<viewer::TraceSceneResources>::CheckTraits;
+template struct utils::OneTime<viewer::ScopedCommandBuffer>::CheckTraits;

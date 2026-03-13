@@ -46,11 +46,8 @@ private:
     vk::UniquePipelineLayout pipelineLayout;
 
     void init();
-
-    static constexpr void completeClassContext [[maybe_unused]] ()
-    {
-        checkTraits();
-    }
 };
 
 }  // namespace engine
+
+template struct utils::OneTime<engine::PipelineLayout>::CheckTraits;

@@ -79,11 +79,4 @@ void Fd::swap(Fd & rhs) noexcept
     std::swap(fd, rhs.fd);
 }
 
-void swap(
-    Fd & lhs,
-    Fd & rhs) noexcept
-{
-    lhs.swap(rhs);
-}
-
 }  // namespace utils
