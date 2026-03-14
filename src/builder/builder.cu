@@ -15,7 +15,7 @@ decltype(&build<>) getBuild(size_t i)
         &build<ThrustDeviceSystem::CPP>,      //
         &build<ThrustDeviceSystem::OMP>,      //
         &build<ThrustDeviceSystem::TBB>,      //
-        //&build<ThrustDeviceSystem::CUDA>,     //
+        &build<ThrustDeviceSystem::CUDA>,     //
     };
     return (i < std::size(builds)) ? builds.begin()[i] : nullptr;
 }

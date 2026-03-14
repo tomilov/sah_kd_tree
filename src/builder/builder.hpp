@@ -24,7 +24,7 @@ enum class ThrustDeviceSystem
     CPP,
     OMP,
     TBB,
-    // CUDA,
+    CUDA,
 };
 
 struct Settings

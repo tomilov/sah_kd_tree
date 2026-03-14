@@ -23,12 +23,26 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::cuda::vector<T, Allocator<T>>;
-    using ComponentIterator = typename Vector<F>::const_pointer;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
 
     struct TreeContext
     {
         MemoryResource memoryResource;
         const Allocator<std::byte> allocator{&memoryResource};
+
+        struct Index
+        {
+            const Allocator<std::byte> allocator;
+
+            Vector<U> a{allocator}, b{allocator}, c{allocator};
+        } index{allocator};
+
+        struct Vertex
+        {
+            const Allocator<std::byte> allocator;
+
+            Vector<F> x{allocator}, y{allocator}, z{allocator};
+        } vertex{allocator};
 
         sah_kd_tree::Tree<BuilderContext> tree{allocator};
     };
@@ -42,10 +56,8 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
         const compute::CudaStream cudaStream;
         const Exec exec;
 
-        sah_kd_tree::Builder<BuilderContext> builder{allocator, exec};
         sah_kd_tree::Projection<BuilderContext> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
-
-        sah_kd_tree::Triangle<BuilderContext> triangle{allocator, exec};
+        sah_kd_tree::Builder<BuilderContext> builder{allocator, exec};
 
         explicit BuildContext(const TreeContext & treeContext)
             : allocator{treeContext.allocator}

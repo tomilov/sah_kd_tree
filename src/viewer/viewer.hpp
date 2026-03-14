@@ -59,9 +59,9 @@ public:
     {
         Default,
         CPP,
-        // OMP,
-        // TBB,
-        // CUDA,
+        OMP,
+        TBB,
+        CUDA,
     };
     Q_ENUM(ThrustDeviceSystem);
 
