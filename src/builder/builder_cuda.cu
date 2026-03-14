@@ -23,6 +23,7 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::cuda::vector<T, Allocator<T>>;
+    using ComponentIterator = typename Vector<F>::const_pointer;
 
     struct TreeContext
     {

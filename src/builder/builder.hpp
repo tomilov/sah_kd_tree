@@ -21,10 +21,10 @@ namespace builder
 enum class ThrustDeviceSystem
 {
     Default,
-    CPP,
-    OMP,
-    TBB,
-    CUDA,
+    //CPP,
+    //OMP,
+    //TBB,
+    //CUDA,
 };
 
 struct Settings

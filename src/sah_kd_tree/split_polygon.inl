@@ -33,17 +33,17 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(
 
     auto polygonTriangles = thrust::raw_pointer_cast(polygon.triangle.data());
 
-    auto AX = thrust::raw_pointer_cast(x.triangle.a);
-    auto BX = thrust::raw_pointer_cast(x.triangle.b);
-    auto CX = thrust::raw_pointer_cast(x.triangle.c);
+    auto AX = x.triangle.a;
+    auto BX = x.triangle.b;
+    auto CX = x.triangle.c;
 
-    auto AY = thrust::raw_pointer_cast(y.triangle.a);
-    auto BY = thrust::raw_pointer_cast(y.triangle.b);
-    auto CY = thrust::raw_pointer_cast(y.triangle.c);
+    auto AY = y.triangle.a;
+    auto BY = y.triangle.b;
+    auto CY = y.triangle.c;
 
-    auto AZ = thrust::raw_pointer_cast(z.triangle.a);
-    auto BZ = thrust::raw_pointer_cast(z.triangle.b);
-    auto CZ = thrust::raw_pointer_cast(z.triangle.c);
+    auto AZ = z.triangle.a;
+    auto BZ = z.triangle.b;
+    auto CZ = z.triangle.c;
 
     auto polygonBboxBegin = thrust::make_zip_iterator(x.polygon.min.begin(), x.polygon.max.begin());
     using PolygonBboxInputType = cuda::std::iter_value_t<decltype(polygonBboxBegin)>;

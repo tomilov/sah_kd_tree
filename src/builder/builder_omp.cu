@@ -19,6 +19,7 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
     using Allocator = thrust::omp::allocator<T>;
     template<typename T>
     using Vector = thrust::omp::vector<T, Allocator<T>>;
+    using ComponentIterator = typename Vector<F>::const_pointer;
 
     struct TreeContext
     {

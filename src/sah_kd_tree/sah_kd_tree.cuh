@@ -75,6 +75,7 @@ struct DefaultTraits
     using Vector = thrust::device_vector<T, Allocator<T>>;
     using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
+    using ComponentIterator = typename Vector<F>::const_iterator;
 };
 
 template<typename Traits = DefaultTraits>
@@ -152,6 +153,7 @@ struct Projection
     using Exec = typename Traits::Exec;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
+    using ComponentIterator = typename Traits::ComponentIterator;
 
     Allocator<std::byte> allocator;
     Exec exec;
@@ -182,7 +184,7 @@ struct Projection
     struct Triangle
     {
         U count = 0;
-        typename Vector<F>::const_pointer a, b, c;
+        ComponentIterator a, b, c;
     } triangle;
 
     struct Polygon
@@ -435,6 +437,7 @@ struct Triangle
     using Exec = typename Traits::Exec;
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
+    using ComponentIterator = typename Traits::ComponentIterator;
 
     template<typename TriangleType, typename TransposedTriangleType>
     struct TransposeTriangle
@@ -454,7 +457,8 @@ struct Triangle
     {
         Allocator<std::byte> allocator;
 
-        Vector<F> a{allocator}, b{allocator}, c{allocator};
+        Vector<F> va{allocator}, vb{allocator}, vc{allocator};
+        ComponentIterator a = va.end(), b = vb.end(), c = vc.end();
     } x{allocator}, y{allocator}, z{allocator};
 
     Triangle() = default;
@@ -493,10 +497,13 @@ struct Triangle
         count = safeConvert<U>(t.size());
         const auto transposeComponent = [this](typename Triangle::Component & component)
         {
-            component.a.resize(count);
-            component.b.resize(count);
-            component.c.resize(count);
-            return thrust::make_zip_iterator(component.a.begin(), component.b.begin(), component.c.begin());
+            component.va.resize(count);
+            component.a = component.va.begin();
+            component.vb.resize(count);
+            component.b = component.vb.begin();
+            component.vc.resize(count);
+            component.c = component.vc.begin();
+            return thrust::make_zip_iterator(component.va.begin(), component.vb.begin(), component.vc.begin());
         };
         auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
         using TransposedTriangleType = cuda::std::iter_value_t<decltype(transposedTriangleBegin)>;
