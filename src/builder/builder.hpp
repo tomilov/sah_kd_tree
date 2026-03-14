@@ -53,7 +53,7 @@ struct Tree
     size_t polygonCount = 0;
     size_t nodeCount = 0;
 
-    size_t triangleOffset = 0;
+    size_t indexOffset = 0;
     size_t vertexOffset = 0;
     size_t polygonOffset = 0;
     size_t nodeOffset = 0;

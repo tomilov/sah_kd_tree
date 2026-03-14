@@ -278,7 +278,8 @@ struct TreeUniformBuffer
     glm::uint treeDepthMax;
     glm::uint polygonCount;
     glm::uint nodeCount;
-    vk::DeviceAddress triangles;
+    vk::DeviceAddress indices;
+    vk::DeviceAddress vertices;
     vk::DeviceAddress polygons;
     vk::DeviceAddress nodes;
     vk::DeviceAddress nodeParents;
@@ -662,7 +663,8 @@ TreeUniformBuffer getTreeUniformBuffer(const Tree & tree)
         .treeDepthMax = utils::autoCast(std::size(tree.getLayerSizes())),
         .polygonCount = utils::autoCast(tree.getPolygonCount()),
         .nodeCount = utils::autoCast(tree.getNodeCount()),
-        .triangles = tree.getTriangleAddress(),
+        .indices = tree.getIndexAddress(),
+        .vertices = tree.getVertexAddress(),
         .polygons = tree.getPolygonAddress(),
         .nodes = tree.getNodeAddress(),
         .nodeParents = tree.getNodeParentAddress(),

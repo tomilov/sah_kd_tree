@@ -32,7 +32,7 @@ void importTree(
         v = utils::MemArray<T>{count};
         CU_CALL_CHECK(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
-    scatterDeviceData(tree.triangleOffset, tree.triangleCount, indices);
+    scatterDeviceData(tree.indexOffset, tree.triangleCount, indices);
     scatterDeviceData(tree.vertexOffset, tree.vertexCount, vertices);
     scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
     scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);

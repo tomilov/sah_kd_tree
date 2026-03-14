@@ -35,7 +35,8 @@ public:
     [[nodiscard]] vk::DeviceSize getAllocationSize() const;
     [[nodiscard]] vk::DeviceAddress getDeviceAddress() const &;
 
-    [[nodiscard]] vk::DeviceAddress getTriangleAddress() const &;
+    [[nodiscard]] vk::DeviceAddress getIndexAddress() const &;
+    [[nodiscard]] vk::DeviceAddress getVertexAddress() const &;
     [[nodiscard]] vk::DeviceAddress getPolygonAddress() const &;
     [[nodiscard]] vk::DeviceAddress getNodeAddress() const &;
     [[nodiscard]] vk::DeviceAddress getNodeParentAddress() const &;

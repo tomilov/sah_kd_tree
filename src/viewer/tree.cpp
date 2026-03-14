@@ -20,6 +20,7 @@ struct Tree::Impl
     const engine::Context & context;
 
     const uint32_t triangleCount;
+    const uint32_t vertexCount;
     std::vector<size_t> layerSizes;
     const uint32_t polygonCount;
     const uint32_t nodeCount;
@@ -28,7 +29,8 @@ struct Tree::Impl
     const vk::DeviceSize dataAlignment;
     const vk::DeviceSize allocationSize;
 
-    const vk::DeviceSize triangleOffset;
+    const vk::DeviceSize indexOffset;
+    const vk::DeviceSize vertexOffset;
     const vk::DeviceSize polygonOffset;
     const vk::DeviceSize nodeOffset;
     const vk::DeviceSize nodeParentOffset;
@@ -105,9 +107,16 @@ vk::DeviceAddress Tree::getDeviceAddress() const &
     return impl_->deviceAddress;
 }
 
-vk::DeviceAddress Tree::getTriangleAddress() const &
+vk::DeviceAddress Tree::getIndexAddress() const &
 {
-    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->triangleOffset;
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->indexOffset;
+    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    return deviceAddress;
+}
+
+vk::DeviceAddress Tree::getVertexAddress() const &
+{
+    const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->vertexOffset;
     INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
@@ -140,13 +149,15 @@ Tree::Impl::Impl(
     : name{nameIn}
     , context{contextIn}
     , triangleCount{utils::autoCast(builderTree.triangleCount)}
+    , vertexCount{utils::autoCast(builderTree.vertexCount)}
     , layerSizes{builderTree.layerSizes}
     , polygonCount{utils::autoCast(builderTree.polygonCount)}
     , nodeCount{utils::autoCast(builderTree.nodeCount)}
     , dataSize{utils::autoCast(builderTree.dataSize)}
     , dataAlignment{utils::autoCast(builderTree.dataAlignment)}
     , allocationSize{utils::autoCast(builderTree.allocationSize)}
-    , triangleOffset{utils::autoCast(builderTree.triangleOffset)}
+    , indexOffset{utils::autoCast(builderTree.indexOffset)}
+    , vertexOffset{utils::autoCast(builderTree.vertexOffset)}
     , polygonOffset{utils::autoCast(builderTree.polygonOffset)}
     , nodeOffset{utils::autoCast(builderTree.nodeOffset)}
     , nodeParentOffset{utils::autoCast(builderTree.nodeParentOffset)}

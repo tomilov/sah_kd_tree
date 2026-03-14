@@ -33,9 +33,14 @@ struct Node  // sizeof == 64
     uint rightChild;
 };
 
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Triangles
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Indices
 {
-    Triangle triangle[];
+    uvec3 triangle[];
+};
+
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertices
+{
+    vec3 position[];
 };
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Polygons
@@ -67,7 +72,8 @@ layout(set = 0, binding = 0, scalar) uniform TreeUniformBuffer
     uint treeDepthMax;
     uint polygonCount;
     uint nodeCount;
-    Triangles triangles;
+    Indices indices;
+    Vertices vertices;
     Polygons polygons;
     Nodes nodes;
     NodeParents nodeParents;
@@ -163,6 +169,12 @@ uint findNode(uint nodeIndex, const in vec3 pos)
     return nodeIndex;
 }
 
+Triangle getTriangle(uint t)
+{
+    const uvec3 indices = indices.triangle[t];
+    return Triangle(vertices.position[indices.x], vertices.position[indices.y], vertices.position[indices.z]);
+}
+
 void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
 {
     const vec3 invDir = 1.0f / ray.dir;
@@ -183,7 +195,7 @@ void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
             const uint triangle = polygons.triangle[polygon];
             vec3 uvw;
             vec3 normal;
-            if (rayTriangleIntersect(ray, triangles.triangle[triangle], uvw, normal, tMin)) {
+            if (rayTriangleIntersect(ray, getTriangle(triangle), uvw, normal, tMin)) {
                 if (tMin < hit.t) {
                     hit.triangle = triangle;
                     hit.uvw = uvw;
@@ -265,7 +277,7 @@ void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewp
         vec2 ddu;
         vec2 ddv;
         vec2 ddw;
-        getAnalyticalBaryDeriv(triangles.triangle[hit.triangle], hit.t * rayDir, hit.uvw, ddu, ddv, ddw);
+        getAnalyticalBaryDeriv(getTriangle(hit.triangle), hit.t * rayDir, hit.uvw, ddu, ddv, ddw);
         ddx = vec3(ddu.x, ddv.x, ddw.x) * invViewportSize.y;
         ddy = vec3(ddu.y, ddv.y, ddw.y) * invViewportSize.x;
     }

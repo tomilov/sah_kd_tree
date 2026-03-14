@@ -331,7 +331,7 @@ struct Builder : Tree
         }
         using Triangle = glm::uvec3;  // TODO: pass (future) scene_data::Triangle
         using Vertex = glm::vec3;     // TODO(tomilov): pass scene_data::Vertex
-        triangleOffset = gatherSize<Triangle>(triangleCount);
+        indexOffset = gatherSize<Triangle>(triangleCount);
         vertexOffset = gatherSize<Vertex>(vertexCount);
         polygonOffset = gatherSize(tree.polygonTriangle);
         auto node = getNode(tree);
@@ -351,7 +351,7 @@ struct Builder : Tree
         {
             const auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
-            gatherDeviceData(devPtr + triangleOffset, treeContext.index.a, treeContext.index.b, treeContext.index.c);
+            gatherDeviceData(devPtr + indexOffset, treeContext.index.a, treeContext.index.b, treeContext.index.c);
             gatherDeviceData(devPtr + vertexOffset, treeContext.vertex.x, treeContext.vertex.y, treeContext.vertex.z);
             gatherDeviceData1(devPtr + polygonOffset, tree.polygonTriangle);
             if constexpr (kIsThrustDeviceSystemCUDA) {
