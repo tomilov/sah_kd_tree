@@ -7,7 +7,7 @@ skt_add_library(
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cuh"
         "${PROJECT_NAME}.cu"
-        #"${PROJECT_NAME}_cpp.cu"
+        "${PROJECT_NAME}_cpp.cu"
         #"${PROJECT_NAME}_omp.cu"
         #"${PROJECT_NAME}_tbb.cu"
         #"${PROJECT_NAME}_cuda.cu"

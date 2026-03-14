@@ -12,7 +12,7 @@ decltype(&build<>) getBuild(size_t i)
 {
     std::initializer_list<decltype(&build<>)> builds = {
         &build<ThrustDeviceSystem::Default>,  //
-        //&build<ThrustDeviceSystem::CPP>,      //
+        &build<ThrustDeviceSystem::CPP>,      //
         //&build<ThrustDeviceSystem::OMP>,      //
         //&build<ThrustDeviceSystem::TBB>,      //
         //&build<ThrustDeviceSystem::CUDA>,     //

@@ -58,7 +58,7 @@ public:
     enum class ThrustDeviceSystem
     {
         Default,
-        // CPP,
+        CPP,
         // OMP,
         // TBB,
         // CUDA,

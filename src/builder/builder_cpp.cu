@@ -19,10 +19,20 @@ struct BuilderContext<ThrustDeviceSystem::CPP>
     using Allocator = thrust::cpp::allocator<T>;
     template<typename T>
     using Vector = thrust::cpp::vector<T, Allocator<T>>;
-    using ComponentIterator = typename Vector<F>::const_pointer;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
 
     struct TreeContext
     {
+        struct Index
+        {
+            Vector<U> a, b, c;
+        } index;
+
+        struct Vertex
+        {
+            Vector<F> x, y, z;
+        } vertex;
+
         sah_kd_tree::Tree<BuilderContext> tree;
     };
 
@@ -31,10 +41,8 @@ struct BuilderContext<ThrustDeviceSystem::CPP>
 
     struct BuildContext
     {
-        sah_kd_tree::Builder<BuilderContext> builder;
         sah_kd_tree::Projection<BuilderContext> x, y, z;
-
-        sah_kd_tree::Triangle<BuilderContext> triangle;
+        sah_kd_tree::Builder<BuilderContext> builder;
 
         explicit BuildContext(const TreeContext &)
         {}
