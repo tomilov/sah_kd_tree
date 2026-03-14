@@ -48,7 +48,6 @@ extern template TreePtr build<ThrustDeviceSystem::CPP>(
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,
     const std::function<bool(size_t progressValue)> & progress);
-#if 0
 extern template TreePtr build<ThrustDeviceSystem::OMP>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,
@@ -59,6 +58,7 @@ extern template TreePtr build<ThrustDeviceSystem::TBB>(
     const compute::CudaDevice & cudaDevice,
     const scene_data::SceneDataPtr & sceneData,
     const std::function<bool(size_t progressValue)> & progress);
+#if 0
 extern template TreePtr build<ThrustDeviceSystem::CUDA>(
     const Settings & settings,
     const compute::CudaDevice & cudaDevice,

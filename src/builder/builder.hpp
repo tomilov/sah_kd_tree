@@ -22,8 +22,8 @@ enum class ThrustDeviceSystem
 {
     Default,
     CPP,
-    // OMP,
-    // TBB,
+    OMP,
+    TBB,
     // CUDA,
 };
 

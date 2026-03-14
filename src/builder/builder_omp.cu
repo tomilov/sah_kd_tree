@@ -1,6 +1,7 @@
 #include <builder/builder.cuh>
 #include <sah_kd_tree/sah_kd_tree_inline.cuh>
 
+#include <thrust/iterator/permutation_iterator.h>
 #include <thrust/system/omp/execution_policy.h>
 #include <thrust/system/omp/memory.h>
 #include <thrust/system/omp/memory_resource.h>
@@ -19,10 +20,20 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
     using Allocator = thrust::omp::allocator<T>;
     template<typename T>
     using Vector = thrust::omp::vector<T, Allocator<T>>;
-    using ComponentIterator = typename Vector<F>::const_pointer;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
 
     struct TreeContext
     {
+        struct Index
+        {
+            Vector<U> a, b, c;
+        } index;
+
+        struct Vertex
+        {
+            Vector<F> x, y, z;
+        } vertex;
+
         sah_kd_tree::Tree<BuilderContext> tree;
     };
 
@@ -31,10 +42,8 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
 
     struct BuildContext
     {
-        sah_kd_tree::Builder<BuilderContext> builder;
         sah_kd_tree::Projection<BuilderContext> x, y, z;
-
-        sah_kd_tree::Triangle<BuilderContext> triangle;
+        sah_kd_tree::Builder<BuilderContext> builder;
 
         explicit BuildContext(const TreeContext &)
         {}
