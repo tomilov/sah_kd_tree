@@ -16,6 +16,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/memory.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/tuple.h>
 #include <thrust/uninitialized_copy.h>
 #include <thrust/version.h>
 
@@ -92,6 +93,30 @@ struct VertexSlice
     }
 };
 
+template<
+    typename F,
+    typename Iterator>
+void apply(
+    F & f,
+    Iterator it)
+{
+    f(it);
+}
+
+template<
+    typename F,
+    typename... Iterators>
+void apply(
+    F & f,
+    thrust::zip_iterator<cuda::std::tuple<Iterators...>> zit)
+{
+    // TODO(tomilov): use cuda::std::apply after https://github.com/NVIDIA/cccl/issues/8038
+    [&]<std::size_t... Is>(const cuda::std::tuple<Iterators...> & tuple, std::index_sequence<Is...>)
+    {
+        (builder::apply(f, cuda::std::get<Is>(tuple)), ...);
+    }(zit.get_iterator_tuple(), std::index_sequence_for<Iterators...>{});
+}
+
 template<ThrustDeviceSystem thrustDeviceSystem>
 struct Builder : Tree
 {
@@ -118,14 +143,14 @@ struct Builder : Tree
 
     [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<BaseTraits> & tree)
     {
-        auto aabbMin = thrust::make_zip_iterator(tree.x.node.min.begin(), tree.y.node.min.begin(), tree.z.node.min.begin());
-        auto aabbMax = thrust::make_zip_iterator(tree.x.node.max.begin(), tree.y.node.max.begin(), tree.z.node.max.begin());
-        auto leftRope = thrust::make_zip_iterator(tree.x.node.leftRope.begin(), tree.y.node.leftRope.begin(), tree.z.node.leftRope.begin());
-        auto rightRope = thrust::make_zip_iterator(tree.x.node.rightRope.begin(), tree.y.node.rightRope.begin(), tree.z.node.rightRope.begin());
-        auto splitDimension = tree.node.splitDimension.begin();
-        auto splitPos = tree.node.splitPos.begin();
-        auto leftChild = tree.node.leftChild.begin();
-        auto rightChild = tree.node.rightChild.begin();
+        auto aabbMin = thrust::make_zip_iterator(tree.x.node.min.data(), tree.y.node.min.data(), tree.z.node.min.data());
+        auto aabbMax = thrust::make_zip_iterator(tree.x.node.max.data(), tree.y.node.max.data(), tree.z.node.max.data());
+        auto leftRope = thrust::make_zip_iterator(tree.x.node.leftRope.data(), tree.y.node.leftRope.data(), tree.z.node.leftRope.data());
+        auto rightRope = thrust::make_zip_iterator(tree.x.node.rightRope.data(), tree.y.node.rightRope.data(), tree.z.node.rightRope.data());
+        auto splitDimension = tree.node.splitDimension.data();
+        auto splitPos = tree.node.splitPos.data();
+        auto leftChild = tree.node.leftChild.data();
+        auto rightChild = tree.node.rightChild.data();
         return thrust::make_zip_iterator(aabbMin, aabbMax, leftRope, rightRope, splitDimension, splitPos, leftChild, rightChild);
     }
 
@@ -190,14 +215,14 @@ struct Builder : Tree
     template<
         typename T,
         size_t stride = 0>
-    void gatherDeviceData1(
+    void gatherDeviceData(
         ::CUdeviceptr devPtr,
-        const Vector<T> & value)
+        const T * srcPtr,
+        size_t count)
     {
-        const T * const srcPtr = thrust::raw_pointer_cast(std::data(value));
         const ::CUdeviceptr srcDevPtr = utils::autoCast(srcPtr);
         if constexpr ((stride == sizeof(T) || (stride == 0))) {
-            const size_t size = std::size(value) * sizeof(T);
+            const size_t size = count * sizeof(T);
             if constexpr (kIsThrustDeviceSystemCUDA) {
                 CU_CALL_CHECK(::cuMemcpyDtoD, devPtr, srcDevPtr, size);
             } else {
@@ -215,7 +240,7 @@ struct Builder : Tree
                 .dstDevice = devPtr,
                 .dstPitch = stride,
                 .WidthInBytes = sizeof(T),
-                .Height = std::size(value),
+                .Height = count,
             };
 #pragma GCC diagnostic pop
             ::cuMemcpy2D(&copyParams);
@@ -231,7 +256,7 @@ struct Builder : Tree
         std::inclusive_scan(std::cbegin(offsets), std::cend(offsets), std::begin(offsets));
         [&]<std::size_t... Is>(std::index_sequence<Is...>)
         {
-            (gatherDeviceData1<Types, (sizeof(Types) + ...)>(devPtr + offsets[Is], values), ...);
+            (gatherDeviceData<Types, (sizeof(Types) + ...)>(devPtr + offsets[Is], thrust::raw_pointer_cast(std::data(values)), std::size(values)), ...);
         }(std::index_sequence_for<Types...>{});
     }
 
@@ -351,17 +376,28 @@ struct Builder : Tree
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
             gatherDeviceData(devPtr + indexOffset, treeContext.index.a, treeContext.index.b, treeContext.index.c);
             gatherDeviceData(devPtr + vertexOffset, treeContext.vertex.x, treeContext.vertex.y, treeContext.vertex.z);
-            gatherDeviceData1(devPtr + polygonOffset, tree.polygonTriangle);
+            gatherDeviceData(devPtr + polygonOffset, tree.polygonTriangle);
             if constexpr (kIsThrustDeviceSystemCUDA) {
                 const typename Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
                 thrust::uninitialized_copy_n(node, nodeCount, dst);
             } else {
-                Vector<NodeType> nodes{tree.allocator};
-                nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
-                auto srcPtr = thrust::raw_pointer_cast(nodes.data());
-                CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
+                if ((false)) {
+                    // Faster for CUDA, but CPP, OMP, TBB hangs (even if this code if never executed). TODO(tomilov): try later
+                    auto dstPtr = devPtr;
+                    const auto gatherNode = [this, &dstPtr]<typename Pointer>(Pointer srcPtr) -> void
+                    {
+                        gatherDeviceData(dstPtr, thrust::raw_pointer_cast(srcPtr), nodeCount);
+                        dstPtr += sizeof(typename cuda::std::iterator_traits<Pointer>::value_type);
+                    };
+                    builder::apply(gatherNode, node);
+                } else {
+                    Vector<NodeType> nodes{tree.allocator};
+                    nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
+                    auto srcPtr = thrust::raw_pointer_cast(nodes.data());
+                    CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
+                }
             }
-            gatherDeviceData1(devPtr + nodeParentOffset, tree.node.parent);
+            gatherDeviceData(devPtr + nodeParentOffset, tree.node.parent);
             cudaDevice.synchronize();
         }
         deviceMemory.exportMemoryObject().swap(fd);

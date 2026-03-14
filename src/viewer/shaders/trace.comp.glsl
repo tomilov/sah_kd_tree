@@ -171,8 +171,8 @@ uint findNode(uint nodeIndex, const in vec3 pos)
 
 Triangle getTriangle(uint t)
 {
-    const uvec3 indices = indices.triangle[t];
-    return Triangle(vertices.position[indices.x], vertices.position[indices.y], vertices.position[indices.z]);
+    const uvec3 index = indices.triangle[t];
+    return Triangle(vertices.position[index.x], vertices.position[index.y], vertices.position[index.z]);
 }
 
 void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)

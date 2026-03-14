@@ -1,4 +1,5 @@
 #include <builder/builder.hpp>
+#include <scene_data/scene_data.hpp>
 #include <soft_renderer/soft_renderer.hpp>
 #include <soft_renderer/tree.hpp>
 #include <utils/assert.hpp>
@@ -52,16 +53,14 @@ bool intersectSphere [[maybe_unused]] (
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersectMoeller [[maybe_unused]] (
     const Ray & ray,
-    glm::vec3 a,
-    glm::vec3 b,
-    glm::vec3 c,
+    const scene_data::Triangle & triangle,
     glm::vec3 & uvw,
     glm::vec3 & normal,
     glm::float32 & t)
 {
-    const glm::vec3 ca = a - c;
-    const glm::vec3 bc = c - b;
-    c = ray.pos - c;
+    const glm::vec3 ca = triangle.a - triangle.c;
+    const glm::vec3 bc = triangle.c - triangle.b;
+    const glm::vec3 c = ray.pos - triangle.c;
     normal = glm::cross(bc, ca);
     const glm::float32 invPlaneDist = 1.0f / glm::dot(ray.dir, normal);
     t = -glm::dot(normal, c) * invPlaneDist;
@@ -89,16 +88,14 @@ glm::vec3 stableTriangleNormal(
 
 bool rayTriangleIntersectPluecker [[maybe_unused]] (
     const Ray & ray,
-    glm::vec3 a,
-    glm::vec3 b,
-    glm::vec3 c,
+    const scene_data::Triangle & triangle,
     glm::vec3 & uvw,
     glm::vec3 & normal,
     glm::float32 & t)
 {
-    a -= ray.pos;
-    b -= ray.pos;
-    c -= ray.pos;
+    const glm::vec3 a = triangle.a - ray.pos;
+    const glm::vec3 b = triangle.b - ray.pos;
+    const glm::vec3 c = triangle.c - ray.pos;
 
     const glm::vec3 x = c - b;
     const glm::vec3 y = a - c;
@@ -122,7 +119,7 @@ bool rayTriangleIntersectPluecker [[maybe_unused]] (
     return true;
 }
 
-#if 1
+#if 0
 #define rayTriangleIntersect rayTriangleIntersectPluecker
 #else
 #define rayTriangleIntersect rayTriangleIntersectMoeller
@@ -164,26 +161,14 @@ struct SoftRenderer::Impl
         return nodeIndex;
     }
 
-    [[nodiscard]] bool bruteForceRay(
-        const Ray & ray,
-        Hit & hit) const
+    [[nodiscard]] scene_data::Triangle getTriangle(glm::uint t) const
     {
-        bool isHit = false;
-        for (const auto & [i, index] : std::views::enumerate(indices)) {
-            glm::vec3 uvw;
-            glm::vec3 normal;
-            glm::float32 tMin;
-            if (rayTriangleIntersect(ray, vertices.at(index.x), vertices.at(index.y), vertices.at(index.z), uvw, normal, tMin)) {
-                if (tMin < hit.t) {
-                    hit.triangle = utils::autoCast(i);
-                    hit.uvw = uvw;
-                    hit.normal = normal;
-                    hit.t = tMin;
-                }
-                isHit = true;
-            }
-        }
-        return isHit;
+        const glm::uvec3 index = indices.at(t);
+        return {
+            .a = vertices.at(index.x),
+            .b = vertices.at(index.y),
+            .c = vertices.at(index.z),
+        };
     }
 
     void traceRay(
@@ -208,10 +193,9 @@ struct SoftRenderer::Impl
             const glm::uint polygonEnd = polygonStart + node->rightChild;
             for (glm::uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
                 const glm::uint triangle = polygons.at(polygon);
-                const glm::uvec3 & index = indices.at(triangle);
                 glm::vec3 uvw;
                 glm::vec3 normal;
-                if (rayTriangleIntersect(ray, vertices.at(index.x), vertices.at(index.y), vertices.at(index.z), uvw, normal, tMin)) {
+                if (rayTriangleIntersect(ray, getTriangle(triangle), uvw, normal, tMin)) {
                     if (tMin < hit.t) {
                         hit.triangle = triangle;
                         hit.uvw = uvw;
