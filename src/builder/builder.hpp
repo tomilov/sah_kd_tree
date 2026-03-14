@@ -21,10 +21,10 @@ namespace builder
 enum class ThrustDeviceSystem
 {
     Default,
-    //CPP,
-    //OMP,
-    //TBB,
-    //CUDA,
+    // CPP,
+    // OMP,
+    // TBB,
+    // CUDA,
 };
 
 struct Settings
@@ -48,11 +48,13 @@ struct Tree
     size_t allocationSize = 0;
 
     size_t triangleCount = 0;
+    size_t vertexCount = 0;
     std::vector<size_t> layerSizes = {};
     size_t polygonCount = 0;
     size_t nodeCount = 0;
 
     size_t triangleOffset = 0;
+    size_t vertexOffset = 0;
     size_t polygonOffset = 0;
     size_t nodeOffset = 0;
     size_t nodeParentOffset = 0;

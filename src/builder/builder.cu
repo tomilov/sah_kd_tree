@@ -35,17 +35,28 @@ struct BuilderContext<ThrustDeviceSystem::Default>
 {
     using Traits = sah_kd_tree::DefaultTraits;
 
+    template<typename T>
+    using Vector = typename Traits::template Vector<T>;
+
     struct TreeContext
     {
+        struct Index
+        {
+            Vector<typename Traits::U> a, b, c;
+        } index;
+
+        struct Vertex
+        {
+            Vector<typename Traits::F> x, y, z;
+        } vertex;
+
         sah_kd_tree::Tree<sah_kd_tree::DefaultTraits> tree;
     };
 
     struct BuildContext
     {
-        sah_kd_tree::Builder<sah_kd_tree::DefaultTraits> builder;
         sah_kd_tree::Projection<sah_kd_tree::DefaultTraits> x, y, z;
-
-        sah_kd_tree::Triangle<sah_kd_tree::DefaultTraits> triangle;
+        sah_kd_tree::Builder<sah_kd_tree::DefaultTraits> builder;
 
         explicit BuildContext(const TreeContext &)
         {}

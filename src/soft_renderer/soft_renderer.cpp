@@ -1,5 +1,4 @@
 #include <builder/builder.hpp>
-#include <scene_data/scene_data.hpp>
 #include <soft_renderer/soft_renderer.hpp>
 #include <soft_renderer/tree.hpp>
 #include <utils/assert.hpp>
@@ -17,6 +16,7 @@
 
 #include <limits>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -52,14 +52,16 @@ bool intersectSphere [[maybe_unused]] (
 // TODO: Watertight Ray/Triangle Intersection, Sven Woop, Carsten Benthin, Ingo Wald
 bool rayTriangleIntersectMoeller [[maybe_unused]] (
     const Ray & ray,
-    const scene_data::Triangle & triangle,
+    glm::vec3 a,
+    glm::vec3 b,
+    glm::vec3 c,
     glm::vec3 & uvw,
     glm::vec3 & normal,
     glm::float32 & t)
 {
-    const glm::vec3 ca = triangle.a - triangle.c;
-    const glm::vec3 bc = triangle.c - triangle.b;
-    const glm::vec3 c = ray.pos - triangle.c;
+    const glm::vec3 ca = a - c;
+    const glm::vec3 bc = c - b;
+    c = ray.pos - c;
     normal = glm::cross(bc, ca);
     const glm::float32 invPlaneDist = 1.0f / glm::dot(ray.dir, normal);
     t = -glm::dot(normal, c) * invPlaneDist;
@@ -87,14 +89,16 @@ glm::vec3 stableTriangleNormal(
 
 bool rayTriangleIntersectPluecker [[maybe_unused]] (
     const Ray & ray,
-    const scene_data::Triangle triangle,
+    glm::vec3 a,
+    glm::vec3 b,
+    glm::vec3 c,
     glm::vec3 & uvw,
     glm::vec3 & normal,
     glm::float32 & t)
 {
-    const glm::vec3 a = triangle.a - ray.pos;
-    const glm::vec3 b = triangle.b - ray.pos;
-    const glm::vec3 c = triangle.c - ray.pos;
+    a -= ray.pos;
+    b -= ray.pos;
+    c -= ray.pos;
 
     const glm::vec3 x = c - b;
     const glm::vec3 y = a - c;
@@ -118,7 +122,7 @@ bool rayTriangleIntersectPluecker [[maybe_unused]] (
     return true;
 }
 
-#if 0
+#if 1
 #define rayTriangleIntersect rayTriangleIntersectPluecker
 #else
 #define rayTriangleIntersect rayTriangleIntersectMoeller
@@ -131,7 +135,8 @@ struct SoftRenderer::Impl
     const std::string name;
     const glm::vec4 clearColor;
 
-    utils::MemArray<scene_data::Triangle> triangles;
+    utils::MemArray<glm::uvec3> indices;
+    utils::MemArray<glm::vec3> vertices;
     utils::MemArray<glm::uint> polygons;
     utils::MemArray<Node> nodes;
     utils::MemArray<glm::uint> nodeParents;
@@ -164,13 +169,13 @@ struct SoftRenderer::Impl
         Hit & hit) const
     {
         bool isHit = false;
-        for (const scene_data::Triangle & triangle : triangles) {
+        for (const auto & [i, index] : std::views::enumerate(indices)) {
             glm::vec3 uvw;
             glm::vec3 normal;
             glm::float32 tMin;
-            if (rayTriangleIntersect(ray, triangle, uvw, normal, tMin)) {
+            if (rayTriangleIntersect(ray, vertices.at(index.x), vertices.at(index.y), vertices.at(index.z), uvw, normal, tMin)) {
                 if (tMin < hit.t) {
-                    hit.triangle = utils::autoCast(std::distance(triangles.begin(), &triangle));
+                    hit.triangle = utils::autoCast(i);
                     hit.uvw = uvw;
                     hit.normal = normal;
                     hit.t = tMin;
@@ -203,9 +208,10 @@ struct SoftRenderer::Impl
             const glm::uint polygonEnd = polygonStart + node->rightChild;
             for (glm::uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
                 const glm::uint triangle = polygons.at(polygon);
+                const glm::uvec3 & index = indices.at(triangle);
                 glm::vec3 uvw;
                 glm::vec3 normal;
-                if (rayTriangleIntersect(ray, triangles.at(triangle), uvw, normal, tMin)) {
+                if (rayTriangleIntersect(ray, vertices.at(index.x), vertices.at(index.y), vertices.at(index.z), uvw, normal, tMin)) {
                     if (tMin < hit.t) {
                         hit.triangle = triangle;
                         hit.uvw = uvw;
@@ -219,8 +225,8 @@ struct SoftRenderer::Impl
             if (hit.t <= tMin) {
                 break;
             }
-            const glm::ivec2 indices = glm::mix(glm::ivec2(0), glm::ivec2(1, 2), glm::equal(glm::vec2{aabbHitT.y, aabbHitT.z}, glm::vec2{tMin}));
-            const glm::int32 ropeDirection = glm::max(indices.x, indices.y);
+            const glm::ivec2 exitAxis = glm::mix(glm::ivec2(0), glm::ivec2(1, 2), glm::equal(glm::vec2{aabbHitT.y, aabbHitT.z}, glm::vec2{tMin}));
+            const glm::int32 ropeDirection = glm::max(exitAxis.x, exitAxis.y);
             nodeIndex = corner[ropeDirection] ? node->leftRope[ropeDirection] : node->rightRope[ropeDirection];
         } while (nodeIndex != 0u);
     }
@@ -240,17 +246,19 @@ SoftRenderer::SoftRenderer(SoftRenderer &&) noexcept = default;
 
 void SoftRenderer::setTree(builder::Tree && builderTree)
 {
-    importTree(std::move(builderTree), impl_->triangles, impl_->polygons, impl_->nodes, impl_->nodeParents);
+    importTree(std::move(builderTree), impl_->indices, impl_->vertices, impl_->polygons, impl_->nodes, impl_->nodeParents);
 }
 
 bool SoftRenderer::hasTree() const
 {
-    if (impl_->triangles.isEmpty()) {
+    if (impl_->indices.isEmpty()) {
+        ASSERT(impl_->vertices.isEmpty());
         ASSERT(impl_->polygons.isEmpty());
         ASSERT(impl_->nodes.isEmpty());
         ASSERT(impl_->nodeParents.isEmpty());
         return false;
     }
+    ASSERT(!impl_->vertices.isEmpty());
     ASSERT(!impl_->polygons.isEmpty());
     ASSERT(!impl_->nodes.isEmpty());
     ASSERT(!impl_->nodeParents.isEmpty());

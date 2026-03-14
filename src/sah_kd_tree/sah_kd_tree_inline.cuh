@@ -12,7 +12,6 @@
 #include <sah_kd_tree/filter_layer_node_offset.inl>
 #include <sah_kd_tree/find_perfect_split.inl>
 #include <sah_kd_tree/generate_initial_event.inl>
-#include <sah_kd_tree/link_triangle.inl>
 #include <sah_kd_tree/merge_event.inl>
 #include <sah_kd_tree/populate_leaf_node_triangle_range.inl>
 #include <sah_kd_tree/populate_node_parent.inl>

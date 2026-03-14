@@ -1,10 +1,14 @@
+#include <common/config.hpp>
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
 #include <utils/mem_array.hpp>
 
 #include <glm/common.hpp>
+#include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <iterator>
+#include <span>
 
 namespace scene_data
 {
@@ -37,89 +41,98 @@ void SceneData::updateAABBs()
     }
 }
 
-utils::MemArray<Triangle> SceneData::makeTriangles() const
+void SceneData::collectScene(
+    utils::MemArray<Index> & outIndices,
+    utils::MemArray<Position> & outVertices) const
 {
-    size_t vertexCount = 0;
-    for (const Mesh & mesh : meshes) {
-        INVARIANT((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
-        vertexCount += mesh.indexCount;
-    }
-
-    utils::MemArray<Triangle> triangles{vertexCount / 3};
-    auto * t = triangles.begin();
-    const auto * v = vertices.begin();
-    for (const Mesh & mesh : meshes) {
-        const auto * index = indices.begin();
-        std::advance(index, mesh.indexOffset);
-        const auto * const endIndex = std::next(index, mesh.indexCount);
-        while (index != endIndex) {
-            INVARIANT(t < triangles.end(), "");
-            uint32_t a = *index++;
-            INVARIANT(a < mesh.vertexCount, "");
-            uint32_t b = *index++;
-            INVARIANT(b < mesh.vertexCount, "");
-            uint32_t c = *index++;
-            INVARIANT(c < mesh.vertexCount, "");
-            *t++ = {
-                .a = v[mesh.vertexOffset + a].position,
-                .b = v[mesh.vertexOffset + b].position,
-                .c = v[mesh.vertexOffset + c].position,
-            };
+    if constexpr (sah_kd_tree::kIsDebugBuild) {
+        size_t indexCount = 0;
+        size_t vertexCount = 0;
+        for (const Mesh & mesh : meshes) {
+            ASSERT_MSG((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
+            ASSERT(indexCount == mesh.indexOffset);
+            ASSERT(vertexCount == mesh.vertexOffset);
+            indexCount += mesh.indexCount;
+            vertexCount += mesh.vertexCount;
         }
+        ASSERT(!std::empty(meshes));
+        ASSERT(indexCount == meshes.back().indexOffset + meshes.back().indexCount);
+        ASSERT(vertexCount == meshes.back().vertexOffset + meshes.back().vertexCount);
+        ASSERT(indexCount == indices.getCount());
+        ASSERT(vertexCount == vertices.getCount());
     }
-    return triangles;
+    outIndices.setCount(indices.getCount());
+
+    outVertices.setCount(vertices.getCount());
+    std::ranges::transform(vertices, outVertices.begin(), &VertexAttributes::position);
+
+    std::span<const Index> inIndices{indices.cbegin(), indices.cend()};
+    auto * outIndex = outIndices.begin();
+    for (const Mesh & mesh : meshes) {
+        const auto addVertexOffset = [&mesh, vertexCount = outVertices.getCount()](Index i) -> Index
+        {
+            ASSERT(i < mesh.vertexCount);
+            ASSERT(mesh.vertexOffset + i < vertexCount);
+            return mesh.vertexOffset + i;
+        };
+        outIndex = std::ranges::transform(inIndices.first(mesh.indexCount), outIndex, addVertexOffset).out;
+        inIndices = inIndices.subspan(mesh.indexCount);
+    }
+    ASSERT(std::empty(inIndices));
+    ASSERT(outIndex == outIndices.end());
 }
 
-utils::MemArray<Triangle> SceneData::makeTriangles(size_t rootNodeIndex) const
+void SceneData::collectScene(
+    size_t rootNodeIndex,
+    utils::MemArray<Index> & outIndices,
+    utils::MemArray<Position> & outVertices) const
 {
+    size_t indexCount = 0;
     size_t vertexCount = 0;
-    const auto countTriangles = [this, &vertexCount](const auto & self, size_t nodeIndex) -> void
+    const auto countIndicesAndVertices = [this, &indexCount, &vertexCount](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
             const Mesh & mesh = meshes[m];
             INVARIANT((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
-            vertexCount += mesh.indexCount;
+            indexCount += mesh.indexCount;
+            vertexCount += mesh.vertexCount;
         }
         for (size_t childIndex : node.children) {
             self(self, childIndex);
         }
     };
-    countTriangles(countTriangles, rootNodeIndex);
+    countIndicesAndVertices(countIndicesAndVertices, rootNodeIndex);
+    outIndices.setCount(indexCount);
+    outVertices.setCount(vertexCount);
 
-    utils::MemArray<Triangle> triangles{vertexCount / 3};
-    auto * t = triangles.begin();
-    const auto * v = vertices.begin();
-    const auto traverseNodes = [this, &t, &triangles, v](const auto & self, size_t nodeIndex) -> void
+    const std::span<const Index> inIndices{indices.cbegin(), indices.cend()};
+    const std::span<const VertexAttributes> inVertices{vertices.cbegin(), vertices.cend()};
+    auto * outIndex = outIndices.begin();
+    auto * outVertex = outVertices.begin();
+    uint32_t vertexOffset = 0;
+    const auto traverseNodes = [this, &inIndices, &inVertices, &outIndex, &outVertex, &vertexOffset, vertexCount = outVertices.getCount()](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
             const Mesh & mesh = meshes[m];
-            const auto * index = indices.begin();
-            std::advance(index, mesh.indexOffset);
-            const auto * const endIndex = std::next(index, mesh.indexCount);
-            while (index != endIndex) {
-                INVARIANT(t < triangles.end(), "");
-                uint32_t a = *index++;
-                INVARIANT(a < mesh.vertexCount, "");
-                uint32_t b = *index++;
-                INVARIANT(b < mesh.vertexCount, "");
-                uint32_t c = *index++;
-                INVARIANT(c < mesh.vertexCount, "");
-                *t++ = {
-                    .a = v[mesh.vertexOffset + a].position,
-                    .b = v[mesh.vertexOffset + b].position,
-                    .c = v[mesh.vertexOffset + c].position,
-                };
-            }
+            const auto addVertexOffset = [&mesh, vertexOffset, vertexCount](Index i) -> Index
+            {
+                ASSERT(i < mesh.vertexCount);
+                ASSERT(vertexOffset + i < vertexCount);
+                return vertexOffset + i;
+            };
+            outIndex = std::ranges::transform(inIndices.subspan(mesh.indexOffset, mesh.indexCount), outIndex, addVertexOffset).out;
+            outVertex = std::ranges::transform(inVertices.subspan(mesh.vertexOffset, mesh.vertexCount), outVertex, &VertexAttributes::position).out;
+            vertexOffset += mesh.vertexCount;
         }
         for (size_t childIndex : node.children) {
             self(self, childIndex);
         }
     };
     traverseNodes(traverseNodes, rootNodeIndex);
-    ASSERT(t == triangles.end());
-    return triangles;
+    ASSERT(outIndex = outIndices.end());
+    ASSERT(outVertex = outVertices.end());
 }
 
 }  // namespace scene_data

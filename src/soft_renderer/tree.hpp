@@ -1,7 +1,6 @@
 #pragma once
 
 #include <builder/fwd.hpp>
-#include <scene_data/fwd.hpp>
 #include <soft_renderer/fwd.hpp>
 #include <utils/mem_array.hpp>
 
@@ -51,7 +50,8 @@ static_assert(sizeof(Node) == 64);
 
 void importTree(
     builder::Tree tree,
-    utils::MemArray<scene_data::Triangle> & triangles,
+    utils::MemArray<glm::uvec3> & indices,
+    utils::MemArray<glm::vec3> & vertices,
     utils::MemArray<glm::uint> & polygons,
     utils::MemArray<Node> & nodes,
     utils::MemArray<glm::uint> & nodeParents);

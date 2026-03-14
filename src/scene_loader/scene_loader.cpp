@@ -1,3 +1,4 @@
+#include <common/version.hpp>
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/assimp_wrappers.hpp>
 #include <scene_loader/scene_loader.hpp>
@@ -177,6 +178,13 @@ template<typename T>
     QFileInfo sceneFileInfo,
     QDir cacheDir)
 {
+    {
+        auto projectVersionedSubdir = QString::fromUtf8(sah_kd_tree::kProjectName);
+        if (!cacheDir.exists(projectVersionedSubdir)) {
+            cacheDir.mkdir(projectVersionedSubdir);
+        }
+        cacheDir.cd(projectVersionedSubdir);
+    }
     QFile sceneFile{sceneFileInfo.filePath()};
     if (!sceneFile.open(QFile::ReadOnly)) {
         return {};
@@ -375,7 +383,7 @@ template<typename T>
         if (!checkDataStreamStatus(dataStream << arrayLength, u"unable to write size of array of %1 to scene cache file %2"_s.arg(arrayName, cacheFile.fileName()))) {
             return {};
         }
-        if (!saveDataToCache(array.begin(), array.getCount(), arrayName)) {
+        if (!saveDataToCache(array.cbegin(), array.getCount(), arrayName)) {
             return {};
         }
         return true;
@@ -711,6 +719,13 @@ bool cachingLoad(
     QFileInfo sceneFileInfo,
     QDir cacheDir)
 {
+    {
+        auto projectVersionedSubdir = QString::fromUtf8(sah_kd_tree::kProjectName);
+        if (!cacheDir.exists(projectVersionedSubdir)) {
+            cacheDir.mkdir(projectVersionedSubdir);
+        }
+        cacheDir.cd(projectVersionedSubdir);
+    }
     if ((true)) {
         QStringList nameFilters;
         nameFilters << "*.triangle";

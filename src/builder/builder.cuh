@@ -11,8 +11,11 @@
 #include <utils/math.hpp>
 
 #include <thrust/iterator/iterator_traits.h>
+#include <thrust/iterator/strided_iterator.h>
+#include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/memory.h>
+#include <thrust/system/cuda/execution_policy.h>
 #include <thrust/uninitialized_copy.h>
 #include <thrust/version.h>
 
@@ -81,6 +84,15 @@ using GetTraitsType = typename GetTraits<BuilderContext>::Type;
 
 template<ThrustDeviceSystem thrustDeviceSystem>
 struct BuilderContext;
+
+template<scene_data::Position::value_type scene_data::Position::* component>
+struct VertexSlice
+{
+    __host__ __device__ auto operator()(const scene_data::Position & vertex)
+    {
+        return vertex.*component;
+    }
+};
 
 template<ThrustDeviceSystem thrustDeviceSystem>
 struct Builder : Tree
@@ -177,19 +189,119 @@ struct Builder : Tree
         }
     }
 
+    template<
+        typename T,
+        size_t stride = 0>
+    void gatherDeviceData1(
+        ::CUdeviceptr devPtr,
+        const Vector<T> & value)
+    {
+        const T * const srcPtr = thrust::raw_pointer_cast(std::data(value));
+        const ::CUdeviceptr srcDevPtr = utils::autoCast(srcPtr);
+        if constexpr ((stride == sizeof(T) || (stride == 0))) {
+            const size_t size = std::size(value) * sizeof(T);
+            if constexpr (kIsThrustDeviceSystemCUDA) {
+                CU_CALL_CHECK(::cuMemcpyDtoD, devPtr, srcDevPtr, size);
+            } else {
+                CU_CALL_CHECK(::cuMemcpyHtoD, devPtr, srcPtr, size);
+            }
+        } else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-designated-field-initializers"
+            const ::CUDA_MEMCPY2D copyParams = {
+                .srcMemoryType = kIsThrustDeviceSystemCUDA ? CU_MEMORYTYPE_DEVICE : CU_MEMORYTYPE_HOST,
+                .srcHost = srcPtr,
+                .srcDevice = srcDevPtr,
+                .srcPitch = sizeof(T),
+                .dstMemoryType = CU_MEMORYTYPE_DEVICE,
+                .dstDevice = devPtr,
+                .dstPitch = stride,
+                .WidthInBytes = sizeof(T),
+                .Height = std::size(value),
+            };
+#pragma GCC diagnostic pop
+            ::cuMemcpy2D(&copyParams);
+        }
+    }
+
+    template<typename... Types>
+    void gatherDeviceData(
+        ::CUdeviceptr devPtr,
+        const Vector<Types> &... values)
+    {
+        size_t offsets[] = {0, sizeof(Types)...};
+        std::inclusive_scan(std::cbegin(offsets), std::cend(offsets), std::begin(offsets));
+        [&]<std::size_t... Is>(std::index_sequence<Is...>)
+        {
+            (gatherDeviceData1<Types, (sizeof(Types) + ...)>(devPtr + offsets[Is], values), ...);
+        }(std::index_sequence_for<Types...>{});
+    }
+
     bool build(const std::function<bool(size_t progressValue)> & progress)
     {
         cudaDevice.setCurrentDevice();
         printThrustVersion();
         SPDLOG_INFO("BuilderContext: {}", utils::demangle(typeid(BuilderContext<thrustDeviceSystem>).name()));
         SPDLOG_INFO("system: {}", utils::demangle(typeid(System).name()));
-        auto triangles = sceneData->makeTriangles();
-        triangleCount = triangles.getCount();
         typename BuilderContext<thrustDeviceSystem>::TreeContext treeContext;
         {
+            utils::MemArray<scene_data::Index> inputIndices;
+            utils::MemArray<scene_data::Position> inputVertices;
+            sceneData->collectScene(inputIndices, inputVertices);
+            {
+                const size_t indexCount = inputIndices.getCount();
+                ASSERT((indexCount % 3) == 0);
+                triangleCount = indexCount / 3;
+                static_assert(std::is_same_v<typename scene_data::Index, typename BaseTraits::U>);
+                auto a = inputIndices.cbegin();
+                treeContext.index.a.resize(triangleCount);
+                thrust::copy_n(thrust::make_strided_iterator<3>(a), triangleCount, treeContext.index.a.begin());
+                auto b = cuda::std::next(a);
+                treeContext.index.b.resize(triangleCount);
+                thrust::copy_n(thrust::make_strided_iterator<3>(b), triangleCount, treeContext.index.b.begin());
+                auto c = cuda::std::next(b);
+                treeContext.index.c.resize(triangleCount);
+                thrust::copy_n(thrust::make_strided_iterator<3>(c), triangleCount, treeContext.index.c.begin());
+            }
+            {
+                vertexCount = inputVertices.getCount();
+                static_assert(std::is_same_v<typename scene_data::Position::value_type, typename BaseTraits::F>);
+                {
+                    auto x = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::x>{});
+                    treeContext.vertex.x.resize(vertexCount);
+                    thrust::copy_n(x, vertexCount, treeContext.vertex.x.begin());
+                }
+                {
+                    auto y = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::y>{});
+                    treeContext.vertex.y.resize(vertexCount);
+                    thrust::copy_n(y, vertexCount, treeContext.vertex.y.begin());
+                }
+                {
+                    auto z = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::z>{});
+                    treeContext.vertex.z.resize(vertexCount);
+                    thrust::copy_n(z, vertexCount, treeContext.vertex.z.begin());
+                }
+            }
+        }
+        {
             typename BuilderContext<thrustDeviceSystem>::BuildContext buildContext{treeContext};
-            buildContext.triangle.setTriangle(triangles.begin(), triangles.end());
-            sah_kd_tree::linkTriangles(buildContext.triangle, buildContext.x, buildContext.y, buildContext.z, buildContext.builder);
+            buildContext.builder.polygon.count = utils::autoCast(triangleCount);
+            {
+                buildContext.x.triangle.count = buildContext.builder.polygon.count;
+                buildContext.x.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.a.cbegin());
+                buildContext.x.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.b.cbegin());
+                buildContext.x.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.c.cbegin());
+
+                buildContext.y.triangle.count = buildContext.builder.polygon.count;
+                buildContext.y.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.a.cbegin());
+                buildContext.y.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.b.cbegin());
+                buildContext.y.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.c.cbegin());
+
+                buildContext.z.triangle.count = buildContext.builder.polygon.count;
+                buildContext.z.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.a.cbegin());
+                buildContext.z.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.b.cbegin());
+                buildContext.z.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.c.cbegin());
+            }
             const sah_kd_tree::Params<BaseTraits> params = {
                 .emptinessFactor = settings.emptinessFactor,
                 .traversalCost = settings.traversalCost,
@@ -213,15 +325,21 @@ struct Builder : Tree
             SPDLOG_INFO("Tree depth: {}", std::size(layerSizes));
             SPDLOG_INFO("Layer sizes: {}", layerSizes);
             SPDLOG_INFO("Triangle count: {}", triangleCount);
+            SPDLOG_INFO("Vertex count: {}", vertexCount);
             SPDLOG_INFO("Polygon count: {}", polygonCount);
             SPDLOG_INFO("Node count: {}", nodeCount);
         }
-        triangleOffset = gatherSize<scene_data::Triangle>(triangleCount);
+        using Triangle = glm::uvec3;  // TODO: pass (future) scene_data::Triangle
+        using Vertex = glm::vec3;     // TODO(tomilov): pass scene_data::Vertex
+        triangleOffset = gatherSize<Triangle>(triangleCount);
+        vertexOffset = gatherSize<Vertex>(vertexCount);
         polygonOffset = gatherSize(tree.polygonTriangle);
         auto node = getNode(tree);
         using NodeType = cuda::std::iter_value_t<decltype(node)>;
         constexpr size_t kNodeSize = sizeof(NodeType);
         static_assert(kNodeSize == 64, "Keep in sync with Node in 'trace.comp'");
+        const size_t maxPitch = cudaDevice.getMaxPitch();
+        INVARIANT(kNodeSize < maxPitch, "{} ^ {}", kNodeSize, maxPitch);
         nodeOffset = gatherSize<NodeType>(nodeCount);
         nodeParentOffset = gatherSize(tree.node.parent);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
@@ -233,34 +351,19 @@ struct Builder : Tree
         {
             const auto mappedDeviceMemory = deviceMemory.map();
             const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
-            const auto gatherDeviceData = [devPtr]<typename T>(size_t offset, const Vector<T> & v)
-            {
-                const T * const srcPtr = thrust::raw_pointer_cast(std::data(v));
-                const size_t size = std::size(v) * sizeof(T);
-                if constexpr (kIsThrustDeviceSystemCUDA) {
-                    const ::CUdeviceptr src = utils::autoCast(srcPtr);
-                    CU_CALL_CHECK(::cuMemcpyDtoD, devPtr + offset, src, size);
-                } else {
-                    CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + offset, srcPtr, size);
-                }
-            };
-            {
-                constexpr size_t kTriangleSize = sizeof(scene_data::Triangle);
-                CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + triangleOffset, triangles.begin(), triangleCount * kTriangleSize);
+            gatherDeviceData(devPtr + triangleOffset, treeContext.index.a, treeContext.index.b, treeContext.index.c);
+            gatherDeviceData(devPtr + vertexOffset, treeContext.vertex.x, treeContext.vertex.y, treeContext.vertex.z);
+            gatherDeviceData1(devPtr + polygonOffset, tree.polygonTriangle);
+            if constexpr (kIsThrustDeviceSystemCUDA) {
+                const typename Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
+                thrust::uninitialized_copy_n(node, nodeCount, dst);
+            } else {
+                Vector<NodeType> nodes{tree.allocator};
+                nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
+                auto srcPtr = thrust::raw_pointer_cast(nodes.data());
+                CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
             }
-            gatherDeviceData(polygonOffset, tree.polygonTriangle);
-            {
-                if constexpr (kIsThrustDeviceSystemCUDA) {
-                    const typename Allocator<NodeType>::pointer dst{utils::safeCast<NodeType *>(devPtr + nodeOffset)};
-                    thrust::uninitialized_copy_n(node, nodeCount, dst);
-                } else {
-                    Vector<NodeType> nodes{tree.allocator};
-                    nodes.assign(node, cuda::std::next(node, sah_kd_tree::safeConvert<ptrdiff_t>(nodeCount)));
-                    auto srcPtr = thrust::raw_pointer_cast(nodes.data());
-                    CU_CALL_CHECK(::cuMemcpyHtoD, devPtr + nodeOffset, srcPtr, nodes.size() * kNodeSize);
-                }
-            }
-            gatherDeviceData(nodeParentOffset, tree.node.parent);
+            gatherDeviceData1(devPtr + nodeParentOffset, tree.node.parent);
             cudaDevice.synchronize();
         }
         deviceMemory.exportMemoryObject().swap(fd);

@@ -6,6 +6,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/iterator_traits.h>
+#include <thrust/iterator/permutation_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/pair.h>
 #include <thrust/transform.h>
@@ -75,7 +76,7 @@ struct DefaultTraits
     using Vector = thrust::device_vector<T, Allocator<T>>;
     using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
-    using ComponentIterator = typename Vector<F>::const_iterator;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -426,99 +427,6 @@ struct Builder
         Tree<Traits> & tree);
 };
 
-template<typename Traits = DefaultTraits>
-struct Triangle
-{
-    using I = typename Traits::I;
-    using U = typename Traits::U;
-    using F = typename Traits::F;
-    template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
-    using Exec = typename Traits::Exec;
-    template<typename T>
-    using Vector = typename Traits::template Vector<T>;
-    using ComponentIterator = typename Traits::ComponentIterator;
-
-    template<typename TriangleType, typename TransposedTriangleType>
-    struct TransposeTriangle
-    {
-        __host__ __device__ TransposedTriangleType operator()(const TriangleType & t) const
-        {
-            return {{t.a.x, t.b.x, t.c.x}, {t.a.y, t.b.y, t.c.y}, {t.a.z, t.b.z, t.c.z}};
-        }
-    };
-
-    Allocator<std::byte> allocator;
-    Exec exec;
-
-    U count = 0;
-
-    struct Component
-    {
-        Allocator<std::byte> allocator;
-
-        Vector<F> va{allocator}, vb{allocator}, vc{allocator};
-        ComponentIterator a = va.end(), b = vb.end(), c = vc.end();
-    } x{allocator}, y{allocator}, z{allocator};
-
-    Triangle() = default;
-    Triangle(Triangle &) = delete;
-    Triangle & operator=(Triangle &) = delete;
-
-    Triangle(const Allocator<std::byte> & allocatorIn)
-        : allocator{allocatorIn}
-    {}
-
-    Triangle(Exec execIn)
-        : exec{execIn}
-    {}
-
-    Triangle(
-        const Allocator<std::byte> & allocatorIn,
-        Exec execIn)
-        : allocator{allocatorIn}
-        , exec{execIn}
-    {}
-
-    // For non-CUDA THRUST_DEVICE_SYSTEM, using the function works fine in pure .cpp.
-    // However, to work with .cpp code when using CUDA THRUST_DEVICE_SYSTEM,
-    // a "glue" .hpp+.cu pair is required. Ideally, the .hpp should contain only C++.
-    // Even so there is a bug in CUDA:
-    // https://forums.developer.nvidia.com/t/cuda-separable-compilation-shared-libraries-invalid-function-error/188476
-    // Thus dlink the library only once or use static linking.
-    template<typename TriangleIterator>
-    void setTriangle(
-        TriangleIterator triangleBegin,
-        TriangleIterator triangleEnd)
-    {
-        using TriangleType = std::remove_const_t<cuda::std::iter_value_t<TriangleIterator>>;
-        Vector<TriangleType> t{allocator};
-        t.assign(triangleBegin, triangleEnd);
-        count = safeConvert<U>(t.size());
-        const auto transposeComponent = [this](typename Triangle::Component & component)
-        {
-            component.va.resize(count);
-            component.a = component.va.begin();
-            component.vb.resize(count);
-            component.b = component.vb.begin();
-            component.vc.resize(count);
-            component.c = component.vc.begin();
-            return thrust::make_zip_iterator(component.va.begin(), component.vb.begin(), component.vc.begin());
-        };
-        auto transposedTriangleBegin = thrust::make_zip_iterator(transposeComponent(x), transposeComponent(y), transposeComponent(z));
-        using TransposedTriangleType = cuda::std::iter_value_t<decltype(transposedTriangleBegin)>;
-        thrust::transform(exec, t.cbegin(), t.cend(), transposedTriangleBegin, TransposeTriangle<TriangleType, TransposedTriangleType>{});
-    }
-};
-
-template<typename Traits = DefaultTraits>
-void linkTriangles(
-    const Triangle<Traits> & triangle,
-    Projection<Traits> & x,
-    Projection<Traits> & y,
-    Projection<Traits> & z,
-    Builder<Traits> & builder);
-
 extern template bool Builder<>::build<>(
     const Progress & progress,
     const Params<> & sah,
@@ -526,11 +434,5 @@ extern template bool Builder<>::build<>(
     Projection<> & y,
     Projection<> & z,
     Tree<> & tree) SAH_KD_TREE_EXPORT;
-extern template void linkTriangles(
-    const Triangle<> & triangle,
-    Projection<> & x,
-    Projection<> & y,
-    Projection<> & z,
-    Builder<> & builder) SAH_KD_TREE_EXPORT;
 
 }  // namespace sah_kd_tree

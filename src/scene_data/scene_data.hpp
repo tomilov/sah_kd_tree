@@ -20,9 +20,11 @@
 namespace scene_data
 {
 
-using Position = glm::vec3;
+using Position = glm::vec3;  // rename to Point
 static_assert(std::is_standard_layout_v<Position>);
 static_assert(std::is_trivially_copyable_v<Position>);
+
+using Index = glm::uint;
 
 #pragma pack(push, 1)
 
@@ -33,7 +35,7 @@ struct Triangle
 static_assert(std::is_standard_layout_v<Triangle>);
 static_assert(std::is_trivially_copyable_v<Triangle>);
 
-struct VertexAttributes
+struct VertexAttributes  // TODO(tomilov): remove in favor of pure Position (renamed to Point)
 {
     Position position;
 };
@@ -61,6 +63,7 @@ struct SCENE_DATA_EXPORT Node
 
 struct SCENE_DATA_EXPORT Mesh
 {
+    // TODO(tomilov): make SceneData chunked, change uint32_t to size_t (uint32_t is enough for (1.5 * vertex + 3 * index) * 4G = 120GB scene)
     uint32_t indexOffset = 0, indexCount = 0;    // range in Scene::indices
     uint32_t vertexOffset = 0, vertexCount = 0;  // range in Scene::vertices
     AABB aabb = {};
@@ -74,15 +77,20 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
     std::vector<Mesh> meshes;
     AABB aabb = {};
 
-    utils::MemArray<uint32_t> indices;
+    utils::MemArray<Index> indices;  // TODO: rename into Triangles, change type to glm::uvec3
     utils::MemArray<VertexAttributes> vertices;
 
     [[nodiscard]] size_t instanceCount(size_t rootNodeIndex = 0) const;
 
     void updateAABBs();
 
-    [[nodiscard]] utils::MemArray<Triangle> makeTriangles() const;
-    [[nodiscard]] utils::MemArray<Triangle> makeTriangles(size_t rootNodeIndex) const;
+    void collectScene(
+        utils::MemArray<Index> & indices,
+        utils::MemArray<Position> & vertices) const;
+    void collectScene(
+        size_t rootNodeIndex,
+        utils::MemArray<Index> & indices,
+        utils::MemArray<Position> & vertices) const;
 };
 
 }  // namespace scene_data

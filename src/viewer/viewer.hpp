@@ -58,10 +58,10 @@ public:
     enum class ThrustDeviceSystem
     {
         Default,
-        //CPP,
-        //OMP,
-        //TBB,
-        //CUDA,
+        // CPP,
+        // OMP,
+        // TBB,
+        // CUDA,
     };
     Q_ENUM(ThrustDeviceSystem);
 

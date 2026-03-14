@@ -286,6 +286,13 @@ DeviceMemory CudaDevice::makeDeviceMemory(
     return {cuDev, std::move(fd), allocationSize, allocationAlignment};
 }
 
+size_t CudaDevice::getMaxPitch() const
+{
+    int maxPitch = 0;
+    CU_CALL_CHECK(cuDeviceGetAttribute, &maxPitch, CU_DEVICE_ATTRIBUTE_MAX_PITCH, cuDev);
+    return utils::autoCast(maxPitch);
+}
+
 CudaDevice::CudaDevice(int cudaDevIn)
     : cudaDev{cudaDevIn}
 {

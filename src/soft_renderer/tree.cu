@@ -18,7 +18,8 @@ namespace soft_renderer
 
 void importTree(
     builder::Tree tree,
-    utils::MemArray<scene_data::Triangle> & triangles,
+    utils::MemArray<glm::uvec3> & indices,
+    utils::MemArray<glm::vec3> & vertices,
     utils::MemArray<glm::uint> & polygons,
     utils::MemArray<Node> & nodes,
     utils::MemArray<glm::uint> & nodeParents)
@@ -31,7 +32,8 @@ void importTree(
         v = utils::MemArray<T>{count};
         CU_CALL_CHECK(::cuMemcpyDtoH, v.begin(), devPtr + offset, count * sizeof(T));
     };
-    scatterDeviceData(tree.triangleOffset, tree.triangleCount, triangles);
+    scatterDeviceData(tree.triangleOffset, tree.triangleCount, indices);
+    scatterDeviceData(tree.vertexOffset, tree.vertexCount, vertices);
     scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
     scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);
     scatterDeviceData(tree.nodeParentOffset, tree.nodeCount, nodeParents);

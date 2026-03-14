@@ -15,8 +15,6 @@ skt_add_library(
     PRIVATE_LINKS
         "libsah_kd_tree"
         "libbuilder"
-        "libscene_data"
-        "libscene_loader"
         CUDA::cuda_driver
         OpenMP::OpenMP_CXX
 )

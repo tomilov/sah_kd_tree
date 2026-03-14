@@ -21,12 +21,12 @@
         INVARIANT(error == cudaSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
     } while (false)
 
-#define CUFILE_CALL_CHECK(f, ...)                                                                               \
-    do {                                                                                                        \
-        constexpr auto abs = [](CUfileOpError opError) -> CUfileOpError                                         \
-        {                                                                                                       \
-            return opError;                                                                                     \
-        };                                                                                                      \
-        CUfileError_t error{(f(__VA_ARGS__))};                                                                  \
-        INVARIANT(!IS_CUDA_ERR(error) || !IS_CUFILE_ERR(error.err), STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
+#define CUFILE_CALL_CHECK(f, ...)                                                                                \
+    do {                                                                                                         \
+        constexpr auto abs = [](CUfileOpError opError) -> CUfileOpError                                          \
+        {                                                                                                        \
+            return opError;                                                                                      \
+        };                                                                                                       \
+        CUfileError_t error{(f(__VA_ARGS__))};                                                                   \
+        INVARIANT(!(IS_CUDA_ERR(error) && IS_CUFILE_ERR(error.err)), STRINGIZE(f(__VA_ARGS__)) " -> {}", error); \
     } while (false)

@@ -44,6 +44,8 @@ public:
         size_t allocationSize,
         size_t allocationAlignment = 0) const &;
 
+    size_t getMaxPitch() const;
+
 private:
     friend CudaDevice getInvalidDevice();
     friend CudaDevice getCurrentDevice();

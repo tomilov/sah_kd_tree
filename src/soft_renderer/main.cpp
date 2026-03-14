@@ -57,11 +57,11 @@ constexpr uint32_t kMaxTreeDepth = 1000;
 
 enum class ThrustDeviceSystem
 {
-    ThrustDeviceSystemDefault,
-    ThrustDeviceSystemCPP,
-    ThrustDeviceSystemOMP,
-    ThrustDeviceSystemTBB,
-    ThrustDeviceSystemCUDA,
+    Default,
+    CPP,
+    OMP,
+    TBB,
+    CUDA,
 };
 
 scene_data::SceneDataPtr getScene(
@@ -226,7 +226,7 @@ int main(
         }
         return build(settings, *cudaDevice, sceneData, progress);
     };
-    std::optional<ThrustDeviceSystem> thrustDeviceSystem = ThrustDeviceSystem::ThrustDeviceSystemDefault;
+    std::optional<ThrustDeviceSystem> thrustDeviceSystem = ThrustDeviceSystem::Default;
 
     constexpr glm::float32 kCrossSceneAabbTime = 5.0f;
     constexpr glm::float32 kMouseSensetivity = 0.002f;

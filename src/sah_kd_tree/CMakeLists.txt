@@ -29,8 +29,6 @@ skt_add_library(
         "find_perfect_split.cu"
         "generate_initial_event.inl"
         "generate_initial_event.cu"
-        "link_triangle.inl"
-        "link_triangle.cu"
         "merge_event.inl"
         "merge_event.cu"
         "populate_leaf_node_triangle_range.inl"

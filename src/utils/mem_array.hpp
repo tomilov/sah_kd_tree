@@ -29,6 +29,14 @@ public:
         return size;
     }
 
+    void setCount(size_t sizeIn)
+    {
+        if (size == sizeIn) {
+            return;
+        }
+        this->operator=(MemArray{sizeIn});
+    }
+
     [[nodiscard]] T * begin() &
     {
         return p.get();
@@ -39,14 +47,24 @@ public:
         return p.get() + size;
     }
 
-    [[nodiscard]] const T * begin() const &
+    [[nodiscard]] const T * cbegin() const &
     {
         return p.get();
     }
 
-    [[nodiscard]] const T * end() const &
+    [[nodiscard]] const T * cend() const &
     {
         return p.get() + size;
+    }
+
+    [[nodiscard]] const T * begin() const &
+    {
+        return cbegin();
+    }
+
+    [[nodiscard]] const T * end() const &
+    {
+        return cend();
     }
 
     [[nodiscard]] T & operator[](size_t i) &
@@ -79,8 +97,6 @@ private:
     size_t size = 0;
     std::unique_ptr<T[]> p = nullptr;
 };
-
-static_assert(std::is_nothrow_swappable_v<MemArray<int>>);
 
 template<typename T>
 const T * begin(const MemArray<T> & memArray)
