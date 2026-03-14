@@ -105,17 +105,17 @@ struct Tree
     template<typename T>
     using Vector = typename Traits::template Vector<T>;
 
-    Allocator<std::byte> allocator;
+    [[no_unique_address]] Allocator<std::byte> allocator;
 
     thrust::host_vector<U> layerDepth;
 
     struct Projection
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         struct Node
         {
-            Allocator<std::byte> allocator;
+            [[no_unique_address]] Allocator<std::byte> allocator;
 
             Vector<F> min{allocator}, max{allocator};
             Vector<U> leftRope{allocator}, rightRope{allocator};
@@ -124,7 +124,7 @@ struct Tree
 
     struct Node
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         Vector<I> splitDimension{allocator};
         Vector<F> splitPos{allocator};
@@ -156,8 +156,8 @@ struct Projection
     using Vector = typename Traits::template Vector<T>;
     using ComponentIterator = typename Traits::ComponentIterator;
 
-    Allocator<std::byte> allocator;
-    Exec exec;
+    [[no_unique_address]] Allocator<std::byte> allocator;
+    [[no_unique_address]] Exec exec;
 
     struct ToPair
     {
@@ -190,14 +190,14 @@ struct Projection
 
     struct Polygon
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         Vector<F> min{allocator}, max{allocator};
     } polygon{allocator};
 
     struct Node
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         Vector<F> min{allocator}, max{allocator};
         Vector<U> leftRope{allocator}, rightRope{allocator};
@@ -205,7 +205,7 @@ struct Projection
 
     struct Event
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         U count = 0;
         Vector<U> node{allocator};
@@ -218,7 +218,7 @@ struct Projection
 
     struct Layer
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         Vector<F> splitCost{allocator};
         Vector<U> splitEvent{allocator};
@@ -300,12 +300,12 @@ struct Builder
         }
     } isNodeNotEmpty;
 
-    Allocator<std::byte> allocator;
-    Exec exec;
+    [[no_unique_address]] Allocator<std::byte> allocator;
+    [[no_unique_address]] Exec exec;
 
     struct Polygon
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         U count = 0;
         U splittedCount = 0;
@@ -318,7 +318,7 @@ struct Builder
 
     struct Node
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         U count = 1;  // always equal layer.base + layer.size
 
@@ -331,7 +331,7 @@ struct Builder
 
     struct Leaf
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         U count = 0;
 
@@ -342,7 +342,7 @@ struct Builder
 
     struct Layer
     {
-        Allocator<std::byte> allocator;
+        [[no_unique_address]] Allocator<std::byte> allocator;
 
         U base = 0;
         U size = 1;
