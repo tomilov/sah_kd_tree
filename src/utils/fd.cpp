@@ -40,9 +40,11 @@ std::optional<Fd> Fd::openDirect(const char * filepath)
     return Fd{file};
 }
 
-std::optional<Fd> Fd::createDirect(const char * filepath)
+std::optional<Fd> Fd::createDirect(
+    const char * filepath,
+    int mode)
 {
-    const int file = ::open(filepath, O_WRONLY | O_CREAT | O_DIRECT, 0644);
+    const int file = ::open(filepath, O_WRONLY | O_CREAT | O_DIRECT, mode);
     if (file < 0) {
         return std::nullopt;
     }

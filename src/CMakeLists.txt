@@ -5,7 +5,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(GenerateExportHeader)
-# nm -gDC --defined-only lib*.so | awk 'match($2, /T/) { print substr($0, index($0, $3)) }' | less -S
+# find build/ -name 'lib*.so' | parallel -k -- nm -gDC --defined-only | awk 'match($2, /T/) { print substr($0, index($0, $3)) }' | less -S
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
@@ -57,64 +57,20 @@ add_compile_options(
     $<$<COMPILE_LANGUAGE:CUDA>:-Wno-overlength-strings>
 )
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_definitions(
-        #_GLIBCXX_DEBUG
-        #_GLIBCXX_DEBUG_PEDANTIC
-        #_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG
-    )
-    add_compile_options(
-        -fno-omit-frame-pointer
-        #-fstack-protector-strong
-        #-fstack-clash-protection
-        #-fcf-protection=full
-        #-fsanitize=undefined
-        #-fsanitize=address
-        #-fsanitize=thread
-        #-fsanitize=float-divide-by-zero
-        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=integer>
-        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=implicit-conversion>
-        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=memory>
-        #-fsanitize=cfi -flto -fvisibility=default
-    )
-    add_link_options(
-        #-fsanitize=undefined
-        #-fsanitize=address
-        #-fsanitize=thread
-        #$<$<CXX_COMPILER_ID:Clang>:-fsanitize=memory>
-        #-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
-        #-fsanitize=cfi -flto
-    )
-
-    option(SAH_KD_TREE_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
-    if(SAH_KD_TREE_ENABLE_CLANG_TIDY)
-        find_program(CLANG_TIDY "clang-tidy" REQUIRED)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy --header-filter=${CMAKE_SOURCE_DIR}/include/.*)
-    endif()
-
-    option(SAH_KD_TREE_ENABLE_CPPCHECK "Enable cppcheck" OFF)
-    if(SAH_KD_TREE_ENABLE_CPPCHECK)
-        find_program(CPPCHECK "cppcheck" REQUIRED)
-        set(CMAKE_CXX_CPPCHECK "${CPPCHECK}" --enable=all --suppress=missingInclude)
-    endif()
-
-    option(SAH_KD_TREE_ENABLE_IWYU "Enable include-what-you-use" OFF)
-    if(SAH_KD_TREE_ENABLE_IWYU)
-      find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
-      set(CMAKE_C_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
-      set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
-    endif()
-else()
-    add_compile_options(
-        #-fstack-protector-strong
-        #-D_FORTIFY_SOURCE=3
-    )
-    add_link_options(
-        #-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--no-undefined
-    )
-endif()
-
 include(Tests)
+
+find_package(OpenMP REQUIRED)
+string(REPLACE " " ";" OpenMP_CXX_FLAGS_LIST "${OpenMP_CXX_FLAGS}")
+foreach(OpenMP_CXX_FLAG IN LISTS OpenMP_CXX_FLAGS_LIST)
+    target_compile_options(
+        OpenMP::OpenMP_CXX
+        INTERFACE
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAG}>
+    )
+endforeach()
+
+include(CUDA)
+include(Thrust)
 
 cmake_dependent_option(
     SAH_KD_TREE_BUILD_FUZZER
@@ -124,25 +80,12 @@ cmake_dependent_option(
     OFF
 )
 
-find_package(OpenMP REQUIRED)
-string(REPLACE " " ";" OpenMP_CXX_FLAGS_LIST "${OpenMP_CXX_FLAGS}")
-foreach(OpenMP_CXX_FLAG IN LISTS OpenMP_CXX_FLAGS_LIST)
-    target_compile_options(
-        OpenMP::OpenMP_CXX
-        INTERFACE
-        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAG}>
-    )
-endforeach()
+add_subdirectory("sah_kd_tree")
 
 link_libraries(fmt::fmt)
 
 link_libraries(spdlog::spdlog)
 add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
-
-include(CUDA)
-include(Thrust)
-
-add_subdirectory("sah_kd_tree")
 
 include(Qt)
 include(Python)
@@ -165,3 +108,16 @@ add_subdirectory("codegen")
 add_subdirectory("engine")
 add_subdirectory("soft_renderer")
 add_subdirectory("viewer")
+
+option(SAH_KD_TREE_GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
+if(SAH_KD_TREE_GENERATE_DOCS)
+    set(DOXYGEN_FILE_PATTERNS *.cpp *.cu *.inl)
+    set(DOXYGEN_INCLUDE_FILE_PATTERNS *.hpp *.cuh)
+    find_package(Doxygen REQUIRED COMPONENTS doxygen OPTIONAL_COMPONENTS dot dia mscgen)
+    doxygen_add_docs(
+        "docs"
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+        ALL
+        COMMENT "Generating API documentation with Doxygen"
+    )
+endif()

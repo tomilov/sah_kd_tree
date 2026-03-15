@@ -12,16 +12,9 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-#include <fmt/chrono.h>
-#include <spdlog/spdlog.h>
-
-#include <chrono>
 #include <functional>
 #include <limits>
-#include <source_location>
 #include <stdexcept>
-#include <string>
-#include <string_view>
 #include <utility>
 
 #include <cassert>
@@ -35,35 +28,15 @@ namespace sah_kd_tree
 {
 
 template<
-    typename U,
+    typename R,
     typename T>
-U safeConvert(T size)
+R safeConvert(T size)
 {
-    if (!std::in_range<U>(size)) {
+    if (!std::in_range<R>(size)) {
         throw std::range_error{"safeConvert"};
     }
-    return static_cast<U>(size);
+    return static_cast<R>(size);
 }
-
-class ScopeTimer
-{
-public:
-    using Clock = std::chrono::high_resolution_clock;
-
-    explicit ScopeTimer(const std::source_location & sourceLocationIn = std::source_location::current())
-        : sourceLocation{sourceLocationIn}
-    {}
-
-    ~ScopeTimer()
-    {
-        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start);
-        SPDLOG_TRACE("{}:{}:{} in {}: {}", sourceLocation.file_name(), sourceLocation.line(), sourceLocation.column(), sourceLocation.function_name(), dt);
-    }
-
-private:
-    const std::source_location sourceLocation;
-    const Clock::time_point start = Clock::now();
-};
 
 struct DefaultTraits
 {
@@ -225,7 +198,6 @@ struct Projection
         Vector<F> splitPos{allocator};
 
         Vector<U> polygonCountLeft{allocator}, polygonCountRight{allocator};
-        Vector<U> splittedPolygonCount{allocator};  // can be optimized out
     } layer{allocator};
 
     Projection() = default;
@@ -250,7 +222,6 @@ struct Projection
     void calculateTriangleBbox();
     void calculateRootNodeBbox();
     void generateInitialEvent();
-
     void findPerfectSplit(
         const Params<Traits> & sah,
         U layerSize,
@@ -261,7 +232,6 @@ struct Projection
     void decoupleEventBoth(
         const Vector<I> & nodeSplitDimension,
         const Vector<I> & polygonSide);
-
     void mergeEvent(
         U polygonCount,
         U splittedPolygonCount,
@@ -408,7 +378,6 @@ struct Builder
         const Projection<Traits> & x,
         const Projection<Traits> & y,
         const Projection<Traits> & z) const;
-
     template<
         I dimension,
         bool forth>
@@ -416,7 +385,6 @@ struct Builder
         Projection<Traits> & x,
         const Projection<Traits> & y,
         const Projection<Traits> & z) const;
-
     template<typename P = Progress>
     bool build(
         const P & progress,

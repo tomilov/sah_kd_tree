@@ -178,7 +178,7 @@ int main(
     gli::extent2d::value_type width = 1024;
     gli::extent2d::value_type height = 768;
     constexpr SDL_WindowFlags kWindowFlags = SDL_WINDOW_RESIZABLE;
-    std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{SDL_CreateWindow(APPLICATION_NAME, utils::autoCast(width), utils::autoCast(height), kWindowFlags), &SDL_DestroyWindow};
+    std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{SDL_CreateWindow(SKT_APPLICATION_NAME, utils::autoCast(width), utils::autoCast(height), kWindowFlags), &SDL_DestroyWindow};
     if (!window) {
         SPDLOG_ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
         return EXIT_FAILURE;
@@ -202,7 +202,7 @@ int main(
     }
 
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
-    soft_renderer::SoftRenderer softRenderer{APPLICATION_NAME ""sv, kClearColor};
+    soft_renderer::SoftRenderer softRenderer{SKT_APPLICATION_NAME ""sv, kClearColor};
 
     const auto getTree = [cudaDevice = compute::makeCudaDevice(std::nullopt), sceneData = std::move(sceneData)](ThrustDeviceSystem thrustDeviceSystem) -> builder::TreePtr
     {
@@ -267,7 +267,7 @@ int main(
     const auto updateWindowTitle = [&]
     {
         windowTitle.resize(0);
-        fmt::format_to(std::back_inserter(windowTitle), APPLICATION_NAME " | {} | {}", windowTitleFPS, windowTitleBuildTime);
+        fmt::format_to(std::back_inserter(windowTitle), SKT_APPLICATION_NAME " | {} | {}", windowTitleFPS, windowTitleBuildTime);
         CALL_SDL(SetWindowTitle, window.get(), windowTitle.c_str());
     };
     FPSCounter fpsCounter;

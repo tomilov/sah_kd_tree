@@ -23,8 +23,6 @@ bool sah_kd_tree::Builder<Traits>::build(
     Projection<Traits> & z,
     Tree<Traits> & tree)
 {
-    sah_kd_tree::ScopeTimer buildTimer;
-
     x.calculateTriangleBbox();
     y.calculateTriangleBbox();
     z.calculateTriangleBbox();
@@ -38,7 +36,7 @@ bool sah_kd_tree::Builder<Traits>::build(
     z.generateInitialEvent();
 
     polygon.triangle.resize(polygon.count);
-    thrust::sequence(exec, polygon.triangle.begin(), polygon.triangle.end());  // will be sorted by node at the very end
+    thrust::sequence(exec, polygon.triangle.begin(), polygon.triangle.end());
     polygon.node.resize(polygon.count, static_cast<U>(0));
 
     node.polygonCount.resize(1, polygon.count);

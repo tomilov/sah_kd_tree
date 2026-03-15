@@ -182,7 +182,7 @@ function(skt_add_executable)
     target_compile_definitions(
         "${arg_TARGET}"
         PRIVATE
-            APPLICATION_NAME="${arg_TARGET}"
+            SKT_APPLICATION_NAME="${arg_TARGET}"
     )
     skt_enable_target_ipo("${arg_TARGET}")
     skt_setup_target_unity_build("${arg_TARGET}")

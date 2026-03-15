@@ -189,7 +189,7 @@ int main(
 
         QCoreApplication::setOrganizationName(projectName);
         QCoreApplication::setOrganizationDomain(projectName);
-        QCoreApplication::setApplicationName(APPLICATION_NAME);
+        QCoreApplication::setApplicationName(SKT_APPLICATION_NAME);
 
         QCoreApplication::setApplicationVersion(applicationVersion.toString());
     }
@@ -284,7 +284,7 @@ int main(
         auto & requiredInstanceExtensions = engine.getContext().requiredInstanceExtensions;
         requiredInstanceExtensions.insert(std::cend(requiredInstanceExtensions), {vk::KHRSurfaceExtensionName, vk::KHRXcbSurfaceExtensionName});
         constexpr auto kApplicationVersion = vk::makeVersion(sah_kd_tree::kProjectVersionMajor, sah_kd_tree::kProjectVersionMinor, sah_kd_tree::kProjectVersionPatch);
-        engine.getContext().createInstance(std::nullopt, nullptr, APPLICATION_NAME, kApplicationVersion, viewer::EngineWrapper::getMutedMessageIdNumbers());
+        engine.getContext().createInstance(std::nullopt, nullptr, SKT_APPLICATION_NAME, kApplicationVersion, viewer::EngineWrapper::getMutedMessageIdNumbers());
         vulkanInstance.setVkInstance(engine.getContext().getInstance().getHandle());
     } else {
         {

@@ -16,6 +16,7 @@
 #include <utils/pp.hpp>
 #include <utils/random.hpp>
 #include <utils/scope_guard.hpp>
+#include <utils/scope_timer.hpp>
 
 namespace utils
 {

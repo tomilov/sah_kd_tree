@@ -54,7 +54,7 @@ skt_add_library(
         "update_splitted_polygon_node.inl"
         "update_splitted_polygon_node.cu"
     PUBLIC_LINKS
-        Thrust
+        Thrust::Thrust
 )
 
 if(NOT CMAKE_UNITY_BUILD_BATCH_SIZE STREQUAL 0)

@@ -17,7 +17,9 @@ public:
     ~Fd();
 
     [[nodiscard]] static std::optional<Fd> openDirect(const char * filepath);
-    [[nodiscard]] static std::optional<Fd> createDirect(const char * filepath);
+    [[nodiscard]] static std::optional<Fd> createDirect(
+        const char * filepath,
+        int mode = 0644);
     [[nodiscard]] static std::optional<Fd> dup(int file);
 
     [[nodiscard]] int getFd() const &;

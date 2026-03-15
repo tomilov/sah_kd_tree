@@ -133,9 +133,7 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     const vec3 y = a - c;
     const vec3 z = b - a;
 
-    uvw.x = dot(cross(x, b + c), ray.dir);
-    uvw.y = dot(cross(y, c + a), ray.dir);
-    uvw.z = dot(cross(z, a + b), ray.dir);
+    uvw = ray.dir * mat3(cross(x, b + c), cross(y, c + a), cross(z, a + b));
 
     const float sum = uvw.x + uvw.y + uvw.z;
     const float eps = kUlp * abs(sum);
@@ -151,7 +149,7 @@ bool rayTriangleIntersectPluecker(const in Ray ray, const in Triangle triangle, 
     return true;
 }
 
-#if 0
+#if 1
 #define rayTriangleIntersect rayTriangleIntersectPluecker
 #else
 #define rayTriangleIntersect rayTriangleIntersectMoeller
@@ -234,7 +232,7 @@ mat3 getViewMatrixX4()
     // times 4 orts of camera space: right, up and forward
     return mat3(
         topRight - topLeft,
-        topRight + topLeft,
+        topLeft + topRight,
         frustum.rt + frustum.lb + frustum.lt + frustum.rb
     );
 }
@@ -249,21 +247,23 @@ vec3 projectToClip(vec3 p, const in mat3 viewMatrix)
     return p;
 }
 
-void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec3 uvw, out vec2 ddu, out vec2 ddv, out vec2 ddw)
+void getAnalyticalBaryDeriv(const in Triangle triangle, const in vec3 p, const in vec3 uvw, out mat3x2 dduvw)
 {
     const mat3 viewMatrixX4 = getViewMatrixX4();
     const vec3 a = projectToClip(triangle.a, viewMatrixX4);
     const vec3 b = projectToClip(triangle.b, viewMatrixX4);
     const vec3 c = projectToClip(triangle.c, viewMatrixX4);
-    const float invArea = 1.0f / ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
-    ddu = vec2(b.y - c.y, c.x - b.x) * (invArea * a.z);
-    ddv = vec2(c.y - a.y, a.x - c.x) * (invArea * b.z);
-    ddw = vec2(a.y - b.y, b.x - a.x) * (invArea * c.z);
-    const vec2 sum = ddu + ddv + ddw;
-    const float pw = 4.0f * dot(p, viewMatrixX4[2]);
-    ddu = pw * (ddu - uvw.x * sum);
-    ddv = pw * (ddv - uvw.y * sum);
-    ddw = pw * (ddw - uvw.z * sum);
+    // unnormalized bary coords' derivs
+    const vec2 ga = vec2(b.y - c.y, c.x - b.x);
+    const vec2 gb = vec2(c.y - a.y, a.x - c.x);
+    const vec2 gc = vec2(a.y - b.y, b.x - a.x);
+    // clip-space signed area of triangle
+    const float invArea = 1.0f / dot(ga, b.xy - a.xy);
+    // scale
+    const float pw = 4.0 * dot(p, viewMatrixX4[2]) * invArea;
+    // persp-corrected gradients
+    dduvw = pw * mat3x2(ga * a.z, gb * b.z, gc * c.z);
+    dduvw = dduvw - outerProduct(dduvw[0] + dduvw[1] + dduvw[2], uvw);
 }
 
 void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewportSize, out vec3 ddx, out vec3 ddy)
@@ -274,12 +274,10 @@ void getBaryDeriv(const in vec3 rayDir, const in Hit hit, const in vec2 invViewp
         ddx = dFdx(hit.uvw);
         ddy = dFdy(hit.uvw);
     } else {  // there are no counterparts in quad to correctly calculate perspective correct derivatives as differences using dFdx/dFdy
-        vec2 ddu;
-        vec2 ddv;
-        vec2 ddw;
-        getAnalyticalBaryDeriv(getTriangle(hit.triangle), hit.t * rayDir, hit.uvw, ddu, ddv, ddw);
-        ddx = vec3(ddu.x, ddv.x, ddw.x) * invViewportSize.y;
-        ddy = vec3(ddu.y, ddv.y, ddw.y) * invViewportSize.x;
+        mat3x2 dduvw;
+        getAnalyticalBaryDeriv(getTriangle(hit.triangle), hit.t * rayDir, hit.uvw, dduvw);
+        ddx = transpose(dduvw)[0] * invViewportSize.y;
+        ddy = transpose(dduvw)[1] * invViewportSize.x;
     }
 }
 

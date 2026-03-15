@@ -19,6 +19,8 @@ skt_add_library(
         "fast_pimpl.hpp"
         "fd.cpp"
         "fd.hpp"
+        "get_if.cpp"
+        "get_if.hpp"
         "hash.cpp"
         "hash.hpp"
         "math.cpp"
@@ -36,8 +38,8 @@ skt_add_library(
         "random.hpp"
         "scope_guard.cpp"
         "scope_guard.hpp"
-        "get_if.cpp"
-        "get_if.hpp"
+        "scope_timer.cpp"
+        "scope_timer.hpp"
 )
 
 add_subdirectory("tests")

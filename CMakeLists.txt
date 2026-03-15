@@ -10,20 +10,29 @@ project(
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(Utils)
 
-cmake_policy(SET CMP0054 NEW)
-
-cmake_policy(SET CMP0127 NEW)
 include(CMakeDependentOption)
-
-cmake_policy(SET CMP0105 NEW) # link options for CUDA device link step
-
-cmake_policy(SET CMP0077 NEW)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory("external" EXCLUDE_FROM_ALL SYSTEM)
-add_subdirectory("src")
 
-option(SAH_KD_TREE_GENERATE_DOCS "Whether to build the Doxygen documentation" OFF)
-add_subdirectory("docs")
+option(SAH_KD_TREE_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+if(SAH_KD_TREE_ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY "clang-tidy" REQUIRED)
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}" --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy --header-filter=${CMAKE_SOURCE_DIR}/include/.*)
+endif()
+
+option(SAH_KD_TREE_ENABLE_CPPCHECK "Enable cppcheck" OFF)
+if(SAH_KD_TREE_ENABLE_CPPCHECK)
+    find_program(CPPCHECK "cppcheck" REQUIRED)
+    set(CMAKE_CXX_CPPCHECK "${CPPCHECK}" --enable=all --suppress=missingInclude)
+endif()
+
+option(SAH_KD_TREE_ENABLE_IWYU "Enable include-what-you-use" OFF)
+if(SAH_KD_TREE_ENABLE_IWYU)
+  find_program(IWYU_EXE NAMES "include-what-you-use" REQUIRED)
+  set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_EXE}")
+endif()
+
+add_subdirectory("src")

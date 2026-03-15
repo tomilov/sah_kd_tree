@@ -129,6 +129,6 @@ int main(
         auto w = std::move(v);
         w = std::move(u);
     }
-    context.createInstance(std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, APPLICATION_NAME, kApplicationVersion, {} /*mutedMessageIdNumbers*/);
+    context.createInstance(std::nullopt /* libraryName */, allocationCallbacks.allocationCallbacks, SKT_APPLICATION_NAME, kApplicationVersion, {} /*mutedMessageIdNumbers*/);
     context.createDevice();
 }

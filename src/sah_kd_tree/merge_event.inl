@@ -127,7 +127,6 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(
 
     // calculate event pos for splitted polygon
     {
-        // ScopeTimer scopeTimer{"SPLITTED POLYGON POS"};
         if ((false)) {
             auto eventPolygonBegin = eventLeftPolygonLeftBegin;
             auto eventPolygonEnd = cuda::std::next(eventLeftPolygonLeftBegin, splittedPolygonCount);
@@ -167,7 +166,6 @@ void sah_kd_tree::Projection<Traits>::mergeEvent(
 
     // merge splitted event w/ lr event
     {
-        // ScopeTimer scopeTimer{"MERGE"};
         auto eventBothBegin = cuda::std::next(eventBegin, eventStorageSize);
         if ((true)) {
             [[maybe_unused]] auto eventEnd = thrust::merge(exec, eventBothBegin, splittedEventBegin, splittedEventBegin, splittedEventEnd, eventBegin);
