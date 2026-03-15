@@ -40,6 +40,8 @@ struct BuilderContext<ThrustDeviceSystem::Default>
 
     struct TreeContext
     {
+        typename Traits::Exec exec;
+
         struct Index
         {
             Vector<typename Traits::U> a, b, c;

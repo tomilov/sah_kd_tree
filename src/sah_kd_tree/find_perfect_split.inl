@@ -111,18 +111,18 @@ void sah_kd_tree::Projection<Traits>::findPerfectSplit(
         } else if (polygonCountLeft == polygonCount) {
             return {splitCost, splittedPolygonCount, splitPos, polygonCountLeft, polygonCountRight, splitEvent};
         }
-        F xxx = max - min;
-        F yyy = nodeYMaxs[eventNode] - nodeYMins[eventNode];
-        assert(static_cast<F>(0) <= yyy);
-        F zzz = nodeZMaxs[eventNode] - nodeZMins[eventNode];
-        assert(static_cast<F>(0) <= zzz);
-        F halfArea = yyy * zzz;
+        F X = max - min;
+        F Y = nodeYMaxs[eventNode] - nodeYMins[eventNode];
+        assert(static_cast<F>(0) <= Y);
+        F Z = nodeZMaxs[eventNode] - nodeZMins[eventNode];
+        assert(static_cast<F>(0) <= Z);
+        F halfArea = Y * Z;
         if (static_cast<F>(0) < halfArea) {
-            F halfPerimeter = yyy + zzz;
+            F halfPerimeter = Y + Z;
             assert(static_cast<F>(0) < halfPerimeter);
-            splitCost = (static_cast<F>(polygonCountLeft) * (halfArea + halfPerimeter * l) + static_cast<F>(polygonCountRight) * (halfArea + halfPerimeter * r)) / (halfArea + halfPerimeter * xxx);
+            splitCost = (static_cast<F>(polygonCountLeft) * (halfArea + halfPerimeter * l) + static_cast<F>(polygonCountRight) * (halfArea + halfPerimeter * r)) / (halfArea + halfPerimeter * X);
         } else {
-            splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / xxx;
+            splitCost = (static_cast<F>(polygonCountLeft) * l + static_cast<F>(polygonCountRight) * r) / X;
         }
         splitCost *= sah.intersectionCost;
         splitCost += sah.traversalCost;

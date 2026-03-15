@@ -154,6 +154,6 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(
         return {{lmin, lmax}, {rmin, rmax}};
     };
     auto polygonBegin = thrust::make_counting_iterator<U>(polygon.count);
-    thrust::transform(exec, polygonLeftBboxBegin, cuda::std::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, toSplittedPolygon);
+    thrust::transform(exec, polygonLeftBboxBegin, cuda::std::next(polygonLeftBboxBegin, polygon.splittedCount), polygonBegin, splittedPolygonBboxBegin, cuda::proclaim_copyable_arguments(toSplittedPolygon));
 }
 }  // namespace sah_kd_tree

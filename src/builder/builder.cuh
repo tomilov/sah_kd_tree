@@ -108,13 +108,12 @@ template<
     typename... Iterators>
 void apply(
     F & f,
-    thrust::zip_iterator<cuda::std::tuple<Iterators...>> zit)
+    thrust::zip_iterator<cuda::std::tuple<Iterators...>> it)
 {
-    // TODO(tomilov): use cuda::std::apply after https://github.com/NVIDIA/cccl/issues/8038
     [&]<std::size_t... Is>(const cuda::std::tuple<Iterators...> & tuple, std::index_sequence<Is...>)
     {
         (builder::apply(f, cuda::std::get<Is>(tuple)), ...);
-    }(zit.get_iterator_tuple(), std::index_sequence_for<Iterators...>{});
+    }(it.get_iterator_tuple(), std::index_sequence_for<Iterators...>{});
 }
 
 template<ThrustDeviceSystem thrustDeviceSystem>
@@ -278,31 +277,43 @@ struct Builder : Tree
                 static_assert(std::is_same_v<typename scene_data::Index, typename BaseTraits::U>);
                 auto a = inputIndices.cbegin();
                 treeContext.index.a.resize(triangleCount);
-                thrust::copy_n(thrust::make_strided_iterator<3>(a), triangleCount, treeContext.index.a.begin());
+                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(a), triangleCount, treeContext.index.a.begin());
                 auto b = cuda::std::next(a);
                 treeContext.index.b.resize(triangleCount);
-                thrust::copy_n(thrust::make_strided_iterator<3>(b), triangleCount, treeContext.index.b.begin());
+                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(b), triangleCount, treeContext.index.b.begin());
                 auto c = cuda::std::next(b);
                 treeContext.index.c.resize(triangleCount);
-                thrust::copy_n(thrust::make_strided_iterator<3>(c), triangleCount, treeContext.index.c.begin());
+                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(c), triangleCount, treeContext.index.c.begin());
             }
             {
                 vertexCount = inputVertices.getCount();
                 static_assert(std::is_same_v<typename scene_data::Position::value_type, typename BaseTraits::F>);
                 {
-                    auto x = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::x>{});
+                    const auto sliceX = [] __host__ __device__(const scene_data::Position & vertex) -> typename BaseTraits::F
+                    {
+                        return vertex.x;
+                    };
+                    auto x = thrust::make_transform_iterator(inputVertices.cbegin(), sliceX);
                     treeContext.vertex.x.resize(vertexCount);
-                    thrust::copy_n(x, vertexCount, treeContext.vertex.x.begin());
+                    thrust::copy_n(treeContext.exec, x, vertexCount, treeContext.vertex.x.begin());
                 }
                 {
-                    auto y = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::y>{});
+                    const auto sliceY = [] __host__ __device__(const scene_data::Position & vertex) -> typename BaseTraits::F
+                    {
+                        return vertex.y;
+                    };
+                    auto y = thrust::make_transform_iterator(inputVertices.cbegin(), sliceY);
                     treeContext.vertex.y.resize(vertexCount);
-                    thrust::copy_n(y, vertexCount, treeContext.vertex.y.begin());
+                    thrust::copy_n(treeContext.exec, y, vertexCount, treeContext.vertex.y.begin());
                 }
                 {
-                    auto z = thrust::make_transform_iterator(inputVertices.cbegin(), VertexSlice<&scene_data::Position::z>{});
+                    const auto sliceZ = [] __host__ __device__(const scene_data::Position & vertex) -> typename BaseTraits::F
+                    {
+                        return vertex.z;
+                    };
+                    auto z = thrust::make_transform_iterator(inputVertices.cbegin(), sliceZ);
                     treeContext.vertex.z.resize(vertexCount);
-                    thrust::copy_n(z, vertexCount, treeContext.vertex.z.begin());
+                    thrust::copy_n(treeContext.exec, z, vertexCount, treeContext.vertex.z.begin());
                 }
             }
         }
@@ -352,8 +363,8 @@ struct Builder : Tree
             SPDLOG_INFO("Polygon count: {}", polygonCount);
             SPDLOG_INFO("Node count: {}", nodeCount);
         }
-        using Triangle = glm::uvec3;  // TODO: pass (future) scene_data::Triangle
-        using Vertex = glm::vec3;     // TODO(tomilov): pass scene_data::Vertex
+        using Triangle = glm::uvec3;
+        using Vertex = glm::vec3;
         indexOffset = gatherSize<Triangle>(triangleCount);
         vertexOffset = gatherSize<Vertex>(vertexCount);
         polygonOffset = gatherSize(tree.polygonTriangle);

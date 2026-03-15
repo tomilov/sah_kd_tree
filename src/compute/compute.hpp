@@ -69,7 +69,8 @@ private:
 class COMPUTE_EXPORT CudaStream : utils::Copyable<CudaStream>
 {
 public:
-    CudaStream();
+    explicit CudaStream(cudaStream_t cudaStream);
+
     CudaStream(const CudaStream &) noexcept = default;
     CudaStream & operator=(const CudaStream &) noexcept = default;
     ~CudaStream();  // quote: "Note that destroying a stream is an asynchronous operation"
@@ -84,6 +85,9 @@ public:
         return cudaStream;
     }
 
+    static CudaStream make();
+    static CudaStream makePerThread();
+
     void synchronize() const;
 
 private:
@@ -94,6 +98,8 @@ private:
 #endif
     cudaStream_t cudaStream = cudaStreamPerThread;
 #pragma GCC diagnostic pop
+
+    CudaStream() = default;
 };
 
 class COMPUTE_EXPORT DeviceMemory : utils::OneTime<DeviceMemory>

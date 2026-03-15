@@ -301,15 +301,26 @@ CudaDevice::CudaDevice(int cudaDevIn)
     INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
 }
 
-CudaStream::CudaStream()
-{
-    CUDA_CALL_CHECK(cudaStreamCreateWithFlags, &cudaStream, cudaStreamNonBlocking);
-}
+CudaStream::CudaStream(cudaStream_t cudaStreamIn)
+    : cudaStream{cudaStreamIn}
+{}
 
 CudaStream::~CudaStream()
 {
     synchronize();
     CUDA_CALL_CHECK(cudaStreamDestroy, cudaStream);
+}
+
+CudaStream CudaStream::make()
+{
+    cudaStream_t cudaStream;
+    CUDA_CALL_CHECK(cudaStreamCreateWithFlags, &cudaStream, cudaStreamNonBlocking);
+    return CudaStream{cudaStream};
+}
+
+CudaStream CudaStream::makePerThread()
+{
+    return {};
 }
 
 void CudaStream::synchronize() const

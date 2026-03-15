@@ -74,9 +74,9 @@ struct DefaultTraits
     using Allocator = thrust::device_allocator<T>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
     using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
 };
 
 template<typename Traits = DefaultTraits>
@@ -210,7 +210,7 @@ struct Projection
         U count = 0;
         Vector<U> node{allocator};
         Vector<F> pos{allocator};
-        Vector<I> kind{allocator};  // TODO: scale event kind by polygon value
+        Vector<I> kind{allocator};  // TODO: scale event kind by polygon value for better sorting key
         Vector<U> polygon{allocator};
 
         Vector<U> polygonCountLeft{allocator}, polygonCountRight{allocator};  // or eventLeft, eventRight mutually exclusive
@@ -327,7 +327,7 @@ struct Builder
         Vector<U> leftChild{allocator}, rightChild{allocator};                                         // left child node and right child node if not leaf, polygon range otherwise
         Vector<U> polygonCount{allocator}, polygonCountLeft{allocator}, polygonCountRight{allocator};  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
         Vector<U> parent{allocator};                                                                   // temporarily needed to build ropes
-    } node{allocator};                                                                                 // TODO: optimize out node.rightChild
+    } node{allocator};
 
     struct Leaf
     {

@@ -16,6 +16,7 @@
 #include <vulkan/vulkan_format_traits.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <iterator>
 #include <limits>
 #include <optional>
@@ -341,10 +342,7 @@ Engine::Engine(
     {
         const auto & properties2Chain = context.getPhysicalDevice().properties2Chain;
         const auto & vkDeviceUuid = properties2Chain.get<vk::PhysicalDeviceIDProperties>().deviceUUID;
-        compute::DeviceUuidType deviceUuid;
-        ASSERT(std::size(vkDeviceUuid) == std::size(deviceUuid));
-        std::memcpy(std::data(deviceUuid), std::data(vkDeviceUuid), std::size(vkDeviceUuid));
-        cudaDevice = compute::makeCudaDevice(deviceUuid);
+        cudaDevice = compute::makeCudaDevice(std::bit_cast<compute::DeviceUuidType>(vkDeviceUuid));
     }
 }
 

@@ -110,7 +110,7 @@ private:
 {
     Q_ASSERT(qf.isOpen());
     Q_ASSERT(qf.isReadable());
-    return File::dup(qf.handle());  // TODO: to cuFile?
+    return File::dup(qf.handle());
 }
 
 template<typename Type>
@@ -270,7 +270,7 @@ template<typename T>
             return {};
         }
         qCDebug(sceneLoaderLog).noquote() << u"loadArrayFromCache %1\t\t%2"_s.arg(arrayLength).arg(arrayName);
-        array = utils::MemArray<T>{utils::safeCast<size_t>(arrayLength)};
+        array.setCount(utils::autoCast(arrayLength));
         if (!loadDataFromCache(array.begin(), array.getCount(), arrayName)) {
             return {};
         }
@@ -647,8 +647,8 @@ bool load(
     qCDebug(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
 
     {
-        sceneData.indices = utils::MemArray<uint32_t>{indexCount};
-        sceneData.vertices = utils::MemArray<scene_data::VertexAttributes>{vertexCount};
+        sceneData.indices.setCount(indexCount);
+        sceneData.vertices.setCount(vertexCount);
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = sceneData.meshes.at(meshUsage.meshIndex);
             auto & aabb = sceneData.meshes.at(meshUsage.meshIndex).aabb;

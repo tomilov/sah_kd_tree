@@ -2,6 +2,7 @@
 #include <compute/compute.hpp>
 #include <sah_kd_tree/sah_kd_tree_inline.cuh>
 
+#include <thrust/iterator/permutation_iterator.h>
 #include <thrust/mr/allocator.h>
 #include <thrust/mr/memory_resource.h>
 #include <thrust/system/cuda/execution_policy.h>
@@ -24,11 +25,15 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     template<typename T>
     using Vector = thrust::cuda::vector<T, Allocator<T>>;
     using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using Exec = thrust::cuda_cub::par_nosync_t::execute_with_allocator_type<Allocator<std::byte>>::type;
+    using Progress = sah_kd_tree::DefaultTraits::Progress;
 
     struct TreeContext
     {
         MemoryResource memoryResource;
         const Allocator<std::byte> allocator{&memoryResource};
+        const compute::CudaStream cudaStream = compute::CudaStream::make();
+        const Exec exec{thrust::cuda::par_nosync(allocator).on(cudaStream.getHandle())};
 
         struct Index
         {
@@ -47,13 +52,9 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
         sah_kd_tree::Tree<BuilderContext> tree{allocator};
     };
 
-    using Exec = thrust::cuda_cub::par_nosync_t::execute_with_allocator_type<Allocator<std::byte>>::type;
-    using Progress = sah_kd_tree::DefaultTraits::Progress;
-
     struct BuildContext
     {
         const Allocator<std::byte> allocator;
-        const compute::CudaStream cudaStream;
         const Exec exec;
 
         sah_kd_tree::Projection<BuilderContext> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
@@ -61,12 +62,12 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
 
         explicit BuildContext(const TreeContext & treeContext)
             : allocator{treeContext.allocator}
-            , exec{thrust::cuda::par_nosync(allocator).on(cudaStream.getHandle())}
+            , exec{treeContext.exec}
         {}
 
         ~BuildContext()
         {
-            cudaStream.synchronize();
+            compute::CudaStream{get_stream(exec)}.synchronize();
         }
     };
 };

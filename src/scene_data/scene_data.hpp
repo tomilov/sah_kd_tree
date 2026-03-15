@@ -20,7 +20,7 @@
 namespace scene_data
 {
 
-using Position = glm::vec3;  // rename to Point
+using Position = glm::vec3;
 static_assert(std::is_standard_layout_v<Position>);
 static_assert(std::is_trivially_copyable_v<Position>);
 
@@ -35,7 +35,7 @@ struct Triangle
 static_assert(std::is_standard_layout_v<Triangle>);
 static_assert(std::is_trivially_copyable_v<Triangle>);
 
-struct VertexAttributes  // TODO(tomilov): remove in favor of pure Position (renamed to Point)
+struct VertexAttributes
 {
     Position position;
 };
@@ -77,7 +77,7 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
     std::vector<Mesh> meshes;
     AABB aabb = {};
 
-    utils::MemArray<Index> indices;  // TODO: rename into Triangles, change type to glm::uvec3
+    utils::MemArray<Index> indices;
     utils::MemArray<VertexAttributes> vertices;
 
     [[nodiscard]] size_t instanceCount(size_t rootNodeIndex = 0) const;

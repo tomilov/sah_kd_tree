@@ -21,9 +21,13 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
     template<typename T>
     using Vector = thrust::omp::vector<T, Allocator<T>>;
     using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using Exec = decltype(thrust::omp::par);
+    using Progress = sah_kd_tree::DefaultTraits::Progress;
 
     struct TreeContext
     {
+        Exec exec;
+
         struct Index
         {
             Vector<U> a, b, c;
@@ -36,9 +40,6 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
 
         sah_kd_tree::Tree<BuilderContext> tree;
     };
-
-    using Exec = decltype(thrust::omp::par);
-    using Progress = sah_kd_tree::DefaultTraits::Progress;
 
     struct BuildContext
     {
