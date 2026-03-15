@@ -1,6 +1,7 @@
 #include <common/config.hpp>
 #include <scene_data/scene_data.hpp>
 #include <utils/assert.hpp>
+#include <utils/auto_cast.hpp>
 #include <utils/mem_array.hpp>
 
 #include <glm/common.hpp>
@@ -66,14 +67,14 @@ void SceneData::collectScene(
     outVertices.setCount(vertices.getCount());
     std::ranges::transform(vertices, outVertices.begin(), &VertexAttributes::position);
 
-    std::span<const Index> inIndices{indices.cbegin(), indices.cend()};
+    std::span<const Index> inIndices{indices};
     auto * outIndex = outIndices.begin();
     for (const Mesh & mesh : meshes) {
         const auto addVertexOffset = [&mesh, vertexCount = outVertices.getCount()](Index i) -> Index
         {
             ASSERT(i < mesh.vertexCount);
             ASSERT(mesh.vertexOffset + i < vertexCount);
-            return mesh.vertexOffset + i;
+            return utils::autoCast(mesh.vertexOffset + i);
         };
         outIndex = std::ranges::transform(inIndices.first(mesh.indexCount), outIndex, addVertexOffset).out;
         inIndices = inIndices.subspan(mesh.indexCount);
@@ -106,11 +107,11 @@ void SceneData::collectScene(
     outIndices.setCount(indexCount);
     outVertices.setCount(vertexCount);
 
-    const std::span<const Index> inIndices{indices.cbegin(), indices.cend()};
-    const std::span<const VertexAttributes> inVertices{vertices.cbegin(), vertices.cend()};
+    const std::span<const Index> inIndices{indices};
+    const std::span<const VertexAttributes> inVertices{vertices};
     auto * outIndex = outIndices.begin();
     auto * outVertex = outVertices.begin();
-    uint32_t vertexOffset = 0;
+    size_t vertexOffset = 0;
     const auto traverseNodes = [this, &inIndices, &inVertices, &outIndex, &outVertex, &vertexOffset, vertexCount = outVertices.getCount()](const auto & self, size_t nodeIndex) -> void
     {
         const Node & node = nodes[nodeIndex];
@@ -120,7 +121,7 @@ void SceneData::collectScene(
             {
                 ASSERT(i < mesh.vertexCount);
                 ASSERT(vertexOffset + i < vertexCount);
-                return vertexOffset + i;
+                return utils::autoCast(vertexOffset + i);
             };
             outIndex = std::ranges::transform(inIndices.subspan(mesh.indexOffset, mesh.indexCount), outIndex, addVertexOffset).out;
             outVertex = std::ranges::transform(inVertices.subspan(mesh.vertexOffset, mesh.vertexCount), outVertex, &VertexAttributes::position).out;
@@ -131,6 +132,7 @@ void SceneData::collectScene(
         }
     };
     traverseNodes(traverseNodes, rootNodeIndex);
+    ASSERT(vertexOffset == vertexCount);
     ASSERT(outIndex = outIndices.end());
     ASSERT(outVertex = outVertices.end());
 }

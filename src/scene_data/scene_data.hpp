@@ -64,8 +64,10 @@ struct SCENE_DATA_EXPORT Node
 struct SCENE_DATA_EXPORT Mesh
 {
     // TODO(tomilov): make SceneData chunked, change uint32_t to size_t (uint32_t is enough for (1.5 * vertex + 3 * index) * 4G = 120GB scene)
-    uint32_t indexOffset = 0, indexCount = 0;    // range in Scene::indices
-    uint32_t vertexOffset = 0, vertexCount = 0;  // range in Scene::vertices
+    size_t indexOffset = 0;
+    uint32_t indexCount = 0;  // range in Scene::indices
+    size_t vertexOffset = 0;
+    uint32_t vertexCount = 0;  // range in Scene::vertices
     AABB aabb = {};
 };
 

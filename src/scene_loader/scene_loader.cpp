@@ -47,6 +47,7 @@
 #include <algorithm>
 #include <iterator>
 #include <limits>
+#include <ranges>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -596,8 +597,8 @@ bool load(
 
     using UsedMesh = std::pair<const aiMesh *, MeshUsage>;
     std::vector<UsedMesh> usedMeshes{std::cbegin(meshUsages), std::cend(meshUsages)};
-    uint32_t indexCount = 0;
-    uint32_t vertexCount = 0;
+    size_t indexCount = 0;
+    size_t vertexCount = 0;
     {
         constexpr auto isMeshUsed = [](const UsedMesh & usedMesh)
         {
@@ -647,27 +648,23 @@ bool load(
     qCDebug(sceneLoaderLog).noquote() << u"total number of vertices: %1"_s.arg(vertexCount);
 
     {
-        sceneData.indices.setCount(indexCount);
         sceneData.vertices.setCount(vertexCount);
+        const std::span<scene_data::VertexAttributes> vertices{sceneData.vertices};
+        sceneData.indices.setCount(indexCount);
+        const std::span<scene_data::Index> indices{sceneData.indices};
         for (const auto & [assimpMesh, meshUsage] : usedMeshes) {
             const auto & mesh = sceneData.meshes.at(meshUsage.meshIndex);
             auto & aabb = sceneData.meshes.at(meshUsage.meshIndex).aabb;
 
             {
-                auto * vertex = std::next(sceneData.vertices.begin(), mesh.vertexOffset);
-                const auto * const vertexEnd = std::next(vertex, mesh.vertexCount);
                 const auto * const assimpVertices = assimpMesh->mVertices;
-                for (uint32_t v = 0; v < mesh.vertexCount; ++v) {
-                    auto & vertexAttributes = *vertex++;
+                for (auto && [v, vertexAttributes] : vertices.subspan(mesh.vertexOffset, mesh.vertexCount) | std::views::enumerate) {
                     vertexAttributes.position = assimpToGlmVector(assimpVertices[v]);
                     aabb.min = glm::min(aabb.min, vertexAttributes.position);
                     aabb.max = glm::max(aabb.max, vertexAttributes.position);
                     // another vertex attributes: mNormals, mTangents, mBitangents, mColors, mTextureCoords+mNumUVComponents
                 }
-                ASSERT(vertex == vertexEnd);
             }
-
-            auto * const sceneIndices = sceneData.indices.begin();
 
             if (mesh.indexCount == 0) {
                 INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
@@ -677,28 +674,22 @@ bool load(
             {
                 ASSERT_MSG((mesh.indexOffset % 3) == 0, "{} {}", mesh.indexOffset % 3, mesh.indexOffset);
                 ASSERT_MSG((mesh.indexCount % 3) == 0, "{} {}", mesh.indexCount % 3, mesh.indexCount);
-                auto * index = std::next(sceneIndices, mesh.indexOffset);
-                const auto * const indexEnd = std::next(index, mesh.indexCount);
                 const auto * const assimpFaces = assimpMesh->mFaces;
-                for (uint32_t f = 0; f < mesh.indexCount / 3; ++f) {
+                for (auto && [f, triangle] : indices.subspan(mesh.indexOffset, mesh.indexCount) | std::views::chunk(3) | std::views::enumerate) {
                     const aiFace & assimpFace = assimpFaces[f];
                     INVARIANT(assimpFace.mNumIndices == 3, "{}", assimpFace.mNumIndices);
-                    const auto * const assimpFaceIndices = assimpFace.mIndices;
-                    *index++ = utils::autoCast(assimpFaceIndices[0]);
-                    *index++ = utils::autoCast(assimpFaceIndices[1]);
-                    *index++ = utils::autoCast(assimpFaceIndices[2]);
+                    for (auto && [i, index] : triangle | std::views::enumerate) {
+                        index = utils::autoCast(assimpFace.mIndices[i]);
+                    }
                 }
-                ASSERT(index == indexEnd);
             }
 
             if ((true)) {
-                std::vector<uint32_t> vertexUseCounts(mesh.vertexCount);
-                const auto * const index = std::next(sceneData.indices.begin(), mesh.indexOffset);
-                const auto * const indexEnd = std::next(index, mesh.indexCount);
-                for (uint32_t i : std::span<const uint32_t>(index, indexEnd)) {
+                std::vector<size_t> vertexUseCounts(mesh.vertexCount);
+                for (scene_data::Index i : indices.subspan(mesh.indexOffset, mesh.indexCount)) {
                     ++vertexUseCounts.at(i);
                 }
-                for (uint32_t vertexUseCount : vertexUseCounts) {
+                for (size_t vertexUseCount : vertexUseCounts) {
                     if (vertexUseCount == 0) {
                         qCWarning(sceneLoaderLog).noquote() << u"Vertex %1 is not used in mesh %2"_s.arg(vertexUseCount).arg(meshUsage.meshIndex);
                     }

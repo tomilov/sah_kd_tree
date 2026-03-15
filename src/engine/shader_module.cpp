@@ -532,7 +532,7 @@ void ShaderModuleReflection::reflect()
         INVARIANT(reflectPushConstantBlock, "");
         auto * members = reflectPushConstantBlock->members;
         size_t memberCount = utils::autoCast(reflectPushConstantBlock->member_count);
-        for (const SpvReflectBlockVariable & member : std::span<const SpvReflectBlockVariable>(members, memberCount)) {
+        for (const SpvReflectBlockVariable & member : std::span<const SpvReflectBlockVariable>{members, memberCount}) {
             if ((member.flags & SPV_REFLECT_VARIABLE_FLAGS_UNUSED) != 0) {
                 const auto * memberName = member.name ? member.name : "<unknown>";
                 const auto * blockName = reflectPushConstantBlock->name ? reflectPushConstantBlock->name : "<unknonw>";

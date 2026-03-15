@@ -264,12 +264,13 @@ struct Builder : Tree
         cudaDevice.setCurrentDevice();
         printThrustVersion();
         SPDLOG_INFO("BuilderContext: {}", utils::demangle(typeid(BuilderContext<thrustDeviceSystem>).name()));
-        SPDLOG_INFO("system: {}", utils::demangle(typeid(System).name()));
+        SPDLOG_INFO("System: {}", utils::demangle(typeid(System).name()));
+        SPDLOG_INFO("Exec: {}", utils::demangle(typeid(typename BaseTraits::Exec).name()));
         typename BuilderContext<thrustDeviceSystem>::TreeContext treeContext;
         {
             utils::MemArray<scene_data::Index> inputIndices;
             utils::MemArray<scene_data::Position> inputVertices;
-            sceneData->collectScene(inputIndices, inputVertices);
+            sceneData->collectScene(0, inputIndices, inputVertices);
             {
                 const size_t indexCount = inputIndices.getCount();
                 ASSERT((indexCount % 3) == 0);

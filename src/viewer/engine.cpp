@@ -20,6 +20,7 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -385,6 +386,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
     vk::DeviceSize indexBufferSize = 0;
     uint32_t totalInstanceCount = 0;
     {
+        const std::span<const scene_data::Index> indices{sceneData.indices};
         for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
             const scene_data::Mesh & sceneMesh = sceneData.meshes.at(m);
             auto & instance = instances.at(m);
@@ -399,8 +401,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
 
             instance.indexCount = utils::autoCast(sceneMesh.indexCount);
 
-            const auto * firstIndex = std::next(sceneData.indices.begin(), sceneMesh.indexOffset);
-            uint32_t maxIndex = *std::max_element(firstIndex, std::next(firstIndex, sceneMesh.indexCount));
+            const uint32_t maxIndex = *std::ranges::max_element(indices.subspan(sceneMesh.indexOffset, sceneMesh.indexCount));
             if (settings.indexTypeUint8Enabled && (maxIndex <= std::numeric_limits<engine::IndexCppType<vk::IndexType::eUint8EXT>>::max())) {
                 indexType = vk::IndexType::eUint8KHR;
             } else if (maxIndex <= std::numeric_limits<engine::IndexCppType<vk::IndexType::eUint16>>::max()) {
@@ -446,20 +447,20 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
         }
 
         {
+            const std::span<const scene_data::Index> indices{sceneData.indices};
             auto mappedIndexBuffer = indexBuffer.value().map();
-            auto * indices = mappedIndexBuffer.data();
+            auto * indicesOut = mappedIndexBuffer.data();
             for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
                 const auto & instance = instances.at(m);
 
                 ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
-                uint32_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
-                const auto convertCopy = [&sceneData, &instance, sceneIndexOffset](auto indicesIn)
+                size_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
+                const auto convertCopy = [&indices, sceneIndexOffset, &instance](auto i)
                 {
-                    const auto * indexIn = std::next(sceneData.indices.begin(), sceneIndexOffset);
-                    auto indexOut = std::next(indicesIn, instance.firstIndex);
-                    for (uint32_t i = 0; i < instance.indexCount; ++i) {
-                        *indexOut++ = utils::autoCast(*indexIn++);
+                    std::advance(i, instance.firstIndex);
+                    for (scene_data::Index index : indices.subspan(sceneIndexOffset, instance.indexCount)) {
+                        *i++ = utils::autoCast(index);
                     }
                 };
                 switch (indexTypes.at(m)) {
@@ -468,15 +469,15 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
                     break;
                 }
                 case vk::IndexType::eUint8KHR: {
-                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint8KHR> *>(indices));
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint8KHR> *>(indicesOut));
                     break;
                 }
                 case vk::IndexType::eUint16: {
-                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint16> *>(indices));
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint16> *>(indicesOut));
                     break;
                 }
                 case vk::IndexType::eUint32: {
-                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint32> *>(indices));
+                    convertCopy(static_cast<engine::IndexCppType<vk::IndexType::eUint32> *>(indicesOut));
                     break;
                 }
                 }

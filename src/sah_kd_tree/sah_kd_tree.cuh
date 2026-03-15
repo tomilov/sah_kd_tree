@@ -325,8 +325,8 @@ struct Builder
         Vector<I> splitDimension{allocator};
         Vector<F> splitPos{allocator};                                                                 // TODO: splitDimension can be packed into 2 lsb of splitPos
         Vector<U> leftChild{allocator}, rightChild{allocator};                                         // left child node and right child node if not leaf, polygon range otherwise
-        Vector<U> polygonCount{allocator}, polygonCountLeft{allocator}, polygonCountRight{allocator};  // unique polygon count in the current node, in its left child node and in its right child node correspondingly
-        Vector<U> parent{allocator};                                                                   // temporarily needed to build ropes
+        Vector<U> polygonCount{allocator}, polygonCountLeft{allocator}, polygonCountRight{allocator};  // count of unique polygones in the current node, in its left child node and in its right child node correspondingly
+        Vector<U> parent{allocator};                                                                   // temporarily needed for ropes build
     } node{allocator};
 
     struct Leaf
