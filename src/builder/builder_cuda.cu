@@ -24,7 +24,7 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::cuda::vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
     using Exec = thrust::cuda_cub::par_nosync_t::execute_with_allocator_type<Allocator<std::byte>>::type;
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 

@@ -20,7 +20,7 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
     using Allocator = thrust::omp::allocator<T>;
     template<typename T>
     using Vector = thrust::omp::vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
     using Exec = decltype(thrust::omp::par);
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 

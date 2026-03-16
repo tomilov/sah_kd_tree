@@ -1,10 +1,12 @@
 #pragma once
 
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace fuzzer
 {
+
 using U = unsigned int;
 using F = float;
 
@@ -15,6 +17,8 @@ struct Params
     F intersectionCost;
     U maxTreeDepth;
 };
+static_assert(std::is_standard_layout_v<Params>);
+static_assert(std::is_trivially_copyable_v<Params>);
 
 struct Vertex
 {
@@ -30,6 +34,8 @@ struct Vertex
         return std::tie(x, y, z) == std::tie(rhs.x, rhs.y, rhs.z);
     }
 };
+static_assert(std::is_standard_layout_v<Vertex>);
+static_assert(std::is_trivially_copyable_v<Vertex>);
 
 struct Triangle
 {
@@ -45,8 +51,11 @@ struct Triangle
         return std::tie(a, b, c) == std::tie(rhs.a, rhs.b, rhs.c);
     }
 };
+static_assert(std::is_standard_layout_v<Triangle>);
+static_assert(std::is_trivially_copyable_v<Triangle>);
 
 void testOneInput(
     const Params & p,
     const std::vector<Triangle> & t);
+
 }  // namespace fuzzer

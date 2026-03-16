@@ -2,15 +2,16 @@
 #include <sah_kd_tree/sah_kd_tree.cuh>
 #include <utils/auto_cast.hpp>
 
-#include <thrust/iterator/permutation_iterator.h>
-#include <thrust/tabulate.h>
-#include <thrust/iterator/zip_iterator.h>
-#include <thrust/tuple.h>
 #include <thrust/iterator/iterator_traits.h>
+#include <thrust/iterator/permutation_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/tabulate.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <functional>
 #include <iterator>
+#include <type_traits>
 
 #include <cstddef>
 
@@ -43,46 +44,35 @@ struct Indices
     {}
 };
 
-}
+}  // namespace
 
 void testOneInput(
     const Params & p,
-    const std::vector<Triangle> & t)
+    const std::vector<Triangle> & triangles)
 {
     using Traits = sah_kd_tree::DefaultTraits;
 
-    const thrust::host_vector<Triangle> triangles{std::cbegin(t), std::cend(t)};
-
-    const size_t triangleCount = std::size(t);
+    const size_t triangleCount = std::size(triangles);
     Vertices<Traits> vertices{triangleCount};
     {
         static_assert(std::is_same_v<F, typename Traits::F>);
-        auto ax = vertices.x.begin();
-        auto bx = cuda::std::next(ax);
-        auto cx = cuda::std::next(bx);
-        auto abcx = thrust::make_zip_iterator(ax, bx, cx);
-        auto ay = vertices.y.begin();
-        auto by = cuda::std::next(ay);
-        auto cy = cuda::std::next(by);
-        auto abcy = thrust::make_zip_iterator(ay, by, cy);
-        auto az = vertices.z.begin();
-        auto bz = cuda::std::next(az);
-        auto cz = cuda::std::next(bz);
-        auto abcz = thrust::make_zip_iterator(az, bz, cz);
-        auto triangle = thrust::make_zip_iterator(abcx, abcy, abcz);
-        using OutputTriangle = cuda::std::iter_value_t<decltype(triangle)>;
+        auto a = thrust::make_zip_iterator(vertices.x.begin(), vertices.y.begin(), vertices.z.begin());
+        auto b = cuda::std::next(a);
+        auto c = cuda::std::next(b);
+        auto abc = thrust::make_zip_iterator(a, b, c);
+        using OutputTriangle = cuda::std::iter_value_t<decltype(abc)>;
         const auto transposeTriangle = [] __host__ __device__(const Triangle & triangle) -> OutputTriangle
         {
-            return {{triangle.a.x, triangle.b.x, triangle.c.x}, {triangle.a.y, triangle.b.y, triangle.c.y}, {triangle.a.z, triangle.b.z, triangle.c.z}};
+            return {{triangle.a.x, triangle.a.y, triangle.a.z}, {triangle.b.x, triangle.b.y, triangle.b.z}, {triangle.c.x, triangle.c.y, triangle.c.z}};
         };
-        thrust::transform_n(triangles.cbegin(), utils::autoCast(triangleCount), triangle, transposeTriangle);
+        thrust::transform_n(std::cbegin(triangles), utils::autoCast(triangleCount), abc, transposeTriangle);
     }
     Indices<Traits> indices{triangleCount};
     {
         static_assert(std::is_same_v<U, typename Traits::U>);
-        thrust::tabulate(indices.a.begin(), indices.a.end(), []__host__ __device__(ptrdiff_t i){ return 0 + i * 3; });
-        thrust::tabulate(indices.b.begin(), indices.b.end(), []__host__ __device__(ptrdiff_t i){ return 1 + i * 3; });
-        thrust::tabulate(indices.c.begin(), indices.c.end(), []__host__ __device__(ptrdiff_t i){ return 2 + i * 3; });
+        thrust::tabulate(indices.a.begin(), indices.a.end(), [] __host__ __device__(ptrdiff_t i) { return 0 + i * 3; });
+        thrust::tabulate(indices.b.begin(), indices.b.end(), [] __host__ __device__(ptrdiff_t i) { return 1 + i * 3; });
+        thrust::tabulate(indices.c.begin(), indices.c.end(), [] __host__ __device__(ptrdiff_t i) { return 2 + i * 3; });
     }
 
     sah_kd_tree::Builder<Traits> builder;
@@ -91,19 +81,19 @@ void testOneInput(
         builder.polygon.count = utils::autoCast(triangleCount);
 
         x.triangle.count = builder.polygon.count;
-        x.triangle.a = thrust::make_permutation_iterator(vertices.x.cbegin(), indices.a.cbegin());
-        x.triangle.b = thrust::make_permutation_iterator(vertices.x.cbegin(), indices.b.cbegin());
-        x.triangle.c = thrust::make_permutation_iterator(vertices.x.cbegin(), indices.c.cbegin());
+        x.triangle.a = thrust::make_permutation_iterator(vertices.x.data(), indices.a.data());
+        x.triangle.b = thrust::make_permutation_iterator(vertices.x.data(), indices.b.data());
+        x.triangle.c = thrust::make_permutation_iterator(vertices.x.data(), indices.c.data());
 
         y.triangle.count = builder.polygon.count;
-        y.triangle.a = thrust::make_permutation_iterator(vertices.y.cbegin(), indices.a.cbegin());
-        y.triangle.b = thrust::make_permutation_iterator(vertices.y.cbegin(), indices.b.cbegin());
-        y.triangle.c = thrust::make_permutation_iterator(vertices.y.cbegin(), indices.c.cbegin());
+        y.triangle.a = thrust::make_permutation_iterator(vertices.y.data(), indices.a.data());
+        y.triangle.b = thrust::make_permutation_iterator(vertices.y.data(), indices.b.data());
+        y.triangle.c = thrust::make_permutation_iterator(vertices.y.data(), indices.c.data());
 
         z.triangle.count = builder.polygon.count;
-        z.triangle.a = thrust::make_permutation_iterator(vertices.z.cbegin(), indices.a.cbegin());
-        z.triangle.b = thrust::make_permutation_iterator(vertices.z.cbegin(), indices.b.cbegin());
-        z.triangle.c = thrust::make_permutation_iterator(vertices.z.cbegin(), indices.c.cbegin());
+        z.triangle.a = thrust::make_permutation_iterator(vertices.z.data(), indices.a.data());
+        z.triangle.b = thrust::make_permutation_iterator(vertices.z.data(), indices.b.data());
+        z.triangle.c = thrust::make_permutation_iterator(vertices.z.data(), indices.c.data());
     }
 
     const sah_kd_tree::Params<Traits> params = {

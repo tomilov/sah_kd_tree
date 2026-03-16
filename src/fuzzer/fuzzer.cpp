@@ -40,11 +40,11 @@ constexpr bool kFuzzIntegerCoordinate = false;
 
 constexpr int kFloatDigits = std::numeric_limits<F>::digits;
 
-using RandomValueType = typename std::mt19937::result_type;
+using RandomValueType = std::mt19937::result_type;
 using UniformIntDistribution = std::uniform_int_distribution<ptrdiff_t>;
 using UniformUIntDistribution = std::uniform_int_distribution<size_t>;
-using UniformIntDistributionParam = typename UniformIntDistribution::param_type;
-using UniformUIntDistributionParam = typename UniformUIntDistribution::param_type;
+using UniformIntDistributionParam = UniformIntDistribution::param_type;
+using UniformUIntDistributionParam = UniformUIntDistribution::param_type;
 
 bool boxWorld = false;
 
@@ -199,14 +199,6 @@ struct TestInput
 {
     Params params;
     std::vector<Triangle> triangles;
-
-    static constexpr void checkTraits()
-    {
-        static_assert(std::is_standard_layout_v<Params>);
-        static_assert(std::is_trivially_copyable_v<Params>);
-        static_assert(std::is_standard_layout_v<Triangle>);
-        static_assert(std::is_trivially_copyable_v<Triangle>);
-    }
 
     void generate(size_t triangleCount = trianglesPerItem())
     {

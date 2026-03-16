@@ -47,7 +47,7 @@ struct DefaultTraits
     using Allocator = thrust::device_allocator<T>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
     using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
 };

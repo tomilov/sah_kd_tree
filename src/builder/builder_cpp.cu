@@ -20,7 +20,7 @@ struct BuilderContext<ThrustDeviceSystem::CPP>
     using Allocator = thrust::cpp::allocator<T>;
     template<typename T>
     using Vector = thrust::cpp::vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_iterator, typename Vector<U>::const_iterator>;
+    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
     using Exec = decltype(thrust::cpp::par);
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 

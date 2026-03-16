@@ -277,13 +277,13 @@ struct Builder : Tree
                 triangleCount = indexCount / 3;
                 static_assert(std::is_same_v<typename scene_data::Index, typename BaseTraits::U>);
                 auto a = inputIndices.cbegin();
-                treeContext.index.a.resize(triangleCount);
-                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(a), triangleCount, treeContext.index.a.begin());
                 auto b = cuda::std::next(a);
-                treeContext.index.b.resize(triangleCount);
-                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(b), triangleCount, treeContext.index.b.begin());
                 auto c = cuda::std::next(b);
+                treeContext.index.a.resize(triangleCount);
+                treeContext.index.b.resize(triangleCount);
                 treeContext.index.c.resize(triangleCount);
+                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(a), triangleCount, treeContext.index.a.begin());
+                thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(b), triangleCount, treeContext.index.b.begin());
                 thrust::copy_n(treeContext.exec, thrust::make_strided_iterator<3>(c), triangleCount, treeContext.index.c.begin());
             }
             {
@@ -322,20 +322,23 @@ struct Builder : Tree
             typename BuilderContext<thrustDeviceSystem>::BuildContext buildContext{treeContext};
             buildContext.builder.polygon.count = utils::autoCast(triangleCount);
             {
+                auto & vertices = treeContext.vertex;
+                auto & indices = treeContext.index;
+
                 buildContext.x.triangle.count = buildContext.builder.polygon.count;
-                buildContext.x.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.a.cbegin());
-                buildContext.x.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.b.cbegin());
-                buildContext.x.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.x.cbegin(), treeContext.index.c.cbegin());
+                buildContext.x.triangle.a = thrust::make_permutation_iterator(vertices.x.data(), indices.a.data());
+                buildContext.x.triangle.b = thrust::make_permutation_iterator(vertices.x.data(), indices.b.data());
+                buildContext.x.triangle.c = thrust::make_permutation_iterator(vertices.x.data(), indices.c.data());
 
                 buildContext.y.triangle.count = buildContext.builder.polygon.count;
-                buildContext.y.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.a.cbegin());
-                buildContext.y.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.b.cbegin());
-                buildContext.y.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.y.cbegin(), treeContext.index.c.cbegin());
+                buildContext.y.triangle.a = thrust::make_permutation_iterator(vertices.y.data(), indices.a.data());
+                buildContext.y.triangle.b = thrust::make_permutation_iterator(vertices.y.data(), indices.b.data());
+                buildContext.y.triangle.c = thrust::make_permutation_iterator(vertices.y.data(), indices.c.data());
 
                 buildContext.z.triangle.count = buildContext.builder.polygon.count;
-                buildContext.z.triangle.a = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.a.cbegin());
-                buildContext.z.triangle.b = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.b.cbegin());
-                buildContext.z.triangle.c = thrust::make_permutation_iterator(treeContext.vertex.z.cbegin(), treeContext.index.c.cbegin());
+                buildContext.z.triangle.a = thrust::make_permutation_iterator(vertices.z.data(), indices.a.data());
+                buildContext.z.triangle.b = thrust::make_permutation_iterator(vertices.z.data(), indices.b.data());
+                buildContext.z.triangle.c = thrust::make_permutation_iterator(vertices.z.data(), indices.c.data());
             }
             const sah_kd_tree::Params<BaseTraits> params = {
                 .emptinessFactor = settings.emptinessFactor,
