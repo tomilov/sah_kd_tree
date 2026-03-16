@@ -4,7 +4,6 @@
 #include <thrust/extrema.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/iterator_traits.h>
-#include <thrust/iterator/tabulate_output_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/memory.h>
 #include <thrust/transform.h>

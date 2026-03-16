@@ -4,7 +4,7 @@ with -fork=0 command line option
 ]]
 project("fuzzer")
 
-if(NOT SAH_KD_TREE_BUILD_FUZZER})
+if(NOT SAH_KD_TREE_BUILD_FUZZER)
     return()
 endif()
 
@@ -20,16 +20,17 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
+        Thrust::Thrust
 )
 target_compile_options(
     "${PROJECT_NAME}"
     PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>
+        $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>
 )
 target_link_options(
     "${PROJECT_NAME}"
     PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>
+        $<$<COMPILE_LANGUAGE:CXX>:$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-fsanitize=fuzzer>>
 )
 
 add_custom_command(
