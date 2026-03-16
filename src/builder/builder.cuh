@@ -233,7 +233,11 @@ struct Builder : Tree
             }
         } else {
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-designated-field-initializers"
+#if __clang__
+#pragma clang diagnostic ignored "-Wmissing-designated-field-initializers"
+#else
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
             const ::CUDA_MEMCPY2D copyParams = {
                 .srcMemoryType = kIsThrustDeviceSystemCUDA ? CU_MEMORYTYPE_DEVICE : CU_MEMORYTYPE_HOST,
                 .srcHost = srcPtr,
