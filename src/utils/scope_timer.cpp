@@ -16,7 +16,8 @@ ScopeTimer::ScopeTimer(
 ScopeTimer::~ScopeTimer()
 {
     auto dt = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start);
-    SPDLOG_TRACE("{}:{}:{} in {}: {} {}", sourceLocation.file_name(), sourceLocation.line(), sourceLocation.column(), sourceLocation.function_name(), name, dt);
+    spdlog::source_loc srcLoc{sourceLocation.file_name(), static_cast<int>(sourceLocation.line()), sourceLocation.function_name()};
+    spdlog::log(srcLoc, spdlog::level::info, "{}: {}", name, dt);
 }
 
 }  // namespace utils

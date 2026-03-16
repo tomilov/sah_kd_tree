@@ -9,6 +9,7 @@
 #include <utils/auto_cast.hpp>
 #include <utils/demangle.hpp>
 #include <utils/math.hpp>
+#include <utils/scope_timer.hpp>
 
 #include <thrust/iterator/iterator_traits.h>
 #include <thrust/iterator/strided_iterator.h>
@@ -28,6 +29,7 @@
 #include <functional>
 #include <iterator>
 #include <numeric>
+#include <string_view>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
@@ -35,6 +37,8 @@
 #include <cstddef>
 
 #include <cuda.h>
+
+using namespace std::string_view_literals;
 
 namespace builder
 {
@@ -346,6 +350,7 @@ struct Builder : Tree
                 .intersectionCost = settings.intersectionCost,
                 .maxTreeDepth = settings.maxTreeDepth,
             };
+            utils::ScopeTimer buildTimer{"BUILD"sv};
             if (!buildContext.builder.build(progress, params, buildContext.x, buildContext.y, buildContext.z, treeContext.tree)) {
                 return false;
             }

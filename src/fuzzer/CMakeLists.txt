@@ -4,10 +4,6 @@ with -fork=0 command line option
 ]]
 project("fuzzer")
 
-if(NOT SAH_KD_TREE_BUILD_FUZZER)
-    return()
-endif()
-
 add_executable("${PROJECT_NAME}")
 target_sources(
     "${PROJECT_NAME}"
@@ -40,5 +36,5 @@ add_custom_command(
     COMMENT
         "Create symlink to fuzzer"
     COMMAND
-    "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_SOURCE_DIR}/tools/fuzz/fuzzer"
+        "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_SOURCE_DIR}/tools/fuzz/fuzzer"
 )

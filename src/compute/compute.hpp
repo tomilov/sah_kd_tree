@@ -28,12 +28,12 @@ public:
 
     [[nodiscard]] static int getDeviceCount() COMPUTE_EXPORT;
 
-    static CudaDevice getInvalidDevice() COMPUTE_EXPORT;
-    static CudaDevice getCurrentDevice() COMPUTE_EXPORT;
-    static CudaDevice chooseDevice() COMPUTE_EXPORT;
+    [[nodiscard]] static CudaDevice getInvalidDevice() COMPUTE_EXPORT;
+    [[nodiscard]] static CudaDevice getCurrentDevice() COMPUTE_EXPORT;
+    [[nodiscard]] static CudaDevice chooseDevice() COMPUTE_EXPORT;
 
     void setCurrentDevice() const;
-    static void synchronize();
+    void synchronize() const;
 
     [[nodiscard]] DeviceMemory makeDeviceMemory(
         size_t allocationSize,
@@ -44,7 +44,7 @@ public:
         size_t allocationSize,
         size_t allocationAlignment = 0) const &;
 
-    size_t getMaxPitch() const;
+    [[nodiscard]] size_t getMaxPitch() const;
 
 private:
     friend CudaDevice getInvalidDevice();
@@ -66,13 +66,12 @@ private:
     explicit CudaDevice(int cudaDevIn);
 };
 
-class COMPUTE_EXPORT CudaStream : utils::Copyable<CudaStream>
+class COMPUTE_EXPORT CudaStream : utils::OneTime<CudaStream>
 {
 public:
     explicit CudaStream(cudaStream_t cudaStream);
 
-    CudaStream(const CudaStream &) noexcept = default;
-    CudaStream & operator=(const CudaStream &) noexcept = default;
+    CudaStream(CudaStream &&) noexcept;
     ~CudaStream();  // quote: "Note that destroying a stream is an asynchronous operation"
 
     [[nodiscard]] bool operator==(const CudaStream & rhs) const noexcept
@@ -80,15 +79,14 @@ public:
         return cudaStream == rhs.cudaStream;
     }
 
-    [[nodiscard]] cudaStream_t getHandle() const &
-    {
-        return cudaStream;
-    }
+    [[nodiscard]] cudaStream_t getHandle() const &;
 
-    static CudaStream make();
+    static CudaStream makeDefault();
     static CudaStream makePerThread();
+    static CudaStream makeNonBlocking();
 
     void synchronize() const;
+    static void synchronize(cudaStream_t cudaStream);
 
 private:
 #pragma GCC diagnostic push
@@ -96,7 +94,7 @@ private:
 #ifndef __clang__
 #pragma GCC diagnostic ignored "-Wuseless-cast"
 #endif
-    cudaStream_t cudaStream = cudaStreamPerThread;
+    cudaStream_t cudaStream = nullptr;
 #pragma GCC diagnostic pop
 
     CudaStream() = default;
@@ -201,7 +199,7 @@ public:
 }  // namespace compute
 
 template struct utils::OneTime<compute::DeviceMemory>::CheckTraits;
-template struct utils::Copyable<compute::CudaStream>::CheckTraits;
+template struct utils::OneTime<compute::CudaStream>::CheckTraits;
 template struct utils::OneTime<compute::MappedDeviceMemory>::CheckTraits;
 template struct utils::OneTime<compute::CudaFileDriver>::CheckTraits;
 template struct utils::OneTime<compute::CudaFile>::CheckTraits;

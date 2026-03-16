@@ -24,7 +24,7 @@ void importTree(
     utils::MemArray<Node> & nodes,
     utils::MemArray<glm::uint> & nodeParents)
 {
-    const auto cudaStream = compute::CudaStream::make();
+    const auto cudaStream = compute::CudaStream::makeDefault();
     const auto deviceMemory = tree.cudaDevice.makeDeviceMemory(std::move(tree).fd.value(), tree.allocationSize, tree.dataAlignment);
     const auto mappedDeviceMemory = deviceMemory.map();
     const ::CUdeviceptr devPtr = mappedDeviceMemory.getCuDevPtr();
@@ -38,7 +38,6 @@ void importTree(
     scatterDeviceData(tree.polygonOffset, tree.polygonCount, polygons);
     scatterDeviceData(tree.nodeOffset, tree.nodeCount, nodes);
     scatterDeviceData(tree.nodeParentOffset, tree.nodeCount, nodeParents);
-    cudaStream.synchronize();
 }
 
 }  // namespace soft_renderer

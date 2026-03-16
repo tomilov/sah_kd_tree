@@ -1,8 +1,8 @@
 find_package(
     Vulkan
-    REQUIRED
-    COMPONENTS
-        glslangValidator)
+    REQUIRED COMPONENTS
+        glslangValidator
+)
 
 list(
     APPEND
@@ -20,7 +20,8 @@ list(
     "rint"
     "rcall"
     "mesh"
-    "task")
+    "task"
+)
 list(JOIN stage_shader_extensions "|" stage_shader_regex)
 set(stage_shader_regex "\.(${stage_shader_regex})\.glsl")
 
@@ -51,7 +52,8 @@ function(skt_target_shaders target)
             LAST_ONLY
             ".spv"
             OUTPUT_VARIABLE
-                output_file)
+                output_file
+        )
         #get_filename_component(shader_file_extension "${shader_file}" NAME_WLE)
         #get_filename_component(shader_file_extension "${shader_file_extension}" LAST_EXT)
         #string(SUBSTRING "${shader_file_extension}" 1 -1 shader_file_extension)
@@ -90,11 +92,13 @@ function(skt_target_shaders target)
                     "${CMAKE_CURRENT_SOURCE_DIR}"
                     "${output_file}.d"
             OUTPUT
-                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}") # full path is required because on Qt's side logic tied to full path
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}" # full path is required because on Qt's side logic tied to full path
+        )
         target_sources(
             "${target}"
             PRIVATE
-                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}")
+                "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}"
+        )
         if(DEFINED ARG_OUTPUT_VARIABLE)
             list(APPEND "${ARG_OUTPUT_VARIABLE}" "${output_file}")
         endif()

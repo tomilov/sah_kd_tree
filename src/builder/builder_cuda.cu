@@ -32,7 +32,7 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     {
         MemoryResource memoryResource;
         const Allocator<std::byte> allocator{&memoryResource};
-        const compute::CudaStream cudaStream = compute::CudaStream::make();
+        const compute::CudaStream cudaStream = compute::CudaStream::makeNonBlocking();
         const Exec exec{thrust::cuda::par_nosync(allocator).on(cudaStream.getHandle())};
 
         struct Index
@@ -67,7 +67,7 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
 
         ~BuildContext()
         {
-            compute::CudaStream{get_stream(exec)}.synchronize();
+            compute::CudaStream::synchronize(get_stream(exec));
         }
     };
 };

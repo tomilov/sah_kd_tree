@@ -59,26 +59,9 @@ add_compile_options(
 
 include(Tests)
 
-find_package(OpenMP REQUIRED)
-string(REPLACE " " ";" OpenMP_CXX_FLAGS_LIST "${OpenMP_CXX_FLAGS}")
-foreach(OpenMP_CXX_FLAG IN LISTS OpenMP_CXX_FLAGS_LIST)
-    target_compile_options(
-        OpenMP::OpenMP_CXX
-        INTERFACE
-            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${OpenMP_CXX_FLAG}>
-    )
-endforeach()
-
+include(OpenMP)
 include(CUDA)
 include(Thrust)
-
-cmake_dependent_option(
-    SAH_KD_TREE_BUILD_FUZZER
-    "Whether to build 'fuzzer' target"
-    ON
-    "CMAKE_CXX_COMPILER_ID MATCHES Clang"
-    OFF
-)
 
 add_subdirectory("sah_kd_tree")
 
@@ -87,22 +70,32 @@ link_libraries(fmt::fmt)
 link_libraries(spdlog::spdlog)
 add_compile_definitions($<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>)
 
-include(Qt)
-include(Python)
-include(Shaders)
-
 add_subdirectory("common")
 link_libraries("libcommon")
 
 add_subdirectory("utils")
 link_libraries("libutils")
 
+cmake_dependent_option(
+    SAH_KD_TREE_BUILD_FUZZER
+    "Whether to build 'fuzzer' target"
+    ON
+    "CMAKE_CXX_COMPILER_ID MATCHES Clang"
+    OFF
+)
+if(SAH_KD_TREE_BUILD_FUZZER)
+    add_subdirectory("fuzzer")
+endif()
+
+include(Qt)
+include(Python)
+include(Shaders)
+
 add_subdirectory("debug_utils")
 add_subdirectory("scene_data")
 add_subdirectory("scene_loader")
 add_subdirectory("compute")
 add_subdirectory("builder")
-add_subdirectory("fuzzer")
 add_subdirectory("format")
 add_subdirectory("codegen")
 add_subdirectory("engine")

@@ -266,7 +266,7 @@ void CudaDevice::setCurrentDevice() const
     CUDA_CALL_CHECK(cudaSetDevice, cudaDev);
 }
 
-void CudaDevice::synchronize()
+void CudaDevice::synchronize() const
 {
     CUDA_CALL_CHECK(cudaDeviceSynchronize);
 }
@@ -305,27 +305,56 @@ CudaStream::CudaStream(cudaStream_t cudaStreamIn)
     : cudaStream{cudaStreamIn}
 {}
 
+CudaStream::CudaStream(CudaStream && rhs) noexcept
+    : cudaStream{std::exchange(
+          rhs.cudaStream,
+          nullptr)}
+{}
+
 CudaStream::~CudaStream()
 {
+    if (cudaStream == nullptr) {
+        return;
+    }
     synchronize();
+    if (cudaStream == cudaStreamPerThread) {
+        return;
+    }
     CUDA_CALL_CHECK(cudaStreamDestroy, cudaStream);
 }
 
-CudaStream CudaStream::make()
+cudaStream_t CudaStream::getHandle() const &
+{
+    return cudaStream;
+}
+
+CudaStream CudaStream::makeDefault()
 {
     cudaStream_t cudaStream;
-    CUDA_CALL_CHECK(cudaStreamCreateWithFlags, &cudaStream, cudaStreamNonBlocking);
+    CUDA_CALL_CHECK(cudaStreamCreate, &cudaStream);
     return CudaStream{cudaStream};
 }
 
 CudaStream CudaStream::makePerThread()
 {
-    return {};
+    return CudaStream{cudaStreamPerThread};
+}
+
+CudaStream CudaStream::makeNonBlocking()
+{
+    cudaStream_t cudaStream = nullptr;
+    CUDA_CALL_CHECK(cudaStreamCreateWithFlags, &cudaStream, cudaStreamNonBlocking);
+    return CudaStream{cudaStream};
 }
 
 void CudaStream::synchronize() const
 {
     CUDA_CALL_CHECK(cudaStreamSynchronize, cudaStream);
+}
+
+void CudaStream::synchronize(cudaStream_t cudaStreamIn)
+{
+    CUDA_CALL_CHECK(cudaStreamSynchronize, cudaStreamIn);
 }
 
 CudaFileDriver::CudaFileDriver() noexcept
@@ -344,7 +373,9 @@ CudaFile CudaFileDriver::createFile(utils::Fd && fd) const &  // NOLINT: readabi
 }
 
 CudaFileReader::CudaFileReader()
-{}
+{
+    // TODO:
+}
 
 std::optional<size_t> CudaFile::readAsync(
     intptr_t /*fileOffset*/,
