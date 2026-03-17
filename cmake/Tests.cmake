@@ -10,7 +10,7 @@ function(skt_add_tests)
     endif()
     cmake_parse_arguments(
         "arg"
-        ""
+        "GPU"
         "MAIN_LINK;WORKING_DIRECTORY;TIMEOUT"
         "SOURCES;LINKS"
         ${ARGN}
@@ -38,11 +38,16 @@ function(skt_add_tests)
     if(NOT DEFINED arg_TIMEOUT)
         set(arg_TIMEOUT 10)
     endif()
+    set(extra_properties "")
+    if(arg_GPU)
+        list(APPEND extra_properties RESOURCE_LOCK "gpu")
+    endif()
     gtest_discover_tests(
         "${PROJECT_NAME}_tests"
         WORKING_DIRECTORY
             "${arg_WORKING_DIRECTORY}"
         PROPERTIES
             TIMEOUT "${arg_TIMEOUT}"
+            ${extra_properties}
     )
 endfunction()

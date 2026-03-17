@@ -1,4 +1,5 @@
 skt_add_tests(
+    GPU
     WORKING_DIRECTORY
         "${CMAKE_SOURCE_DIR}/data/scenes"
     LINKS
