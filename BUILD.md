@@ -5,7 +5,6 @@ pacman -S \
     git \
     python3 \
     cuda \
-    nvidia-utils \
     glslang \
     vulkan-headers \
     gtest \
@@ -36,4 +35,8 @@ cmake --build build/ --parallel
 # test:
 ```bash
 ctest --test-dir build/src/ --output-on-failure --parallel
+```
+or even:
+```bash
+make docker-run COMMAND=test
 ```

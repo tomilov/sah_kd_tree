@@ -1,24 +1,18 @@
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-NPROC ?= $(shell nproc)
-FORK ?= $(shell echo $$(( $(NPROC) / 2 )))
-BUILD_DIR ?= /tmp/build-sah_kd_tree
+BUILD_DIR ?= $(ROOT_DIR)/build
 BUILD_TYPE ?= Debug
-BUILD_SHARED_LIBS ?= ON
-LINKER ?= $(shell which lld)
-C_COMPILER ?= $(shell which clang)
-C_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls
-CXX_COMPILER ?= $(shell which clang++)
-CXX_FLAGS ?= -march=native -fno-omit-frame-pointer -fno-optimize-sibling-calls -stdlib=libc++
-CUDA_FLAGS ?= #-stdlib=libc++ -D_ALLOW_UNSUPPORTED_LIBCPP
-CUDA_ARCH ?= $(shell nvcc -arch=native -Xcompiler -dM -E -x cu - </dev/null | awk '/__CUDA_ARCH__/ { print $$3 / 10 }')
-THRUST_DEVICE_SYSTEM ?= CPP
+CXXFLAGS ?= -march=native
+export CXXFLAGS
+CUDAARCHS ?= native
+export CUDAARCHS
+THRUST_DEVICE_SYSTEM ?= CUDA
+FORK ?= $(shell nproc)
 FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
 TEST_NAME_REGEX ?= .*
 PYTHON ?= python3
 
-# format: "800 600"
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
 
 .DEFAULT_GOAL := build
@@ -27,148 +21,145 @@ SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' '
 SHELL = bash
 .SHELLFLAGS = -eu -o pipefail -c
 
-.PHONY: print-cuda-arch
-print-cuda-arch:
-	echo $(CUDA_ARCH)
+$(ROOT_DIR)/venv/bin/activate:
+	trap 'rm -rf $(ROOT_DIR)/venv/' ERR
+	$(PYTHON) -m venv $(ROOT_DIR)/venv/
+	. $(ROOT_DIR)/venv/bin/activate
+	pip install --requirement $(ROOT_DIR)/requirements.txt
+
+.PHONY: venv
+venv: $(ROOT_DIR)/venv/bin/activate
+
+.PHONY: sh
+sh: venv
+	. $(ROOT_DIR)/venv/bin/activate
+	
+	$(SHELL)
 
 .PHONY: configure
-configure:
+configure: venv
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	nice cmake \
-		-S $(ROOT_DIR) \
-		-B $(BUILD_DIR) \
-		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
-		-DCMAKE_LINKER=$(LINKER) \
-		-DCMAKE_C_COMPILER=$(C_COMPILER) \
-		-DCMAKE_C_FLAGS="$(C_FLAGS)" \
-		-DCMAKE_CXX_COMPILER=$(CXX_COMPILER) \
-		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
-		-DCMAKE_CUDA_HOST_COMPILER=$(CXX_COMPILER) \
-		-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH) \
-		-DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)" \
-		-DCMAKE_VERBOSE_MAKEFILE=ON \
-		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
-		-DTHRUST_CPP_DIALECT=20
+	    -S $(ROOT_DIR) \
+	    -B $(BUILD_DIR) \
+	    -DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
+	    -DCMAKE_VERBOSE_MAKEFILE=ON \
+	    -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 
 .PHONY: cmake-graphviz
-cmake-graphviz:
+cmake-graphviz: venv
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	cmake \
-		--graphviz=$(BUILD_DIR)/sah_kd_tree.dot \
-		-S $(ROOT_DIR) \
-		-B $(BUILD_DIR) \
-		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DBUILD_SHARED_LIBS=$(BUILD_SHARED_LIBS) \
-		-DCMAKE_LINKER=$(LINKER) \
-		-DCMAKE_C_COMPILER=$(C_COMPILER) \
-		-DCMAKE_C_FLAGS="$(C_FLAGS)" \
-		-DCMAKE_CXX_COMPILER=$(CXX_COMPILER) \
-		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS)" \
-		-DCMAKE_CUDA_HOST_COMPILER=$(CXX_COMPILER) \
-		-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH) \
-		-DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)" \
-		-DCMAKE_VERBOSE_MAKEFILE=ON \
-		-DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
-		$(ROOT_DIR)
-	dot -Tpng -o $(BUILD_DIR)/sah_kd_tree.png $(BUILD_DIR)/sah_kd_tree.dot
-	xdg-open $(BUILD_DIR)/sah_kd_tree.png
+	    --graphviz=$(BUILD_DIR)/sah_kd_tree.dot \
+	    -S $(ROOT_DIR) \
+	    -B $(BUILD_DIR) \
+	    -DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
+	    -DCMAKE_VERBOSE_MAKEFILE=ON \
+	    -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+	    $(ROOT_DIR)
+	dot \
+	    -Tpng \
+	    -o $(BUILD_DIR)/sah_kd_tree.png \
+	    $(BUILD_DIR)/sah_kd_tree.dot
 
 .PHONY: build
-build: configure
+build: venv configure
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	nice cmake \
-		--build $(BUILD_DIR) \
-		--parallel $(NPROC) \
-		--target all
+	    --build $(BUILD_DIR) \
+	    --parallel
 
 .PHONY:
-rebuild: configure
+rebuild: venv configure
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	nice cmake \
-		--build $(BUILD_DIR) \
-		--parallel $(NPROC) \
-		--clean-first \
-		--target all
+	    --build $(BUILD_DIR) \
+	    --parallel \
+	    --clean-first
 
-.PHONY: clean
+.PHONY: venv clean
 clean: configure
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	nice cmake \
-		--build $(BUILD_DIR) \
-		--parallel $(NPROC) \
-		--target clean
+	    --build $(BUILD_DIR) \
+	    --parallel \
+	    --target clean
 
 .PHONY: test
-test: build
+test: venv build
+	. $(ROOT_DIR)/venv/bin/activate
+	
 	ctest \
-		--parallel $(NPROC) \
-		--output-on-failure \
-		--test-dir $(BUILD_DIR)/src/ \
-		-R '$(TEST_NAME_REGEX)'
+	    --parallel \
+	    --output-on-failure \
+	    --test-dir $(BUILD_DIR)/src/ \
+	    -R '$(TEST_NAME_REGEX)'
+
+.PHONY: docker-run
+docker-run: venv
+	. $(ROOT_DIR)/venv/bin/activate
+	
+	$(ROOT_DIR)/tools/docker/archlinux/run.sh $(COMMAND)
 
 .PHONY: fuzz
 fuzz: configure
 	nice cmake \
-		--build $(BUILD_DIR) \
-		--parallel $(NPROC) \
-		--target fuzzer
+	    --build $(BUILD_DIR) \
+	    --parallel \
+	    --target fuzzer
+	
 	tools/fuzz/fuzzer \
-		-box_world=$(FUZZ_BOX_WORLD) \
-		-max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
-		-max_total_time=$(FUZZ_MAX_TOTAL_TIME) \
-		-fork=$(FORK) \
-		-rss_limit_mb=512 \
-		-timeout=30 \
-		-report_slow_units=30 \
-		-print_final_stats=1 \
-		-print_corpus_stats=1 \
-		-print_pcs=1 \
-		-reduce_depth=1 \
-		-reduce_inputs=1 \
-		-shrink=1 \
-		-prefer_small=1 \
-		-artifact_prefix=$(ROOT_DIR)/data/fuzz/artifacts/ \
-		$(ROOT_DIR)/data/fuzz/CORPUS/ \
-		$(ROOT_DIR)/data/fuzz/artifacts/
+	    -box_world=$(FUZZ_BOX_WORLD) \
+	    -max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
+	    -max_total_time=$(FUZZ_MAX_TOTAL_TIME) \
+	    -fork=$(FORK) \
+	    -rss_limit_mb=512 \
+	    -timeout=30 \
+	    -report_slow_units=30 \
+	    -print_final_stats=1 \
+	    -print_corpus_stats=1 \
+	    -print_pcs=1 \
+	    -reduce_depth=1 \
+	    -reduce_inputs=1 \
+	    -shrink=1 \
+	    -prefer_small=1 \
+	    -artifact_prefix=$(ROOT_DIR)/data/fuzz/artifacts/ \
+	    $(ROOT_DIR)/data/fuzz/CORPUS/ \
+	    $(ROOT_DIR)/data/fuzz/artifacts/
 
 .PHONY: fuzz-merge
 fuzz-merge: configure
 	nice cmake \
-		--build $(BUILD_DIR) \
-		--parallel $(NPROC) \
-		--target fuzzer
+	    --build $(BUILD_DIR) \
+	    --parallel \
+	    --target fuzzer
+	
 	tools/fuzz/fuzzer \
-		-fork=$(FORK) \
-		-merge=1 \
-		$(ROOT_DIR)/data/fuzz/CORPUS*/ \
-		$(ROOT_DIR)/data/fuzz/artifacts/
+	    -fork=$(FORK) \
+	    -merge=1 \
+	    $(ROOT_DIR)/data/fuzz/CORPUS*/ \
+	    $(ROOT_DIR)/data/fuzz/artifacts/
 
 .PHONY: plan 3d
 plan 3d: $(CRASH_FILE)
 	gnuplot \
-		-persist \
-		-c $(ROOT_DIR)/tools/plot/plot.plt \
-		$@ \
-		$(CRASH_FILE) \
-		$(SCREEN_SIZE)
-
-$(ROOT_DIR)/venv:
-	cd $(ROOT_DIR)
-	$(PYTHON) -m venv venv/
-	. venv/bin/activate
-	pip install -r requirements.txt
-
-.PHONY: venv
-venv: $(ROOT_DIR)/venv
-
-.PHONY: shell
-shell: venv
-	cd $(ROOT_DIR)
-	. venv/bin/activate
-	$(SHELL)
+	    -persist \
+	    -c $(ROOT_DIR)/tools/plot/plot.plt \
+	    $@ \
+	    $(CRASH_FILE) \
+	    $(SCREEN_SIZE)
 
 .PHONY: format
 format: venv
 	cd $(ROOT_DIR)
 	git add --update
 	git clang-format --binary=venv/bin/clang-format --extensions=cpp,hpp,cu,cuh,inl,js $(shell git rev-list --max-parents=0 HEAD) || true
-	. venv/bin/activate
+	. $(ROOT_DIR)/venv/bin/activate
 	black src/
 	isort --profile black src/
 	MYPYPATH=$(ROOT_DIR)/external/SPIRV-Headers/include mypy src/
@@ -176,6 +167,6 @@ format: venv
 
 .PHONY: pytest
 pytest: venv
-	cd $(ROOT_DIR)
-	. venv/bin/activate
-	pytest src/
+	. $(ROOT_DIR)/venv/bin/activate
+	
+	pytest $(ROOT_DIR)/src/
