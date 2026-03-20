@@ -5,8 +5,7 @@ find_package(
 )
 
 list(
-    APPEND
-        stage_shader_extensions
+    APPEND stage_shader_extensions
     "vert"
     "tesc"
     "tese"
@@ -30,15 +29,16 @@ find_program(spirv-val NAMES spirv-val)
 # macros in Qt6CoreMacros.cmake don't allow to use files generated in binary dir as sources
 # because of wierd logic
 function(skt_target_shaders target)
-    cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "OUTPUT_VARIABLE" "SHADERS")
+    cmake_parse_arguments(PARSE_ARGV 1 "arg" "" "OUTPUT_VARIABLE" "SHADERS")
     if(DEFINED arg_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
     endif()
-    foreach(shader_file IN LISTS ARG_SHADERS)
+    foreach(shader_file IN LISTS arg_SHADERS)
         target_sources(
             "${target}"
             PRIVATE
-                "${shader_file}")
+                "${shader_file}"
+        )
         if(NOT shader_file MATCHES "${stage_shader_regex}")
             message(STATUS "Shader ${shader_file} is not stage file. Will not be compiled.")
             continue()
@@ -99,11 +99,11 @@ function(skt_target_shaders target)
             PRIVATE
                 "${CMAKE_CURRENT_SOURCE_DIR}/${output_file}"
         )
-        if(DEFINED ARG_OUTPUT_VARIABLE)
-            list(APPEND "${ARG_OUTPUT_VARIABLE}" "${output_file}")
+        if(DEFINED arg_OUTPUT_VARIABLE)
+            list(APPEND "${arg_OUTPUT_VARIABLE}" "${output_file}")
         endif()
     endforeach()
-    if(DEFINED ARG_OUTPUT_VARIABLE)
-        set("${ARG_OUTPUT_VARIABLE}" "${${ARG_OUTPUT_VARIABLE}}" PARENT_SCOPE)
+    if(DEFINED arg_OUTPUT_VARIABLE)
+        set("${arg_OUTPUT_VARIABLE}" "${${arg_OUTPUT_VARIABLE}}" PARENT_SCOPE)
     endif()
 endfunction()

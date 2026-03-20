@@ -3,7 +3,13 @@ project("codegen")
 option(SAH_KD_TREE_CODEGEN_FAIL_ON_FORMAT_MISMATCH "Fail on generated C++ sources format mismatch" ON)
 
 function(skt_add_codegen_library name)
-    cmake_parse_arguments(PARSE_ARGV 1 "ARG" "" "DEPENDENCY;COMMAND_ARGUMENT;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES" "")
+    cmake_parse_arguments(
+        PARSE_ARGV 1
+        "arg"
+        ""
+        "DEPENDENCY;COMMAND_ARGUMENT;PRIVATE_LINKS;PUBLIC_LINKS;SYSTEM_PUBLIC_INCLUDES"
+        ""
+    )
     if(DEFINED arg_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "${PROJECT_NAME}: ${arg_UNPARSED_ARGUMENTS}")
     endif()
@@ -11,7 +17,7 @@ function(skt_add_codegen_library name)
         MAIN_DEPENDENCY
             "generator.py"
         DEPENDS
-            "${ARG_DEPENDENCY}"
+            "${arg_DEPENDENCY}"
             "${CMAKE_SOURCE_DIR}/_clang-format"
             "${name}.hpp.jinja2"
             "${name}.cpp.jinja2"
@@ -24,7 +30,7 @@ function(skt_add_codegen_library name)
                 --clang-format-config="${CMAKE_SOURCE_DIR}/_clang-format"
                 $<$<BOOL:${SAH_KD_TREE_CODEGEN_FAIL_ON_FORMAT_MISMATCH}>:--fail-on-format-mismatch>
                 "${name}"
-                "${ARG_COMMAND_ARGUMENT}"
+                "${arg_COMMAND_ARGUMENT}"
         COMMAND
             "${CMAKE_COMMAND}" -E copy_if_different
                 "${name}.hpp.tmp"
@@ -52,11 +58,11 @@ function(skt_add_codegen_library name)
             "${name}.cpp"
         PRIVATE_LINKS
             "libformat"
-            ${ARG_PRIVATE_LINKS}
+            ${arg_PRIVATE_LINKS}
         PUBLIC_LINKS
-            ${ARG_PUBLIC_LINKS}
+            ${arg_PUBLIC_LINKS}
         SYSTEM_PUBLIC_INCLUDES
-            ${ARG_SYSTEM_PUBLIC_INCLUDES}
+            ${arg_SYSTEM_PUBLIC_INCLUDES}
     )
 endfunction()
 

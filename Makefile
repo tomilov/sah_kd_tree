@@ -1,47 +1,75 @@
 ROOT_DIR := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
-BUILD_DIR ?= $(ROOT_DIR)/build
+BUILD_DIR ?= build
 BUILD_TYPE ?= Debug
+
 CXXFLAGS ?= -march=native
 export CXXFLAGS
 CUDAARCHS ?= native
 export CUDAARCHS
+
 THRUST_DEVICE_SYSTEM ?= CUDA
+
 FORK ?= $(shell nproc)
 FUZZ_MAX_TOTAL_TIME ?= 0
 FUZZ_MAX_PRIMITIVE_COUNT ?= 0
 FUZZ_BOX_WORLD ?= 0
 TEST_NAME_REGEX ?= .*
-PYTHON ?= python3
+
+VENV      := venv
+PYTHON    := $(VENV)/bin/python
+PIP       := $(VENV)/bin/pip
+PYTEST    := $(VENV)/bin/pytest
+MYPY      := $(VENV)/bin/mypy
+RUFF      := $(VENV)/bin/ruff
+CLANG_FMT := $(VENV)/bin/clang-format
+PRECOMMIT := $(VENV)/bin/pre-commit
+
+GIT_FIRST_COMMIT := $(shell git rev-list --max-parents=0 HEAD)
+SPIRV_HEADERS := $(PWD)/external/SPIRV-Headers/include
 
 SCREEN_SIZE ?= $(shell xdpyinfo | awk '/dimensions:/ { print $$2 }' | tr 'x' ' ')
 
 .DEFAULT_GOAL := build
 
+.DELETE_ON_ERROR:
+
 .ONESHELL:
-SHELL = bash
+SHELL := $(shell which bash)
 .SHELLFLAGS = -eu -o pipefail -c
 
-$(ROOT_DIR)/venv/bin/activate:
-	trap 'rm -rf $(ROOT_DIR)/venv/' ERR
-	$(PYTHON) -m venv $(ROOT_DIR)/venv/
-	. $(ROOT_DIR)/venv/bin/activate
-	pip install --requirement $(ROOT_DIR)/requirements.txt
+.SECONDARY: $(VENV)/bin/activate
+$(VENV)/bin/activate: pyproject.toml
+	trap 'rm -rf $(VENV)' ERR
+	python3 -m venv venv/
+	$(PIP) install --quiet --upgrade pip setuptools
+	$(PIP) install --verbose --progress-bar=on --no-build-isolation --editable .[dev]
+	touch $@
 
 .PHONY: venv
-venv: $(ROOT_DIR)/venv/bin/activate
+venv: $(VENV)/bin/activate
 
-.PHONY: sh
-sh: venv
-	. $(ROOT_DIR)/venv/bin/activate
+.PHONY: clean-venv
+clean-venv:
+	rm -rf $(VENV)
+
+.PHONY: re-venv
+re-venv: clean-venv venv
+
+.PHONY: install-hooks
+install-hooks: venv
+	$(PRECOMMIT) install
+	$(PRECOMMIT) install --hook-type commit-msg
+
+.PHONY: sh shell
+sh shell: venv
+	. venv/bin/activate
 	
 	$(SHELL)
 
 .PHONY: configure
 configure: venv
-	. $(ROOT_DIR)/venv/bin/activate
-	
 	nice cmake \
-	    -S $(ROOT_DIR) \
+	    -S $(PWD) \
 	    -B $(BUILD_DIR) \
 	    -DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
 	    -DCMAKE_VERBOSE_MAKEFILE=ON \
@@ -49,16 +77,13 @@ configure: venv
 
 .PHONY: cmake-graphviz
 cmake-graphviz: venv
-	. $(ROOT_DIR)/venv/bin/activate
-	
 	cmake \
 	    --graphviz=$(BUILD_DIR)/sah_kd_tree.dot \
-	    -S $(ROOT_DIR) \
+	    -S $(PWD) \
 	    -B $(BUILD_DIR) \
 	    -DTHRUST_DEVICE_SYSTEM=$(THRUST_DEVICE_SYSTEM) \
 	    -DCMAKE_VERBOSE_MAKEFILE=ON \
-	    -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	    $(ROOT_DIR)
+	    -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 	dot \
 	    -Tpng \
 	    -o $(BUILD_DIR)/sah_kd_tree.png \
@@ -66,54 +91,36 @@ cmake-graphviz: venv
 
 .PHONY: build
 build: venv configure
-	. $(ROOT_DIR)/venv/bin/activate
-	
 	nice cmake \
 	    --build $(BUILD_DIR) \
 	    --parallel
 
-.PHONY:
+.PHONY: rebuild
 rebuild: venv configure
-	. $(ROOT_DIR)/venv/bin/activate
-	
 	nice cmake \
 	    --build $(BUILD_DIR) \
 	    --parallel \
 	    --clean-first
 
-.PHONY: venv clean
-clean: configure
-	. $(ROOT_DIR)/venv/bin/activate
-	
+.PHONY: clean
+clean: venv configure
 	nice cmake \
 	    --build $(BUILD_DIR) \
 	    --parallel \
 	    --target clean
 
-.PHONY: test
-test: venv build
-	. $(ROOT_DIR)/venv/bin/activate
-	
-	ctest \
-	    --parallel \
-	    --output-on-failure \
-	    --test-dir $(BUILD_DIR)/src/ \
-	    -R '$(TEST_NAME_REGEX)'
-
 .PHONY: docker-run
 docker-run: venv
-	. $(ROOT_DIR)/venv/bin/activate
-	
-	$(ROOT_DIR)/tools/docker/archlinux/run.sh $(COMMAND)
+	tools/docker/archlinux/run.sh $(COMMAND)
 
 .PHONY: fuzz
-fuzz: configure
+fuzz: venv configure
 	nice cmake \
 	    --build $(BUILD_DIR) \
 	    --parallel \
 	    --target fuzzer
 	
-	tools/fuzz/fuzzer \
+	nice $(BUILD_DIR)/tools/fuzz/fuzzer \
 	    -box_world=$(FUZZ_BOX_WORLD) \
 	    -max_primitive_count=$(FUZZ_MAX_PRIMITIVE_COUNT) \
 	    -max_total_time=$(FUZZ_MAX_TOTAL_TIME) \
@@ -128,45 +135,62 @@ fuzz: configure
 	    -reduce_inputs=1 \
 	    -shrink=1 \
 	    -prefer_small=1 \
-	    -artifact_prefix=$(ROOT_DIR)/data/fuzz/artifacts/ \
-	    $(ROOT_DIR)/data/fuzz/CORPUS/ \
-	    $(ROOT_DIR)/data/fuzz/artifacts/
+	    -artifact_prefix=data/fuzz/artifacts/ \
+	    data/fuzz/CORPUS/ \
+	    data/fuzz/artifacts/
 
 .PHONY: fuzz-merge
-fuzz-merge: configure
+fuzz-merge: venv configure
 	nice cmake \
 	    --build $(BUILD_DIR) \
 	    --parallel \
 	    --target fuzzer
 	
-	tools/fuzz/fuzzer \
+	nice tools/fuzz/fuzzer \
 	    -fork=$(FORK) \
 	    -merge=1 \
-	    $(ROOT_DIR)/data/fuzz/CORPUS*/ \
-	    $(ROOT_DIR)/data/fuzz/artifacts/
+	    data/fuzz/CORPUS*/ \
+	    data/fuzz/artifacts/
 
 .PHONY: plan 3d
-plan 3d: $(CRASH_FILE)
+plan 3d: venv $(CRASH_FILE)
 	gnuplot \
 	    -persist \
-	    -c $(ROOT_DIR)/tools/plot/plot.plt \
+	    -c tools/plot/plot.plt \
 	    $@ \
 	    $(CRASH_FILE) \
 	    $(SCREEN_SIZE)
 
+.PHONY: check
+check: venv
+	$(RUFF) check
+	$(RUFF) format --check
+	MYPYPATH=$(SPIRV_HEADERS) \
+	$(MYPY) \
+	    --exclude-gitignore \
+	    src/
+
 .PHONY: format
 format: venv
-	cd $(ROOT_DIR)
+	$(RUFF) format
+	$(RUFF) check --fix
+	MYPYPATH=$(SPIRV_HEADERS) \
+	$(MYPY) \
+	    --exclude-gitignore \
+	    src/
+	
 	git add --update
-	git clang-format --binary=venv/bin/clang-format --extensions=cpp,hpp,cu,cuh,inl,js $(shell git rev-list --max-parents=0 HEAD) || true
-	. $(ROOT_DIR)/venv/bin/activate
-	black src/
-	isort --profile black src/
-	MYPYPATH=$(ROOT_DIR)/external/SPIRV-Headers/include mypy src/
+	git clang-format \
+	    --binary=$(CLANG_FMT) \
+	    --extensions=cpp,hpp,cu,cuh,cu.inl,js \
+	    $(GIT_FIRST_COMMIT) \
+	|| true
 	git status
 
-.PHONY: pytest
-pytest: venv
-	. $(ROOT_DIR)/venv/bin/activate
-	
-	pytest $(ROOT_DIR)/src/
+.PHONY: test-cpp
+test-cpp: build
+	ctest \
+	    --parallel \
+	    --output-on-failure \
+	    --test-dir $(BUILD_DIR)/src/ \
+	    -R '$(TEST_NAME_REGEX)'

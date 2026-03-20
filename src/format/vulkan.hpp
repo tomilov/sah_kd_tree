@@ -18,8 +18,8 @@
 template<typename FlagBitsType>
 size_t getFlagBitsMaxNameLength()
 {
-    using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
-    auto mask = MaskType(vk::FlagTraits<FlagBitsType>::allFlags);
+    using MaskType = vk::Flags<FlagBitsType>::MaskType;
+    MaskType mask{vk::FlagTraits<FlagBitsType>::allFlags};
     size_t maxLength = 0;
     while (mask != 0) {
         auto nextMask = mask & (mask - 1);
@@ -57,7 +57,7 @@ struct fmt::formatter<vk::Flags<FlagBitsType>> : fmt::formatter<fmt::string_view
         if (!flags) {
             return out;
         }
-        using MaskType = typename vk::Flags<FlagBitsType>::MaskType;
+        using MaskType = vk::Flags<FlagBitsType>::MaskType;
         constexpr auto allFlags = static_cast<MaskType>(FlagTraits::allFlags);
         auto mask = static_cast<MaskType>(flags);
         while (mask != 0) {

@@ -106,7 +106,15 @@ option(SAH_KD_TREE_GENERATE_DOCS "Whether to build the Doxygen documentation" OF
 if(SAH_KD_TREE_GENERATE_DOCS)
     set(DOXYGEN_FILE_PATTERNS *.cpp *.cu *.inl)
     set(DOXYGEN_INCLUDE_FILE_PATTERNS *.hpp *.cuh)
-    find_package(Doxygen REQUIRED COMPONENTS doxygen OPTIONAL_COMPONENTS dot dia mscgen)
+    find_package(
+        Doxygen
+        REQUIRED COMPONENTS
+            doxygen
+        OPTIONAL_COMPONENTS
+            dot
+            dia
+            mscgen
+    )
     doxygen_add_docs(
         "docs"
             "${CMAKE_CURRENT_SOURCE_DIR}"

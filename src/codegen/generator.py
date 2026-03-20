@@ -1,14 +1,13 @@
-# pylint: disable=missing-module-docstring
-# pylint: disable=missing-function-docstring
-# mypy: disallow-untyped-defs
-
 import argparse
 import difflib
 import re
 import subprocess
 import sys
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from termcolor import colored
@@ -79,7 +78,9 @@ VK_FORMAT
 )
 
 
-def _print_diff(unformatted: str, formatted: str, /, *, file_name: str = "") -> None:
+def _print_diff(
+    unformatted: str, formatted: str, /, *, file_name: Path | str = ""
+) -> None:
     a = unformatted.splitlines(keepends=False)
     b = formatted.splitlines(keepends=False)
     for line in difflib.unified_diff(
@@ -100,13 +101,13 @@ def _print_diff(unformatted: str, formatted: str, /, *, file_name: str = "") -> 
             color = "cyan"
         else:
             color = None
-        print(colored(line, color), file=sys.stderr)  # type: ignore
+        print(colored(line, color), file=sys.stderr)
 
 
-def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
+def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:  # noqa: C901
     sys.path.append(str(args.spirv_headers))
     # pylint: disable=import-outside-toplevel
-    from spirv.unified1.spirv import spv  # type: ignore
+    from spirv.unified1.spirv import spv  # noqa: PLC0415
 
     def _prefix_to_lower(m: re.Match[str]) -> str:
         g1 = m.group(1)
@@ -143,9 +144,9 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
         unique_enum_underlying_values = set()
         unique_enum_values: list[dict[str, int | str]] = []
         for enum_name, enum_underlying_value in enum_values:
-            assert isinstance(
-                enum_underlying_value, int
-            ), f"{type(enum_underlying_value)}"
+            assert isinstance(enum_underlying_value, int), (
+                f"{type(enum_underlying_value)}"
+            )
             if enum_underlying_value not in unique_enum_underlying_values:
                 unique_enum_underlying_values.add(enum_underlying_value)
                 enum_value_name = "Spv"
@@ -175,29 +176,32 @@ def _gen_spirv_format_context(args: argparse.Namespace) -> tuple[dict, dict]:
     return context, filters
 
 
-def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
-    from xml.etree import ElementTree
+def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:  # noqa: PLR0915, PLR0912, C901
+    from xml.etree import ElementTree as ET  # noqa: PLC0415
 
     if False:
-        from vulkan_object import VulkanObject, get_vulkan_object  # type: ignore
+        from vulkan_object import (  # type: ignore[import-untyped] # noqa: PLC0415
+            VulkanObject,
+            get_vulkan_object,
+        )
 
         vk: VulkanObject = get_vulkan_object(args.vulkan_registry)
 
-        import dataclasses
-        import json
-        from enum import Enum
+        import dataclasses  # noqa: PLC0415
+        import json  # noqa: PLC0415
+        from enum import Enum  # noqa: PLC0415
 
         class EnhancedJSONEncoder(json.JSONEncoder):
-            def default(self, o):
+            def default(self, o: Any):  # noqa: ANN401, ANN202
                 if dataclasses.is_dataclass(o):
                     return dataclasses.asdict(o)
-                elif isinstance(o, Enum):
+                if isinstance(o, Enum):
                     return o.value
                 return super().default(o)
 
         print(json.dumps(vk, cls=EnhancedJSONEncoder))
 
-    registry = ElementTree.parse(args.vulkan_registry).getroot()
+    registry = ET.parse(args.vulkan_registry).getroot()  # noqa: S314
 
     def _cpp_case(m: re.Match[str]) -> str:
         g1 = m.group(1)
@@ -234,7 +238,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
             g2 = m.group(2)
             if g2:
                 return g2[0].upper() + g2[1:].lower()
-            return str()
+            return ""
 
         return reformat_identifier_regex.sub(_reformat, identifier)
 
@@ -263,7 +267,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
             elif key == "blockExtent":
                 if value != "1,1,1":
                     block_extent = tuple(map(int, value.split(",")))
-                    assert len(block_extent) == 3
+                    assert len(block_extent) == 3  # noqa: PLR2004
                     output_format["block_extent"] = block_extent
             elif key == "blockSize":
                 output_format["block_size"] = value
@@ -288,7 +292,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
                 if value != "1":
                     output_format["texels_per_block"] = value
             else:
-                assert False, key
+                raise AssertionError(key)
 
         assert "format_name" in output_format
         assert "block_size" in output_format
@@ -325,7 +329,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
                 elif key == "planeIndex":
                     output_component["plane_index"] = int(value)
                 else:
-                    assert False, key
+                    raise AssertionError(key)
             assert "component_type" in output_component
             assert "numeric_format" in output_component
             assert "bitsize" in output_component
@@ -354,7 +358,7 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
                     elif key == "widthDivisor":
                         output_plane["width_divisor"] = int(value)
                     else:
-                        assert False, key
+                        raise AssertionError(key)
                 assert "index" in output_plane
                 assert "compatible_format_name" in output_plane
                 assert "compatible_cpp_format_name" in output_plane
@@ -367,13 +371,13 @@ def _gen_vulkan_utils_context(args: argparse.Namespace) -> tuple[dict, dict]:
 
             output_format["planes"] = output_planes
 
-        assert len(spirvimageformats) < 2, len(spirvimageformats)
+        assert len(spirvimageformats) < 2, len(spirvimageformats)  # noqa: PLR2004
         if len(spirvimageformats) == 1:
             for key, value in spirvimageformats[0].attrib.items():
                 if key == "name":
                     output_format["spirv_image_format"] = value
                 else:
-                    assert False, key
+                    raise AssertionError(key)
             assert "spirv_image_format" in output_format
 
         output_formats.append(output_format)
@@ -408,7 +412,7 @@ def _clang_format(args: argparse.Namespace, unformatted: str) -> str:
         str(args.clang_format_executable),
         f"-style=file:{args.clang_format_config}",
     ]
-    return subprocess.check_output(
+    return subprocess.check_output(  # noqa: S603
         popenargs,
         text=True,
         input=unformatted,
@@ -468,15 +472,17 @@ def main() -> None:
     )
     env.filters.update(filters)
 
-    for ext in "hpp", "cpp":
-        file_name = f"{args.subparser_name}.{ext}"
-        unformatted = env.get_template(f"{file_name}.jinja2").render(context)
+    for ext in ".hpp", ".cpp":
+        file_name = Path(args.subparser_name).with_suffix(ext)
+        unformatted = env.get_template(
+            str(file_name.with_suffix(f"{ext}.jinja2"))
+        ).render(context)
         formatted = _clang_format(args, unformatted)
         if unformatted != formatted:
             _print_diff(unformatted, formatted, file_name=file_name)
             if args.fail_on_format_mismatch:
                 raise RuntimeError("Failed on formats mismatch")
-        with open(f"{file_name}.tmp", "wb") as tmp:
+        with Path(file_name.with_suffix(f"{ext}.tmp")).open("wb") as tmp:
             tmp.write(unformatted.encode())
 
 

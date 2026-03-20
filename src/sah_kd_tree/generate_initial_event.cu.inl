@@ -32,7 +32,7 @@ void sah_kd_tree::Projection<Traits>::generateInitialEvent()
 
     auto eventKindBothBegin = thrust::make_zip_iterator(event.kind.begin(), event.kind.rbegin());
     [[maybe_unused]] auto planarEventKind = thrust::fill_n(exec, eventKindBothBegin, triangle.count - planarEventCount, thrust::make_tuple<I, I>(+1, -1));  // right events are sequenced before left events if positions are equivalent
-    // thrust::fill_n(exec, thrust::get<0>(planarEventKind.get_iterator_tuple()), planarEventCount, static_cast<I>(0));
+    // thrust::fill_n(exec, cuda::std::get<0>(planarEventKind.get_iterator_tuple()), planarEventCount, static_cast<I>(0));
 
     auto triangleBegin = thrust::make_counting_iterator<U>(0);
     auto planarEventBegin = cuda::std::next(event.polygon.begin(), triangle.count - planarEventCount);

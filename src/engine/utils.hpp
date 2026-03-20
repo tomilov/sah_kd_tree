@@ -21,7 +21,7 @@ struct std::hash<vk::Flags<BitType>>
 {
     size_t operator()(vk::Flags<BitType> f) const noexcept
     {
-        using MaskType = typename vk::Flags<BitType>::MaskType;
+        using MaskType = vk::Flags<BitType>::MaskType;
         return std::hash<MaskType>{}(static_cast<MaskType>(f));
     }
 };
@@ -39,7 +39,7 @@ struct PrependTypeToStructureChain<T, vk::StructureChain<Ts...>>
 };
 
 template<typename T, typename StructureChain>
-using PrependTypeToStructureChainT = typename PrependTypeToStructureChain<T, StructureChain>::Type;
+using PrependTypeToStructureChainT = PrependTypeToStructureChain<T, StructureChain>::Type;
 
 template<typename BitType>
 class FlagBits
@@ -85,7 +85,7 @@ public:
     private:
         friend FlagBits;
 
-        using MaskType = typename vk::Flags<BitType>::MaskType;
+        using MaskType = vk::Flags<BitType>::MaskType;
 
         MaskType m = 0;
 
@@ -206,7 +206,7 @@ const Type * findInPNextChain(const Head * head)
 }
 
 template<vk::IndexType indexType>
-using IndexCppType = typename vk::CppType<vk::IndexType, indexType>::Type;
+using IndexCppType = vk::CppType<vk::IndexType, indexType>::Type;
 
 [[nodiscard]] vk::DeviceSize alignedSize(
     vk::DeviceSize size,

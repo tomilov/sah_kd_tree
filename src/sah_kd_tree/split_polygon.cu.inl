@@ -54,7 +54,7 @@ void sah_kd_tree::Builder<Traits>::splitPolygon(
 
     const auto toSplittedPolygon = [polygonNodes, nodeSplitDimensions, nodeSplitPositions, polygonTriangles, AX, BX, CX, AY, BY, CY, AZ, BZ, CZ] __host__ __device__(PolygonBboxInputType bbox, U polygonIn) -> SplittedPolygonBboxType
     {
-        F min = thrust::get<0>(bbox), max = thrust::get<1>(bbox);
+        F min = cuda::std::get<0>(bbox), max = cuda::std::get<1>(bbox);
         assert(!(max < min));
         U polygonNode = polygonNodes[polygonIn];
         I polygonSplitDimension = nodeSplitDimensions[polygonNode];

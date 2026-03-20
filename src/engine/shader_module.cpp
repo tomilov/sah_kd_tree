@@ -612,7 +612,7 @@ void ShaderStages::add(
     pipelineShaderStageCreateInfo.pName = std::data(entryPointNames.back());
     pipelineShaderStageCreateInfo.pSpecializationInfo = nullptr;
     debugUtilsObjectNameInfo.objectType = vk::ShaderModule::objectType;
-    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<typename vk::ShaderModule::NativeType>(shaderModule.getHandle()));
+    debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<vk::ShaderModule::NativeType>(shaderModule.getHandle()));
     debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan13Features>().subgroupSizeControl != vk::False) {
         if (subgroupSize) {

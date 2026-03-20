@@ -24,7 +24,7 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
     using Allocator = thrust::mr::allocator<T, MemoryResource>;
     template<typename T>
     using Vector = thrust::cuda::vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
+    using ComponentIterator = thrust::permutation_iterator<Vector<F>::const_pointer, Vector<U>::const_pointer>;
     using Exec = thrust::cuda_cub::par_nosync_t::execute_with_allocator_type<Allocator<std::byte>>::type;
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 
@@ -50,12 +50,17 @@ struct BuilderContext<ThrustDeviceSystem::CUDA>
         } vertex{allocator};
 
         sah_kd_tree::Tree<BuilderContext> tree{allocator};
+
+        void synchronize() const
+        {
+            cudaStream.synchronize();
+        }
     };
 
     struct BuildContext
     {
-        const Allocator<std::byte> allocator;
-        const Exec exec;
+        const Allocator<std::byte> & allocator;
+        const Exec & exec;
 
         sah_kd_tree::Projection<BuilderContext> x{allocator, exec}, y{allocator, exec}, z{allocator, exec};
         sah_kd_tree::Builder<BuilderContext> builder{allocator, exec};

@@ -1,4 +1,4 @@
-#include <sah_kd_tree/check_tree.inl>
+#include <sah_kd_tree/check_tree.cu.inl>
 
 template bool sah_kd_tree::Builder<>::checkBoxes(
     const Projection<> & x,

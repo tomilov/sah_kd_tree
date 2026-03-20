@@ -107,13 +107,3 @@ target_link_libraries(
 
 
 add_subdirectory("nlohmann")
-
-
-#set(TINYEXR_BUILD_SAMPLE OFF CACHE BOOL "" FORCE)
-#set(TINYEXR_USE_MINIZ ON CACHE BOOL "" FORCE)
-#add_subdirectory("tinyexr" EXCLUDE_FROM_ALL SYSTEM)
-
-
-#set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF CACHE BOOL "" FORCE)
-#set(TINYGLTF_INSTALL OFF CACHE BOOL "" FORCE)
-#add_subdirectory("tinygltf" EXCLUDE_FROM_ALL SYSTEM)

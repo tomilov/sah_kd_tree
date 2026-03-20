@@ -1,4 +1,4 @@
-#include <sah_kd_tree/decouple_event_both.inl>
+#include <sah_kd_tree/decouple_event_both.cu.inl>
 
 namespace sah_kd_tree
 {

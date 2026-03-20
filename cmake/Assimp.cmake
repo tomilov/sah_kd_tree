@@ -1,6 +1,7 @@
 find_package(
     assimp 6
-    REQUIRED)
+    REQUIRED
+)
 set_target_properties(
     assimp::assimp
     PROPERTIES

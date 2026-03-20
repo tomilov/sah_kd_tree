@@ -7,7 +7,8 @@ SHELL ["/bin/bash", "-xue", "-o", "pipefail", "-O", "lastpipe", "-c"]
 RUN \
   --mount=type=cache,sharing=locked,target=/var/cache/pacman \
   <<EOF
-pacman -Syu --noconfirm --needed \
+sed -i 's/#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
+pacman -Syyu --noconfirm --needed \
     base-devel \
     cmake \
     git \
@@ -23,9 +24,7 @@ pacman -Syu --noconfirm --needed \
     openmp \
     doxygen \
     sdl3 \
-    graphviz \
-    clang \
-    libc++
+    graphviz
 EOF
 
 ENV NVIDIA_VISIBLE_DEVICES=all

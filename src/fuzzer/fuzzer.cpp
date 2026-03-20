@@ -313,7 +313,7 @@ struct TestInput
         size += sizeof params;
 
         if (const size_t maxItemCount = (maxSize - size) / itemSize(); maxItemCount < std::size(triangles) / trianglesPerItem()) {
-            std::vector<typename decltype(triangles)::const_iterator> servived;
+            std::vector<decltype(triangles)::const_iterator> servived;
             servived.reserve(std::size(triangles) / trianglesPerItem());
             for (auto t = std::begin(triangles); t != std::end(triangles); std::advance(t, trianglesPerItem())) {
                 servived.push_back(t);

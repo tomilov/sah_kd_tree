@@ -5,5 +5,6 @@ find_package(TBB REQUIRED)
 target_link_libraries(
     Thrust
     INTERFACE
-        OpenMP::OpenMP_CXX
-        TBB::tbb)
+        OpenMP::OpenMP_CUDA
+        TBB::tbb
+)

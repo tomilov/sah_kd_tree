@@ -79,11 +79,11 @@ template<typename BuilderContext>
     requires requires { typename BuilderContext::Traits; }
 struct GetTraits<BuilderContext>
 {
-    using Type = typename BuilderContext::Traits;
+    using Type = BuilderContext::Traits;
 };
 
 template<typename BuilderContext>
-using GetTraitsType = typename GetTraits<BuilderContext>::Type;
+using GetTraitsType = GetTraits<BuilderContext>::Type;
 
 template<ThrustDeviceSystem thrustDeviceSystem>
 struct BuilderContext;
@@ -126,11 +126,11 @@ struct Builder : Tree
     using BaseTraits = GetTraitsType<BuilderContext<thrustDeviceSystem>>;
 
     template<typename T>
-    using Allocator = typename BaseTraits::template Allocator<T>;
+    using Allocator = BaseTraits::template Allocator<T>;
     template<typename T>
-    using Vector = typename BaseTraits::template Vector<T>;
+    using Vector = BaseTraits::template Vector<T>;
 
-    using System = typename thrust::iterator_system<typename Allocator<std::byte>::pointer>::type;
+    using System = thrust::iterator_system<typename Allocator<std::byte>::pointer>::type;
     static constexpr bool kIsThrustDeviceSystemCUDA = std::is_same_v<System, thrust::cuda::tag>;
 
     Builder(
@@ -283,7 +283,7 @@ struct Builder : Tree
                 const size_t indexCount = inputIndices.getCount();
                 ASSERT((indexCount % 3) == 0);
                 triangleCount = indexCount / 3;
-                static_assert(std::is_same_v<typename scene_data::Index, typename BaseTraits::U>);
+                static_assert(std::is_same_v<scene_data::Index, typename BaseTraits::U>);
                 auto a = inputIndices.cbegin();
                 auto b = cuda::std::next(a);
                 auto c = cuda::std::next(b);
@@ -296,7 +296,7 @@ struct Builder : Tree
             }
             {
                 vertexCount = inputVertices.getCount();
-                static_assert(std::is_same_v<typename scene_data::Position::value_type, typename BaseTraits::F>);
+                static_assert(std::is_same_v<scene_data::Position::value_type, typename BaseTraits::F>);
                 {
                     const auto sliceX = [] __host__ __device__(const scene_data::Position & vertex) -> typename BaseTraits::F
                     {
@@ -325,6 +325,7 @@ struct Builder : Tree
                     thrust::copy_n(treeContext.exec, z, vertexCount, treeContext.vertex.z.begin());
                 }
             }
+            treeContext.synchronize();
         }
         {
             typename BuilderContext<thrustDeviceSystem>::BuildContext buildContext{treeContext};

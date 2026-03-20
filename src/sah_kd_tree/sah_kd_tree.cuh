@@ -47,7 +47,7 @@ struct DefaultTraits
     using Allocator = thrust::device_allocator<T>;
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
-    using ComponentIterator = thrust::permutation_iterator<typename Vector<F>::const_pointer, typename Vector<U>::const_pointer>;
+    using ComponentIterator = thrust::permutation_iterator<Vector<F>::const_pointer, Vector<U>::const_pointer>;
     using Exec = decltype(thrust::device);
     using Progress = std::function<bool(size_t progressValue)>;
 };
@@ -55,11 +55,11 @@ struct DefaultTraits
 template<typename Traits = DefaultTraits>
 struct Params
 {
-    using I = typename Traits::I;
-    using U = typename Traits::U;
-    using F = typename Traits::F;
+    using I = Traits::I;
+    using U = Traits::U;
+    using F = Traits::F;
     template<typename T>
-    using Vector = typename Traits::template Vector<T>;
+    using Vector = Traits::template Vector<T>;
 
     F emptinessFactor = 0.8f;   // (0, 1]
     F traversalCost = 2.0f;     // (0, inf)
@@ -70,13 +70,13 @@ struct Params
 template<typename Traits = DefaultTraits>
 struct Tree
 {
-    using I = typename Traits::I;
-    using U = typename Traits::U;
-    using F = typename Traits::F;
+    using I = Traits::I;
+    using U = Traits::U;
+    using F = Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
+    using Allocator = Traits::template Allocator<T>;
     template<typename T>
-    using Vector = typename Traits::template Vector<T>;
+    using Vector = Traits::template Vector<T>;
 
     [[no_unique_address]] Allocator<std::byte> allocator;
 
@@ -119,15 +119,15 @@ struct Tree
 template<typename Traits = DefaultTraits>
 struct Projection
 {
-    using I = typename Traits::I;
-    using U = typename Traits::U;
-    using F = typename Traits::F;
+    using I = Traits::I;
+    using U = Traits::U;
+    using F = Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
-    using Exec = typename Traits::Exec;
+    using Allocator = Traits::template Allocator<T>;
+    using Exec = Traits::Exec;
     template<typename T>
-    using Vector = typename Traits::template Vector<T>;
-    using ComponentIterator = typename Traits::ComponentIterator;
+    using Vector = Traits::template Vector<T>;
+    using ComponentIterator = Traits::ComponentIterator;
 
     [[no_unique_address]] Allocator<std::byte> allocator;
     [[no_unique_address]] Exec exec;
@@ -151,7 +151,7 @@ struct Projection
                 F,
                 F> bbox) const
         {
-            return (eventKind < 0) ? thrust::get<1>(bbox) : thrust::get<0>(bbox);
+            return (eventKind < 0) ? cuda::std::get<1>(bbox) : cuda::std::get<0>(bbox);
         }
     } toEventPos;
 
@@ -242,15 +242,15 @@ struct Projection
 template<typename Traits = DefaultTraits>
 struct Builder
 {
-    using I = typename Traits::I;
-    using U = typename Traits::U;
-    using F = typename Traits::F;
+    using I = Traits::I;
+    using U = Traits::U;
+    using F = Traits::F;
     template<typename T>
-    using Allocator = typename Traits::template Allocator<T>;
-    using Exec = typename Traits::Exec;
+    using Allocator = Traits::template Allocator<T>;
+    using Exec = Traits::Exec;
     template<typename T>
-    using Vector = typename Traits::template Vector<T>;
-    using Progress = typename Traits::Progress;
+    using Vector = Traits::template Vector<T>;
+    using Progress = Traits::Progress;
 
     static inline constexpr I kNoSplitDimension = -1;  // leaf node
 

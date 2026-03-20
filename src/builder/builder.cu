@@ -36,7 +36,7 @@ struct BuilderContext<ThrustDeviceSystem::Default>
     using Traits = sah_kd_tree::DefaultTraits;
 
     template<typename T>
-    using Vector = typename Traits::template Vector<T>;
+    using Vector = Traits::template Vector<T>;
 
     struct TreeContext
     {
@@ -44,15 +44,18 @@ struct BuilderContext<ThrustDeviceSystem::Default>
 
         struct Index
         {
-            Vector<typename Traits::U> a, b, c;
+            Vector<Traits::U> a, b, c;
         } index;
 
         struct Vertex
         {
-            Vector<typename Traits::F> x, y, z;
+            Vector<Traits::F> x, y, z;
         } vertex;
 
         sah_kd_tree::Tree<sah_kd_tree::DefaultTraits> tree;
+
+        void synchronize() const
+        {}
     };
 
     struct BuildContext

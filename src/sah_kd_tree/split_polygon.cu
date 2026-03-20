@@ -1,4 +1,4 @@
-#include <sah_kd_tree/split_polygon.inl>
+#include <sah_kd_tree/split_polygon.cu.inl>
 
 namespace sah_kd_tree
 {

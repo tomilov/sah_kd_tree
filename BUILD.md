@@ -38,5 +38,5 @@ ctest --test-dir build/src/ --output-on-failure --parallel
 ```
 or even:
 ```bash
-make docker-run COMMAND=test
+make docker-run COMMAND=test-cpp
 ```

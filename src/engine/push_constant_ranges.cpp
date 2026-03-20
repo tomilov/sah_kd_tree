@@ -38,7 +38,7 @@ void widenPushConstantRange(
 
 std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::PushConstantRange> pushConstantRanges)
 {
-    using MaskType = typename vk::ShaderStageFlags::MaskType;
+    using MaskType = vk::ShaderStageFlags::MaskType;
     vk::PushConstantRange stagePushContantRanges[std::numeric_limits<MaskType>::digits];
     for (const auto & pushConstantRange : pushConstantRanges) {
         for (vk::ShaderStageFlagBits stageFlagBit : FlagBits{pushConstantRange.stageFlags}) {

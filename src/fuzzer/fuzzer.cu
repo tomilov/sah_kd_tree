@@ -23,7 +23,7 @@ namespace
 template<typename Traits>
 struct Vertices
 {
-    typename Traits::template Vector<typename Traits::F> x, y, z;
+    Traits::template Vector<typename Traits::F> x, y, z;
 
     explicit Vertices(size_t triangleCount)
         : x(3 * triangleCount)
@@ -35,7 +35,7 @@ struct Vertices
 template<typename Traits>
 struct Indices
 {
-    typename Traits::template Vector<typename Traits::U> a, b, c;
+    Traits::template Vector<typename Traits::U> a, b, c;
 
     explicit Indices(size_t triangleCount)
         : a(triangleCount)
@@ -55,7 +55,7 @@ void testOneInput(
     const size_t triangleCount = std::size(triangles);
     Vertices<Traits> vertices{triangleCount};
     {
-        static_assert(std::is_same_v<F, typename Traits::F>);
+        static_assert(std::is_same_v<F, Traits::F>);
         auto a = thrust::make_zip_iterator(vertices.x.begin(), vertices.y.begin(), vertices.z.begin());
         auto b = cuda::std::next(a);
         auto c = cuda::std::next(b);
@@ -69,7 +69,7 @@ void testOneInput(
     }
     Indices<Traits> indices{triangleCount};
     {
-        static_assert(std::is_same_v<U, typename Traits::U>);
+        static_assert(std::is_same_v<U, Traits::U>);
         thrust::tabulate(indices.a.begin(), indices.a.end(), [] __host__ __device__(ptrdiff_t i) { return 0 + i * 3; });
         thrust::tabulate(indices.b.begin(), indices.b.end(), [] __host__ __device__(ptrdiff_t i) { return 1 + i * 3; });
         thrust::tabulate(indices.c.begin(), indices.c.end(), [] __host__ __device__(ptrdiff_t i) { return 2 + i * 3; });

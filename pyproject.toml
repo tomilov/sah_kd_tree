@@ -1,0 +1,87 @@
+[build-system]
+requires = [
+    "setuptools",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sah_kd_tree"
+version = "0.1.0"
+requires-python = ">=3.14"
+authors = [
+    { name="Tomilov Anatoliy", email="tomilovanatoliy@gmail.com" },
+]
+description = "SAH kd-tree O(N*log(N)) build algorithm for triangles"
+readme = "README.md"
+dependencies = [
+    "jinja2",
+    "termcolor",
+    "vulkan-object",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "clang-format",
+    "pre-commit",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+codegen = "codegen.generator:main"
+
+[tool.ruff]
+src = [
+    "src",
+]
+include = [
+    "pyproject.toml",
+    "src/codegen/generator.py",
+]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "ALL",
+]
+ignore = [
+    "S101",
+    "COM812",
+    "TRY003",
+    "D",
+    "BLE001",
+    "EM101",
+    "ANN204",
+    "T201",
+    "EM102",
+    "FBT003",
+    "FBT001",
+    "FIX002",
+    "TD003",
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_return_any = true
+mypy_path = "external/SPIRV-Headers/include"
+
+[[tool.mypy.overrides]]
+module = "vulkan_object"
+ignore_missing_imports = true
