@@ -16,17 +16,17 @@ ComputePipeline::ComputePipeline(
     std::string_view nameIn,
     const Context & contextIn,
     vk::PipelineCache pipelineCacheIn,
-    bool descriptorBufferEnabledIn,
+    DescriptorManagementKind descriptorManagementKindIn,
     const PipelineLayout & pipelineLayout,
     SpecializationInfos && specializationInfosIn)
     : name{nameIn}
     , context{contextIn}
     , pipelineCache{pipelineCacheIn}
-    , descriptorBufferEnabled{descriptorBufferEnabledIn}
+    , descriptorManagementKind{descriptorManagementKindIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
     computePipelineCreateInfo.flags = {};  // TODO: eDispatchBase?
-    if (descriptorBufferEnabled) {
+    if (descriptorManagementKind == DescriptorManagementKind::Buffer) {
         computePipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();

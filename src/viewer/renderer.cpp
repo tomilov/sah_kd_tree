@@ -322,14 +322,21 @@ struct UniformBufferResource final
         return {"uniformBuffer"s, vk::DescriptorType::eUniformBuffer};
     }
 
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const
     {
-        const auto getDescriptorData = [this, descriptorBufferEnabled]
+        const auto getDescriptorData = [this, descriptorManagementKind]
         {
-            if (descriptorBufferEnabled) {
+            switch (descriptorManagementKind) {
+            case engine::DescriptorManagementKind::Sets: {
+                return DescriptorData{std::in_place_type<DescriptorSetData>, uniformBuffer.getDescriptorBufferInfo()};
+            }
+            case engine::DescriptorManagementKind::Buffer: {
                 return DescriptorData{std::in_place_type<DescriptorBufferData>, uniformBuffer.getDescriptorAddressInfo()};
             }
-            return DescriptorData{std::in_place_type<DescriptorSetData>, uniformBuffer.getDescriptorBufferInfo()};
+            case engine::DescriptorManagementKind::Heap: {
+                return DescriptorData{std::in_place_type<DescriptorHeapData>};
+            }
+            }
         };
         return {getBindingName(), getDescriptorData()};
     }
@@ -345,14 +352,21 @@ struct TraceSceneResources final
         return {""s, vk::DescriptorType::eUniformBuffer};
     }
 
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const
     {
-        const auto getDescriptorData = [this, descriptorBufferEnabled]
+        const auto getDescriptorData = [this, descriptorManagementKind]
         {
-            if (descriptorBufferEnabled) {
+            switch (descriptorManagementKind) {
+            case engine::DescriptorManagementKind::Sets: {
+                return DescriptorData{std::in_place_type<DescriptorSetData>, treeUniformBuffer.getDescriptorBufferInfo()};
+            }
+            case engine::DescriptorManagementKind::Buffer: {
                 return DescriptorData{std::in_place_type<DescriptorBufferData>, treeUniformBuffer.getDescriptorAddressInfo()};
             }
-            return DescriptorData{std::in_place_type<DescriptorSetData>, treeUniformBuffer.getDescriptorBufferInfo()};
+            case engine::DescriptorManagementKind::Heap: {
+                return DescriptorData{std::in_place_type<DescriptorHeapData>};
+            }
+            }
         };
         return {getBindingName(), getDescriptorData()};
     }
@@ -506,7 +520,7 @@ public:
         if (resourcesAndDescriptors) {
             DrawOffscreenResources resources{context, framebufferSize, displayRenderPass, std::move(resourcesAndDescriptors->resources.sampler)};
             auto descriptors = std::move(resourcesAndDescriptors->descriptors);
-            auto descriptorInfos = {resources.getDescriptorInfo(engine.getSettings().descriptorBufferEnabled)};
+            auto descriptorInfos = {resources.getDescriptorInfo(engine.getSettings().descriptorManagementKind)};
             descriptors.fill(descriptorInfos);
             return std::make_shared<DrawOffscreenResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         }
@@ -533,7 +547,7 @@ private:
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
         GraphicsPipeline graphicsPipeline{engine.getPipelines().getSceneShaders()};
-        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, displayRenderPass, {}).create();
+        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, displayRenderPass, {}).create();
         return graphicsPipeline;
     }
 };
@@ -1048,7 +1062,7 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     };
     engine::SpecializationInfos specializationInfos;
     specializationInfos.try_emplace(vk::ShaderStageFlagBits::eCompute, std::make_unique<SpecializationData>(specializationData), specializationMapEntries);
-    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, std::move(specializationInfos));
+    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, std::move(specializationInfos));
     pipeline.create();
     return computePipeline;
 }
@@ -1062,7 +1076,18 @@ void Renderer::Impl::bindPipeline(
 {
     constexpr uint32_t kFirstSet = 0;
     vk::PipelineLayout pipelineLayout = shaders.getPipelineLayout();
-    if (engine.getSettings().descriptorBufferEnabled) {
+    switch (engine.getSettings().descriptorManagementKind) {
+    case engine::DescriptorManagementKind::Sets: {
+        std::vector<vk::DescriptorSet> descriptorSets;
+        descriptorSets.reserve(std::size(descriptors));
+        for (const Descriptors & d : descriptors) {
+            descriptorSets.push_back(d.getDescriptorSet());
+        }
+        constexpr auto kDynamicOffsets = nullptr;
+        commandBuffer.bindDescriptorSets(pipelineBindPoint, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
+        break;
+    }
+    case engine::DescriptorManagementKind::Buffer: {
         std::vector<vk::DescriptorBufferBindingInfoEXT> descriptorBufferBindingInfos;
         descriptorBufferBindingInfos.reserve(std::size(descriptors));
         for (const Descriptors & d : descriptors) {
@@ -1077,14 +1102,12 @@ void Renderer::Impl::bindPipeline(
         std::fill(std::begin(offsets), std::end(offsets), vk::DeviceSize{0});
 
         commandBuffer.setDescriptorBufferOffsetsEXT(pipelineBindPoint, pipelineLayout, kFirstSet, bufferIndices, offsets, context.getDispatcher());
-    } else {
-        std::vector<vk::DescriptorSet> descriptorSets;
-        descriptorSets.reserve(std::size(descriptors));
-        for (const Descriptors & d : descriptors) {
-            descriptorSets.push_back(d.getDescriptorSet());
-        }
-        constexpr auto kDynamicOffsets = nullptr;
-        commandBuffer.bindDescriptorSets(pipelineBindPoint, pipelineLayout, kFirstSet, descriptorSets, kDynamicOffsets, context.getDispatcher());
+        break;
+    }
+    case engine::DescriptorManagementKind::Heap: {
+        // TODO:
+        break;
+    }
     }
 
     for (const auto & pushConstantRange : shaders.getShaderStages().pushConstantRanges) {
@@ -1443,7 +1466,7 @@ void Renderer::Impl::updateRenderPass(
     } else {
         graphicsPipelineName = "direct scene"sv;
     }
-    auto & p = graphicsPipeline.initPipeline(graphicsPipelineName, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorBufferEnabled, renderPass, {});
+    auto & p = graphicsPipeline.initPipeline(graphicsPipelineName, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, renderPass, {});
     if (frameSettings.useOffscreenTexture) {
         p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
     }

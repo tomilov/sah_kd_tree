@@ -17,14 +17,14 @@ GraphicsPipeline::GraphicsPipeline(
     std::string_view nameIn,
     const Context & contextIn,
     vk::PipelineCache pipelineCacheIn,
-    bool descriptorBufferEnabledIn,
+    DescriptorManagementKind descriptorManagementKindIn,
     const PipelineLayout & pipelineLayout,
     vk::RenderPass renderPassIn,
     SpecializationInfos && specializationInfosIn)
     : name{nameIn}
     , context{contextIn}
     , pipelineCache{pipelineCacheIn}
-    , descriptorBufferEnabled{descriptorBufferEnabledIn}
+    , descriptorManagementKind{descriptorManagementKindIn}
     , renderPass{renderPassIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
@@ -101,7 +101,7 @@ GraphicsPipeline::GraphicsPipeline(
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
     graphicsPipelineCreateInfo.flags = {};
-    if (descriptorBufferEnabled) {
+    if (descriptorManagementKind == DescriptorManagementKind::Buffer) {
         graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();

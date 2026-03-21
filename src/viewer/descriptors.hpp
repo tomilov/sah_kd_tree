@@ -25,13 +25,19 @@ namespace viewer
 
 using DescriptorSetData = std::variant<vk::BufferView, vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>;
 using DescriptorBufferData = std::variant<std::monostate, vk::Sampler, vk::DescriptorImageInfo, vk::DeviceAddress, vk::DescriptorAddressInfoEXT>;
+struct DescriptorHeapData
+{
+};  // TODO:
 
-using DescriptorData = std::variant<DescriptorSetData, DescriptorBufferData>;
+using DescriptorData = std::variant<DescriptorSetData, DescriptorBufferData, DescriptorHeapData>;
 
 using DescriptorInfo = std::tuple<engine::DescriptorBindingNameAndType, DescriptorData>;
 using DescriptorInfos = std::vector<DescriptorInfo>;
 
 using DescriptorBuffer = engine::Buffer<std::byte>;
+struct DescriptorHeap
+{
+};  // TODO:
 
 class Descriptors : utils::OneTime<Descriptors>
 {
@@ -39,13 +45,13 @@ public:
     Descriptors(
         std::string_view name,
         const engine::Context & context,
-        bool descriptorBufferEnabled,
+        engine::DescriptorManagementKind descriptorManagementKind,
         std::shared_ptr<const engine::ShaderStages> shaderStages,
         uint32_t set /* TODO: hash descriptor set layout */);
 
-    [[nodiscard]] bool getDescriptorBufferEnabled() const
+    [[nodiscard]] engine::DescriptorManagementKind getDescriptorManagementKind() const
     {
-        return descriptorBufferEnabled;
+        return descriptorManagementKind;
     }
 
     [[nodiscard]] const std::shared_ptr<const engine::ShaderStages> & getShaderStages() const &
@@ -85,17 +91,19 @@ public:
 public:
     std::string name;
     const engine::Context & context;
-    const bool descriptorBufferEnabled;
+    const engine::DescriptorManagementKind descriptorManagementKind;
     std::shared_ptr<const engine::ShaderStages> shaderStages;
     const uint32_t set;
 
-    std::variant<engine::DescriptorSet, DescriptorBuffer> descriptors;
+    std::variant<engine::DescriptorSet, DescriptorBuffer, DescriptorHeap> descriptors;
 
     [[nodiscard]] engine::DescriptorSet createDescriptorSet() const;
     [[nodiscard]] DescriptorBuffer createDescriptorBuffer() const;
+    [[nodiscard]] DescriptorHeap createDescriptorHeap() const;
     [[nodiscard]] std::variant<
         engine::DescriptorSet,
-        DescriptorBuffer>
+        DescriptorBuffer,
+        DescriptorHeap>
     createDescriptors() const;
 
     void fillDescriptorSet(
@@ -104,6 +112,9 @@ public:
     void fillDescriptorBuffer(
         const DescriptorBuffer & descriptorBuffer,
         std::span<const DescriptorInfo> descriptorBufferInfos) const;
+    void fillDescriptorHeap(
+        const DescriptorHeap & descriptorHeap,
+        std::span<const DescriptorInfo> descriptorHeapInfos) const;
 };
 
 }  // namespace viewer

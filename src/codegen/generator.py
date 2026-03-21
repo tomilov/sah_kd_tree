@@ -28,9 +28,9 @@ VK_FORMAT
     |
         # ASTC
         _(?P<astc>ASTC)
-        _(?P<astc_block_width>[4568]|10|12)x(?P<astc_block_height>[4568]|10|12)
+        _(?P<astc_block_width>[34568]|10|12)x(?P<astc_block_height>[34568]|10|12)(?:x(?P<astc_block_depth>[3456]))?
         _(?P<astc_numeric_format>UNORM|SRGB|SFLOAT)
-        _BLOCK
+        _BLOCK(?:_EXT)?
     |
         # EAC
         _(?P<eac>EAC)
@@ -70,7 +70,7 @@ VK_FORMAT
         (?:_(?P<plane_count>[23])PLANE)?
         (?:_(?P<chroma>420|422|444))?
         _(?P<numeric_format>USCALED|UINT|UFLOAT|SINT|SFLOAT|SSCALED|SRGB|SNORM|UNORM|BOOL)
-        (?:_(?P<batch>[234])?PACK(?P<pack>8|16|32))?
+        (?:_(?:(?P<batch>[234])?PACK(?P<pack>8|16|32)|(?:FPENCODING_(?P<fpencoding>BFLOAT16|FLOAT8E4M3|FLOAT8E5M2))))?
         (?:_(?P<vendor>KHR|ARM))?
 )
 """,

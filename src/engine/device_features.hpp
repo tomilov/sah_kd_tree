@@ -18,6 +18,7 @@ using DeviceFeatures = vk::StructureChain<
     vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
     vk::PhysicalDeviceMeshShaderFeaturesEXT,
     vk::PhysicalDeviceDescriptorBufferFeaturesEXT,
+    vk::PhysicalDeviceDescriptorHeapFeaturesEXT,
     vk::PhysicalDeviceFragmentShaderBarycentricFeaturesKHR,
     vk::PhysicalDeviceRobustness2FeaturesKHR,
     vk::PhysicalDeviceShaderClockFeaturesKHR,
@@ -25,7 +26,9 @@ using DeviceFeatures = vk::StructureChain<
     vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR,
     vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR,
     vk::PhysicalDeviceShaderQuadControlFeaturesKHR,
-    vk::PhysicalDeviceMaintenance9FeaturesKHR
+    vk::PhysicalDeviceShaderRelaxedExtendedInstructionFeaturesKHR,
+    vk::PhysicalDeviceMaintenance9FeaturesKHR,
+    vk::PhysicalDeviceMaintenance10FeaturesKHR
 >;
 // clang-format on
 

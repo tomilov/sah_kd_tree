@@ -25,6 +25,14 @@
 namespace viewer
 {
 
+struct Settings
+{
+    bool indexTypeUint8Enabled = false;
+    engine::DescriptorManagementKind descriptorManagementKind = engine::DescriptorManagementKind::Buffer;
+    bool multiDrawIndirectEnabled = true;
+    bool drawIndirectCountEnabled = true;
+};
+
 struct SceneResources final
 {
     std::vector<vk::DrawIndexedIndirectCommand> instances;
@@ -39,7 +47,7 @@ struct SceneResources final
     std::optional<engine::Buffer<void>> indexBuffer;
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const;
 };
 
 struct OffscreenRenderPass final
@@ -109,7 +117,7 @@ struct DrawOffscreenResources final : utils::OneTime<DrawOffscreenResources>
     {}
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName();
-    [[nodiscard]] DescriptorInfo getDescriptorInfo(bool descriptorBufferEnabled) const;
+    [[nodiscard]] DescriptorInfo getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const;
 };
 
 struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
@@ -135,21 +143,13 @@ struct TraceFrameResources final : utils::OneTime<TraceFrameResources>
 
     [[nodiscard]] static engine::DescriptorBindingNameAndType getBindingName(bool target);
     [[nodiscard]] DescriptorInfo getDescriptorInfo(
-        bool descriptorBufferEnabled,
+        engine::DescriptorManagementKind descriptorManagementKind,
         bool target) const;
 };
 
 class Engine final : utils::NonCopyable
 {
 public:
-    struct Settings
-    {
-        bool indexTypeUint8Enabled = false;
-        bool descriptorBufferEnabled = false;
-        bool multiDrawIndirectEnabled = true;
-        bool drawIndirectCountEnabled = true;
-    };
-
     Engine(
         const engine::Context & context,
         const Settings & settings);
@@ -193,7 +193,7 @@ public:
         const Resource & resource,
         Args &&... args) const
     {
-        return makeDescriptors(name, std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorBufferEnabled, std::forward<Args>(args)...)});
+        return makeDescriptors(name, std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorManagementKind, std::forward<Args>(args)...)});
     }
 
 private:

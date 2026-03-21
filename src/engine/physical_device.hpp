@@ -50,6 +50,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
         vk::PhysicalDeviceMeshShaderPropertiesEXT,
         vk::PhysicalDeviceDescriptorBufferPropertiesEXT,
+        vk::PhysicalDeviceDescriptorHeapPropertiesEXT,
         vk::PhysicalDeviceFragmentShaderBarycentricPropertiesKHR,
         vk::PhysicalDeviceRobustness2PropertiesEXT,
         vk::PhysicalDeviceComputeShaderDerivativesPropertiesKHR,
@@ -101,9 +102,13 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceComputeShaderDerivativesFeaturesKHR::computeDerivativeGroupQuads,
         &vk::PhysicalDeviceShaderMaximalReconvergenceFeaturesKHR::shaderMaximalReconvergence,
         &vk::PhysicalDeviceShaderQuadControlFeaturesKHR::shaderQuadControl,
+        &vk::PhysicalDeviceShaderRelaxedExtendedInstructionFeaturesKHR::shaderRelaxedExtendedInstruction,
         &vk::PhysicalDeviceMaintenance9FeaturesKHR::maintenance9
     >;
-    using OptionalFeatures = FeatureList<>;
+    using OptionalFeatures = FeatureList<
+        &vk::PhysicalDeviceDescriptorHeapFeaturesEXT::descriptorHeap,
+        &vk::PhysicalDeviceMaintenance10FeaturesKHR::maintenance10
+    >;
 
     static constexpr std::initializer_list<const char *> kRequiredExtensions = {
         vk::KHRPipelineLibraryExtensionName,
@@ -117,13 +122,19 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::KHRRayTracingMaintenance1ExtensionName,
         vk::KHRDeferredHostOperationsExtensionName,
         vk::EXTMeshShaderExtensionName,
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         vk::EXTDescriptorBufferExtensionName,
+#pragma GCC diagnostic pop
+        vk::EXTDescriptorHeapExtensionName,
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::KHRExternalMemoryFdExtensionName,
         vk::KHRComputeShaderDerivativesExtensionName,
         vk::KHRShaderMaximalReconvergenceExtensionName,
         vk::KHRShaderQuadControlExtensionName,
-        vk::KHRMaintenance9ExtensionName
+        vk::KHRShaderRelaxedExtendedInstructionExtensionName,
+        vk::KHRMaintenance9ExtensionName,
+        vk::KHRMaintenance10ExtensionName,
     };
     // clang-format on
 

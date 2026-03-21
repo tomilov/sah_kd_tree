@@ -82,7 +82,7 @@ std::initializer_list<uint32_t> EngineWrapper::getMutedMessageIdNumbers()
 
 void EngineWrapper::init()
 {
-    impl_->engine.emplace(impl_->context, Engine::Settings{});
+    impl_->engine.emplace(impl_->context, Settings{});
 }
 
 const Engine & EngineWrapper::getEngine() const

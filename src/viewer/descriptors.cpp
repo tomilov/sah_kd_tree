@@ -19,12 +19,12 @@ namespace viewer
 Descriptors::Descriptors(
     std::string_view nameIn,
     const engine::Context & contextIn,
-    bool descriptorBufferEnabledIn,
+    engine::DescriptorManagementKind descriptorManagementKindIn,
     std::shared_ptr<const engine::ShaderStages> shaderStagesIn,
     uint32_t setIn)
     : name{nameIn}
     , context{contextIn}
-    , descriptorBufferEnabled{descriptorBufferEnabledIn}
+    , descriptorManagementKind{descriptorManagementKindIn}
     , shaderStages{std::move(shaderStagesIn)}
     , set{setIn}
     , descriptors{createDescriptors()}
@@ -32,16 +32,24 @@ Descriptors::Descriptors(
 
 void Descriptors::fill(std::span<const DescriptorInfo> descriptorInfos) const
 {
-    if (descriptorBufferEnabled) {
-        fillDescriptorBuffer(std::get<DescriptorBuffer>(descriptors), descriptorInfos);
-    } else {
+    switch (descriptorManagementKind) {
+    case engine::DescriptorManagementKind::Sets: {
         fillDescriptorSet(std::get<engine::DescriptorSet>(descriptors), descriptorInfos);
+        break;
+    }
+    case engine::DescriptorManagementKind::Buffer: {
+        fillDescriptorBuffer(std::get<DescriptorBuffer>(descriptors), descriptorInfos);
+        break;
+    }
+    case engine::DescriptorManagementKind::Heap: {
+        // TODO:
+    }
     }
 }
 
 size_t Descriptors::getHash() const
 {
-    return utils::getHash(descriptorBufferEnabled, shaderStages, set);
+    return utils::getHash(std::to_underlying(descriptorManagementKind), shaderStages, set);
 }
 
 engine::DescriptorSet Descriptors::createDescriptorSet() const
@@ -81,14 +89,27 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
     return descriptorBuffer;
 }
 
+DescriptorHeap Descriptors::createDescriptorHeap() const
+{
+    return {};
+}
+
 auto Descriptors::createDescriptors() const -> std::variant<
     engine::DescriptorSet,
-    DescriptorBuffer>
+    DescriptorBuffer,
+    DescriptorHeap>
 {
-    if (descriptorBufferEnabled) {
+    switch (descriptorManagementKind) {
+    case engine::DescriptorManagementKind::Sets: {
+        return createDescriptorSet();
+    }
+    case engine::DescriptorManagementKind::Buffer: {
         return createDescriptorBuffer();
     }
-    return createDescriptorSet();
+    case engine::DescriptorManagementKind::Heap: {
+        return createDescriptorHeap();
+    }
+    }
 }
 
 void Descriptors::fillDescriptorSet(
@@ -311,6 +332,13 @@ void Descriptors::fillDescriptorBuffer(
         ASSERT(bindingOffset + descriptorSize <= descriptorBuffer.base().getSize());
         device.getHandle().getDescriptorEXT(&descriptorGetInfo, descriptorSize, descriptorSetBufferData + bindingOffset, dispatcher);
     }
+}
+
+void Descriptors::fillDescriptorHeap(
+    [[maybe_unused]] const DescriptorHeap & descriptorHeap,
+    [[maybe_unused]] std::span<const DescriptorInfo> descriptorHeapInfos) const
+{
+    // TODO:
 }
 
 }  // namespace viewer

@@ -8,6 +8,7 @@
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/demangle.hpp>
 
 #include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
@@ -218,7 +219,7 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(
         }
         if (!isFeatureAvailable) {
             (void)deviceName;
-            SPDLOG_DEBUG("{}: feature {}.#{} is not available", deviceName, typeid(Features).name(), i);
+            SPDLOG_DEBUG("{}: feature {}.#{} is not available", deviceName, utils::demangle(typeid(Features).name()), i);
         }
         areAllFeaturesAvailable = isFeatureAvailable;
     };
@@ -241,7 +242,6 @@ bool PhysicalDevice::checkPhysicalDeviceRequirements(
     checkFeatures(std::add_pointer_t<OptionalFeatures>{});
     if (!areAllFeaturesAvailable) {
         SPDLOG_DEBUG("{}: not all optional features available", deviceName);
-        return false;
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);

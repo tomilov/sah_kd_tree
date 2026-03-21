@@ -8,6 +8,14 @@ struct Library;
 struct Instance;
 struct PhysicalDevice;
 struct PhysicalDevices;
+
+enum class DescriptorManagementKind
+{
+    Sets,
+    Buffer,
+    Heap,
+};
+
 struct Device;
 class MemoryAllocator;
 struct QueueCreateInfo;

@@ -35,21 +35,35 @@ engine::DescriptorBindingNameAndType SceneResources::getBindingName()
     return {"transformBuffer"s, vk::DescriptorType::eStorageBuffer};
 }
 
-[[nodiscard]] DescriptorInfo SceneResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+[[nodiscard]] DescriptorInfo SceneResources::getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const
 {
-    const auto getDescriptorData = [this, descriptorBufferEnabled]
+    const auto getDescriptorData = [this, descriptorManagementKind]
     {
         if (!transformBuffer) {
-            if (descriptorBufferEnabled) {  // requires nullDescriptor
+            switch (descriptorManagementKind) {
+            case engine::DescriptorManagementKind::Sets: {
+                return DescriptorData{std::in_place_type<DescriptorSetData>, vk::DescriptorBufferInfo{}};
+            }
+            case engine::DescriptorManagementKind::Buffer: {
                 return DescriptorData{std::in_place_type<DescriptorBufferData>};
             }
-            return DescriptorData{std::in_place_type<DescriptorSetData>, vk::DescriptorBufferInfo{}};
+            case engine::DescriptorManagementKind::Heap: {
+                return DescriptorData{std::in_place_type<DescriptorHeapData>};
+            }
+            }
         }
         const auto & t = transformBuffer.value().base();
-        if (descriptorBufferEnabled) {
+        switch (descriptorManagementKind) {
+        case engine::DescriptorManagementKind::Sets: {
+            return DescriptorData{std::in_place_type<DescriptorSetData>, t.getDescriptorBufferInfo()};
+        }
+        case engine::DescriptorManagementKind::Buffer: {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, t.getDescriptorAddressInfo()};
         }
-        return DescriptorData{std::in_place_type<DescriptorSetData>, t.getDescriptorBufferInfo()};
+        case engine::DescriptorManagementKind::Heap: {
+            return DescriptorData{std::in_place_type<DescriptorHeapData>};
+        }
+        }
     };
     return {getBindingName(), getDescriptorData()};
 }
@@ -240,7 +254,7 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
     return {"display"s, vk::DescriptorType::eCombinedImageSampler};
 }
 
-[[nodiscard]] DescriptorInfo DrawOffscreenResources::getDescriptorInfo(bool descriptorBufferEnabled) const
+[[nodiscard]] DescriptorInfo DrawOffscreenResources::getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const
 {
     ASSERT(sampler);
     ASSERT(*sampler);
@@ -250,12 +264,19 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
         .imageView = *framebuffer.colorImageView,
         .imageLayout = OffscreenRenderPass::kExternalColorImageLayout,
     };
-    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]
+    const auto getDescriptorData = [descriptorManagementKind, &descriptorImageInfo]
     {
-        if (descriptorBufferEnabled) {
+        switch (descriptorManagementKind) {
+        case engine::DescriptorManagementKind::Sets: {
+            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
+        }
+        case engine::DescriptorManagementKind::Buffer: {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
         }
-        return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
+        case engine::DescriptorManagementKind::Heap: {
+            return DescriptorData{std::in_place_type<DescriptorHeapData>};
+        }
+        }
     };
     return {getBindingName(), getDescriptorData()};
 }
@@ -291,7 +312,7 @@ engine::DescriptorBindingNameAndType TraceFrameResources::getBindingName(bool ta
 }
 
 DescriptorInfo TraceFrameResources::getDescriptorInfo(
-    bool descriptorBufferEnabled,
+    engine::DescriptorManagementKind descriptorManagementKind,
     bool target) const
 {
     ASSERT(sampler);
@@ -301,12 +322,20 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(
         .imageView = *imageView,
         .imageLayout = target ? kInternalImageLayout : kExternalImageLayout,
     };
-    const auto getDescriptorData = [descriptorBufferEnabled, &descriptorImageInfo]
+    const auto getDescriptorData = [descriptorManagementKind, &descriptorImageInfo]
     {
-        if (descriptorBufferEnabled) {
+        switch (descriptorManagementKind) {
+        case engine::DescriptorManagementKind::Sets: {
+            return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
+            break;
+        }
+        case engine::DescriptorManagementKind::Buffer: {
             return DescriptorData{std::in_place_type<DescriptorBufferData>, descriptorImageInfo};
         }
-        return DescriptorData{std::in_place_type<DescriptorSetData>, descriptorImageInfo};
+        case engine::DescriptorManagementKind::Heap: {
+            return DescriptorData{std::in_place_type<DescriptorHeapData>};
+        }
+        }
     };
     return {getBindingName(target), getDescriptorData()};
 }
@@ -317,7 +346,7 @@ Engine::Engine(
     : context{contextIn}
     , settings{settingsIn}
     , pipelines{context,
-          settings.descriptorBufferEnabled}
+          settings.descriptorManagementKind}
 {
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
@@ -325,8 +354,12 @@ Engine::Engine(
             INVARIANT(false, "");
         }
     }
-    if (settings.descriptorBufferEnabled) {
+    if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Buffer) {
         if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == vk::False) {
+            INVARIANT(false, "");
+        }
+    } else if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Heap) {
+        if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap == vk::False) {
             INVARIANT(false, "");
         }
     }
@@ -352,7 +385,7 @@ auto Engine::createUniformBuffer(size_t uniformBufferSize) const -> engine::Buff
     vk::BufferCreateInfo uniformBufferCreateInfo;
     uniformBufferCreateInfo.size = uniformBufferSize;
     uniformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
-    if (settings.descriptorBufferEnabled) {
+    if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Buffer) {
         uniformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
     auto uniformBufferName = fmt::format("Uniform buffer");
@@ -559,7 +592,7 @@ Descriptors Engine::makeDescriptors(
         }
         ++shaderBindingName;
     }
-    Descriptors descriptors{name, context, settings.descriptorBufferEnabled, std::move(shaderStages), set};
+    Descriptors descriptors{name, context, settings.descriptorManagementKind, std::move(shaderStages), set};
     descriptors.fill(descriptorInfos);
     return descriptors;
 }
@@ -575,7 +608,7 @@ auto Engine::createTransformBuffer(
     vk::BufferCreateInfo transformBufferCreateInfo;
     transformBufferCreateInfo.size = instanceCount * sizeof(glm::mat4);
     transformBufferCreateInfo.usage = vk::BufferUsageFlagBits::eStorageBuffer;
-    if (settings.descriptorBufferEnabled) {
+    if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Buffer) {
         transformBufferCreateInfo.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
     engine::Buffer<glm::mat4> transformBuffer{context.getMemoryAllocator().createStagingBuffer("transforms"sv, transformBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal)};

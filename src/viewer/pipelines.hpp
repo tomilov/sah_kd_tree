@@ -62,15 +62,15 @@ public:
         std::string_view name,
         const engine::Context & context,
         std::shared_ptr<const engine::FileIo> fileIo,
-        bool descriptorBufferEnabled);
+        engine::DescriptorManagementKind descriptorManagementKind);
 
     [[nodiscard]] static std::shared_ptr<Shaders> make(
         std::string_view name,
         const engine::Context & context,
         std::shared_ptr<const engine::FileIo> fileIo,
-        bool descriptorBufferEnabled)
+        engine::DescriptorManagementKind descriptorManagementKind)
     {
-        return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorBufferEnabled);
+        return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorManagementKind);
     }
 
     void addShader(
@@ -78,9 +78,9 @@ public:
         std::string_view entryPoint = kDefaultEntryPoint);
     void create();
 
-    [[nodiscard]] bool getDescriptorBufferEnabled() const
+    [[nodiscard]] engine::DescriptorManagementKind getDescriptorManagementKind() const
     {
-        return descriptorBufferEnabled;
+        return descriptorManagementKind;
     }
 
     [[nodiscard]] const std::vector<ShaderModule> & getShaderModules() const &
@@ -115,7 +115,7 @@ private:
     std::string name;
     const engine::Context & context;
     std::shared_ptr<const engine::FileIo> fileIo;
-    const bool descriptorBufferEnabled;
+    const engine::DescriptorManagementKind descriptorManagementKind;
 
     std::vector<ShaderModule> shaderModules;
     engine::ShaderStages shaderStages;
@@ -135,7 +135,7 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
         std::string_view name,
         const engine::Context & context,
         vk::PipelineCache pipelineCache,
-        bool descriptorBufferEnabled,
+        engine::DescriptorManagementKind descriptorManagementKind,
         vk::RenderPass renderPass,
         engine::SpecializationInfos && specializationInfos);
 };
@@ -153,7 +153,7 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
         std::string_view name,
         const engine::Context & context,
         vk::PipelineCache pipelineCache,
-        bool descriptorBufferEnabled,
+        engine::DescriptorManagementKind descriptorManagementKind,
         engine::SpecializationInfos && specializationInfos);
 };
 
@@ -162,7 +162,7 @@ class Pipelines : utils::OneTime<Pipelines>
 public:
     explicit Pipelines(
         const engine::Context & context,
-        bool descriptorBufferEnabled);
+        engine::DescriptorManagementKind descriptorManagementKind);
     Pipelines(Pipelines && rhs) noexcept = default;
     ~Pipelines();
 
@@ -177,7 +177,7 @@ public:
 
 private:
     const engine::Context & context;
-    const bool descriptorBufferEnabled;
+    const engine::DescriptorManagementKind descriptorManagementKind;
 
     std::shared_ptr<engine::FileIo> fileIo;
     engine::PipelineCache pipelineCache;

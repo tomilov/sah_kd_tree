@@ -38,16 +38,16 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
         std::string_view name,
         const Context & context,
         vk::PipelineCache pipelineCache,
-        bool descriptorBufferEnabled,
+        DescriptorManagementKind descriptorManagementKind,
         const PipelineLayout & pipelineLayout,
         vk::RenderPass renderPass,
         SpecializationInfos && specializationInfos);
 
     void create();
 
-    [[nodiscard]] bool getUseDescriptorBuffer() const
+    [[nodiscard]] DescriptorManagementKind getDescriptorManagementKind() const
     {
-        return descriptorBufferEnabled;
+        return descriptorManagementKind;
     }
 
     [[nodiscard]] vk::RenderPass getRenderPass() const
@@ -70,7 +70,7 @@ private:
     std::string name;
     const Context & context;
     const vk::PipelineCache pipelineCache;
-    const bool descriptorBufferEnabled;
+    const DescriptorManagementKind descriptorManagementKind;
     const vk::RenderPass renderPass;
 
     SpecializationInfos specializationInfos;

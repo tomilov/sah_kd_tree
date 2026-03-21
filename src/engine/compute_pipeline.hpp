@@ -24,15 +24,15 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
         std::string_view name,
         const Context & context,
         vk::PipelineCache pipelineCache,
-        bool descriptorBufferEnabled,
+        DescriptorManagementKind descriptorManagementKind,
         const PipelineLayout & pipelineLayout,
         SpecializationInfos && specializationInfos);
 
     void create();
 
-    [[nodiscard]] bool getUseDescriptorBuffer() const
+    [[nodiscard]] DescriptorManagementKind getDescriptorManagementKind() const
     {
-        return descriptorBufferEnabled;
+        return descriptorManagementKind;
     }
 
     [[nodiscard]] vk::Pipeline getHandle() const &
@@ -50,7 +50,7 @@ private:
     std::string name;
     const Context & context;
     const vk::PipelineCache pipelineCache;
-    const bool descriptorBufferEnabled;
+    const DescriptorManagementKind descriptorManagementKind;
 
     SpecializationInfos specializationInfos;
     vk::UniquePipeline pipeline;
