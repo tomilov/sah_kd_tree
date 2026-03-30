@@ -182,7 +182,7 @@ format: venv
 	git add --update
 	git clang-format \
 	    --binary=$(CLANG_FMT) \
-	    --extensions=cpp,hpp,cu,cuh,cu.inl,js \
+	    --extensions=cpp,hpp,cu,cuh,inl.cu,js \
 	    $(GIT_FIRST_COMMIT) \
 	|| true
 	git status

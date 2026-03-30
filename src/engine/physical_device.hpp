@@ -170,7 +170,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 
     [[nodiscard]] vk::Format findDepthImageFormat(vk::ImageTiling imageTiling) const;
     [[nodiscard]] vk::DeviceSize getMinAlignment() const;
-    [[nodiscard]] size_t getDescriptorSize(vk::DescriptorType descriptorType) const;
+    [[nodiscard]] size_t getDescriptorBufferDescriptorSize(vk::DescriptorType descriptorType) const;
 
     [[nodiscard]] uint32_t findMemoryTypeIndex(
         uint32_t memoryTypeBits,

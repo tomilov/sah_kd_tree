@@ -1,4 +1,4 @@
-#include <sah_kd_tree/calculate_rope.cu.inl>
+#include <sah_kd_tree/calculate_rope.inl.cu>
 
 namespace sah_kd_tree
 {

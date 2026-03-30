@@ -10,6 +10,8 @@ namespace fuzzer
 using U = unsigned int;
 using F = float;
 
+#pragma pack(push, 1)
+
 struct Params
 {
     F emptinessFactor;
@@ -53,6 +55,8 @@ struct Triangle
 };
 static_assert(std::is_standard_layout_v<Triangle>);
 static_assert(std::is_trivially_copyable_v<Triangle>);
+
+#pragma pack(pop)
 
 void testOneInput(
     const Params & p,

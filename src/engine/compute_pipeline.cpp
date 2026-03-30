@@ -25,12 +25,27 @@ ComputePipeline::ComputePipeline(
     , descriptorManagementKind{descriptorManagementKindIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
-    computePipelineCreateInfo.flags = {};  // TODO: eDispatchBase?
-    if (descriptorManagementKind == DescriptorManagementKind::Buffer) {
-        computePipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
+    {
+        auto & pipelineCreateFlags2CreateInfo = computePipelineCreateInfoChain.get<vk::PipelineCreateFlags2CreateInfo>();
+        switch (descriptorManagementKind) {
+        case DescriptorManagementKind::Sets: {
+            break;
+        }
+        case DescriptorManagementKind::Buffer: {
+            pipelineCreateFlags2CreateInfo.flags |= vk::PipelineCreateFlagBits2::eDescriptorBufferEXT;
+            break;
+        }
+        case DescriptorManagementKind::Heap: {
+            pipelineCreateFlags2CreateInfo.flags |= vk::PipelineCreateFlagBits2::eDescriptorHeapEXT;
+            break;
+        }
+        }
+    }
+    auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
+    if (descriptorManagementKind != DescriptorManagementKind::Heap) {
+        computePipelineCreateInfo.layout = pipelineLayout;
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
-    computePipelineCreateInfo.layout = pipelineLayout;
     INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
     INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
@@ -41,6 +56,7 @@ ComputePipeline::ComputePipeline(
 
 void ComputePipeline::create()
 {
+    auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
     auto result = context.getDevice().getHandle().createComputePipelineUnique(pipelineCache, computePipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create compute pipeline {}", name);
     pipeline = std::move(result.value);

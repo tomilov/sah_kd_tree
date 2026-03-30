@@ -59,8 +59,8 @@ public:
         QByteArray>
     roleNames() const override;
 
-    [[nodiscard]] int rowCount(const QModelIndex & parent = {}) const override;
-    [[nodiscard]] int columnCount(const QModelIndex & parent = {}) const override;
+    [[nodiscard]] int rowCount(const QModelIndex & parent = {}) const override;     // NOLINT: google-default-arguments
+    [[nodiscard]] int columnCount(const QModelIndex & parent = {}) const override;  // NOLINT: google-default-arguments
 
     void multiData(
         const QModelIndex & index,

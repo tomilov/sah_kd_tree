@@ -389,7 +389,7 @@ vk::DeviceSize PhysicalDevice::getMinAlignment() const
     return physicalDeviceLimits.nonCoherentAtomSize;
 }
 
-size_t PhysicalDevice::getDescriptorSize(vk::DescriptorType descriptorType) const
+size_t PhysicalDevice::getDescriptorBufferDescriptorSize(vk::DescriptorType descriptorType) const
 {
     const vk::Bool32 robustBufferAccess = features2Chain.get<vk::PhysicalDeviceFeatures2>().features.robustBufferAccess;
     const auto & physicalDeviceDescriptorBufferProperties = properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>();

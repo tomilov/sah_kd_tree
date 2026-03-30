@@ -32,7 +32,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
     vk::PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo;
     vk::PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo;
     vk::PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo;
-    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
+    vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineCreateFlags2CreateInfo> graphicsPipelineCreateInfoChain;
 
     GraphicsPipeline(
         std::string_view name,

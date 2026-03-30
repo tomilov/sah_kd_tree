@@ -35,9 +35,12 @@ using DescriptorInfo = std::tuple<engine::DescriptorBindingNameAndType, Descript
 using DescriptorInfos = std::vector<DescriptorInfo>;
 
 using DescriptorBuffer = engine::Buffer<std::byte>;
+
 struct DescriptorHeap
 {
-};  // TODO:
+    std::optional<engine::Buffer<std::byte>> resources;
+    std::optional<engine::Buffer<std::byte>> samplers;
+};
 
 class Descriptors : utils::OneTime<Descriptors>
 {

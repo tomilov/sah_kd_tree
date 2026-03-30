@@ -1,4 +1,4 @@
-#include <sah_kd_tree/merge_event.cu.inl>
+#include <sah_kd_tree/merge_event.inl.cu>
 
 template void sah_kd_tree::Projection<>::mergeEvent(
     U polygonCount,

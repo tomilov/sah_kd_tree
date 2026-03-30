@@ -1,4 +1,4 @@
-#include <sah_kd_tree/select_node_best_split.cu.inl>
+#include <sah_kd_tree/select_node_best_split.inl.cu>
 
 template void sah_kd_tree::Builder<>::selectNodeBestSplit(
     const Params<> & sah,

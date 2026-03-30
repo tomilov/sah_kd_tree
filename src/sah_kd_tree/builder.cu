@@ -1,4 +1,4 @@
-#include <sah_kd_tree/builder.cu.inl>
+#include <sah_kd_tree/builder.inl.cu>
 
 template bool sah_kd_tree::Builder<>::build<>(
     const Progress & progress,

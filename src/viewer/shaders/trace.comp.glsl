@@ -323,6 +323,7 @@ void main() [[maximally_reconverges]]
     traceRay(nodeIndex, ray, hit, tNear);
     vec4 color;
     if (hit.triangle != ~0u) {
+        hit.uvw = hit.uvw.yzx; //
         if (0.0f < wireframeThickness) {
             vec3 ddx;
             vec3 ddy;

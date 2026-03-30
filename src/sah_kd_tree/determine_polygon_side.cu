@@ -1,4 +1,4 @@
-#include <sah_kd_tree/determine_polygon_side.cu.inl>
+#include <sah_kd_tree/determine_polygon_side.inl.cu>
 
 namespace sah_kd_tree
 {

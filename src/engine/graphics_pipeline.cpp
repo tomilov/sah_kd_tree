@@ -100,9 +100,21 @@ GraphicsPipeline::GraphicsPipeline(
     };
     pipelineDynamicStateCreateInfo.setDynamicStates(dynamicStates);
 
-    graphicsPipelineCreateInfo.flags = {};
-    if (descriptorManagementKind == DescriptorManagementKind::Buffer) {
-        graphicsPipelineCreateInfo.flags |= vk::PipelineCreateFlagBits::eDescriptorBufferEXT;
+    {
+        auto & pipelineCreateFlags2CreateInfo = graphicsPipelineCreateInfoChain.get<vk::PipelineCreateFlags2CreateInfo>();
+        switch (descriptorManagementKind) {
+        case DescriptorManagementKind::Sets: {
+            break;
+        }
+        case DescriptorManagementKind::Buffer: {
+            pipelineCreateFlags2CreateInfo.flags |= vk::PipelineCreateFlagBits2::eDescriptorBufferEXT;
+            break;
+        }
+        case DescriptorManagementKind::Heap: {
+            pipelineCreateFlags2CreateInfo.flags |= vk::PipelineCreateFlagBits2::eDescriptorHeapEXT;
+            break;
+        }
+        }
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     pipelineShaderStageCreateInfos = shaderStages.pipelineShaderStageCreateInfos;
@@ -114,6 +126,7 @@ GraphicsPipeline::GraphicsPipeline(
             pipelineShaderStageCreateInfo.setPSpecializationInfo(&specializationInfo->second.getSpecializationInfo());
         }
     }
+    auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>();
     graphicsPipelineCreateInfo.setStages(pipelineShaderStageCreateInfos);
     if (shaderStages.vertexInputState) {
         graphicsPipelineCreateInfo.pVertexInputState = &shaderStages.vertexInputState->pipelineVertexInputStateCreateInfo;
@@ -126,7 +139,9 @@ GraphicsPipeline::GraphicsPipeline(
     graphicsPipelineCreateInfo.pDepthStencilState = &pipelineDepthStencilStateCreateInfo;
     graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
     graphicsPipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
-    graphicsPipelineCreateInfo.layout = pipelineLayout;
+    if (descriptorManagementKind != DescriptorManagementKind::Heap) {
+        graphicsPipelineCreateInfo.layout = pipelineLayout;
+    }
     graphicsPipelineCreateInfo.renderPass = renderPass;
     graphicsPipelineCreateInfo.subpass = 0;
     graphicsPipelineCreateInfo.basePipelineHandle = nullptr;
@@ -135,6 +150,7 @@ GraphicsPipeline::GraphicsPipeline(
 
 void GraphicsPipeline::create()
 {
+    auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>();
     auto result = context.getDevice().getHandle().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value);

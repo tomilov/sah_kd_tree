@@ -947,7 +947,6 @@ Renderer::Impl::Impl(
 
 std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
 {
-    float maxSamplerAnisotropy = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxSamplerAnisotropy;
     vk::SamplerCreateInfo samplerCreateInfo = {
         .flags = {},
         .magFilter = vk::Filter::eLinear,
@@ -958,7 +957,7 @@ std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
         .addressModeW = vk::SamplerAddressMode::eRepeat,
         .mipLodBias = 0.0f,
         .anisotropyEnable = vk::False,
-        .maxAnisotropy = maxSamplerAnisotropy,
+        .maxAnisotropy = 1.0f,  // 1.0f..maxSamplerAnisotropy
         .compareEnable = vk::False,
         .compareOp = vk::CompareOp::eNever,
         .minLod = 0.0f,

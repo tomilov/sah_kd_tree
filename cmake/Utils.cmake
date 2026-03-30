@@ -91,6 +91,23 @@ function(skt_generate_export_header target base_name)
     endif()
 endfunction()
 
+function(skt_mark_as_headers TARGET EXTENSION)
+    get_target_property(ALL_SOURCES "${TARGET}" SOURCES)
+    if(NOT ALL_SOURCES)
+        return()
+    endif()
+    string(REPLACE "." "\\." ESCAPED_EXTENSION "${EXTENSION}")
+    list(FILTER ALL_SOURCES INCLUDE REGEX "${ESCAPED_EXTENSION}$")
+    if(NOT ALL_SOURCES)
+        return()
+    endif()
+    set_source_files_properties(
+        ${ALL_SOURCES}
+        PROPERTIES
+            HEADER_FILE_ONLY TRUE
+    )
+endfunction()
+
 function(skt_add_library)
     cmake_parse_arguments(
         "arg"
@@ -110,6 +127,7 @@ function(skt_add_library)
     else()
         add_library("${arg_TARGET}")
     endif()
+    skt_mark_as_headers("${arg_TARGET}" ".inl.cu")
     string(REGEX REPLACE "^lib" "" output_name "${arg_TARGET}")
     set_target_properties(
         "${arg_TARGET}"
@@ -161,6 +179,7 @@ function(skt_add_executable)
     if(NOT arg_EXTERNAL)
         add_executable("${arg_TARGET}")
     endif()
+    skt_mark_as_headers("${arg_TARGET}" ".inl.cu")
     if(NOT DEFINED arg_MAIN_SOURCE)
         set(arg_MAIN_SOURCE "main.cpp")
     endif()

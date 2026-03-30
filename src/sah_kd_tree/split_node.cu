@@ -1,4 +1,4 @@
-#include <sah_kd_tree/split_node.cu.inl>
+#include <sah_kd_tree/split_node.inl.cu>
 
 namespace sah_kd_tree
 {

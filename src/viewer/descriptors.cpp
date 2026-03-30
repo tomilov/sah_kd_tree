@@ -60,7 +60,6 @@ engine::DescriptorSet Descriptors::createDescriptorSet() const
 DescriptorBuffer Descriptors::createDescriptorBuffer() const
 {
     const auto descriptorBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorBufferPropertiesEXT>().descriptorBufferOffsetAlignment;
-    auto alignment = std::max(context.getPhysicalDevice().getMinAlignment(), descriptorBufferOffsetAlignment);
     const auto & setBindings = shaderStages->setBindingMap.at(set);
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
     vk::BufferCreateInfo descriptorBufferCreateInfo;
@@ -84,14 +83,83 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
         }
     }
     auto descriptorBufferName = fmt::format("{} (set #{})", name, set);
-    auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, alignment);
+    auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorBufferOffsetAlignment);
 
     return descriptorBuffer;
 }
 
 DescriptorHeap Descriptors::createDescriptorHeap() const
 {
-    return {};
+    DescriptorHeap descriptorHeap;
+    const auto & descriptorHeapProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+    const auto & setBindings = shaderStages->setBindingMap.at(set);
+    for (const vk::DescriptorSetLayoutBinding & binding : setBindings.bindings) {
+        // const vk::DeviceSize descriptorSize = context.getPhysicalDevice().getHandle().getDescriptorSizeEXT(binding.descriptorType, context.getDispatcher());
+
+        switch (binding.descriptorType) {
+        case vk::DescriptorType::eSampler: {
+            break;
+        }
+        case vk::DescriptorType::eCombinedImageSampler: {
+            break;
+        }
+        case vk::DescriptorType::eSampledImage:
+        case vk::DescriptorType::eStorageImage:
+        case vk::DescriptorType::eUniformTexelBuffer:
+        case vk::DescriptorType::eStorageTexelBuffer: {
+            break;
+        }
+        case vk::DescriptorType::eUniformBuffer:
+        case vk::DescriptorType::eStorageBuffer:
+        case vk::DescriptorType::eUniformBufferDynamic:
+        case vk::DescriptorType::eStorageBufferDynamic: {
+            break;
+        }
+        case vk::DescriptorType::eInputAttachment: {
+            break;
+        }
+        case vk::DescriptorType::eInlineUniformBlock: {
+            break;
+        }
+        case vk::DescriptorType::eAccelerationStructureKHR: {
+            break;
+        }
+        case vk::DescriptorType::eAccelerationStructureNV: {
+            break;
+        }
+        case vk::DescriptorType::eSampleWeightImageQCOM: {
+            break;
+        }
+        case vk::DescriptorType::eBlockMatchImageQCOM: {
+            break;
+        }
+        case vk::DescriptorType::eTensorARM: {
+            break;
+        }
+        case vk::DescriptorType::eMutableEXT: {
+            break;
+        }
+        case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
+            break;
+        }
+        }
+    }
+
+    {
+        vk::BufferCreateInfo descriptorHeapCreateInfo;
+        descriptorHeapCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eDescriptorHeapEXT;
+        descriptorHeapCreateInfo.size = descriptorHeapProperties.minResourceHeapReservedRange;  // TODO:
+        auto resourcesHeapName = fmt::format("{} (set #{}) resource heap", name, set);
+        auto resources = context.getMemoryAllocator().createStagingBuffer(resourcesHeapName, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.resourceHeapAlignment);
+    }
+    {
+        vk::BufferCreateInfo descriptorHeapCreateInfo;
+        descriptorHeapCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eDescriptorHeapEXT;
+        descriptorHeapCreateInfo.size = descriptorHeapProperties.minSamplerHeapReservedRange;  // TODO:
+        auto samplerHeapName = fmt::format("{} (set #{}) sampler heap", name, set);
+        auto samplers = context.getMemoryAllocator().createStagingBuffer(samplerHeapName, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.samplerHeapAlignment);
+    }
+    return descriptorHeap;
 }
 
 auto Descriptors::createDescriptors() const -> std::variant<
@@ -327,7 +395,7 @@ void Descriptors::fillDescriptorBuffer(
             }
         };
         std::visit(setDescriptorInfo, descriptorBufferData);
-        vk::DeviceSize descriptorSize = context.getPhysicalDevice().getDescriptorSize(descriptorType);
+        vk::DeviceSize descriptorSize = context.getPhysicalDevice().getDescriptorBufferDescriptorSize(descriptorType);
         vk::DeviceSize bindingOffset = device.getHandle().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding->binding, dispatcher);
         ASSERT(bindingOffset + descriptorSize <= descriptorBuffer.base().getSize());
         device.getHandle().getDescriptorEXT(&descriptorGetInfo, descriptorSize, descriptorSetBufferData + bindingOffset, dispatcher);

@@ -18,7 +18,7 @@ namespace engine
 
 struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 {
-    vk::ComputePipelineCreateInfo computePipelineCreateInfo;
+    vk::StructureChain<vk::ComputePipelineCreateInfo, vk::PipelineCreateFlags2CreateInfo> computePipelineCreateInfoChain;
 
     ComputePipeline(
         std::string_view name,
