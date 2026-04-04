@@ -25,7 +25,8 @@ Shaders::Shaders(
     , fileIo{std::move(fileIoIn)}
     , descriptorManagementKind{descriptorManagementKindIn}
     , shaderStages{context,
-          kVertexBufferBinding}
+          kVertexBufferBinding,
+          descriptorManagementKind}
 {}
 
 void Shaders::addShader(

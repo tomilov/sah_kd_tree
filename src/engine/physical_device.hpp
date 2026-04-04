@@ -116,16 +116,15 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         //vk::KHRRobustness2ExtensionName,
         // vk::KHRShaderClockExtensionName,
     };
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     static constexpr std::initializer_list<const char *> kOptionalExtensions = {
         vk::KHRRayTracingPipelineExtensionName,
         vk::KHRAccelerationStructureExtensionName,
         vk::KHRRayTracingMaintenance1ExtensionName,
         vk::KHRDeferredHostOperationsExtensionName,
         vk::EXTMeshShaderExtensionName,
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         vk::EXTDescriptorBufferExtensionName,
-#pragma GCC diagnostic pop
         vk::EXTDescriptorHeapExtensionName,
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::KHRExternalMemoryFdExtensionName,
@@ -136,6 +135,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         vk::KHRMaintenance9ExtensionName,
         vk::KHRMaintenance10ExtensionName,
     };
+#pragma GCC diagnostic pop
     // clang-format on
 
     QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics"};

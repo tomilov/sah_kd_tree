@@ -907,7 +907,7 @@ C.ApplicationWindow {
                                 clearColor: clearColorDialog.selectedColor
                             }
                             cameraController {
-                                sensitivity: sensetivitySpinBox.realValue
+                                sensitivity: sensitivitySpinBox.realValue
                                 speed: sceneSettings.sceneAabbMax.minus(sceneSettings.sceneAabbMin).length() / crossSceneAabbTimeSpinBox.value
                             }
                             cameraView {
@@ -962,7 +962,7 @@ C.ApplicationWindow {
                             property alias traversalCost: sceneSettings.traversalCost
                             property alias intersectionCost: sceneSettings.intersectionCost
                             property alias maxTreeDepth: sceneSettings.maxTreeDepth
-                            property alias sensitivity: sensetivitySpinBox.value
+                            property alias sensitivity: sensitivitySpinBox.value
                             property alias crossSceneAabbTime: crossSceneAabbTimeSpinBox.value
                             property color clearColor
                             function getKeyPrefix(key) {
@@ -1024,7 +1024,7 @@ C.ApplicationWindow {
                                     text: "sensitivity"
                                 }
                                 NumberSpinBox {
-                                    id: sensetivitySpinBox
+                                    id: sensitivitySpinBox
                                     editable: true
                                     decimals: 4
                                     value: decimalToInt(0.0012)

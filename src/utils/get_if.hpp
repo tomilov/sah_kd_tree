@@ -40,7 +40,7 @@ constexpr auto * getIf(
 
 }  // namespace utils
 
-#define GET_IF_MEMBER_ACCESSOR(head)                                                                    \
+#define SKT_GET_IF_MEMBER_ACCESSOR(head)                                                                \
     , ([&]<typename Root>(Root && root) constexpr -> auto && { return std::forward<Root>(root).head; })
 
-#define GET_IF(first, ...) ::utils::getIf(first FOR_EACH(GET_IF_MEMBER_ACCESSOR, __VA_ARGS__))
+#define SKT_GET_IF(first, ...) ::utils::getIf(first SKT_FOR_EACH(SKT_GET_IF_MEMBER_ACCESSOR, __VA_ARGS__))

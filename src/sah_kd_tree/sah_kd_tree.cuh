@@ -15,6 +15,7 @@
 #include <functional>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 #include <cassert>
@@ -48,7 +49,7 @@ struct DefaultTraits
     template<typename T>
     using Vector = thrust::device_vector<T, Allocator<T>>;
     using ComponentIterator = thrust::permutation_iterator<Vector<F>::const_pointer, Vector<U>::const_pointer>;
-    using Exec = decltype(thrust::device);
+    using Exec = std::remove_const_t<decltype(thrust::device)>;
     using Progress = std::function<bool(size_t progressValue)>;
 };
 

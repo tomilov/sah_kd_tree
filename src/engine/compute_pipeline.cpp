@@ -42,11 +42,11 @@ ComputePipeline::ComputePipeline(
         }
     }
     auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
+    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
+    INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     if (descriptorManagementKind != DescriptorManagementKind::Heap) {
         computePipelineCreateInfo.layout = pipelineLayout;
     }
-    const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
-    INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
     INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
     if (!std::empty(specializationInfos)) {

@@ -57,7 +57,7 @@ TEST(
     {
         A a{};
         EXPECT_EQ(utils::getIf(a, &A::b), &a.b);
-        EXPECT_EQ(GET_IF(a, b), &a.b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &a.b);
     }
 
     {
@@ -68,49 +68,49 @@ TEST(
     {
         A a{};
         EXPECT_EQ(utils::getIf(&a, &A::b), &a.b);
-        EXPECT_EQ(GET_IF(&a, b), &a.b);
+        EXPECT_EQ(SKT_GET_IF(&a, b), &a.b);
     }
 
     {
         A * a = nullptr;
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 
     {
         auto a = std::make_optional<A>();
         EXPECT_EQ(utils::getIf(a, &A::b), &a->b);
-        EXPECT_EQ(GET_IF(a, b), &a->b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &a->b);
     }
 
     {
         std::optional<A> a;
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 
     {
         auto a = std::make_unique<A>();
         EXPECT_EQ(utils::getIf(a, &A::b), &a->b);
-        EXPECT_EQ(GET_IF(a, b), &a->b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &a->b);
     }
 
     {
         std::unique_ptr<A> a;
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 
     {
         auto a = std::make_shared<A>();
         EXPECT_EQ(utils::getIf(a, &A::b), &a->b);
-        EXPECT_EQ(GET_IF(a, b), &a->b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &a->b);
     }
 
     {
         const std::shared_ptr<A> a;
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 }
 
@@ -132,32 +132,32 @@ TEST(
 
     auto a = std::make_optional<A>();
     EXPECT_EQ(utils::getIf(a, &A::b, &B::c), a->b->c.get());
-    EXPECT_EQ(GET_IF(a, b, c), a->b->c.get());
+    EXPECT_EQ(SKT_GET_IF(a, b, c), a->b->c.get());
     EXPECT_EQ(utils::getIf(a, &A::b), a->b.get());
-    EXPECT_EQ(GET_IF(a, b), a->b.get());
+    EXPECT_EQ(SKT_GET_IF(a, b), a->b.get());
     EXPECT_EQ(utils::getIf(a), &*a);
-    EXPECT_EQ(GET_IF(a), &*a);
+    EXPECT_EQ(SKT_GET_IF(a), &*a);
     a->b->c.reset();
     EXPECT_EQ(utils::getIf(a, &A::b, &B::c), static_cast<C *>(nullptr));
-    EXPECT_EQ(GET_IF(a, b, c), static_cast<C *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a, b, c), static_cast<C *>(nullptr));
     EXPECT_EQ(utils::getIf(a, &A::b), a->b.get());
-    EXPECT_EQ(GET_IF(a, b), a->b.get());
+    EXPECT_EQ(SKT_GET_IF(a, b), a->b.get());
     EXPECT_EQ(utils::getIf(a), &*a);
-    EXPECT_EQ(GET_IF(a), &*a);
+    EXPECT_EQ(SKT_GET_IF(a), &*a);
     a->b.reset();
     EXPECT_EQ(utils::getIf(a, &A::b, &B::c), static_cast<C *>(nullptr));
-    EXPECT_EQ(GET_IF(a, b, c), static_cast<C *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a, b, c), static_cast<C *>(nullptr));
     EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-    EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     EXPECT_EQ(utils::getIf(a), &*a);
-    EXPECT_EQ(GET_IF(a), &*a);
+    EXPECT_EQ(SKT_GET_IF(a), &*a);
     a.reset();
     EXPECT_EQ(utils::getIf(a, &A::b, &B::c), static_cast<C *>(nullptr));
-    EXPECT_EQ(GET_IF(a, b, c), static_cast<C *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a, b, c), static_cast<C *>(nullptr));
     EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-    EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     EXPECT_EQ(utils::getIf(a), static_cast<A *>(nullptr));
-    EXPECT_EQ(GET_IF(a), static_cast<A *>(nullptr));
+    EXPECT_EQ(SKT_GET_IF(a), static_cast<A *>(nullptr));
 }
 
 TEST(
@@ -175,19 +175,19 @@ TEST(
     {
         A a;
         EXPECT_EQ(utils::getIf(a, &A::b), &**a.b);
-        EXPECT_EQ(GET_IF(a, b), &**a.b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &**a.b);
         a.b->reset();
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 
     {
         A a;
         EXPECT_EQ(utils::getIf(a, &A::b), &**a.b);
-        EXPECT_EQ(GET_IF(a, b), &**a.b);
+        EXPECT_EQ(SKT_GET_IF(a, b), &**a.b);
         a.b.reset();
         EXPECT_EQ(utils::getIf(a, &A::b), static_cast<B *>(nullptr));
-        EXPECT_EQ(GET_IF(a, b), static_cast<B *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(a, b), static_cast<B *>(nullptr));
     }
 }
 
@@ -204,7 +204,7 @@ TEST(
     for (int i = 0; i < 4; ++i) {
         auto p = std::make_optional(std::make_unique<std::shared_ptr<A *>>(std::make_shared<A *>(&a)));
         ASSERT_EQ(utils::getIf(p), &a);
-        ASSERT_EQ(GET_IF(p), &a);
+        ASSERT_EQ(SKT_GET_IF(p), &a);
         switch (i) {
         case 0: {
             ***p = nullptr;
@@ -228,14 +228,14 @@ TEST(
         }
         }
         EXPECT_EQ(utils::getIf(p), static_cast<A *>(nullptr));
-        EXPECT_EQ(GET_IF(p), static_cast<A *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(p), static_cast<A *>(nullptr));
     }
     for (int i = 0; i < 3; ++i) {
         auto * r = &a;
         auto * q = &r;
         auto * p = &q;
         ASSERT_EQ(utils::getIf(p), &a);
-        ASSERT_EQ(GET_IF(p), &a);
+        ASSERT_EQ(SKT_GET_IF(p), &a);
         switch (i) {
         case 0: {
             r = nullptr;
@@ -251,7 +251,7 @@ TEST(
         }
         }
         EXPECT_EQ(utils::getIf(p), static_cast<A *>(nullptr));
-        EXPECT_EQ(GET_IF(p), static_cast<A *>(nullptr));
+        EXPECT_EQ(SKT_GET_IF(p), static_cast<A *>(nullptr));
     }
 }
 
@@ -270,7 +270,7 @@ TEST(
     B b;
     A a{&b};
     EXPECT_EQ(utils::getIf(a, &A::b), &b);
-    EXPECT_EQ(GET_IF(a, b), &b);
+    EXPECT_EQ(SKT_GET_IF(a, b), &b);
 }
 
 TEST(
@@ -320,11 +320,11 @@ TEST(
 
     {
         EXPECT_EQ(utils::getIf(a, &A::f), &a.b);
-        EXPECT_EQ(GET_IF(a, f()), &a.b);
+        EXPECT_EQ(SKT_GET_IF(a, f()), &a.b);
     }
     {
         int c = 321;
-        EXPECT_EQ(GET_IF(a, g(c)), &c);
+        EXPECT_EQ(SKT_GET_IF(a, g(c)), &c);
     }
 }
 
@@ -344,7 +344,7 @@ TEST(
 
     {
         int c = 321;
-        EXPECT_EQ(GET_IF(a, g(c)), &c);
+        EXPECT_EQ(SKT_GET_IF(a, g(c)), &c);
     }
 }
 

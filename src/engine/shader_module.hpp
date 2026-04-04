@@ -146,7 +146,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 
     std::deque<std::string> entryPointNames;
     std::deque<std::string> names;
-    std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT, vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo>> pipelineShaderStageCreateInfoChains;
+    std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT, vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo, vk::ShaderDescriptorSetAndBindingMappingInfoEXT>> pipelineShaderStageCreateInfoChains;
     std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
     std::unique_ptr<VertexInputState> vertexInputState;
@@ -161,7 +161,8 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 
     ShaderStages(
         const Context & context,
-        uint32_t vertexBufferBinding);
+        uint32_t vertexBufferBinding,
+        const DescriptorManagementKind descriptorManagementKind);
 
     bool checkSubgroupSize(
         uint32_t subgroupSize,
@@ -180,6 +181,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
 private:
     const Context & context;
     const uint32_t vertexBufferBinding;
+    const DescriptorManagementKind descriptorManagementKind;
 };
 
 }  // namespace engine

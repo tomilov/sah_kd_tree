@@ -7,6 +7,8 @@
 #include <thrust/system/omp/memory_resource.h>
 #include <thrust/system/omp/vector.h>
 
+#include <type_traits>
+
 namespace builder
 {
 
@@ -21,7 +23,7 @@ struct BuilderContext<ThrustDeviceSystem::OMP>
     template<typename T>
     using Vector = thrust::omp::vector<T, Allocator<T>>;
     using ComponentIterator = thrust::permutation_iterator<Vector<F>::const_pointer, Vector<U>::const_pointer>;
-    using Exec = decltype(thrust::omp::par);
+    using Exec = std::remove_const_t<decltype(thrust::omp::par)>;
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 
     struct TreeContext

@@ -7,6 +7,8 @@
 #include <thrust/system/cpp/memory_resource.h>
 #include <thrust/system/cpp/vector.h>
 
+#include <type_traits>
+
 namespace builder
 {
 
@@ -21,7 +23,7 @@ struct BuilderContext<ThrustDeviceSystem::CPP>
     template<typename T>
     using Vector = thrust::cpp::vector<T, Allocator<T>>;
     using ComponentIterator = thrust::permutation_iterator<Vector<F>::const_pointer, Vector<U>::const_pointer>;
-    using Exec = decltype(thrust::cpp::par);
+    using Exec = std::remove_const_t<decltype(thrust::cpp::par)>;
     using Progress = sah_kd_tree::DefaultTraits::Progress;
 
     struct TreeContext

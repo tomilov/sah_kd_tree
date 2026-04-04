@@ -987,9 +987,7 @@ void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
 
 void Renderer::Impl::setTree(builder::Tree && builderTree)
 {
-    if (traceSceneResourcesAndDescriptors) {
-        traceSceneResourcesAndDescriptors.reset();
-    }
+    unsetTree();
 
     Tree tree{name, context, std::move(builderTree)};
 
@@ -1004,7 +1002,6 @@ void Renderer::Impl::setTree(builder::Tree && builderTree)
     };
     auto descriptors = engine.makeDescriptors("trace"sv, shaders->getShaderStagesPtr(), traceSceneResources);
     traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
-
     SPDLOG_INFO("{}: Tree is set", name);
 }
 
@@ -1110,7 +1107,21 @@ void Renderer::Impl::bindPipeline(
     }
 
     for (const auto & pushConstantRange : shaders.getShaderStages().pushConstantRanges) {
-        commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, std::next(pushConstants, pushConstantRange.offset), context.getDispatcher());
+        if (engine.getSettings().descriptorManagementKind == engine::DescriptorManagementKind::Heap) {
+            [[maybe_unused]] const auto & descriptorHeapProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+            ASSERT(pushConstantRange.offset + pushConstantRange.size <= descriptorHeapProperties.maxPushDataSize);
+            vk::HostAddressRangeConstEXT data = {
+                .address = pushConstants,
+                .size = pushConstantRange.size,
+            };
+            vk::PushDataInfoEXT pushDataInfo = {
+                .offset = pushConstantRange.offset,
+                .data = data,
+            };
+            commandBuffer.pushDataEXT(pushDataInfo, context.getDispatcher());
+        } else {
+            commandBuffer.pushConstants(pipelineLayout, pushConstantRange.stageFlags, pushConstantRange.offset, pushConstantRange.size, std::next(pushConstants, pushConstantRange.offset), context.getDispatcher());
+        }
     }
 }
 

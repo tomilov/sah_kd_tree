@@ -20,6 +20,7 @@ target_compile_definitions(
         VULKAN_HPP_ASSERT=ASSERT
         VULKAN_HEADERS_ENABLE_MODULE_STD
         VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST
+        VULKAN_HPP_HAS_UNRESTRICTED_UNIONS
 )
 if(BUILD_SHARED_LIBS)
     target_compile_definitions(

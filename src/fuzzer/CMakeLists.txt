@@ -16,7 +16,7 @@ target_link_libraries(
     "${PROJECT_NAME}"
     PRIVATE
         "libsah_kd_tree"
-        Thrust::Thrust
+        Thrust
 )
 target_compile_options(
     "${PROJECT_NAME}"

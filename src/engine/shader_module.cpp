@@ -574,9 +574,11 @@ void ShaderModuleReflection::reflect()
 
 ShaderStages::ShaderStages(
     const Context & contextIn,
-    uint32_t vertexBufferBindingIn)
+    uint32_t vertexBufferBindingIn,
+    const DescriptorManagementKind descriptorManagementKindIn)
     : context{contextIn}
     , vertexBufferBinding{vertexBufferBindingIn}
+    , descriptorManagementKind{descriptorManagementKindIn}
 {}
 
 bool ShaderStages::checkSubgroupSize(
@@ -605,7 +607,7 @@ void ShaderStages::add(
     entryPointNames.push_back(entryPointName);
     names.push_back(fmt::format("{}:{}", shaderModule.getShaderName(), entryPointName));
     INVARIANT(std::size(pipelineShaderStageCreateInfoChains) < pipelineShaderStageCreateInfoChains.capacity(), "");
-    auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo, requiredSubgroupSize] = pipelineShaderStageCreateInfoChains.emplace_back();
+    auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo, requiredSubgroupSize, shaderDescriptorSetAndBindingMappingInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo.flags = vk::PipelineShaderStageCreateFlags{};
     pipelineShaderStageCreateInfo.stage = shaderModule.getStage();
     pipelineShaderStageCreateInfo.module = shaderModule;
@@ -673,6 +675,25 @@ void ShaderStages::add(
         if (!specializationConstants.emplace(shaderModule.getStage(), shaderModuleReflection.specializationConstants).second) {
             INVARIANT(false, "");
         }
+    }
+
+    if (descriptorManagementKind == DescriptorManagementKind::Heap) {  // TODO:
+        std::vector<vk::DescriptorSetAndBindingMappingEXT> descriptorSetAndBindingMappings;
+        for (const auto & [set, descriptorSetLayoutBindings] : setBindingMap) {
+            for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
+                auto & descriptorSetAndBindingMapping = descriptorSetAndBindingMappings.emplace_back();
+                descriptorSetAndBindingMapping.descriptorSet = set;
+                descriptorSetAndBindingMapping.firstBinding = descriptorSetLayoutBinding.binding;
+                descriptorSetAndBindingMapping.bindingCount = descriptorSetLayoutBinding.descriptorCount;
+                // descriptorSetAndBindingMapping.resourceMask;
+                // descriptorSetAndBindingMapping.source;
+                // descriptorSetAndBindingMapping.sourceData;
+                // vk::DescriptorMappingSourceDataEXT descriptorMappingSourceData;
+            }
+        }
+        shaderDescriptorSetAndBindingMappingInfo.setMappings(descriptorSetAndBindingMappings);
+    } else {
+        pipelineShaderStageCreateInfoChains.back().unlink<vk::ShaderDescriptorSetAndBindingMappingInfoEXT>();
     }
 }
 
