@@ -177,7 +177,7 @@ template<
 Type * findInPNextChain(Head * head)
 {
     static_assert(vk::StructExtends<Type, Head>::value);
-    ASSERT(head);
+    SKT_ASSERT(head);
     vk::BaseOutStructure * currentStruct = utils::autoCast(const_cast<void *>(head->pNext));
     while (currentStruct) {
         if (currentStruct->sType == Type::structureType) {
@@ -194,7 +194,7 @@ template<
 const Type * findInPNextChain(const Head * head)
 {
     static_assert(vk::StructExtends<Type, Head>::value);
-    ASSERT(head);
+    SKT_ASSERT(head);
     const vk::BaseInStructure * currentStruct = utils::autoCast(head->pNext);
     while (currentStruct) {
         if (currentStruct->sType == Type::structureType) {

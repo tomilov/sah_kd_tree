@@ -37,13 +37,13 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 
     [[nodiscard]] vk::DescriptorPool getDescriptorPool() const &
     {
-        ASSERT(descriptorPool);
+        SKT_ASSERT(descriptorPool);
         return *descriptorPool;
     }
 
     [[nodiscard]] vk::DescriptorSet getHandle() const &
     {
-        ASSERT(descriptorSet);
+        SKT_ASSERT(descriptorSet);
         return *descriptorSet;
     }
 

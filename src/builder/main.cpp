@@ -19,7 +19,7 @@ int main()
     };
     for (size_t i = 0; i < 5; ++i) {
         auto build = builder::getBuild(i);
-        INVARIANT(build, "{}", i);
+        SKT_INVARIANT(build, "{}", i);
         auto tree = build(settings, *cudaDevice, sceneData, progress);
     }
 }

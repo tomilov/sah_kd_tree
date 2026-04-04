@@ -93,7 +93,7 @@ public:
     [[nodiscard]] static File dup(int fd)
     {
         fd = ::dup(fd);
-        INVARIANT(fd >= 0, "dup: {}", fd);
+        SKT_INVARIANT(fd >= 0, "dup: {}", fd);
         return File{fd};
     }
 
@@ -245,7 +245,7 @@ template<typename T>
             if (!checkDataStreamStatus(dataStream, u"unable to read %1 array from scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
                 return {};
             }
-            INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
+            SKT_INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
             dataSize -= utils::safeCast<size_t>(size);
             d += size;
         }
@@ -359,7 +359,7 @@ template<typename T>
             if (!checkDataStreamStatus(dataStream, u"unable to write array %1 to scene cache file %2"_s.arg(dataName, cacheFile.fileName()))) {
                 return {};
             }
-            INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
+            SKT_INVARIANT(dataSize >= utils::safeCast<size_t>(size), "{} ^ {}", dataSize, size);
             dataSize -= utils::safeCast<size_t>(size);
             d += size;
         }
@@ -439,7 +439,7 @@ QStringList getSupportedExtensions()
     Assimp::Importer{}.GetExtensionList(extensionsString);
     QStringList globs = QString::fromUtf8(QByteArray{extensionsString.data, utils::autoCast(extensionsString.length)}).split(u';');
     for (QString & glob : globs) {
-        INVARIANT(glob.startsWith("*."), "{}", glob.toStdString());
+        SKT_INVARIANT(glob.startsWith("*."), "{}", glob.toStdString());
         glob = glob.remove(0, 2);
     }
     return globs;
@@ -449,7 +449,7 @@ bool load(
     scene_data::SceneData & sceneData,
     QFileInfo sceneFileInfo)
 {
-    INVARIANT(sceneFileInfo.isFile(), "Scene filepath: '{}'. Current dir: '{}'", sceneFileInfo.filePath().toStdString(), QDir::currentPath().toStdString());
+    SKT_INVARIANT(sceneFileInfo.isFile(), "Scene filepath: '{}'. Current dir: '{}'", sceneFileInfo.filePath().toStdString(), QDir::currentPath().toStdString());
 
     AssimpLoggerGuard loggerGuard{Assimp::Logger::LogSeverity::VERBOSE};
     Assimp::Importer importer;
@@ -473,7 +473,7 @@ bool load(
                                            | aiComponent_CAMERAS | aiComponent_MATERIALS;
         importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, excludeComponents);
     }
-    INVARIANT(importer.ValidateFlags(pFlags), "");
+    SKT_INVARIANT(importer.ValidateFlags(pFlags), "");
 
     const aiScene * assimpScene = nullptr;
     {
@@ -546,7 +546,7 @@ bool load(
                     .meshIndex = std::size(meshUsages),
                 };
                 if (const auto & [m, inserted] = meshUsages.emplace(assimpMesh, meshUsage); !inserted) {
-                    INVARIANT(false, "Duplicated mesh #{}: #{}", m->second.meshIndex, meshUsage.meshIndex);
+                    SKT_INVARIANT(false, "Duplicated mesh #{}: #{}", m->second.meshIndex, meshUsage.meshIndex);
                 }
             }
         }
@@ -558,7 +558,7 @@ bool load(
             scene_data::Node & node = sceneData.nodes.emplace_back();
             if (auto * assimpNodeParent = assimpNode->mParent) {
                 auto p = parents.find(assimpNodeParent);
-                INVARIANT(p != std::end(parents), "");
+                SKT_INVARIANT(p != std::end(parents), "");
                 node.parent = p->second;
             } else {
                 node.parent = nodeIndex;
@@ -572,26 +572,26 @@ bool load(
                     auto assimpMeshIndex = assimpNode->mMeshes[m];
                     auto * assimpMesh = assimpMeshes[assimpMeshIndex];
                     auto u = meshUsages.find(assimpMesh);
-                    INVARIANT(u != std::end(meshUsages), "");
+                    SKT_INVARIANT(u != std::end(meshUsages), "");
                     MeshUsage & meshUsage = u->second;
                     node.meshes.push_back(meshUsage.meshIndex);
                     ++meshUsage.useCount;
                 }
             }
-            ASSERT(std::empty(node.children));
+            SKT_ASSERT(std::empty(node.children));
             size_t childrenCount = utils::autoCast(assimpNode->mNumChildren);
             node.children.reserve(childrenCount);
             auto * assimpNodeChildren = assimpNode->mChildren;
             for (size_t c = 0; c < childrenCount; ++c) {
                 auto * assimpNodeChild = assimpNodeChildren[c];
-                ASSERT(assimpNodeChild->mParent == assimpNode);
+                SKT_ASSERT(assimpNodeChild->mParent == assimpNode);
                 size_t childNodeIndex = self(self, assimpNodeChild);
                 sceneData.nodes.at(nodeIndex).children.push_back(childNodeIndex);
             }
             return nodeIndex;
         };
         if (traverseNodes(traverseNodes, assimpRootNode) != 0) {
-            ASSERT(false);
+            SKT_ASSERT(false);
         }
     }
 
@@ -667,17 +667,17 @@ bool load(
             }
 
             if (mesh.indexCount == 0) {
-                INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
+                SKT_INVARIANT((mesh.vertexCount % 3) == 0, "Vertex count {} is not multiple of 3 in mesh {}", mesh.vertexCount, meshUsage.meshIndex);
                 continue;
             }
 
             {
-                ASSERT_MSG((mesh.indexOffset % 3) == 0, "{} {}", mesh.indexOffset % 3, mesh.indexOffset);
-                ASSERT_MSG((mesh.indexCount % 3) == 0, "{} {}", mesh.indexCount % 3, mesh.indexCount);
+                SKT_ASSERT_MSG((mesh.indexOffset % 3) == 0, "{} {}", mesh.indexOffset % 3, mesh.indexOffset);
+                SKT_ASSERT_MSG((mesh.indexCount % 3) == 0, "{} {}", mesh.indexCount % 3, mesh.indexCount);
                 const auto * const assimpFaces = assimpMesh->mFaces;
                 for (auto && [f, triangle] : indices.subspan(mesh.indexOffset, mesh.indexCount) | std::views::chunk(3) | std::views::enumerate) {
                     const aiFace & assimpFace = assimpFaces[f];
-                    INVARIANT(assimpFace.mNumIndices == 3, "{}", assimpFace.mNumIndices);
+                    SKT_INVARIANT(assimpFace.mNumIndices == 3, "{}", assimpFace.mNumIndices);
                     for (auto && [i, index] : triangle | std::views::enumerate) {
                         index = utils::autoCast(assimpFace.mIndices[i]);
                     }

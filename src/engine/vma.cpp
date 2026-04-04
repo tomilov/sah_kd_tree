@@ -27,8 +27,8 @@
 #include <cstdint>
 
 // clang-format off
-#define VMA_ASSERT ASSERT
-#define VMA_ASSERT_LEAK(condition) INVARIANT(condition, "VMA_ASSERT_LEAK")
+#define VMA_ASSERT SKT_ASSERT
+#define VMA_ASSERT_LEAK(condition) SKT_INVARIANT(condition, "VMA_ASSERT_LEAK")
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
@@ -42,10 +42,10 @@
 #include <vk_mem_alloc.h>
 // clang-format on
 
-#define CHECK_VK_RESULT(f, ...)                                                                \
-    do {                                                                                       \
-        vk::Result result{(f(__VA_ARGS__))};                                                   \
-        INVARIANT(result == vk::Result::eSuccess, STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
+#define CHECK_VK_RESULT(f, ...)                                                                        \
+    do {                                                                                               \
+        vk::Result result{(f(__VA_ARGS__))};                                                           \
+        SKT_INVARIANT(result == vk::Result::eSuccess, SKT_STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
     } while (false);
 
 namespace engine
@@ -350,7 +350,7 @@ void * MappedMemory<void>::data() const &
     void * mappedData = impl_->mappedData;
     if (!mappedData) {
         mappedData = impl_->buffer->getMappedData();
-        INVARIANT(mappedData, "");
+        SKT_INVARIANT(mappedData, "");
     }
     return static_cast<void *>(static_cast<std::byte *>(mappedData) + impl_->offset);
 }
@@ -397,10 +397,10 @@ struct BufferResource final : utils::NonCopyable
         , buffer{bufferIn}
         , allocation{allocationIn}
     {
-        ASSERT(!std::empty(name));
-        ASSERT(allocator);
-        ASSERT(buffer);
-        ASSERT(allocation);
+        SKT_ASSERT(!std::empty(name));
+        SKT_ASSERT(allocator);
+        SKT_ASSERT(buffer);
+        SKT_ASSERT(allocation);
     }
 
     ~BufferResource()
@@ -458,7 +458,7 @@ vk::MemoryPropertyFlags Buffer<void>::getMemoryPropertyFlags() const
 
 uint32_t Buffer<void>::getMemoryTypeIndex() const
 {
-    ASSERT(impl_->memoryTypeIndex != vk::MaxMemoryTypes);
+    SKT_ASSERT(impl_->memoryTypeIndex != vk::MaxMemoryTypes);
     return impl_->memoryTypeIndex;
 }
 
@@ -470,7 +470,7 @@ vk::DeviceSize Buffer<void>::getSize() const
 vk::DeviceAddress Buffer<void>::getDeviceAddress() const &
 {
     auto bufferUsage = getBufferCreateInfo().usage;
-    INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain {}", bufferUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress);
+    SKT_INVARIANT(bufferUsage & vk::BufferUsageFlagBits::eShaderDeviceAddress, "Buffer usage {} does not contain {}", bufferUsage, vk::BufferUsageFlagBits::eShaderDeviceAddress);
     vk::BufferDeviceAddressInfo bufferDeviceAddressInfo = {
         .buffer = getHandle(),
     };
@@ -506,7 +506,7 @@ vk::DescriptorAddressInfoEXT Buffer<void>::getDescriptorAddressInfo() const &
 
 vk::Buffer Buffer<void>::getHandle() const &
 {
-    ASSERT(impl_->resource);
+    SKT_ASSERT(impl_->resource);
     return impl_->resource->buffer;
 }
 
@@ -556,8 +556,8 @@ void Buffer<void>::copyFrom(
     vk::DeviceSize size,
     vk::DeviceSize dstAllocationOffset)
 {
-    ASSERT(p);
-    ASSERT(dstAllocationOffset + size < getSize());
+    SKT_ASSERT(p);
+    SKT_ASSERT(dstAllocationOffset + size < getSize());
     CHECK_VK_RESULT(vmaCopyMemoryToAllocation, impl_->memoryAllocator.impl_->handle, p, impl_->resource->allocation, dstAllocationOffset, size);
 }
 
@@ -566,8 +566,8 @@ void Buffer<void>::copyTo(
     void * p,
     vk::DeviceSize size) const
 {
-    ASSERT(p);
-    ASSERT(srcAllocationOffset + size < getSize());
+    SKT_ASSERT(p);
+    SKT_ASSERT(srcAllocationOffset + size < getSize());
     CHECK_VK_RESULT(vmaCopyAllocationToMemory, impl_->memoryAllocator.impl_->handle, impl_->resource->allocation, srcAllocationOffset, p, size);
 }
 
@@ -603,22 +603,22 @@ MappedMemory<void>::Impl::Impl(
     , offset{offsetIn}
     , size{sizeIn}
 {
-    ASSERT(buffer);
+    SKT_ASSERT(buffer);
 
-    INVARIANT(offset < buffer->getSize(), "{} ^ {}", offset, buffer->getSize());
+    SKT_INVARIANT(offset < buffer->getSize(), "{} ^ {}", offset, buffer->getSize());
     if (size != vk::WholeSize) {
-        INVARIANT(size + offset < buffer->getSize(), "{} + {} ^ {}", size, offset, buffer->getSize());
+        SKT_INVARIANT(size + offset < buffer->getSize(), "{} + {} ^ {}", size, offset, buffer->getSize());
     }
 
     auto * allocator = buffer->impl_->memoryAllocator.impl_->handle;
     auto * allocation = buffer->impl_->resource->allocation;
     vk::MemoryPropertyFlags memoryPropertyFlags = buffer->getMemoryPropertyFlags();
-    INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
+    SKT_INVARIANT(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostVisible, "Should not map memory that is not host visible");
     if (!(memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent)) {
         CHECK_VK_RESULT(vmaInvalidateAllocation, allocator, allocation, 0, vk::WholeSize);
     }
     if (buffer->getMappedData()) {
-        INVARIANT(buffer->impl_->allocationCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT, "");
+        SKT_INVARIANT(buffer->impl_->allocationCreateInfo.flags & VMA_ALLOCATION_CREATE_MAPPED_BIT, "");
     } else {
         CHECK_VK_RESULT(vmaMapMemory, allocator, allocation, &mappedData);
     }
@@ -671,7 +671,7 @@ Buffer<void>::Impl::Impl(
     const auto & context = memoryAllocator.impl_->context;
     if (queueFamilyIndex < std::size(context.getPhysicalDevice().queueFamilyProperties2Chains)) {
         if (createInfo.pQueueFamilyIndices) {
-            INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
+            SKT_INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
         }
     }
 
@@ -713,7 +713,7 @@ vk::AccessFlags2 getAccessFlagsForImageLayout(vk::ImageLayout imageLayout)
     case vk::ImageLayout::eShaderReadOnlyOptimal:
         return vk::AccessFlagBits2::eShaderRead;
     default:
-        INVARIANT(false, "Unhandled ImageLayout: {}", imageLayout);
+        SKT_INVARIANT(false, "Unhandled ImageLayout: {}", imageLayout);
     }
 }
 
@@ -737,10 +737,10 @@ struct ImageResource final : utils::NonCopyable
         , image{imageIn}
         , allocation{allocationIn}
     {
-        ASSERT(!std::empty(name));
-        ASSERT(allocator);
-        ASSERT(image);
-        ASSERT(allocation);
+        SKT_ASSERT(!std::empty(name));
+        SKT_ASSERT(allocator);
+        SKT_ASSERT(image);
+        SKT_ASSERT(allocation);
     }
 
     ~ImageResource()
@@ -810,7 +810,7 @@ uint32_t Image::getMemoryTypeIndex() const
 vk::Extent2D Image::getExtent2D() const
 {
     const auto & [width, height, depth] = getImageCreateInfo().extent;
-    ASSERT(depth == 1);
+    SKT_ASSERT(depth == 1);
     return {
         .width = width,
         .height = height,
@@ -824,7 +824,7 @@ vk::Extent3D Image::getExtent3D() const
 
 vk::Image Image::getHandle() const &
 {
-    ASSERT(impl_->resource);
+    SKT_ASSERT(impl_->resource);
     return impl_->resource->image;
 }
 
@@ -873,8 +873,8 @@ void Image::barrier(
     }
     if (impl_->queueFamilyIndex != queueFamilyIndex) {  // QFOT
         const size_t queueFamilyCount = std::size(impl_->memoryAllocator.impl_->context.getPhysicalDevice().queueFamilyProperties2Chains);
-        ASSERT(impl_->queueFamilyIndex < queueFamilyCount);
-        ASSERT(queueFamilyIndex < queueFamilyCount);
+        SKT_ASSERT(impl_->queueFamilyIndex < queueFamilyCount);
+        SKT_ASSERT(queueFamilyIndex < queueFamilyCount);
     }
     vk::ImageMemoryBarrier2 imageMemoryBarrier = {
         .srcStageMask = std::exchange(impl_->stageMask, stageMask),
@@ -971,7 +971,7 @@ vk::UniqueImageView Image::createImageView(
     vk::ImageViewType viewType,
     vk::ImageAspectFlags imageAspectMask) const
 {
-    ASSERT_MSG(impl_->imageAspectMask & imageAspectMask, "{} ^ {}", impl_->imageAspectMask, imageAspectMask);
+    SKT_ASSERT_MSG(impl_->imageAspectMask & imageAspectMask, "{} ^ {}", impl_->imageAspectMask, imageAspectMask);
     vk::ImageViewCreateInfo imageViewCreateInfo = {
         .flags = {},
         .image = impl_->resource->image,
@@ -1035,7 +1035,7 @@ Image::Impl::Impl(
     const auto & context = memoryAllocator.impl_->context;
     if (queueFamilyIndex < std::size(context.getPhysicalDevice().queueFamilyProperties2Chains)) {
         if (createInfo.pQueueFamilyIndices) {
-            INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
+            SKT_INVARIANT(*createInfo.pQueueFamilyIndices == queueFamilyIndex, "{} ^ {}", *createInfo.pQueueFamilyIndices, queueFamilyIndex);
         }
     }
 

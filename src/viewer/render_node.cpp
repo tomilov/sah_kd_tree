@@ -95,16 +95,16 @@ void checkContext(
 #undef GET_INSTANCE_PROC_ADDR
     PFN_vkGetDeviceQueue vkGetDeviceQueue = utils::autoCast(vkGetDeviceProcAddr(*device, "vkGetDeviceQueue"));
 
-    INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getHandle(), "Should match");
-    INVARIANT(*physicalDevice == context.getPhysicalDevice().getHandle(), "Should match");
-    INVARIANT(*device == context.getDevice().getHandle(), "Should match");
+    SKT_INVARIANT(vk::Instance(instance->vkInstance()) == context.getInstance().getHandle(), "Should match");
+    SKT_INVARIANT(*physicalDevice == context.getPhysicalDevice().getHandle(), "Should match");
+    SKT_INVARIANT(*device == context.getDevice().getHandle(), "Should match");
     const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
-    INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
-    INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
+    SKT_INVARIANT(*queueFamilyIndex == queueCreateInfo.familyIndex, "Should match");
+    SKT_INVARIANT(*queueIndex == queueCreateInfo.index, "Should match");
     {
         VkQueue q = nullptr;
         vkGetDeviceQueue(*device, *queueFamilyIndex, *queueIndex, &q);
-        INVARIANT(*queue == vk::Queue(q), "Should match");
+        SKT_INVARIANT(*queue == vk::Queue(q), "Should match");
     }
 
     context.getDevice().setDebugUtilsObjectName(*queue, "Qt graphical queue");
@@ -265,7 +265,7 @@ struct RenderNode::Impl
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
         uint32_t framesInFlight = utils::autoCast(graphicsStateInfo.framesInFlight);
         if (renderer) {
-            ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
+            SKT_ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
         } else {
             renderer.emplace(name.toStdString(), context, engine, framesInFlight);
         }
@@ -349,10 +349,10 @@ struct RenderNode::Impl
         const auto & device = context.getDevice();
         device.setDebugUtilsObjectName(commandBuffer, "Qt command buffer");
 
-        ASSERT(renderer);
+        SKT_ASSERT(renderer);
 
         const QQuickWindow::GraphicsStateInfo & graphicsStateInfo = window->graphicsStateInfo();
-        ASSERT(renderer.value().getFramesInFlight() == utils::safeCast<uint32_t>(graphicsStateInfo.framesInFlight));
+        SKT_ASSERT(renderer.value().getFramesInFlight() == utils::safeCast<uint32_t>(graphicsStateInfo.framesInFlight));
         renderer.value().render(commandBuffer, renderPass, isRenderPassFormatChanged, utils::autoCast(graphicsStateInfo.currentFrameSlot));
 
         frameCapture.reset();

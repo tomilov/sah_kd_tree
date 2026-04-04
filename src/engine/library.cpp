@@ -23,11 +23,11 @@ Library::Library(
     : allocationCallbacks{allocationCallbacksIn}
 {
     using namespace std::string_view_literals;
-    SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
+    SPDLOG_DEBUG("VULKAN_HPP_DEFAULT_DISPATCHER_TYPE = {}"sv, SKT_STRINGIZE(VULKAN_HPP_DEFAULT_DISPATCHER_TYPE) ""sv);
 #if VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
 #if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     dl.emplace(libraryName.value_or(""s));
-    INVARIANT(dl->success(), "Vulkan library is not loaded, cannot continue");
+    SKT_INVARIANT(dl->success(), "Vulkan library is not loaded, cannot continue");
     dispatcher.init(dl->getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 #elif !VK_NO_PROTOTYPES
     dispatcher.init(vkGetInstanceProcAddr);

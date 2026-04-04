@@ -31,7 +31,7 @@ vk::DeviceSize formatStencilBitSize(vk::Format format)
     {% endfor %}
     {% endfor %}
     default:
-        INVARIANT(false, "Stencil size is not known for format '{}'", format);
+        SKT_INVARIANT(false, "Stencil size is not known for format '{}'", format);
     }
 }
 
@@ -47,7 +47,7 @@ vk::DeviceSize formatDepthBitSize(vk::Format format)
     {% endfor %}
     {% endfor %}
     default:
-        INVARIANT(false, "Depth size is not known for format '{}'", format);
+        SKT_INVARIANT(false, "Depth size is not known for format '{}'", format);
     }
 }
 
@@ -61,7 +61,7 @@ uint32_t getPlaneIndex(vk::ImageAspectFlagBits imageAspect)
     case vk::ImageAspectFlagBits::ePlane2:
         return 2;
     default:
-        INVARIANT(false, "Plane index for image apsect '{}' is not known", imageAspect);
+        SKT_INVARIANT(false, "Plane index for image apsect '{}' is not known", imageAspect);
     }
 }
 
@@ -171,16 +171,16 @@ vk::DeviceSize formatElementSize(
         return formatDepthBitSize(format);
     }
     auto f = kFormatDescriptions.find(format);
-    INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
+    SKT_INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
     auto planeCount = f->second.planeCount();
     if (planeCount > 0) {
         uint32_t planeIndex = getPlaneIndex(imageAspect);
-        INVARIANT(planeIndex < planeCount, "There is no plane for {}", imageAspect);
+        SKT_INVARIANT(planeIndex < planeCount, "There is no plane for {}", imageAspect);
         format = f->second.planes[planeIndex].compatibleFormat;
         f = kFormatDescriptions.find(format);
-        INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
+        SKT_INVARIANT(f != std::end(kFormatDescriptions), "Format '{}' is not known", format);
     } else {
-        INVARIANT(imageAspect == vk::ImageAspectFlagBits::eColor, "Cannot handle image aspect {}", imageAspect);
+        SKT_INVARIANT(imageAspect == vk::ImageAspectFlagBits::eColor, "Cannot handle image aspect {}", imageAspect);
     }
     return f->second.blockSize;
 }

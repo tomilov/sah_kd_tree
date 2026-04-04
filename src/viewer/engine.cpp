@@ -71,7 +71,7 @@ engine::DescriptorBindingNameAndType SceneResources::getBindingName()
 OffscreenRenderPass OffscreenRenderPass::make(const engine::Context & context)
 {
     vk::Format depthFormat = context.getPhysicalDevice().findDepthImageFormat(vk::ImageTiling::eOptimal);
-    INVARIANT(depthFormat != vk::Format::eUndefined, "");
+    SKT_INVARIANT(depthFormat != vk::Format::eUndefined, "");
     vk::ImageLayout depthImageLayout = vk::ImageLayout::eUndefined;
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().separateDepthStencilLayouts == vk::False) {
         depthImageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
@@ -256,9 +256,9 @@ engine::DescriptorBindingNameAndType DrawOffscreenResources::getBindingName()
 
 [[nodiscard]] DescriptorInfo DrawOffscreenResources::getDescriptorInfo(engine::DescriptorManagementKind descriptorManagementKind) const
 {
-    ASSERT(sampler);
-    ASSERT(*sampler);
-    ASSERT(framebuffer.colorImageView);
+    SKT_ASSERT(sampler);
+    SKT_ASSERT(*sampler);
+    SKT_ASSERT(framebuffer.colorImageView);
     vk::DescriptorImageInfo descriptorImageInfo = {
         .sampler = **sampler,
         .imageView = *framebuffer.colorImageView,
@@ -315,8 +315,8 @@ DescriptorInfo TraceFrameResources::getDescriptorInfo(
     engine::DescriptorManagementKind descriptorManagementKind,
     bool target) const
 {
-    ASSERT(sampler);
-    ASSERT(*sampler);
+    SKT_ASSERT(sampler);
+    SKT_ASSERT(*sampler);
     vk::DescriptorImageInfo descriptorImageInfo = {
         .sampler = !target ? **sampler : nullptr,
         .imageView = *imageView,
@@ -351,26 +351,26 @@ Engine::Engine(
     const auto & device = context.getDevice();
     if (settings.indexTypeUint8Enabled) {
         if (device.createInfoChain.get<vk::PhysicalDeviceVulkan14Features>().indexTypeUint8 == vk::False) {
-            INVARIANT(false, "");
+            SKT_INVARIANT(false, "");
         }
     }
     if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Buffer) {
         if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorBufferFeaturesEXT>().descriptorBuffer == vk::False) {
-            INVARIANT(false, "");
+            SKT_INVARIANT(false, "");
         }
     } else if (settings.descriptorManagementKind == engine::DescriptorManagementKind::Heap) {
         if (device.createInfoChain.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap == vk::False) {
-            INVARIANT(false, "");
+            SKT_INVARIANT(false, "");
         }
     }
     if (settings.multiDrawIndirectEnabled) {
         if (device.createInfoChain.get<vk::PhysicalDeviceFeatures2>().features.multiDrawIndirect == vk::False) {
-            INVARIANT(false, "");
+            SKT_INVARIANT(false, "");
         }
     }
     if (settings.drawIndirectCountEnabled) {
         if (device.createInfoChain.get<vk::PhysicalDeviceVulkan12Features>().drawIndirectCount == vk::False) {
-            INVARIANT(false, "");
+            SKT_INVARIANT(false, "");
         }
     }
     {
@@ -486,7 +486,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
             for (size_t m = 0; m < std::size(sceneData.meshes); ++m) {
                 const auto & instance = instances.at(m);
 
-                ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
+                SKT_ASSERT(std::size(transforms.at(m)) == instance.instanceCount);
 
                 size_t sceneIndexOffset = sceneData.meshes.at(m).indexOffset;
                 const auto convertCopy = [&indices, sceneIndexOffset, &instance](auto i)
@@ -542,7 +542,7 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
 
             auto mappedInstanceBuffer = instanceBuffer.value().map();
             auto * end = std::copy(std::cbegin(instances), std::cend(instances), mappedInstanceBuffer.begin());
-            INVARIANT(end == mappedInstanceBuffer.end(), "");
+            SKT_INVARIANT(end == mappedInstanceBuffer.end(), "");
         }
 
         instances.clear();
@@ -559,9 +559,9 @@ SceneResources Engine::makeResources(const scene_data::SceneData & sceneData) co
         vertexBuffer.emplace(context.getMemoryAllocator().createStagingBuffer("Vertices"sv, vertexBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal));
         {
             auto mappedVertexBuffer = vertexBuffer.value().map();
-            ASSERT(sceneData.vertices.getCount() == mappedVertexBuffer.getCount());
+            SKT_ASSERT(sceneData.vertices.getCount() == mappedVertexBuffer.getCount());
             if (std::copy_n(sceneData.vertices.begin(), sceneData.vertices.getCount(), mappedVertexBuffer.begin()) != mappedVertexBuffer.end()) {
-                ASSERT(false);
+                SKT_ASSERT(false);
             }
         }
     }
@@ -588,7 +588,7 @@ Descriptors Engine::makeDescriptors(
     auto shaderBindingName = std::cbegin(shaderStages->setBindingMap.at(set).bindingNames);
     for (const auto & [descriptorName, data] : descriptorInfos) {
         if (*shaderBindingName != descriptorName) {
-            INVARIANT(false, "{} ^ {}", *shaderBindingName, descriptorName);
+            SKT_INVARIANT(false, "{} ^ {}", *shaderBindingName, descriptorName);
         }
         ++shaderBindingName;
     }
@@ -616,10 +616,10 @@ auto Engine::createTransformBuffer(
         auto mappedTransformBuffer = transformBuffer.map();
         auto * t = mappedTransformBuffer.begin();
         for (const auto & instanceTransforms : transforms) {
-            ASSERT(mappedTransformBuffer.end() != t);
+            SKT_ASSERT(mappedTransformBuffer.end() != t);
             t = std::copy(std::cbegin(instanceTransforms), std::cend(instanceTransforms), t);
         }
-        ASSERT(t == mappedTransformBuffer.end());
+        SKT_ASSERT(t == mappedTransformBuffer.end());
     }
     return transformBuffer;
 }

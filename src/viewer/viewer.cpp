@@ -199,7 +199,7 @@ void SceneSettings::updateScene()
         }
         sceneStatus = u"Cancelled"_s;
     } else {
-        INVARIANT(future.isFinished(), "");
+        SKT_INVARIANT(future.isFinished(), "");
         if (future.isResultReadyAt(0)) {
             scene_data::SceneDataPtr newSceneData = future.takeResult();
             if (sceneData != newSceneData) {
@@ -270,7 +270,7 @@ void SceneSettings::updateTree()
     if (future.isCanceled()) {
         treeStatus = u"Cancelled"_s;
     } else {
-        INVARIANT(future.isFinished(), "");
+        SKT_INVARIANT(future.isFinished(), "");
         if (tree) {
             tree.reset();
             isTreeChanged = true;
@@ -342,7 +342,7 @@ void SceneSettings::onTreeSettingsChanged()
         try {
             if (auto cudaDevice = engineWrapper->getEngine().getCudaDevice()) {
                 auto build = builder::getBuild(utils::autoCast(thrustDeviceSystem));
-                ASSERT(build);
+                SKT_ASSERT(build);
                 if (auto resultTree = build(builderTreeSettings, *cudaDevice, sceneDataOld, progress)) {
                     promise.addResult(std::move(resultTree));
                 }
@@ -629,7 +629,7 @@ Viewer::Viewer(QQuickItem * parent)
             qCDebug(viewerCategory) << "window is lost";
             return;
         }
-        INVARIANT(window->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
+        SKT_INVARIANT(window->graphicsApi() == QSGRendererInterface::GraphicsApi::Vulkan, "Expected Vulkan backend");
         const auto onSceneGraphInvalidated = [this]
         {
             releaseResources();
@@ -688,7 +688,7 @@ void Viewer::handleKeyboardInput()
                 direction[1] += 1.0f;
                 break;
             default:
-                ASSERT_MSG(false, "{}", key);
+                SKT_ASSERT_MSG(false, "{}", key);
             }
             break;
         }
@@ -718,12 +718,12 @@ void Viewer::handleKeyboardInput()
                 tilt -= 1.0;
                 break;
             default:
-                ASSERT_MSG(false, "{}", key);
+                SKT_ASSERT_MSG(false, "{}", key);
             }
             break;
         }
         default:
-            ASSERT_MSG(false, "{}", key);
+            SKT_ASSERT_MSG(false, "{}", key);
         }
     }
     float speedModifier = 1.0f;

@@ -100,7 +100,7 @@ public:
 
     [[nodiscard]] const engine::PipelineLayout & getPipelineLayout() const &
     {
-        ASSERT(pipelineLayout);
+        SKT_ASSERT(pipelineLayout);
         return pipelineLayout.value();
     }
 

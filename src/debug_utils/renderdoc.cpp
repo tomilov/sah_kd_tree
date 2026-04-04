@@ -74,9 +74,9 @@ Renderdoc::FrameCapture::~FrameCapture()
         return;
     }
     SPDLOG_INFO("Frame capture end");
-    ASSERT(Renderdoc::isFrameCapturing());
+    SKT_ASSERT(Renderdoc::isFrameCapturing());
     impl.api->EndFrameCapture(getDevice(instance), window);
-    ASSERT(!Renderdoc::isFrameCapturing());
+    SKT_ASSERT(!Renderdoc::isFrameCapturing());
 }
 
 Renderdoc::FrameCapture::FrameCapture(
@@ -92,9 +92,9 @@ Renderdoc::FrameCapture::FrameCapture(
         return;
     }
     SPDLOG_INFO("Frame capture begin");
-    ASSERT(!Renderdoc::isFrameCapturing());
+    SKT_ASSERT(!Renderdoc::isFrameCapturing());
     impl.api->StartFrameCapture(getDevice(instance), window);
-    ASSERT(Renderdoc::isFrameCapturing());
+    SKT_ASSERT(Renderdoc::isFrameCapturing());
 }
 
 auto Renderdoc::makeFrameCapture(

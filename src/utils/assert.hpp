@@ -36,7 +36,7 @@ void assertFailed [[noreturn]] (
 #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 
-#define ASSERT_MSG_SRCLOC(condition, srcLoc, format, ...)                                           \
+#define SKT_ASSERT_MSG_SRCLOC(condition, srcLoc, format, ...)                                       \
     do {                                                                                            \
         if constexpr (sah_kd_tree::kIsDebugBuild) {                                                 \
             if (!(condition)) [[unlikely]] {                                                        \
@@ -45,18 +45,18 @@ void assertFailed [[noreturn]] (
         }                                                                                           \
     } while (false)
 
-#define ASSERT_MSG(condition, format, ...) ASSERT_MSG_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
-#define ASSERT_SRCLOC(condition, srcLoc) ASSERT_MSG_SRCLOC(condition, srcLoc, "")
-#define ASSERT(condition) ASSERT_MSG(condition, "")
+#define SKT_ASSERT_MSG(condition, format, ...) SKT_ASSERT_MSG_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
+#define SKT_ASSERT_SRCLOC(condition, srcLoc) SKT_ASSERT_MSG_SRCLOC(condition, srcLoc, "")
+#define SKT_ASSERT(condition) SKT_ASSERT_MSG(condition, "")
 
-#define INVARIANT_SRCLOC(condition, srcLoc, format, ...)                                                              \
+#define SKT_INVARIANT_SRCLOC(condition, srcLoc, format, ...)                                                          \
     do {                                                                                                              \
         if (!(condition)) [[unlikely]] {                                                                              \
             ::utils::assertFailed(sah_kd_tree::kIsDebugBuild, #condition, srcLoc, FMT_STRING(format), ##__VA_ARGS__); \
         }                                                                                                             \
     } while (false)
 
-#define INVARIANT(condition, format, ...) INVARIANT_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
+#define SKT_INVARIANT(condition, format, ...) SKT_INVARIANT_SRCLOC(condition, std::source_location::current(), format, ##__VA_ARGS__)
 
 #ifdef __clang__
 #pragma clang diagnostic pop

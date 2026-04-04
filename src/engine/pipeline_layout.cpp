@@ -21,7 +21,7 @@ PipelineLayout::PipelineLayout(
 
 void PipelineLayout::init()
 {
-    ASSERT(!std::empty(name));
+    SKT_ASSERT(!std::empty(name));
 
     pipelineLayoutCreateInfo.flags = {};
     pipelineLayoutCreateInfo.setSetLayouts(shaderStages.descriptorSetLayouts);

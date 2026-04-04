@@ -61,84 +61,84 @@ Tree::~Tree() = default;
 
 uint32_t Tree::getTriangleCount() const
 {
-    ASSERT(impl_->triangleCount > 0);
+    SKT_ASSERT(impl_->triangleCount > 0);
     return impl_->triangleCount;
 }
 
 const std::vector<size_t> & Tree::getLayerSizes() const &
 {
-    ASSERT(!std::empty(impl_->layerSizes));
+    SKT_ASSERT(!std::empty(impl_->layerSizes));
     return impl_->layerSizes;
 }
 
 uint32_t Tree::getPolygonCount() const
 {
-    ASSERT(impl_->polygonCount > 0);
+    SKT_ASSERT(impl_->polygonCount > 0);
     return impl_->polygonCount;
 }
 
 uint32_t Tree::getNodeCount() const
 {
-    ASSERT(impl_->nodeCount > 0);
+    SKT_ASSERT(impl_->nodeCount > 0);
     return impl_->nodeCount;
 }
 
 vk::DeviceSize Tree::getDataSize() const
 {
-    ASSERT(impl_->dataSize > 0);
+    SKT_ASSERT(impl_->dataSize > 0);
     return impl_->dataSize;
 }
 
 vk::DeviceSize Tree::getDataAlignment() const
 {
-    ASSERT(impl_->dataAlignment > 0);
+    SKT_ASSERT(impl_->dataAlignment > 0);
     return impl_->dataAlignment;
 }
 
 vk::DeviceSize Tree::getAllocationSize() const
 {
-    ASSERT(impl_->allocationSize > 0);
+    SKT_ASSERT(impl_->allocationSize > 0);
     return impl_->allocationSize;
 }
 
 vk::DeviceAddress Tree::getDeviceAddress() const &
 {
-    ASSERT(impl_->deviceAddress != 0);
+    SKT_ASSERT(impl_->deviceAddress != 0);
     return impl_->deviceAddress;
 }
 
 vk::DeviceAddress Tree::getIndexAddress() const &
 {
     const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->indexOffset;
-    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    SKT_INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getVertexAddress() const &
 {
     const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->vertexOffset;
-    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    SKT_INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getPolygonAddress() const &
 {
     const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->polygonOffset;
-    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    SKT_INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getNodeAddress() const &
 {
     const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->nodeOffset;
-    INVARIANT((deviceAddress % 64) == 0, "{}", std::countr_zero(deviceAddress));
+    SKT_INVARIANT((deviceAddress % 64) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
 
 vk::DeviceAddress Tree::getNodeParentAddress() const &
 {
     const vk::DeviceAddress deviceAddress = getDeviceAddress() + impl_->nodeParentOffset;
-    INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
+    SKT_INVARIANT((deviceAddress % 4) == 0, "{}", std::countr_zero(deviceAddress));
     return deviceAddress;
 }
 
@@ -162,7 +162,7 @@ Tree::Impl::Impl(
     , nodeOffset{utils::autoCast(builderTree.nodeOffset)}
     , nodeParentOffset{utils::autoCast(builderTree.nodeParentOffset)}
 {
-    INVARIANT(context.getDevice().isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
+    SKT_INVARIANT(context.getDevice().isExtensionEnabled(vk::KHRExternalMemoryFdExtensionName), "{} is not enabled", vk::KHRExternalMemoryFdExtensionName);
     const auto device = context.getDevice().getHandle();
 
     constexpr vk::BufferUsageFlags kBufferUsage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
@@ -180,7 +180,7 @@ Tree::Impl::Impl(
         externalMemoryFeatures,
         externalMemoryProperties.compatibleHandleTypes,
         externalMemoryProperties.exportFromImportedHandleTypes);
-    INVARIANT(externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable, "");
+    SKT_INVARIANT(externalMemoryFeatures & vk::ExternalMemoryFeatureFlagBits::eImportable, "");
 
     vk::StructureChain<vk::BufferCreateInfo, vk::ExternalMemoryBufferCreateInfoKHR> bufferCreateInfoChain;
     auto & bufferCreateInfo = bufferCreateInfoChain.get<vk::BufferCreateInfo>();
@@ -261,8 +261,8 @@ Tree::Impl::Impl(
         .buffer = *buffer,
     };
     deviceAddress = device.getBufferAddress(bufferDeviceAddressInfo, context.getDispatcher());
-    ASSERT(dataAlignment > 0);
-    ASSERT_MSG((deviceAddress & (dataAlignment - 1)) == 0, "{:b} & {:b}", deviceAddress, dataAlignment - 1);
+    SKT_ASSERT(dataAlignment > 0);
+    SKT_ASSERT_MSG((deviceAddress & (dataAlignment - 1)) == 0, "{:b} & {:b}", deviceAddress, dataAlignment - 1);
 }
 
 }  // namespace viewer

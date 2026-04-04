@@ -11,7 +11,7 @@ vk::DeviceSize alignedSize(
     vk::DeviceSize size,
     vk::DeviceSize alignment)
 {
-    INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
+    SKT_INVARIANT(std::has_single_bit(alignment), "Expected power of two alignment, got {:#b}", alignment);
     --alignment;
     return (size + alignment) & ~alignment;
 }
@@ -26,13 +26,13 @@ vk::Format indexTypeToFormat(vk::IndexType indexType)
         return vk::Format::eR32Uint;
     }
     case vk::IndexType::eNoneKHR: {
-        INVARIANT(false, "{} is not supported", indexType);
+        SKT_INVARIANT(false, "{} is not supported", indexType);
     }
     case vk::IndexType::eUint8KHR: {
         return vk::Format::eR8Uint;
     }
     }
-    INVARIANT(false, "Unknown index type {}", indexType);
+    SKT_INVARIANT(false, "Unknown index type {}", indexType);
 }
 
 uint32_t indexTypeRank(vk::IndexType indexType)
@@ -51,7 +51,7 @@ uint32_t indexTypeRank(vk::IndexType indexType)
         return 3;
     }
     }
-    INVARIANT(false, "{}", fmt::underlying(indexType));
+    SKT_INVARIANT(false, "{}", fmt::underlying(indexType));
 }
 
 bool indexTypeLess(

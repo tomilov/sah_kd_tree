@@ -139,7 +139,7 @@ std::vector<uint32_t> FileIo::loadShader(std::string_view shaderName) const
     auto shaderFileSize = shaderFile.size();
     size_t dataSize = utils::autoCast(shaderFileSize);
     std::vector<uint32_t> spirv;
-    INVARIANT((dataSize % sizeof *std::data(spirv)) == 0, "Expected whole number of double words for SPIR-V");
+    SKT_INVARIANT((dataSize % sizeof *std::data(spirv)) == 0, "Expected whole number of double words for SPIR-V");
     spirv.resize(dataSize / sizeof *std::data(spirv));
     qint64 bytesRead = shaderFile.read(utils::autoCast(std::data(spirv)), shaderFileSize);
     if (bytesRead < 0) {

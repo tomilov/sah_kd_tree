@@ -41,7 +41,7 @@ spdlog::level::level_enum vkMessageSeveretyToSpdlogLvl(vk::DebugUtilsMessageSeve
         return spdlog::level::err;
     }
     }
-    INVARIANT(false, "Unknown vk::DebugUtilsMessageSeverityFlagBitsEXT {}", fmt::underlying(messageSeverity));
+    SKT_INVARIANT(false, "Unknown vk::DebugUtilsMessageSeverityFlagBitsEXT {}", fmt::underlying(messageSeverity));
 }
 
 }  // namespace
@@ -131,7 +131,7 @@ void Instance::DebugUtilsMessageMuteGuard::Impl::unmute()
     std::lock_guard<std::mutex> lock{mutex};
     for (auto messageIdNumber : messageIdNumbers) {
         auto unmutedMessageIdNumber = mutedMessageIdNumbers.find(messageIdNumber);
-        INVARIANT(unmutedMessageIdNumber != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
+        SKT_INVARIANT(unmutedMessageIdNumber != std::end(mutedMessageIdNumbers), "messageId {:#x} of muted message is not found", messageIdNumber);
         mutedMessageIdNumbers.erase(unmutedMessageIdNumber);
     }
 }
@@ -178,7 +178,7 @@ Instance::Instance(
 #else
     apiVersion = vk::enumerateInstanceVersion(library.getDispatcher());
 #endif
-    INVARIANT(
+    SKT_INVARIANT(
         (vk::apiVersionMajor(apiVersion) == 1) && (vk::apiVersionMinor(apiVersion) == 4),
         "Expected Vulkan version 1.4, got version {}.{}.{}.{}",
         vk::apiVersionMajor(apiVersion),
@@ -204,7 +204,7 @@ Instance::Instance(
     }
 
     auto extensionsCannotBeEnabled = getExtensionsCannotBeEnabled(kRequiredExtensions);
-    INVARIANT(std::empty(extensionsCannotBeEnabled), "Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
+    SKT_INVARIANT(std::empty(extensionsCannotBeEnabled), "Extensions cannot be enabled: {}", fmt::join(extensionsCannotBeEnabled, ", "));
 
     if ((false)) {
         const auto enableLayerIfAvailable = [this](const char * layerName) -> bool
@@ -309,7 +309,7 @@ Instance::Instance(
     }
     for (const char * requiredInstanceExtension : requiredInstanceExtensions) {
         if (!enableExtensionIfAvailable(requiredInstanceExtension)) {
-            INVARIANT(false, "Instance extension '{}' is not available", requiredInstanceExtension);
+            SKT_INVARIANT(false, "Instance extension '{}' is not available", requiredInstanceExtension);
         }
     }
 
@@ -372,7 +372,7 @@ StringUnorderedSet Instance::getExtensionsCannotBeEnabled(const std::vector<cons
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
-        INVARIANT(vk::isInstanceExtension(extensionToCheck), "{} is not instance extension", extensionToCheck);
+        SKT_INVARIANT(vk::isInstanceExtension(extensionToCheck), "{} is not instance extension", extensionToCheck);
         if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
             SPDLOG_WARN("{} is deprecated", extensionToCheck);
         }
@@ -400,7 +400,7 @@ std::vector<vk::PhysicalDevice> Instance::getPhysicalDevices() const &
 
 vk::Instance Instance::getHandle() const &
 {
-    ASSERT(instanceHolder);
+    SKT_ASSERT(instanceHolder);
     return *instanceHolder;
 }
 

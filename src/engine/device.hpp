@@ -112,8 +112,8 @@ private:
         DebugUtilsObjectInfo & debugUtilsObjectInfo,
         Object object)
     {
-        debugUtilsObjectInfo.objectType = object.objectType;
-        debugUtilsObjectInfo.objectHandle = utils::autoCast(typename Object::NativeType(object));
+        debugUtilsObjectInfo.objectType = Object::objectType;
+        debugUtilsObjectInfo.objectHandle = utils::autoCast(static_cast<Object::NativeType>(object));
     }
 
     [[nodiscard]] bool enableExtensionIfAvailable(const char * extensionName);

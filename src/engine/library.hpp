@@ -27,11 +27,11 @@ struct ENGINE_EXPORT Library final : utils::NonCopyable
 private:
     const vk::Optional<const vk::AllocationCallbacks> allocationCallbacks;
 
-#if defined(VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL)
+#ifdef VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL
     std::optional<vk::detail::DynamicLoader> dl;
 #endif
 
-#if defined(VULKAN_HPP_NO_DEFAULT_DISPATCHER)
+#ifdef VULKAN_HPP_NO_DEFAULT_DISPATCHER
     VULKAN_HPP_DEFAULT_DISPATCHER_TYPE dispatcher;
 #endif
 };

@@ -69,7 +69,7 @@ public:
 
     [[nodiscard]] T & at(uint32_t index) const &
     {
-        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        SKT_ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
         auto * data = static_cast<std::byte *>(mappedMemory.data());
         data += index * getElementSize();
         return *std::launder(static_cast<T *>(static_cast<void *>(data)));
@@ -82,7 +82,7 @@ public:
 
     [[nodiscard]] vk::DeviceAddress getDeviceAddress(uint32_t index) const &
     {
-        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        SKT_ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
         vk::DeviceAddress deviceAddress = mappedMemory.getDeviceAddress();
         deviceAddress += index * getElementSize();
         return deviceAddress;
@@ -90,7 +90,7 @@ public:
 
     [[nodiscard]] T * data() const &
     {
-        ASSERT_MSG(mappedMemory.getSize() == count * sizeof(T), "{}, {}, {}", mappedMemory.getSize(), count, sizeof(T));
+        SKT_ASSERT_MSG(mappedMemory.getSize() == count * sizeof(T), "{}, {}, {}", mappedMemory.getSize(), count, sizeof(T));
         return &at(0);
     }
 
@@ -121,9 +121,9 @@ private:
               size}
         , count{countIn}
     {
-        ASSERT(count > 0);
-        ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
-        ASSERT_MSG((mappedMemory.getSize() / count) >= sizeof(T), "Size of buffer mapping element {} is less than static element size {}", mappedMemory.getSize() / count, sizeof(T));
+        SKT_ASSERT(count > 0);
+        SKT_ASSERT_MSG((mappedMemory.getSize() % count) == 0, "Size of buffer mapping {} is not multiple of element count {}", mappedMemory.getSize(), count);
+        SKT_ASSERT_MSG((mappedMemory.getSize() / count) >= sizeof(T), "Size of buffer mapping element {} is less than static element size {}", mappedMemory.getSize() / count, sizeof(T));
     }
 };
 
@@ -207,8 +207,8 @@ public:
         : buffer{std::move(bufferIn)}
         , count{base().getSize() / sizeof(T)}
     {
-        ASSERT(count > 0);
-        ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);
+        SKT_ASSERT(count > 0);
+        SKT_ASSERT_MSG((base().getSize() % count) == 0, "Size of buffer {} is not multiple of element count {}", base().getSize(), count);
     }
 
     [[nodiscard]] vk::DeviceSize getElementSize() const
@@ -223,7 +223,7 @@ public:
 
     [[nodiscard]] vk::DeviceAddress getDeviceAddress(uint32_t index = 0) const &
     {
-        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        SKT_ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
         vk::DeviceAddress deviceAddress = buffer.getDeviceAddress();
         deviceAddress += index * getElementSize();
         return deviceAddress;
@@ -231,7 +231,7 @@ public:
 
     [[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t index = 0) const &
     {
-        ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
+        SKT_ASSERT_MSG(index < getCount(), "{} ^ {}", index, getCount());
         vk::DeviceSize elementSize = getElementSize();
         return {
             .buffer = getHandle(),

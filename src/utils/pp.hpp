@@ -1,9 +1,9 @@
 #pragma once
 
-#define STRINGIZE2(x) #x
-#define STRINGIZE(x) STRINGIZE2(x)
+#define SKT_STRINGIZE2(x) #x
+#define SKT_STRINGIZE(x) SKT_STRINGIZE2(x)
 
-#define SOURCE_LOCATION __FILE__ "(" STRINGIZE(__LINE__) ")"
+#define SKT_SOURCE_LOCATION __FILE__ "(" SKT_STRINGIZE(__LINE__) ")"
 
 // FOR_EACH from https://www.scs.stanford.edu/~dm/blog/va-opt.html
 #define SKT_PARENS ()

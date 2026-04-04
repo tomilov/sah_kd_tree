@@ -55,7 +55,7 @@ constexpr To convertIfInRange(
     From && value,
     const std::source_location & sourceLocation = std::source_location::current())
 {
-    INVARIANT_SRCLOC(inRange<To>(value), sourceLocation, "Unable to convert");
+    SKT_INVARIANT_SRCLOC(inRange<To>(value), sourceLocation, "Unable to convert");
     return static_cast<To>(std::forward<From>(value));
 }
 

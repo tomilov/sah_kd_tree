@@ -50,17 +50,17 @@ void SceneData::collectScene(
         size_t indexCount = 0;
         size_t vertexCount = 0;
         for (const Mesh & mesh : meshes) {
-            ASSERT_MSG((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
-            ASSERT(indexCount == mesh.indexOffset);
-            ASSERT(vertexCount == mesh.vertexOffset);
+            SKT_ASSERT_MSG((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
+            SKT_ASSERT(indexCount == mesh.indexOffset);
+            SKT_ASSERT(vertexCount == mesh.vertexOffset);
             indexCount += mesh.indexCount;
             vertexCount += mesh.vertexCount;
         }
-        ASSERT(!std::empty(meshes));
-        ASSERT(indexCount == meshes.back().indexOffset + meshes.back().indexCount);
-        ASSERT(vertexCount == meshes.back().vertexOffset + meshes.back().vertexCount);
-        ASSERT(indexCount == indices.getCount());
-        ASSERT(vertexCount == vertices.getCount());
+        SKT_ASSERT(!std::empty(meshes));
+        SKT_ASSERT(indexCount == meshes.back().indexOffset + meshes.back().indexCount);
+        SKT_ASSERT(vertexCount == meshes.back().vertexOffset + meshes.back().vertexCount);
+        SKT_ASSERT(indexCount == indices.getCount());
+        SKT_ASSERT(vertexCount == vertices.getCount());
     }
     outIndices.setCount(indices.getCount());
 
@@ -72,15 +72,15 @@ void SceneData::collectScene(
     for (const Mesh & mesh : meshes) {
         const auto addVertexOffset = [&mesh, vertexCount = outVertices.getCount()](Index i) -> Index
         {
-            ASSERT(i < mesh.vertexCount);
-            ASSERT(mesh.vertexOffset + i < vertexCount);
+            SKT_ASSERT(i < mesh.vertexCount);
+            SKT_ASSERT(mesh.vertexOffset + i < vertexCount);
             return utils::autoCast(mesh.vertexOffset + i);
         };
         outIndex = std::ranges::transform(inIndices.first(mesh.indexCount), outIndex, addVertexOffset).out;
         inIndices = inIndices.subspan(mesh.indexCount);
     }
-    ASSERT(std::empty(inIndices));
-    ASSERT(outIndex == outIndices.end());
+    SKT_ASSERT(std::empty(inIndices));
+    SKT_ASSERT(outIndex == outIndices.end());
 }
 
 void SceneData::collectScene(
@@ -95,7 +95,7 @@ void SceneData::collectScene(
         const Node & node = nodes[nodeIndex];
         for (size_t m : node.meshes) {
             const Mesh & mesh = meshes[m];
-            INVARIANT((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
+            SKT_INVARIANT((mesh.indexCount % 3) == 0, "{}", mesh.indexCount);
             indexCount += mesh.indexCount;
             vertexCount += mesh.vertexCount;
         }
@@ -119,8 +119,8 @@ void SceneData::collectScene(
             const Mesh & mesh = meshes[m];
             const auto addVertexOffset = [&mesh, vertexOffset, vertexCount](Index i) -> Index
             {
-                ASSERT(i < mesh.vertexCount);
-                ASSERT(vertexOffset + i < vertexCount);
+                SKT_ASSERT(i < mesh.vertexCount);
+                SKT_ASSERT(vertexOffset + i < vertexCount);
                 return utils::autoCast(vertexOffset + i);
             };
             outIndex = std::ranges::transform(inIndices.subspan(mesh.indexOffset, mesh.indexCount), outIndex, addVertexOffset).out;
@@ -132,9 +132,9 @@ void SceneData::collectScene(
         }
     };
     traverseNodes(traverseNodes, rootNodeIndex);
-    ASSERT(vertexOffset == vertexCount);
-    ASSERT(outIndex = outIndices.end());
-    ASSERT(outVertex = outVertices.end());
+    SKT_ASSERT(vertexOffset == vertexCount);
+    SKT_ASSERT(outIndex = outIndices.end());
+    SKT_ASSERT(outVertex = outVertices.end());
 }
 
 }  // namespace scene_data

@@ -43,7 +43,7 @@ void Context::createDevice(vk::SurfaceKHR surface)
 
 const Library & Context::getLibrary() const &
 {
-    ASSERT(library);
+    SKT_ASSERT(library);
     return *library;
 }
 
@@ -59,19 +59,19 @@ vk::Optional<const vk::AllocationCallbacks> Context::getAllocationCallbacks() co
 
 const Instance & Context::getInstance() const &
 {
-    ASSERT(instance);
+    SKT_ASSERT(instance);
     return *instance;
 }
 
 const PhysicalDevices & Context::getPhysicalDevices() const &
 {
-    ASSERT(physicalDevices);
+    SKT_ASSERT(physicalDevices);
     return *physicalDevices;
 }
 
 const Device & Context::getDevice() const &
 {
-    ASSERT(device);
+    SKT_ASSERT(device);
     return *device;
 }
 
@@ -82,7 +82,7 @@ const PhysicalDevice & Context::getPhysicalDevice() const &
 
 const MemoryAllocator & Context::getMemoryAllocator() const &
 {
-    ASSERT(vma);
+    SKT_ASSERT(vma);
     return *vma;
 }
 

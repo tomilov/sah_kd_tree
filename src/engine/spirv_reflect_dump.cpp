@@ -48,7 +48,7 @@ namespace
     case SPV_REFLECT_GENERATOR_CLAY_CLAY_SHADER_COMPILER:
         return "CLAY_CLAY_SHADER_COMPILER";
     }
-    INVARIANT(false, "Unknown SpvReflectGenerator value {}", fmt::underlying(generator));
+    SKT_INVARIANT(false, "Unknown SpvReflectGenerator value {}", fmt::underlying(generator));
 }
 
 [[nodiscard]] const char * toString(SpvReflectShaderStageFlagBits shaderStage)
@@ -83,7 +83,7 @@ namespace
     case SPV_REFLECT_SHADER_STAGE_CALLABLE_BIT_KHR:
         return "CALLABLE_BIT_KHR";
     }
-    INVARIANT(false, "Unknown SpvReflectShaderStageFlagBits value {}", fmt::underlying(shaderStage));
+    SKT_INVARIANT(false, "Unknown SpvReflectShaderStageFlagBits value {}", fmt::underlying(shaderStage));
 }
 
 [[nodiscard]] const char * toString(SpvReflectResourceType resourceType)
@@ -100,7 +100,7 @@ namespace
     case SPV_REFLECT_RESOURCE_FLAG_UAV:
         return "UAV";
     }
-    INVARIANT(false, "Unknown SpvReflectResourceType value {}", fmt::underlying(resourceType));
+    SKT_INVARIANT(false, "Unknown SpvReflectResourceType value {}", fmt::underlying(resourceType));
 }
 
 [[nodiscard]] const char * toString(SpvReflectDescriptorType descriptorType)
@@ -131,7 +131,7 @@ namespace
     case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
         return "ACCELERATION_STRUCTURE_KHR";
     }
-    INVARIANT(false, "Unknown SpvReflectDescriptorType value {}", fmt::underlying(descriptorType));
+    SKT_INVARIANT(false, "Unknown SpvReflectDescriptorType value {}", fmt::underlying(descriptorType));
 }
 
 [[nodiscard]] const char * toString(SpvReflectFormat reflectFormat)
@@ -212,7 +212,7 @@ namespace
     case SPV_REFLECT_FORMAT_R64G64B64A64_SFLOAT:
         return "R64G64B64A64_SFLOAT";
     }
-    INVARIANT(false, "Unknown SpvReflectFormat value {}", fmt::underlying(reflectFormat));
+    SKT_INVARIANT(false, "Unknown SpvReflectFormat value {}", fmt::underlying(reflectFormat));
 }
 
 [[nodiscard]] const char * toString [[gnu::used]] (SpvReflectTypeFlagBits typeFlagBits)
@@ -251,7 +251,7 @@ namespace
     case SPV_REFLECT_TYPE_FLAG_REF:
         return "REF";
     }
-    INVARIANT(false, "Unknown SpvReflectTypeFlagBits value {}", fmt::underlying(typeFlagBits));
+    SKT_INVARIANT(false, "Unknown SpvReflectTypeFlagBits value {}", fmt::underlying(typeFlagBits));
 }
 
 [[nodiscard]] const char * toString [[gnu::used]] (SpvReflectVariableFlagBits ariableFlagBits)
@@ -264,7 +264,7 @@ namespace
     case SPV_REFLECT_VARIABLE_FLAGS_PHYSICAL_POINTER_COPY:
         return "PHYSICAL_POINTER_COPY";
     }
-    INVARIANT(false, "Unknown SpvReflectVariableFlagBits value {}", fmt::underlying(ariableFlagBits));
+    SKT_INVARIANT(false, "Unknown SpvReflectVariableFlagBits value {}", fmt::underlying(ariableFlagBits));
 }
 
 [[nodiscard]] const char * toString [[gnu::used]] (SpvReflectDecorationFlagBits decorationFlagBits)
@@ -303,7 +303,7 @@ namespace
     case SPV_REFLECT_DECORATION_BLOCK_MATCH_TEXTURE:
         return "BLOCK_MATCH_TEXTURE";
     }
-    INVARIANT(false, "Unknown SpvReflectDecorationFlagBits value {}", fmt::underlying(decorationFlagBits));
+    SKT_INVARIANT(false, "Unknown SpvReflectDecorationFlagBits value {}", fmt::underlying(decorationFlagBits));
 }
 
 template<typename T>

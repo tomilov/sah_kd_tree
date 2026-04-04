@@ -183,8 +183,8 @@ inline void resetFence(
     const engine::Context & context,
     const Fence & fence)
 {
-    ASSERT(fence);
-    ASSERT(*fence);
+    SKT_ASSERT(fence);
+    SKT_ASSERT(*fence);
     context.getDevice().getHandle().resetFences(**fence, context.getDispatcher());
 }
 
@@ -192,15 +192,15 @@ inline void waitFence(
     const engine::Context & context,
     const Fence & fence)
 {
-    ASSERT(fence);
-    ASSERT(*fence);
+    SKT_ASSERT(fence);
+    SKT_ASSERT(*fence);
     auto result = context.getDevice().getHandle().waitForFences(**fence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
-    INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
+    SKT_INVARIANT(result == vk::Result::eSuccess, "Display fence: {}", result);
 }
 
 inline void checkFenceUnique(const Fence & fence)
 {
-    ASSERT_MSG(fence.use_count() == 1, "Non-unique use in single-threaded context: {}", fence.use_count());
+    SKT_ASSERT_MSG(fence.use_count() == 1, "Non-unique use in single-threaded context: {}", fence.use_count());
 }
 
 class FencePool final : utils::NonCopyable
@@ -531,7 +531,7 @@ public:
 
     void put(std::shared_ptr<DrawOffscreenResourcesAndDescriptors> resourcesAndDescriptors) &
     {
-        ASSERT_MSG(resourcesAndDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", resourcesAndDescriptors.use_count());
+        SKT_ASSERT_MSG(resourcesAndDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", resourcesAndDescriptors.use_count());
         pool.push(std::move(resourcesAndDescriptors));
     }
 
@@ -591,9 +591,9 @@ public:
 
         if (waitIdle) {
             if (completionFence) {
-                ASSERT(*completionFence);
+                SKT_ASSERT(*completionFence);
                 auto result = context.getDevice().getHandle().waitForFences(**completionFence, vk::True, std::numeric_limits<uint64_t>::max(), context.getDispatcher());
-                INVARIANT(result == vk::Result::eSuccess, "{}: {}", name, result);
+                SKT_INVARIANT(result == vk::Result::eSuccess, "{}: {}", name, result);
             } else {
                 queue.waitIdle();
             }
@@ -942,7 +942,7 @@ Renderer::Impl::Impl(
     , framesInFlight{framesInFlightIn}
 {
     uint32_t maxPushConstantsSize = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxPushConstantsSize;
-    INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
+    SKT_INVARIANT(sizeof(ScenePushConstants) <= maxPushConstantsSize, "{} ^ {}", sizeof(ScenePushConstants), maxPushConstantsSize);
 }
 
 std::shared_ptr<const vk::UniqueSampler> Renderer::Impl::makeSampler() const
@@ -980,8 +980,8 @@ void Renderer::Impl::unsetScene()
 
 void Renderer::Impl::setScene(scene_data::SceneDataPtr newSceneData)
 {
-    ASSERT(!sceneData);
-    ASSERT(newSceneData);
+    SKT_ASSERT(!sceneData);
+    SKT_ASSERT(newSceneData);
     sceneData = std::move(newSceneData);
 }
 
@@ -1109,7 +1109,7 @@ void Renderer::Impl::bindPipeline(
     for (const auto & pushConstantRange : shaders.getShaderStages().pushConstantRanges) {
         if (engine.getSettings().descriptorManagementKind == engine::DescriptorManagementKind::Heap) {
             [[maybe_unused]] const auto & descriptorHeapProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
-            ASSERT(pushConstantRange.offset + pushConstantRange.size <= descriptorHeapProperties.maxPushDataSize);
+            SKT_ASSERT(pushConstantRange.offset + pushConstantRange.size <= descriptorHeapProperties.maxPushDataSize);
             vk::HostAddressRangeConstEXT data = {
                 .address = pushConstants,
                 .size = pushConstantRange.size,
@@ -1130,8 +1130,8 @@ void Renderer::Impl::drawScene(
     const GraphicsPipeline & pipeline) const
 {
     {
-        ASSERT(frameResourcesAndDescriptors);
-        ASSERT(sceneResourcesAndDescriptors);
+        SKT_ASSERT(frameResourcesAndDescriptors);
+        SKT_ASSERT(sceneResourcesAndDescriptors);
         const DescriptorRefs descriptors = {
             std::cref(frameResourcesAndDescriptors->directDescriptors),
             std::cref(sceneResourcesAndDescriptors->descriptors),
@@ -1147,7 +1147,7 @@ void Renderer::Impl::drawScene(
         vk::Viewport viewport;
         vk::Rect2D scissor;
         if (frameSettings.useOffscreenTexture) {
-            ASSERT(offscreenResourcesAndDescriptors);
+            SKT_ASSERT(offscreenResourcesAndDescriptors);
             viewport = vk::Viewport{
                 .x = 0.0f,
                 .y = 0.0f,
@@ -1173,7 +1173,7 @@ void Renderer::Impl::drawScene(
         commandBuffer.setScissor(kFirstScissor, scissor, context.getDispatcher());
     }
 
-    ASSERT(sceneResourcesAndDescriptors);
+    SKT_ASSERT(sceneResourcesAndDescriptors);
     const auto & sceneResources = sceneResourcesAndDescriptors->resources;
 
     {
@@ -1183,8 +1183,8 @@ void Renderer::Impl::drawScene(
             if (wrapper) {
                 return wrapper.value();
             }
-            ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
-            ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
+            SKT_ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
+            SKT_ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
             return nullptr;
         };
         vk::Buffer vertexBuffer = bufferOrNull(sceneResources.vertexBuffer);
@@ -1197,20 +1197,20 @@ void Renderer::Impl::drawScene(
     if (sceneResources.indexBuffer) {
         indexBuffer = sceneResources.indexBuffer.value();
     } else {
-        ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
-        ASSERT(features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
+        SKT_ASSERT(features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>().nullDescriptor != vk::False);
+        SKT_ASSERT(features2Chain.get<vk::PhysicalDeviceVulkan14Features>().maintenance6 != vk::False);
         // TODO: or draw non-indexed
     }
     constexpr vk::DeviceSize kIndexBufferDeviceOffset = 0;
     if (engine.getSettings().multiDrawIndirectEnabled) {
-        ASSERT(std::empty(sceneResources.indexTypes));
+        SKT_ASSERT(std::empty(sceneResources.indexTypes));
         auto indexType = sceneResources.maxIndexType;
         commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, indexType, context.getDispatcher());  // vkCmdBindIndexBuffer2KHR is not supported by Renderdoc
         constexpr vk::DeviceSize kInstanceBufferOffset = 0;
         constexpr uint32_t kStride = sizeof(vk::DrawIndexedIndirectCommand);
         uint32_t drawCount = sceneResources.drawCount;
         const auto & physicalDeviceLimits = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits;
-        INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
+        SKT_INVARIANT(drawCount <= physicalDeviceLimits.maxDrawIndirectCount, "{} ^ {}", drawCount, physicalDeviceLimits.maxDrawIndirectCount);
         if (engine.getSettings().drawIndirectCountEnabled) {
             constexpr vk::DeviceSize kDrawCountBufferOffset = 0;
             uint32_t maxDrawCount = drawCount;
@@ -1219,16 +1219,16 @@ void Renderer::Impl::drawScene(
             commandBuffer.drawIndexedIndirect(sceneResources.instanceBuffer.value(), kInstanceBufferOffset, drawCount, kStride, context.getDispatcher());
         }
     } else {
-        ASSERT(!std::empty(sceneResources.instances));
-        ASSERT(std::size(sceneResources.indexTypes) == std::size(sceneResources.instances));
+        SKT_ASSERT(!std::empty(sceneResources.instances));
+        SKT_ASSERT(std::size(sceneResources.indexTypes) == std::size(sceneResources.instances));
         auto indexType = std::cbegin(sceneResources.indexTypes);
         for (const auto & [indexCount, instanceCount, firstIndex, vertexOffset, firstInstance] : sceneResources.instances) {
-            ASSERT(indexType != std::cend(sceneResources.indexTypes));
+            SKT_ASSERT(indexType != std::cend(sceneResources.indexTypes));
             commandBuffer.bindIndexBuffer(indexBuffer, kIndexBufferDeviceOffset, *indexType++, context.getDispatcher());
             commandBuffer.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance, context.getDispatcher());
             // SPDLOG_TRACE("{{.indexCount = {}, .instanceCount = {}, .firstIndex = {}, .vertexOffset = {}, .firstInstance = {})}}", indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
-        ASSERT(indexType == std::cend(sceneResources.indexTypes));
+        SKT_ASSERT(indexType == std::cend(sceneResources.indexTypes));
     }
 }
 
@@ -1239,7 +1239,7 @@ void Renderer::Impl::offscreenPass(
     constexpr engine::LabelColor kGreenColor = {0.0f, 1.0f, 0.0f, 1.0f};
     auto offscreenPassLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "Offscreen pass"sv, kGreenColor);
 
-    ASSERT(offscreenResourcesAndDescriptors);
+    SKT_ASSERT(offscreenResourcesAndDescriptors);
     const Framebuffer & framebuffer = offscreenResourcesAndDescriptors->resources.framebuffer;
     vk::RenderPassBeginInfo renderPassBeginInfo = {
         .renderPass = renderPass,
@@ -1285,16 +1285,16 @@ void Renderer::Impl::drawDisplay(
     const GraphicsPipeline & pipeline)
 {
     {
-        ASSERT(frameResourcesAndDescriptors->displayDescriptors);
+        SKT_ASSERT(frameResourcesAndDescriptors->displayDescriptors);
         const Descriptors * secondBinding = nullptr;
         if (traceFrameResourcesAndDescriptors) {
-            ASSERT(!offscreenResourcesAndDescriptors);
+            SKT_ASSERT(!offscreenResourcesAndDescriptors);
             secondBinding = &traceFrameResourcesAndDescriptors->readDescriptors;
         } else {
-            ASSERT(offscreenResourcesAndDescriptors);
+            SKT_ASSERT(offscreenResourcesAndDescriptors);
             secondBinding = &offscreenResourcesAndDescriptors->descriptors;
         }
-        ASSERT(secondBinding);
+        SKT_ASSERT(secondBinding);
         const DescriptorRefs descriptors = {
             std::cref(frameResourcesAndDescriptors->displayDescriptors.value()),
             std::cref(*secondBinding),
@@ -1346,7 +1346,7 @@ void Renderer::Impl::traceScene(
             computeCommandBuffer.setWaitCompletion(fenceCompute);
 
             {
-                ASSERT(traceSceneResourcesAndDescriptors);
+                SKT_ASSERT(traceSceneResourcesAndDescriptors);
                 const DescriptorRefs descriptors = {
                     std::cref(traceSceneResourcesAndDescriptors->descriptors),
                     std::cref(traceFrameResourcesAndDescriptors->writeDescriptors),
@@ -1374,7 +1374,7 @@ void Renderer::Impl::advance(
     vk::CommandBuffer commandBuffer,
     uint32_t currentFrameSlot)
 {
-    ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
+    SKT_ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
 
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
 
@@ -1436,8 +1436,8 @@ void Renderer::Impl::advance(
         deferDeletion(previousFrameSlot, std::move(sceneResourcesAndDescriptors));
     }
     if (frameSettings.useOffscreenTexture) {
-        ASSERT(!offscreenResourcesAndDescriptors);
-        ASSERT(!traceFrameResourcesAndDescriptors);
+        SKT_ASSERT(!offscreenResourcesAndDescriptors);
+        SKT_ASSERT(!traceFrameResourcesAndDescriptors);
         if (traceSceneResourcesAndDescriptors) {
             traceScene(commandBuffer, *traceComputePipeline);
         } else if (sceneData) {
@@ -1446,10 +1446,10 @@ void Renderer::Impl::advance(
                 ScopedCommandBuffer offscreenCommandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
                 const OffscreenRenderPass & offscreenRenderPass = drawOffscreenPool->getOffscreenRenderPass();
                 offscreenPass(offscreenCommandBuffer, offscreenRenderPass);
-                ASSERT(!offscreenResourcesAndDescriptors->fence);
+                SKT_ASSERT(!offscreenResourcesAndDescriptors->fence);
                 offscreenResourcesAndDescriptors->fence = fencePool.get();
                 offscreenCommandBuffer.setCompletionFence(offscreenResourcesAndDescriptors->fence);
-                ASSERT(!offscreenResourcesAndDescriptors->commandBuffers);
+                SKT_ASSERT(!offscreenResourcesAndDescriptors->commandBuffers);
                 offscreenResourcesAndDescriptors->commandBuffers = offscreenCommandBuffer.getCommandBuffers();
             }
         }
@@ -1461,7 +1461,7 @@ void Renderer::Impl::updateRenderPass(
     [[maybe_unused]] bool isRenderPassFormatChanged,
     uint32_t currentFrameSlot)
 {
-    ASSERT(directGraphicsPipeline);
+    SKT_ASSERT(directGraphicsPipeline);
     auto & graphicsPipeline = frameSettings.useOffscreenTexture ? *displayGraphicsPipeline : *directGraphicsPipeline;
     if (graphicsPipeline.pipeline) {
         if (graphicsPipeline.pipeline->getRenderPass() == renderPass) {
@@ -1489,7 +1489,7 @@ void Renderer::Impl::render(
     bool isRenderPassFormatChanged,
     uint32_t currentFrameSlot)
 {
-    ASSERT(currentFrameSlot < framesInFlight);
+    SKT_ASSERT(currentFrameSlot < framesInFlight);
     auto unmuteMessageGuard = context.getInstance().unmuteDebugUtilsMessages(kUnmutedMessageIdNumbers);
     updateRenderPass(renderPass, isRenderPassFormatChanged, currentFrameSlot);
     if (frameSettings.useOffscreenTexture) {
@@ -1500,7 +1500,7 @@ void Renderer::Impl::render(
             drawDisplay(commandBuffer, *displayGraphicsPipeline);
         }
     } else {
-        ASSERT(directGraphicsPipeline->pipeline);
+        SKT_ASSERT(directGraphicsPipeline->pipeline);
         if (sceneResourcesAndDescriptors && frameResourcesAndDescriptors) {
             drawScene(commandBuffer, *directGraphicsPipeline);
         }
@@ -1541,7 +1541,7 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
 
 void Renderer::Impl::putFrameDescriptors(std::shared_ptr<FrameResourcesAndDescriptors> && frameDescriptors)
 {
-    ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
+    SKT_ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
     frameResourcesAndDescriptorsPool.push(std::move(frameDescriptors));
 }
 
@@ -1565,7 +1565,7 @@ auto Renderer::Impl::getTraceFrameDescriptors() -> std::shared_ptr<TraceFrameRes
 
 void Renderer::Impl::putTraceFrameDescriptors(std::shared_ptr<TraceFrameResourcesAndDescriptors> && frameDescriptors)
 {
-    ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
+    SKT_ASSERT_MSG(frameDescriptors.use_count() == 1, "Non-unique use in single-threaded context: {}", frameDescriptors.use_count());
     traceFrameResourcesAndDescriptorsPool.push(std::move(frameDescriptors));
 }
 

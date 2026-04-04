@@ -33,7 +33,7 @@ CommandPool::CommandPool(
 
 vk::CommandPool CommandPool::getHandle() const &
 {
-    ASSERT(commandPoolHolder);
+    SKT_ASSERT(commandPoolHolder);
     return *commandPoolHolder;
 }
 

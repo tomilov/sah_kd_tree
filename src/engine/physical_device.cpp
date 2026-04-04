@@ -90,7 +90,7 @@ PhysicalDevice::PhysicalDevice(
 
 vk::PhysicalDevice PhysicalDevice::getHandle() const &
 {
-    ASSERT(physicalDevice);
+    SKT_ASSERT(physicalDevice);
     return physicalDevice;
 }
 
@@ -123,7 +123,7 @@ auto PhysicalDevice::getExtensionsCannotBeEnabled(std::span<const char * const> 
 {
     StringUnorderedSet missingExtensions;
     for (const char * extensionToCheck : extensionsToCheck) {
-        INVARIANT(vk::isDeviceExtension(extensionToCheck), "{} is not device extension", extensionToCheck);
+        SKT_INVARIANT(vk::isDeviceExtension(extensionToCheck), "{} is not device extension", extensionToCheck);
         if (vk::getDeprecatedExtensions().contains(extensionToCheck)) {
             SPDLOG_WARN("{} is deprecated", extensionToCheck);
         }
@@ -343,7 +343,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
     } else if (imageTiling == vk::ImageTiling::eOptimal) {
         p = &vk::FormatProperties3::optimalTilingFeatures;
     } else {
-        INVARIANT(false, "{}", imageTiling);
+        SKT_INVARIANT(false, "{}", imageTiling);
     }
 
     constexpr vk::FormatFeatureFlags2 kFormatFeatureFlags = vk::FormatFeatureFlagBits2::eDepthStencilAttachment;
@@ -366,7 +366,7 @@ vk::Format PhysicalDevice::findDepthImageFormat(vk::ImageTiling imageTiling) con
         }
         const auto & bestFormatDescription = codegen::vulkan::kFormatDescriptions.at(depthFormat);
         const auto * bestDepthComponent = bestFormatDescription.findComponent(codegen::vulkan::ComponentType::eD);
-        INVARIANT(bestDepthComponent, "");
+        SKT_INVARIANT(bestDepthComponent, "");
         if (depthComponent->bitsize < bestDepthComponent->bitsize) {
             continue;
         }
@@ -431,16 +431,16 @@ size_t PhysicalDevice::getDescriptorBufferDescriptorSize(vk::DescriptorType desc
         return physicalDeviceDescriptorBufferProperties.robustStorageBufferDescriptorSize;
     }
     case vk::DescriptorType::eUniformBufferDynamic: {
-        INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Dynamic uniform buffer descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eStorageBufferDynamic: {
-        INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Dynamic storage buffer descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eInputAttachment: {
         return physicalDeviceDescriptorBufferProperties.inputAttachmentDescriptorSize;
     }
     case vk::DescriptorType::eInlineUniformBlock: {
-        INVARIANT(false, "Inline uniform block descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Inline uniform block descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eAccelerationStructureKHR: {
         return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
@@ -449,22 +449,22 @@ size_t PhysicalDevice::getDescriptorBufferDescriptorSize(vk::DescriptorType desc
         return physicalDeviceDescriptorBufferProperties.accelerationStructureDescriptorSize;
     }
     case vk::DescriptorType::eSampleWeightImageQCOM: {
-        INVARIANT(false, "Sample weight image descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Sample weight image descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eBlockMatchImageQCOM: {
-        INVARIANT(false, "Block match image descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Block match image descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::eTensorARM: {
-        INVARIANT(false, "Not implemented");  // TODO:
+        SKT_INVARIANT(false, "Not implemented");  // TODO:
     }
     case vk::DescriptorType::eMutableEXT: {
-        INVARIANT(false, "Mutable type descriptor cannot be stored in descriptor buffer");
+        SKT_INVARIANT(false, "Mutable type descriptor cannot be stored in descriptor buffer");
     }
     case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
-        INVARIANT(false, "Not implemented");  // TODO:
+        SKT_INVARIANT(false, "Not implemented");  // TODO:
     }
     }
-    INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
+    SKT_INVARIANT(false, "Unknown descriptor type {}", fmt::underlying(descriptorType));
 }
 
 uint32_t PhysicalDevice::findMemoryTypeIndex(

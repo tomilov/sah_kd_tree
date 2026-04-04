@@ -16,7 +16,7 @@ void insertDebugUtilsLabel(
     std::string_view labelName,
     const LabelColor & color)
 {
-    ASSERT_MSG(object, "Expected valid object");
+    SKT_ASSERT_MSG(object, "Expected valid object");
 
     if (!dispatcher.vkQueueInsertDebugUtilsLabelEXT) {
         return;
@@ -61,7 +61,7 @@ auto ScopedDebugUtilsLabel<Object>::operator=(ScopedDebugUtilsLabel && rhs) noex
 template<typename Object>
 ScopedDebugUtilsLabel<Object>::~ScopedDebugUtilsLabel()
 {
-    ASSERT(!object == !dispatcher);
+    SKT_ASSERT(!object == !dispatcher);
     if (!dispatcher) {
         return;
     }
@@ -80,7 +80,7 @@ auto ScopedDebugUtilsLabel<Object>::create(
     std::string_view labelName,
     const LabelColor & color) -> ScopedDebugUtilsLabel
 {
-    ASSERT_MSG(object, "Expected valid object");
+    SKT_ASSERT_MSG(object, "Expected valid object");
 
     if (dispatcher.vkQueueBeginDebugUtilsLabelEXT) {
         std::string labelNameStr{labelName};

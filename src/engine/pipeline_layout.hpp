@@ -28,7 +28,7 @@ struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
 
     [[nodiscard]] vk::PipelineLayout getHandle() const &
     {
-        ASSERT(pipelineLayout);
+        SKT_ASSERT(pipelineLayout);
         return *pipelineLayout;
     }
 

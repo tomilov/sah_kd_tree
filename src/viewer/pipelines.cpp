@@ -55,7 +55,7 @@ void Shaders::create()
 GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shadersIn)
     : shaders{std::move(shadersIn)}
 {
-    ASSERT(shaders);
+    SKT_ASSERT(shaders);
 }
 
 engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
@@ -66,8 +66,8 @@ engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
     vk::RenderPass renderPass,
     engine::SpecializationInfos && specializationInfos)
 {
-    ASSERT(shaders);
-    ASSERT(!pipeline);
+    SKT_ASSERT(shaders);
+    SKT_ASSERT(!pipeline);
     pipeline = std::make_unique<engine::GraphicsPipeline>(name, context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), renderPass, std::move(specializationInfos));
     return *pipeline;
 }
@@ -75,7 +75,7 @@ engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
 ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shadersIn)
     : shaders{std::move(shadersIn)}
 {
-    ASSERT(shaders);
+    SKT_ASSERT(shaders);
 }
 
 engine::ComputePipeline & ComputePipeline::initPipeline(
@@ -85,8 +85,8 @@ engine::ComputePipeline & ComputePipeline::initPipeline(
     engine::DescriptorManagementKind descriptorManagementKind,
     engine::SpecializationInfos && specializationInfos)
 {
-    ASSERT(shaders);
-    ASSERT(!pipeline);
+    SKT_ASSERT(shaders);
+    SKT_ASSERT(!pipeline);
     pipeline = std::make_unique<engine::ComputePipeline>(name, context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), std::move(specializationInfos));
     return *pipeline;
 }

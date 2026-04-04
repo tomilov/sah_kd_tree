@@ -141,7 +141,7 @@ struct Builder : Tree
               cudaDeviceIn,
               sceneDataIn}
     {
-        ASSERT(sceneData);
+        SKT_ASSERT(sceneData);
     }
 
     [[nodiscard]] static auto getNode(const sah_kd_tree::Tree<BaseTraits> & tree)
@@ -281,7 +281,7 @@ struct Builder : Tree
             sceneData->collectScene(0, inputIndices, inputVertices);
             {
                 const size_t indexCount = inputIndices.getCount();
-                ASSERT((indexCount % 3) == 0);
+                SKT_ASSERT((indexCount % 3) == 0);
                 triangleCount = indexCount / 3;
                 static_assert(std::is_same_v<scene_data::Index, typename BaseTraits::U>);
                 auto a = inputIndices.cbegin();
@@ -365,7 +365,7 @@ struct Builder : Tree
         static_assert(std::is_same_v<typename BaseTraits::I, glm::int32>);
         const auto & tree = treeContext.tree;
         {
-            ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
+            SKT_ASSERT(std::is_sorted(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth)));
             layerSizes.resize(std::size(tree.layerDepth));
             std::adjacent_difference(std::cbegin(tree.layerDepth), std::cend(tree.layerDepth), std::begin(layerSizes));
             polygonCount = std::size(tree.polygonTriangle);
@@ -387,12 +387,12 @@ struct Builder : Tree
         constexpr size_t kNodeSize = sizeof(NodeType);
         static_assert(kNodeSize == 64, "Keep in sync with Node in 'trace.comp'");
         const size_t maxPitch = cudaDevice.getMaxPitch();
-        INVARIANT(kNodeSize < maxPitch, "{} ^ {}", kNodeSize, maxPitch);
+        SKT_INVARIANT(kNodeSize < maxPitch, "{} ^ {}", kNodeSize, maxPitch);
         nodeOffset = gatherSize<NodeType>(nodeCount);
         nodeParentOffset = gatherSize(tree.node.parent);
         SPDLOG_INFO("Allocation size for tree: {}", dataSize);
-        ASSERT(dataSize > 0);
-        ASSERT(dataAlignment > 0);
+        SKT_ASSERT(dataSize > 0);
+        SKT_ASSERT(dataAlignment > 0);
         const auto deviceMemory = cudaDevice.makeDeviceMemory(dataSize, dataAlignment);
         allocationSize = deviceMemory.getSize();
         SPDLOG_INFO("Data size {}, data alignment {}, allocation size {}", dataSize, dataAlignment, allocationSize);

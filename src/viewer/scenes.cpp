@@ -22,7 +22,7 @@ namespace viewer
 
 scene_data::SceneDataPtr Scenes::getScene(const std::filesystem::path & scenePath) const
 {
-    ASSERT(!std::empty(scenePath));
+    SKT_ASSERT(!std::empty(scenePath));
     std::lock_guard<std::mutex> lockGuard{mutex};
     auto & w = scenes[scenePath];
     auto p = w.lock();

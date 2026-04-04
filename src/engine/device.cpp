@@ -48,11 +48,11 @@ Device::Device(
         return (setFeature(features) && ...);
     };
     if (!setFeatures(std::add_pointer_t<PhysicalDevice::RequiredFeatures>{})) {
-        INVARIANT(false, "{}", name);
+        SKT_INVARIANT(false, "{}", name);
     }
     if (sah_kd_tree::kIsDebugBuild) {
         if (!setFeatures(std::add_pointer_t<PhysicalDevice::DebugFeatures>{})) {
-            INVARIANT(false, "{}", name);
+            SKT_INVARIANT(false, "{}", name);
         }
     }
     if (!setFeatures(std::add_pointer_t<PhysicalDevice::OptionalFeatures>{})) {
@@ -61,12 +61,12 @@ Device::Device(
 
     for (const char * requiredDeviceExtension : PhysicalDevice::kRequiredExtensions) {
         if (!enableExtensionIfAvailable(requiredDeviceExtension)) {
-            INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredDeviceExtension);
+            SKT_INVARIANT(false, "{}: device extension '{}' should be available after checks", name, requiredDeviceExtension);
         }
     }
     for (const char * requiredDeviceExtension : requiredDeviceExtensions) {
         if (!enableExtensionIfAvailable(requiredDeviceExtension)) {
-            INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredDeviceExtension);
+            SKT_INVARIANT(false, "{}: device extension '{}' (configuration requirements) should be available after checks", name, requiredDeviceExtension);
         }
     }
     for (const char * optionalExtension : PhysicalDevice::kOptionalExtensions) {
@@ -100,7 +100,7 @@ const std::vector<const char *> & Device::getEnabledExtensions() const &
 bool Device::isExtensionEnabled(const char * extension) const
 {
     const auto extensionPromotionVersion = vk::getExtensionPromotedTo(extension);
-    for (auto vkVersion : {STRINGIZE(VK_VERSION_1_0) ""sv, STRINGIZE(VK_VERSION_1_1) ""sv, STRINGIZE(VK_VERSION_1_2) ""sv, STRINGIZE(VK_VERSION_1_3) ""sv}) {
+    for (auto vkVersion : {SKT_STRINGIZE(VK_VERSION_1_0) ""sv, SKT_STRINGIZE(VK_VERSION_1_1) ""sv, SKT_STRINGIZE(VK_VERSION_1_2) ""sv, SKT_STRINGIZE(VK_VERSION_1_3) ""sv}) {
         if (vkVersion == extensionPromotionVersion) {
             return true;
         }
@@ -115,7 +115,7 @@ const PhysicalDevice & Device::getPhysicalDevice() const &
 
 vk::Device Device::getHandle() const &
 {
-    ASSERT(deviceHolder);
+    SKT_ASSERT(deviceHolder);
     return *deviceHolder;
 }
 
@@ -139,7 +139,7 @@ bool Device::enableExtensionIfAvailable(const char * extensionName)
     if (extensionLayer != std::end(extensionLayers)) {
         const char * layerName = extensionLayer->second;
         if (!instance.getEnabledLayers().contains(layerName)) {
-            INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
+            SKT_INVARIANT(false, "Device-layer extension '{}' from layer '{}' cannot be enabled after instance creation", extensionName, layerName);
         }
         if (enabledExtensionSet.insert(extensionName).second) {
             enabledExtensions.push_back(extensionName);

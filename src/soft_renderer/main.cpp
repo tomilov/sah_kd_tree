@@ -155,12 +155,12 @@ private:
 
 }  // namespace
 
-#define CALL_SDL(f, ...)                                                         \
-    do                                                                           \
-        if (!SDL_##f(__VA_ARGS__)) {                                             \
-            SPDLOG_ERROR("SDL_" #f " failed: {}", SDL_GetError());               \
-            throw std::runtime_error("Error: " STRINGIZE(SDL_##f(__VA_ARGS__))); \
-        }                                                                        \
+#define CALL_SDL(f, ...)                                                             \
+    do                                                                               \
+        if (!SDL_##f(__VA_ARGS__)) {                                                 \
+            SPDLOG_ERROR("SDL_" #f " failed: {}", SDL_GetError());                   \
+            throw std::runtime_error("Error: " SKT_STRINGIZE(SDL_##f(__VA_ARGS__))); \
+        }                                                                            \
     while (false)
 
 int main(
@@ -169,7 +169,7 @@ int main(
 {
     glm::float32 mainDiagonal{-1.0f};
     glm::vec3 sceneCenter{0.0f};
-    INVARIANT(argc > 1, "{}", argc);
+    SKT_INVARIANT(argc > 1, "{}", argc);
     auto sceneData = getScene(QString::fromUtf8(argv[1]), sceneCenter, mainDiagonal);
 
     CALL_SDL(Init, SDL_INIT_VIDEO);
@@ -216,7 +216,7 @@ int main(
         {
             using namespace std::chrono_literals;
             if (start + 600s < std::chrono::steady_clock::now()) {
-                INVARIANT(false, "{}", progressValue);
+                SKT_INVARIANT(false, "{}", progressValue);
             }
             return false;
         };

@@ -12,7 +12,7 @@ namespace utils
 Fd::Fd(int file)
     : fd{file}
 {
-    ASSERT_MSG(fd >= 0, "{}", fd);
+    SKT_ASSERT_MSG(fd >= 0, "{}", fd);
 }
 
 Fd::Fd(Fd && file) noexcept
@@ -20,7 +20,7 @@ Fd::Fd(Fd && file) noexcept
           file.fd,
           -1)}
 {
-    ASSERT_MSG(fd >= 0, "{}", fd);
+    SKT_ASSERT_MSG(fd >= 0, "{}", fd);
 }
 
 Fd::~Fd()
@@ -53,7 +53,7 @@ std::optional<Fd> Fd::createDirect(
 
 std::optional<Fd> Fd::dup(int file)
 {
-    ASSERT_MSG(file >= 0, "{}", file);
+    SKT_ASSERT_MSG(file >= 0, "{}", file);
     file = ::dup(file);
     if (file < 0) {
         return std::nullopt;

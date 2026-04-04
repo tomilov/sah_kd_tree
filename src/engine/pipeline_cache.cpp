@@ -81,7 +81,7 @@ PipelineCache::PipelineCache(
         SPDLOG_WARN("Cannot use pipeline cache '{}': {}", name, exception);
     }
     if (!pipelineCacheHolder) {
-        ASSERT(!std::empty(cacheData));
+        SKT_ASSERT(!std::empty(cacheData));
         cacheData.clear();
         pipelineCacheCreateInfo.setInitialData<uint8_t>(cacheData);
         try {
@@ -93,7 +93,7 @@ PipelineCache::PipelineCache(
         }
     }
 
-    ASSERT(pipelineCacheHolder);
+    SKT_ASSERT(pipelineCacheHolder);
     device.setDebugUtilsObjectName(*pipelineCacheHolder, name);
 }
 
@@ -106,7 +106,7 @@ PipelineCache::~PipelineCache()
 
 bool PipelineCache::flush()
 {
-    ASSERT(pipelineCacheHolder);
+    SKT_ASSERT(pipelineCacheHolder);
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();
     auto data = device.getHandle().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
@@ -120,7 +120,7 @@ bool PipelineCache::flush()
 
 vk::PipelineCache PipelineCache::getHandle() const &
 {
-    ASSERT(pipelineCacheHolder);
+    SKT_ASSERT(pipelineCacheHolder);
     return *pipelineCacheHolder;
 }
 

@@ -44,7 +44,7 @@ std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::P
         for (vk::ShaderStageFlagBits stageFlagBit : FlagBits{pushConstantRange.stageFlags}) {
             auto & stagePushContantRange = stagePushContantRanges[std::countr_zero(static_cast<MaskType>(stageFlagBit))];
             if (stagePushContantRange.stageFlags) {
-                ASSERT(stagePushContantRange.stageFlags == stageFlagBit);
+                SKT_ASSERT(stagePushContantRange.stageFlags == stageFlagBit);
                 widenPushConstantRange(stagePushContantRange, pushConstantRange);
             } else {
                 stagePushContantRange = {
@@ -62,7 +62,7 @@ std::vector<vk::PushConstantRange> mergePushConstantRanges(std::span<const vk::P
         }
         const auto [l, r] = mergedPushConstantRanges.equal_range(stagePushContantRange);
         for (auto it = l; it != r; ++it) {
-            ASSERT(!(stagePushContantRange.stageFlags & it->stageFlags));
+            SKT_ASSERT(!(stagePushContantRange.stageFlags & it->stageFlags));
             stagePushContantRange.stageFlags |= it->stageFlags;
             widenPushConstantRange(stagePushContantRange, *it);
         }

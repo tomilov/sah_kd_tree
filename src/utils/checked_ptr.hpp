@@ -17,7 +17,7 @@ public:
     constexpr CheckedPtr(T * p)  // NOLINT: google-explicit-constructor
         : ptr{p}
     {
-        INVARIANT(p, "Empty CheckedPtr");
+        SKT_INVARIANT(p, "Empty CheckedPtr");
         checked = true;
     }
 
@@ -29,8 +29,8 @@ public:
 
     T * get() const
     {
-        ASSERT_MSG(checked, "CheckedPtr contents were not checked before dereferencing");
-        INVARIANT(ptr, "Empty CheckedPtr");
+        SKT_ASSERT_MSG(checked, "CheckedPtr contents were not checked before dereferencing");
+        SKT_INVARIANT(ptr, "Empty CheckedPtr");
         return ptr;
     }
 

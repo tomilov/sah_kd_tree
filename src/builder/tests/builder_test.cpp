@@ -72,12 +72,12 @@ protected:
         };
         for (size_t i = 0; i < 5; ++i) {
             auto build = builder::getBuild(i);
-            INVARIANT(build, "{}", i);
+            SKT_INVARIANT(build, "{}", i);
             const auto progress = [start = std::chrono::steady_clock::now()](size_t progressValue)
             {
                 using namespace std::chrono_literals;
                 if (start + 10s < std::chrono::steady_clock::now()) {
-                    INVARIANT(false, "{}", progressValue);
+                    SKT_INVARIANT(false, "{}", progressValue);
                 }
                 return false;
             };

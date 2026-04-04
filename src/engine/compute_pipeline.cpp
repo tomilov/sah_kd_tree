@@ -43,12 +43,12 @@ ComputePipeline::ComputePipeline(
     }
     auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
-    INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
+    SKT_INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
     if (descriptorManagementKind != DescriptorManagementKind::Heap) {
         computePipelineCreateInfo.layout = pipelineLayout;
     }
     computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
-    INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
+    SKT_INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
     if (!std::empty(specializationInfos)) {
         computePipelineCreateInfo.stage.setPSpecializationInfo(&specializationInfos.at(vk::ShaderStageFlagBits::eCompute).getSpecializationInfo());
     }
@@ -58,7 +58,7 @@ void ComputePipeline::create()
 {
     auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
     auto result = context.getDevice().getHandle().createComputePipelineUnique(pipelineCache, computePipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    INVARIANT(result.result == vk::Result::eSuccess, "Failed to create compute pipeline {}", name);
+    SKT_INVARIANT(result.result == vk::Result::eSuccess, "Failed to create compute pipeline {}", name);
     pipeline = std::move(result.value);
     context.getDevice().setDebugUtilsObjectName(*pipeline, name);
 }

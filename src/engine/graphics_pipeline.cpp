@@ -28,7 +28,7 @@ GraphicsPipeline::GraphicsPipeline(
     , renderPass{renderPassIn}
     , specializationInfos{std::move(specializationInfosIn)}
 {
-    ASSERT(renderPass);
+    SKT_ASSERT(renderPass);
 
     pipelineInputAssemblyStateCreateInfo.flags = {};
     pipelineInputAssemblyStateCreateInfo.setPrimitiveRestartEnable(vk::False);
@@ -118,8 +118,8 @@ GraphicsPipeline::GraphicsPipeline(
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
     pipelineShaderStageCreateInfos = shaderStages.pipelineShaderStageCreateInfos;
-    INVARIANT(std::size(specializationInfos) <= std::size(pipelineShaderStageCreateInfos), "");
-    INVARIANT(std::size(specializationInfos) <= std::size(shaderStages.specializationConstants), "");
+    SKT_INVARIANT(std::size(specializationInfos) <= std::size(pipelineShaderStageCreateInfos), "");
+    SKT_INVARIANT(std::size(specializationInfos) <= std::size(shaderStages.specializationConstants), "");
     for (vk::PipelineShaderStageCreateInfo & pipelineShaderStageCreateInfo : pipelineShaderStageCreateInfos) {
         auto specializationInfo = specializationInfos.find(pipelineShaderStageCreateInfo.stage);
         if (specializationInfo != std::cend(specializationInfos)) {
@@ -152,7 +152,7 @@ void GraphicsPipeline::create()
 {
     auto & graphicsPipelineCreateInfo = graphicsPipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>();
     auto result = context.getDevice().getHandle().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
+    SKT_INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value);
     context.getDevice().setDebugUtilsObjectName(*pipeline, name);
 }

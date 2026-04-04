@@ -187,12 +187,12 @@ void Descriptors::fillDescriptorSet(
     std::vector<vk::StructureChain<vk::WriteDescriptorSet, vk::WriteDescriptorSetInlineUniformBlock, vk::WriteDescriptorSetAccelerationStructureKHR>> writeDescriptorSetChains;
     writeDescriptorSetChains.reserve(std::size(descriptorSetInfos));
     const auto & setBindings = shaderStages->setBindingMap.at(set);
-    INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorSetInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorSetInfos));
+    SKT_INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorSetInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorSetInfos));
     for (const auto & [nameAndType, descriptorData] : descriptorSetInfos) {
         const auto & [symbol, descriptorType] = nameAndType;
         const auto * binding = setBindings.getBinding(nameAndType);
-        ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
-        ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
+        SKT_ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
+        SKT_ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
         const auto & descriptorSetData = std::get<DescriptorSetData>(descriptorData);
         auto & writeDescriptorSetChain = writeDescriptorSetChains.emplace_back();
         auto & writeDescriptorSet = writeDescriptorSetChain.get<vk::WriteDescriptorSet>();
@@ -217,7 +217,7 @@ void Descriptors::fillDescriptorSet(
         case vk::DescriptorType::eStorageTexelBuffer: {
             const vk::BufferView & bufferView = std::get<vk::BufferView>(descriptorSetData);
             if (!bufferView) {
-                INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False, "");
+                SKT_INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False, "");
             }
             writeDescriptorSet.setTexelBufferView(bufferView);
             break;
@@ -231,9 +231,9 @@ void Descriptors::fillDescriptorSet(
         case vk::DescriptorType::eStorageBufferDynamic: {
             writeDescriptorSet.setBufferInfo(std::get<vk::DescriptorBufferInfo>(descriptorSetData));
             vk::DeviceSize minStorageBufferOffsetAlignment = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.minStorageBufferOffsetAlignment;
-            INVARIANT((writeDescriptorSet.pBufferInfo->offset % minStorageBufferOffsetAlignment) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, minStorageBufferOffsetAlignment);
+            SKT_INVARIANT((writeDescriptorSet.pBufferInfo->offset % minStorageBufferOffsetAlignment) == 0, "{}, {}", writeDescriptorSet.pBufferInfo->offset, minStorageBufferOffsetAlignment);
             uint32_t maxStorageBufferRange = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceProperties2>().properties.limits.maxStorageBufferRange;
-            INVARIANT(writeDescriptorSet.pBufferInfo->range <= maxStorageBufferRange, "{}, {}", writeDescriptorSet.pBufferInfo->offset, maxStorageBufferRange);
+            SKT_INVARIANT(writeDescriptorSet.pBufferInfo->range <= maxStorageBufferRange, "{}, {}", writeDescriptorSet.pBufferInfo->offset, maxStorageBufferRange);
             break;
         }
         case vk::DescriptorType::eSampler:
@@ -247,11 +247,11 @@ void Descriptors::fillDescriptorSet(
                 case vk::DescriptorType::eCombinedImageSampler:
                 case vk::DescriptorType::eSampledImage:
                 case vk::DescriptorType::eStorageImage: {
-                    INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False, "");
+                    SKT_INVARIANT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False, "");
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             }
@@ -264,18 +264,18 @@ void Descriptors::fillDescriptorSet(
             break;
         }
         case vk::DescriptorType::eTensorARM: {
-            INVARIANT(false, "Not implemented");  // TODO:
+            SKT_INVARIANT(false, "Not implemented");  // TODO:
             break;
         }
         case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
-            INVARIANT(false, "Not implemented");  // TODO:
+            SKT_INVARIANT(false, "Not implemented");  // TODO:
             break;
         }
         case vk::DescriptorType::eMutableEXT:
         case vk::DescriptorType::eAccelerationStructureNV:
         case vk::DescriptorType::eSampleWeightImageQCOM:
         case vk::DescriptorType::eBlockMatchImageQCOM: {
-            INVARIANT(false, "{}", descriptorType);
+            SKT_INVARIANT(false, "{}", descriptorType);
             break;
         }
         }
@@ -294,15 +294,15 @@ void Descriptors::fillDescriptorBuffer(
     const auto & device = context.getDevice();
 
     const auto & setBindings = shaderStages->setBindingMap.at(set);
-    INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorBufferInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorBufferInfos));
+    SKT_INVARIANT(std::size(setBindings.bindingIndices) >= std::size(descriptorBufferInfos), "{} ^ {}", std::size(setBindings.bindingIndices), std::size(descriptorBufferInfos));
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
     auto mappedDescriptorSetBuffer = descriptorBuffer.map();
     auto * descriptorSetBufferData = mappedDescriptorSetBuffer.data();
     for (const auto & [nameAndType, descriptorData] : descriptorBufferInfos) {
         const auto & [symbol, descriptorType] = nameAndType;
         const vk::DescriptorSetLayoutBinding * binding = setBindings.getBinding(nameAndType);
-        ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
-        ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
+        SKT_ASSERT_MSG(binding, "Binding for symbol {} is not found", symbol);
+        SKT_ASSERT_MSG(descriptorType == binding->descriptorType, "{} ^ {}", descriptorType, binding->descriptorType);
         const auto & descriptorBufferData = std::get<DescriptorBufferData>(descriptorData);
         vk::DescriptorGetInfoEXT descriptorGetInfo = {
             .type = descriptorType,
@@ -311,7 +311,7 @@ void Descriptors::fillDescriptorBuffer(
         const auto setDescriptorInfo = [this, descriptorType, &data]<typename T>(const T & descriptorBufferDataIn)
         {
             if constexpr (std::is_same_v<T, std::monostate>) {
-                ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False);
+                SKT_ASSERT(context.getPhysicalDevice().features2Chain.get<vk::PhysicalDeviceRobustness2FeaturesKHR>().nullDescriptor != vk::False);
                 switch (descriptorType) {
                 case vk::DescriptorType::eSampledImage:
                 case vk::DescriptorType::eStorageImage:
@@ -323,7 +323,7 @@ void Descriptors::fillDescriptorBuffer(
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::Sampler>) {
@@ -333,7 +333,7 @@ void Descriptors::fillDescriptorBuffer(
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DescriptorImageInfo>) {
@@ -355,7 +355,7 @@ void Descriptors::fillDescriptorBuffer(
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DeviceAddress>) {
@@ -365,7 +365,7 @@ void Descriptors::fillDescriptorBuffer(
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else if constexpr (std::is_same_v<T, vk::DescriptorAddressInfoEXT>) {
@@ -387,7 +387,7 @@ void Descriptors::fillDescriptorBuffer(
                     break;
                 }
                 default: {
-                    INVARIANT(false, "{}", descriptorType);
+                    SKT_INVARIANT(false, "{}", descriptorType);
                 }
                 }
             } else {
@@ -397,7 +397,7 @@ void Descriptors::fillDescriptorBuffer(
         std::visit(setDescriptorInfo, descriptorBufferData);
         vk::DeviceSize descriptorSize = context.getPhysicalDevice().getDescriptorBufferDescriptorSize(descriptorType);
         vk::DeviceSize bindingOffset = device.getHandle().getDescriptorSetLayoutBindingOffsetEXT(descriptorSetLayout, binding->binding, dispatcher);
-        ASSERT(bindingOffset + descriptorSize <= descriptorBuffer.base().getSize());
+        SKT_ASSERT(bindingOffset + descriptorSize <= descriptorBuffer.base().getSize());
         device.getHandle().getDescriptorEXT(&descriptorGetInfo, descriptorSize, descriptorSetBufferData + bindingOffset, dispatcher);
     }
 }

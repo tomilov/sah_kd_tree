@@ -57,7 +57,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
 
     [[nodiscard]] vk::Pipeline getHandle() const &
     {
-        ASSERT(pipeline);
+        SKT_ASSERT(pipeline);
         return *pipeline;
     }
 

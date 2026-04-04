@@ -68,7 +68,7 @@ struct OffscreenRenderPass final
 
     [[nodiscard]] operator vk::RenderPass() const &  // NOLINT: google-explicit-constructor
     {
-        ASSERT(renderPass);
+        SKT_ASSERT(renderPass);
         return *renderPass;
     }
 };
@@ -94,7 +94,7 @@ struct Framebuffer final
 
     [[nodiscard]] operator vk::Framebuffer() const &  // NOLINT: google-explicit-constructor
     {
-        ASSERT(framebuffer);
+        SKT_ASSERT(framebuffer);
         return *framebuffer;
     }
 };
@@ -171,7 +171,7 @@ public:
 
     [[nodiscard]] const compute::CudaDevicePtr & getCudaDevice() const &
     {
-        ASSERT(cudaDevice);
+        SKT_ASSERT(cudaDevice);
         return cudaDevice;
     }
 

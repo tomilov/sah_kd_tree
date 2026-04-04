@@ -37,7 +37,7 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
 
     [[nodiscard]] vk::Pipeline getHandle() const &
     {
-        ASSERT(pipeline);
+        SKT_ASSERT(pipeline);
         return *pipeline;
     }
 

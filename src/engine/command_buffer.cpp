@@ -44,7 +44,7 @@ const std::vector<vk::CommandBuffer> & CommandBuffers::getCommandBuffers() const
 
 [[nodiscard]] const vk::CommandBuffer & CommandBuffers::getCommandBuffer() const &
 {
-    INVARIANT(std::size(commandBuffers) == 1, "{}", std::size(commandBuffers));
+    SKT_INVARIANT(std::size(commandBuffers) == 1, "{}", std::size(commandBuffers));
     return commandBuffers.at(0);
 }
 

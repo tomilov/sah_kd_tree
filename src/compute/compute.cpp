@@ -100,18 +100,18 @@ int selectCudaDevice(
             {
                 int deviceAttribute = 0;
                 CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, cuDev);
-                INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
+                SKT_INVARIANT(deviceAttribute == CU_COMPUTEMODE_DEFAULT, "{}", deviceAttribute);
             }
             {
                 int deviceAttribute = 0;
                 CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED, cuDev);
-                INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
+                SKT_INVARIANT(deviceAttribute != 0, "Virtual address management is not supported");
             }
             {
                 int deviceAttribute = 0;
                 // Win32: CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_WIN32_HANDLE_SUPPORTED
                 CU_CALL_CHECK(cuDeviceGetAttribute, &deviceAttribute, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR_SUPPORTED, cuDev);
-                INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
+                SKT_INVARIANT(deviceAttribute != 0, "Posix file descriptor handle type is not supported");
             }
             return cuDev;
         }
@@ -223,9 +223,9 @@ DeviceMemory::DeviceMemory(
 CudaDevice::CudaDevice(const DeviceUuidType & deviceUuid)
 {
     cudaDev = selectCudaDevice(devProp, deviceUuid);
-    INVARIANT(cudaDev != cudaInvalidDeviceId, "No matching by UUID devices found using CUDA Runtime API");
+    SKT_INVARIANT(cudaDev != cudaInvalidDeviceId, "No matching by UUID devices found using CUDA Runtime API");
     cuDev = findCuDevice(devProp);
-    INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
+    SKT_INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
 }
 
 bool CudaDevice::operator==(const CudaDevice & rhs) const noexcept
@@ -298,7 +298,7 @@ CudaDevice::CudaDevice(int cudaDevIn)
 {
     CUDA_CALL_CHECK(cudaGetDeviceProperties, &devProp, cudaDev);
     cuDev = findCuDevice(devProp);
-    INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
+    SKT_INVARIANT(cuDev != CU_DEVICE_INVALID, "No matching by UUID devices found using CUDA Driver API");
 }
 
 CudaStream::CudaStream(cudaStream_t cudaStreamIn)

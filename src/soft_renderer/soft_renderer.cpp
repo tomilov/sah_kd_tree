@@ -236,16 +236,16 @@ void SoftRenderer::setTree(builder::Tree && builderTree)
 bool SoftRenderer::hasTree() const
 {
     if (impl_->indices.isEmpty()) {
-        ASSERT(impl_->vertices.isEmpty());
-        ASSERT(impl_->polygons.isEmpty());
-        ASSERT(impl_->nodes.isEmpty());
-        ASSERT(impl_->nodeParents.isEmpty());
+        SKT_ASSERT(impl_->vertices.isEmpty());
+        SKT_ASSERT(impl_->polygons.isEmpty());
+        SKT_ASSERT(impl_->nodes.isEmpty());
+        SKT_ASSERT(impl_->nodeParents.isEmpty());
         return false;
     }
-    ASSERT(!impl_->vertices.isEmpty());
-    ASSERT(!impl_->polygons.isEmpty());
-    ASSERT(!impl_->nodes.isEmpty());
-    ASSERT(!impl_->nodeParents.isEmpty());
+    SKT_ASSERT(!impl_->vertices.isEmpty());
+    SKT_ASSERT(!impl_->polygons.isEmpty());
+    SKT_ASSERT(!impl_->nodes.isEmpty());
+    SKT_ASSERT(!impl_->nodeParents.isEmpty());
     return true;
 }
 
@@ -253,8 +253,8 @@ void SoftRenderer::render(
     const FrameSettings & frameSettings,
     gli::texture2d & target) const
 {
-    INVARIANT(!target.empty(), "");
-    INVARIANT(target.format() == kTargetFormat, "{}", fmt::underlying(target.format()));
+    SKT_INVARIANT(!target.empty(), "");
+    SKT_INVARIANT(target.format() == kTargetFormat, "{}", fmt::underlying(target.format()));
     constexpr size_t kLevel = 0;
     // target.clear(PixelType(impl_->clearColor));
     const gli::extent2d extent = target.extent();

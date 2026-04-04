@@ -92,7 +92,7 @@ spdlog::level::level_enum qtMsgTypeToSpdlogLevel(QtMsgType msgType)
         return spdlog::level::info;
     }
     }
-    INVARIANT(false, "Unknown QtMsgType {}", fmt::underlying(msgType));
+    SKT_INVARIANT(false, "Unknown QtMsgType {}", fmt::underlying(msgType));
 }
 
 std::optional<QtMsgType> spdLogLevelToQtMsgType(spdlog::level::level_enum level)
@@ -121,7 +121,7 @@ std::optional<QtMsgType> spdLogLevelToQtMsgType(spdlog::level::level_enum level)
         break;
     }
     }
-    INVARIANT(false, "Unknown spdlog::level::level_enum {}", fmt::underlying(level));
+    SKT_INVARIANT(false, "Unknown spdlog::level::level_enum {}", fmt::underlying(level));
 }
 
 class QtSink final : public spdlog::sinks::base_sink<spdlog::details::null_mutex>
@@ -157,7 +157,7 @@ protected:
             return;
         }
         }
-        INVARIANT(false, "unreachable");
+        SKT_INVARIANT(false, "unreachable");
     }
 
     void flush_() override
@@ -289,7 +289,7 @@ int main(
     } else {
         {
             QVersionNumber apiVersion(1, 3);
-            ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
+            SKT_ASSERT(apiVersion.isPrefixOf(vulkanInstance.supportedApiVersion()));
             vulkanInstance.setApiVersion(apiVersion);
         }
         {
@@ -349,9 +349,9 @@ int main(
         }
         qCDebug(viewerMainCategory).noquote() << u"Object from URL %1 successfully created"_s.arg(url.toString());
         auto * applicationWindow = qobject_cast<QQuickWindow *>(object);
-        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
-        INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
-        INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
+        SKT_INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
+        SKT_INVARIANT(applicationWindow->objectName() == QCoreApplication::applicationName(), "Expected root ApplicationWindow component");
+        SKT_INVARIANT(!applicationWindow->isSceneGraphInitialized(), "Scene graph should not be initialized");
         // TODO: QQuickRenderControl, QQuickWindow::setRenderTarget(QQuickRenderTarget::fromVulkanImage),
         // QQuickWindow::setGraphicsDevice(QQuickGraphicsDevice::fromDeviceAndContext),
         if ((false)) {
@@ -368,7 +368,7 @@ int main(
             vk::PhysicalDevice physicalDevice = context.getPhysicalDevice();
             vk::Device device = context.getDevice();
             const auto & queueCreateInfo = context.getPhysicalDevice().externalGraphicsQueueCreateInfo;
-            INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueCreateInfo.familyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
+            SKT_INVARIANT(vulkanInstance.supportsPresent(physicalDevice, queueCreateInfo.familyIndex, applicationWindow), "Selected device and queue family cannot draw on surface");
             auto quickGraphicsDevice = QQuickGraphicsDevice::fromDeviceObjects(physicalDevice, device, utils::autoCast(queueCreateInfo.familyIndex), utils::autoCast(queueCreateInfo.index));
             applicationWindow->setGraphicsDevice(quickGraphicsDevice);
         } else {
@@ -383,9 +383,9 @@ int main(
     const auto saveSettings = [&qmlApplicationEngine]
     {
         auto rootObjects = qmlApplicationEngine.rootObjects();
-        INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
+        SKT_INVARIANT(std::size(rootObjects) == 1, "Expected single object, got: {}", std::size(rootObjects));
         const auto * applicationWindow = qobject_cast<const QQuickWindow *>(rootObjects.first());
-        INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
+        SKT_INVARIANT(applicationWindow, "Expected QQuickWindow subclass");
         // examine applicationWindow properties
     };
     if (!QObject::connect(qApp, &QCoreApplication::aboutToQuit, &engine, saveSettings)) {
