@@ -9,6 +9,8 @@
 #include <dlfcn.h>
 #include <renderdoc_app.h>
 
+template struct utils::OneTime<debug_utils::Renderdoc::FrameCapture>::CheckTraits;
+
 namespace debug_utils
 {
 namespace

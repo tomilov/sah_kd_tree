@@ -7,6 +7,11 @@
 #include <memory>
 #include <string_view>
 
+template struct utils::OneTime<viewer::ShaderModule>::CheckTraits;
+template struct utils::OneTime<viewer::GraphicsPipeline>::CheckTraits;
+template struct utils::OneTime<viewer::ComputePipeline>::CheckTraits;
+template struct utils::OneTime<viewer::Pipelines>::CheckTraits;
+
 using namespace std::string_view_literals;
 
 namespace viewer

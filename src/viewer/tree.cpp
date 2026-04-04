@@ -11,6 +11,8 @@
 
 #include <bit>
 
+template struct utils::OneTime<viewer::Tree>::CheckTraits;
+
 namespace viewer
 {
 

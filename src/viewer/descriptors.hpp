@@ -122,8 +122,6 @@ public:
 
 }  // namespace viewer
 
-template struct utils::OneTime<viewer::Descriptors>::CheckTraits;
-
 template<>
 struct std::hash<viewer::Descriptors>
 {

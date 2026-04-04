@@ -25,6 +25,11 @@
 
 #include <cstdint>
 
+template struct utils::OneTime<engine::ShaderModule>::CheckTraits;
+template struct utils::OneTime<engine::VertexInputState>::CheckTraits;
+template struct utils::OneTime<engine::ShaderModuleReflection>::CheckTraits;
+template struct utils::OneTime<engine::ShaderStages>::CheckTraitsThrow;
+
 namespace engine
 {
 
@@ -575,7 +580,7 @@ void ShaderModuleReflection::reflect()
 ShaderStages::ShaderStages(
     const Context & contextIn,
     uint32_t vertexBufferBindingIn,
-    const DescriptorManagementKind descriptorManagementKindIn)
+    DescriptorManagementKind descriptorManagementKindIn)
     : context{contextIn}
     , vertexBufferBinding{vertexBufferBindingIn}
     , descriptorManagementKind{descriptorManagementKindIn}

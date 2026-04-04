@@ -96,5 +96,3 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 };
 
 }  // namespace scene_data
-
-template struct utils::OneTime<scene_data::SceneData>::CheckTraits;

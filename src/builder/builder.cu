@@ -5,6 +5,8 @@
 #include <memory>
 #include <utility>
 
+template struct utils::OneTime<builder::Tree>::CheckTraits;
+
 namespace builder
 {
 

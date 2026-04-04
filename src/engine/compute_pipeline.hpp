@@ -57,5 +57,3 @@ private:
 };
 
 }  // namespace engine
-
-template struct utils::OneTime<engine::ComputePipeline>::CheckTraits;

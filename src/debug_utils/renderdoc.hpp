@@ -60,5 +60,3 @@ private:
 };
 
 }  // namespace debug_utils
-
-template struct utils::OneTime<debug_utils::Renderdoc::FrameCapture>::CheckTraits;

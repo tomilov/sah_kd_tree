@@ -9,6 +9,8 @@
 
 #include <string_view>
 
+template struct utils::OneTime<engine::Queue>::CheckTraits;
+
 namespace engine
 {
 

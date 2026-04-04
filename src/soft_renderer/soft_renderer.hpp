@@ -57,5 +57,3 @@ private:
 };
 
 }  // namespace soft_renderer
-
-template struct utils::OneTime<soft_renderer::SoftRenderer>::CheckTraits;

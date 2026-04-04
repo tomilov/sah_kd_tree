@@ -17,6 +17,8 @@
 
 #include <cstdint>
 
+template struct utils::OneTime<engine::PipelineCache>::CheckTraits;
+
 namespace engine
 {
 

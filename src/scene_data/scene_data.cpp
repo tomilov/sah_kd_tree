@@ -11,6 +11,8 @@
 #include <iterator>
 #include <span>
 
+template struct utils::OneTime<scene_data::SceneData>::CheckTraits;
+
 namespace scene_data
 {
 

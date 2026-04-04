@@ -994,13 +994,11 @@ void Renderer::Impl::setTree(builder::Tree && builderTree)
     engine::Buffer<TreeUniformBuffer> treeUniformBuffer{engine.createUniformBuffer(sizeof(TreeUniformBuffer))};
     treeUniformBuffer.map().at(0) = getTreeUniformBuffer(tree);
 
-    auto shaders = engine.getPipelines().getTraceSahKdTreeShaders();
-
     TraceSceneResources traceSceneResources = {
         .tree = std::move(tree),
         .treeUniformBuffer = std::move(treeUniformBuffer),
     };
-    auto descriptors = engine.makeDescriptors("trace"sv, shaders->getShaderStagesPtr(), traceSceneResources);
+    auto descriptors = engine.makeDescriptors("trace"sv, traceComputePipeline->shaders->getShaderStagesPtr(), traceSceneResources);
     traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
     SPDLOG_INFO("{}: Tree is set", name);
 }

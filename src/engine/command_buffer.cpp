@@ -10,6 +10,8 @@
 
 #include <cstddef>
 
+template struct utils::OneTime<engine::CommandBuffers>::CheckTraits;
+
 namespace engine
 {
 

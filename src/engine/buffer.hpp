@@ -304,8 +304,3 @@ private:
 };
 
 }  // namespace engine
-
-template struct utils::OneTime<engine::MappedMemory<void>>::CheckTraits;
-template struct utils::OneTime<engine::MappedMemory<std::byte>>::CheckTraits;
-template struct utils::OneTime<engine::Buffer<void>>::CheckTraits;
-template struct utils::OneTime<engine::Buffer<std::byte>>::CheckTraits;

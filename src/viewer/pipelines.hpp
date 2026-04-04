@@ -187,8 +187,3 @@ private:
 };
 
 }  // namespace viewer
-
-template struct utils::OneTime<viewer::ShaderModule>::CheckTraits;
-template struct utils::OneTime<viewer::GraphicsPipeline>::CheckTraits;
-template struct utils::OneTime<viewer::ComputePipeline>::CheckTraits;
-template struct utils::OneTime<viewer::Pipelines>::CheckTraits;

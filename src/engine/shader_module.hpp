@@ -162,7 +162,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
     ShaderStages(
         const Context & context,
         uint32_t vertexBufferBinding,
-        const DescriptorManagementKind descriptorManagementKind);
+        DescriptorManagementKind descriptorManagementKind);
 
     bool checkSubgroupSize(
         uint32_t subgroupSize,
@@ -185,8 +185,3 @@ private:
 };
 
 }  // namespace engine
-
-template struct utils::OneTime<engine::ShaderModule>::CheckTraits;
-template struct utils::OneTime<engine::VertexInputState>::CheckTraits;
-template struct utils::OneTime<engine::ShaderModuleReflection>::CheckTraits;
-template struct utils::OneTime<engine::ShaderStages>::CheckTraitsThrow;

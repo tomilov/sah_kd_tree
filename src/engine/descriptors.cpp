@@ -16,6 +16,8 @@
 
 #include <cstdint>
 
+template struct utils::OneTime<engine::DescriptorSet>::CheckTraits;
+
 namespace engine
 {
 

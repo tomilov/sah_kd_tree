@@ -48,6 +48,13 @@
         SKT_INVARIANT(result == vk::Result::eSuccess, SKT_STRINGIZE(f(__VA_ARGS__)) " -> {}", result); \
     } while (false);
 
+template struct utils::OneTime<engine::MappedMemory<void>>::CheckTraits;
+template struct utils::OneTime<engine::MappedMemory<std::byte>>::CheckTraits;
+template struct utils::OneTime<engine::Buffer<void>>::CheckTraits;
+template struct utils::OneTime<engine::Buffer<std::byte>>::CheckTraits;
+
+template struct utils::OneTime<engine::Image>::CheckTraits;
+
 namespace engine
 {
 
@@ -62,7 +69,7 @@ constexpr vk::AccessFlags2 kAccessMaskImageWrite = kAccessMaskWrite | vk::Access
 
 template<
     typename BitType,
-    typename MaskType = typename vk::Flags<BitType>::MaskType>
+    typename MaskType = vk::Flags<BitType>::MaskType>
 [[nodiscard]] MaskType toCMask(vk::Flags<BitType> flags)
 {
     return static_cast<MaskType>(flags);

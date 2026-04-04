@@ -48,5 +48,3 @@ private:
 };
 
 }  // namespace viewer
-
-template struct utils::OneTime<viewer::Tree>::CheckTraits;

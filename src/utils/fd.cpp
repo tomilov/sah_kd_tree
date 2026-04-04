@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+template struct utils::OneTime<utils::Fd>::CheckTraits;
+
 namespace utils
 {
 

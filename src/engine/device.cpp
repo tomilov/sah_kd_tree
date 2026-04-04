@@ -15,6 +15,8 @@
 #include <string_view>
 #include <type_traits>
 
+template struct utils::OneTime<engine::Device>::CheckTraits;
+
 using namespace std::string_view_literals;
 
 namespace engine

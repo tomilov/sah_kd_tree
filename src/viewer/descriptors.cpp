@@ -7,11 +7,12 @@
 #include <utils/hash.hpp>
 #include <viewer/descriptors.hpp>
 
-#include <algorithm>
 #include <iterator>
 #include <utility>
 #include <variant>
 #include <vector>
+
+template struct utils::OneTime<viewer::Descriptors>::CheckTraits;
 
 namespace viewer
 {

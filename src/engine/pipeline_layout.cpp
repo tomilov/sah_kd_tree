@@ -5,6 +5,8 @@
 
 #include <iterator>
 
+template struct utils::OneTime<engine::PipelineLayout>::CheckTraits;
+
 namespace engine
 {
 

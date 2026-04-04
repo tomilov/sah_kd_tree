@@ -210,11 +210,3 @@ private:
 };
 
 }  // namespace viewer
-
-template struct utils::OneTime<viewer::SceneResources>::CheckTraits;
-template struct utils::OneTime<viewer::Framebuffer>::CheckTraits;
-template struct utils::OneTime<viewer::DrawOffscreenResources>::CheckTraits;
-#if !__GNUC__
-template struct utils::OneTime<viewer::OffscreenRenderPass>::CheckTraits;
-#endif
-template struct utils::OneTime<viewer::TraceFrameResources>::CheckTraits;

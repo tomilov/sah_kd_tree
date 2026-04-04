@@ -62,5 +62,3 @@ struct ENGINE_EXPORT Queues final : utils::NonCopyable
 };
 
 }  // namespace engine
-
-template struct utils::OneTime<engine::Queue>::CheckTraits;

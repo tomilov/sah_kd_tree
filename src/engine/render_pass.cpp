@@ -6,6 +6,8 @@
 
 #include <string_view>
 
+template struct utils::OneTime<engine::RenderPass>::CheckTraits;
+
 namespace engine
 {
 

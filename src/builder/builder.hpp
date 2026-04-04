@@ -72,5 +72,3 @@ template<ThrustDeviceSystem thrustDeviceSystem = ThrustDeviceSystem::Default>
 decltype(&build<>) getBuild(size_t i) BUILDER_EXPORT;
 
 }  // namespace builder
-
-template struct utils::OneTime<builder::Tree>::CheckTraits;

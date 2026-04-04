@@ -33,5 +33,3 @@ private:
 };
 
 }  // namespace utils
-
-template struct utils::OneTime<utils::Fd>::CheckTraits;

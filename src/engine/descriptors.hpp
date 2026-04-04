@@ -65,5 +65,3 @@ private:
 };
 
 }  // namespace engine
-
-template struct utils::OneTime<engine::DescriptorSet>::CheckTraits;

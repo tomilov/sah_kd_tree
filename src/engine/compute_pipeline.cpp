@@ -9,6 +9,8 @@
 #include <iterator>
 #include <utility>
 
+template struct utils::OneTime<engine::ComputePipeline>::CheckTraits;
+
 namespace engine
 {
 

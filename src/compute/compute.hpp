@@ -197,10 +197,3 @@ public:
 };
 
 }  // namespace compute
-
-template struct utils::OneTime<compute::DeviceMemory>::CheckTraits;
-template struct utils::OneTime<compute::CudaStream>::CheckTraits;
-template struct utils::OneTime<compute::MappedDeviceMemory>::CheckTraits;
-template struct utils::OneTime<compute::CudaFileDriver>::CheckTraits;
-template struct utils::OneTime<compute::CudaFile>::CheckTraits;
-template struct utils::OneTime<compute::CudaFileReader>::CheckTraits;

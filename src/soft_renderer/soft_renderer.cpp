@@ -27,6 +27,8 @@
 #include <cuda.h>
 #include <omp.h>
 
+template struct utils::OneTime<soft_renderer::SoftRenderer>::CheckTraits;
+
 namespace soft_renderer
 {
 namespace
