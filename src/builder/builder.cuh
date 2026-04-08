@@ -355,7 +355,7 @@ struct Builder : Tree
                 .intersectionCost = settings.intersectionCost,
                 .maxTreeDepth = settings.maxTreeDepth,
             };
-            utils::ScopeTimer buildTimer{"BUILD"sv};
+            utils::ScopeTimer buildTimer{utils::Name{"BUILD"}};
             if (!buildContext.builder.build(progress, params, buildContext.x, buildContext.y, buildContext.z, treeContext.tree)) {
                 return false;
             }

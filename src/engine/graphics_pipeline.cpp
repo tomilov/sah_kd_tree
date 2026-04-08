@@ -2,7 +2,7 @@
 #include <engine/device.hpp>
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_layout.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <utils/assert.hpp>
 
 #include <fmt/ranges.h>
@@ -14,14 +14,14 @@ namespace engine
 {
 
 GraphicsPipeline::GraphicsPipeline(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     vk::PipelineCache pipelineCacheIn,
     DescriptorManagementKind descriptorManagementKindIn,
     const PipelineLayout & pipelineLayout,
     vk::RenderPass renderPassIn,
     SpecializationInfos && specializationInfosIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , pipelineCache{pipelineCacheIn}
     , descriptorManagementKind{descriptorManagementKindIn}
@@ -117,7 +117,7 @@ GraphicsPipeline::GraphicsPipeline(
         }
     }
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
-    pipelineShaderStageCreateInfos = shaderStages.pipelineShaderStageCreateInfos;
+    shaderStages.getPipelineShaderStageCreateInfoHeads(pipelineShaderStageCreateInfos);
     SKT_INVARIANT(std::size(specializationInfos) <= std::size(pipelineShaderStageCreateInfos), "");
     SKT_INVARIANT(std::size(specializationInfos) <= std::size(shaderStages.specializationConstants), "");
     for (vk::PipelineShaderStageCreateInfo & pipelineShaderStageCreateInfo : pipelineShaderStageCreateInfos) {
@@ -154,7 +154,7 @@ void GraphicsPipeline::create()
     auto result = context.getDevice().getHandle().createGraphicsPipelineUnique(pipelineCache, graphicsPipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     SKT_INVARIANT(result.result == vk::Result::eSuccess, "Failed to create graphics pipeline {}", name);
     pipeline = std::move(result.value);
-    context.getDevice().setDebugUtilsObjectName(*pipeline, name);
+    context.getDevice().setDebugUtilsObjectName(*pipeline, name.toCStr());
 }
 
 }  // namespace engine

@@ -3,12 +3,10 @@
 #include <engine/command_pool.hpp>
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string>
-#include <string_view>
 
 #include <cstdint>
 
@@ -20,7 +18,7 @@ namespace engine
 struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
 {
     Queue(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         const QueueCreateInfo & queueCreateInfo);
 
@@ -39,12 +37,12 @@ struct ENGINE_EXPORT Queue final : utils::OneTime<Queue>
     void waitIdle() const;
 
     [[nodiscard]] CommandBuffers allocateCommandBuffers(
-        std::string_view name,
+        utils::Name name,
         uint32_t count = 1,
         vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary) const;
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
     const QueueCreateInfo & queueCreateInfo;
 

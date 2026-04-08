@@ -2,13 +2,12 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <chrono>
-#include <string>
-#include <string_view>
 #include <vector>
 
 #include <cstddef>
@@ -21,7 +20,7 @@ namespace engine
 struct ENGINE_EXPORT Fences final : utils::NonCopyable
 {
     Fences(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         size_t count = 1,
         vk::FenceCreateFlags fenceCreateFlags = vk::FenceCreateFlagBits::eSignaled);
@@ -37,7 +36,7 @@ struct ENGINE_EXPORT Fences final : utils::NonCopyable
     void reset(size_t fenceIndex);
 
 private:
-    std::string name;
+    utils::Name name;
 
     const Context & context;
 

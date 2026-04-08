@@ -2,14 +2,14 @@
 #include <engine/descriptors.hpp>
 #include <engine/device.hpp>
 #include <engine/library.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 
 #include <fmt/format.h>
 
 #include <iterator>
 #include <map>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -22,11 +22,11 @@ namespace engine
 {
 
 DescriptorSet::DescriptorSet(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     std::shared_ptr<const ShaderStages> shaderStagesIn,
     uint32_t setIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , shaderStages{std::move(shaderStagesIn)}
     , set{setIn}
@@ -50,7 +50,7 @@ void DescriptorSet::init()
     descriptorPoolCreateInfo.setMaxSets(1);
     descriptorPoolCreateInfo.setPoolSizes(descriptorPoolSizes);
     descriptorPool = device.getHandle().createDescriptorPoolUnique(descriptorPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    device.setDebugUtilsObjectName(*descriptorPool, name);
+    device.setDebugUtilsObjectName(*descriptorPool, name.toCStr());
 
     const auto & setBindings = shaderStages->setBindingMap.at(set);
     const auto & descriptorSetLayout = shaderStages->descriptorSetLayouts.at(setBindings.setIndex);
@@ -60,8 +60,7 @@ void DescriptorSet::init()
     descriptorSetAllocateInfo.setSetLayouts(descriptorSetLayout);
     auto descriptorSets = device.getHandle().allocateDescriptorSetsUnique(descriptorSetAllocateInfo, context.getLibrary().getDispatcher());
     descriptorSet = std::move(descriptorSets.at(0));
-    auto descriptorSetName = fmt::format("{} set #{}", name, set);
-    device.setDebugUtilsObjectName(*descriptorSet, descriptorSetName);
+    device.setDebugUtilsObjectName(*descriptorSet, utils::Name{"{} set #{}", name, set}.toCStr());
 }
 
 }  // namespace engine

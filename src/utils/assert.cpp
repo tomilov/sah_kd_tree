@@ -4,10 +4,12 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <iterator>
 #include <string>
+#include <string_view>
 
 #include <cstdlib>
+
+using namespace std::string_view_literals;
 
 namespace utils
 {
@@ -19,18 +21,18 @@ void vAssertFailed(
     fmt::string_view format,
     fmt::format_args args)
 {
-    std::string errorMessage;
-    if (std::size(format) == 0) {
-        errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation"), expression);
-    } else {
-        errorMessage = fmt::format(FMT_STRING("Invariant ({}) violation: {}"), expression, fmt::vformat(format, args));
+    fmt::memory_buffer errorMessageBuffer;
+    fmt::format_to(fmt::appender(errorMessageBuffer), "Invariant ({}) violation", expression);
+    if (std::size(format) != 0) {
+        errorMessageBuffer.append(": "sv);
+        fmt::vformat_to(fmt::appender(errorMessageBuffer), format, args);
     }
     spdlog::source_loc srcLoc{sourceLocation.file_name(), static_cast<int>(sourceLocation.line()), sourceLocation.function_name()};
-    spdlog::log(srcLoc, spdlog::level::critical, "{}", errorMessage);
+    spdlog::log(srcLoc, spdlog::level::critical, "{}", std::string_view{errorMessageBuffer.data(), errorMessageBuffer.size()});
     if (assert) {
         std::abort();
     } else {
-        throw InvariantError{errorMessage};
+        throw InvariantError{std::string{errorMessageBuffer.data(), errorMessageBuffer.size()}};
     }
 }
 

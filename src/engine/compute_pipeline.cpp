@@ -2,7 +2,7 @@
 #include <engine/context.hpp>
 #include <engine/device.hpp>
 #include <engine/pipeline_layout.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <engine/specialization_info.hpp>
 #include <format/vulkan.hpp>
 
@@ -15,13 +15,13 @@ namespace engine
 {
 
 ComputePipeline::ComputePipeline(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     vk::PipelineCache pipelineCacheIn,
     DescriptorManagementKind descriptorManagementKindIn,
     const PipelineLayout & pipelineLayout,
     SpecializationInfos && specializationInfosIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , pipelineCache{pipelineCacheIn}
     , descriptorManagementKind{descriptorManagementKindIn}
@@ -45,11 +45,12 @@ ComputePipeline::ComputePipeline(
     }
     auto & computePipelineCreateInfo = computePipelineCreateInfoChain.get<vk::ComputePipelineCreateInfo>();
     const ShaderStages & shaderStages = pipelineLayout.getShaderStages();
-    SKT_INVARIANT(std::size(shaderStages.pipelineShaderStageCreateInfos) == 1, "{}", std::size(shaderStages.pipelineShaderStageCreateInfos));
+    shaderStages.getPipelineShaderStageCreateInfoHeads(pipelineShaderStageCreateInfos);
+    SKT_INVARIANT(std::size(pipelineShaderStageCreateInfos) == 1, "{}", std::size(pipelineShaderStageCreateInfos));
     if (descriptorManagementKind != DescriptorManagementKind::Heap) {
         computePipelineCreateInfo.layout = pipelineLayout;
     }
-    computePipelineCreateInfo.stage = shaderStages.pipelineShaderStageCreateInfos.at(0);
+    computePipelineCreateInfo.stage = pipelineShaderStageCreateInfos.at(0);
     SKT_INVARIANT(computePipelineCreateInfo.stage.stage == vk::ShaderStageFlagBits::eCompute, "{}", computePipelineCreateInfo.stage.stage);
     if (!std::empty(specializationInfos)) {
         computePipelineCreateInfo.stage.setPSpecializationInfo(&specializationInfos.at(vk::ShaderStageFlagBits::eCompute).getSpecializationInfo());
@@ -62,7 +63,7 @@ void ComputePipeline::create()
     auto result = context.getDevice().getHandle().createComputePipelineUnique(pipelineCache, computePipelineCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     SKT_INVARIANT(result.result == vk::Result::eSuccess, "Failed to create compute pipeline {}", name);
     pipeline = std::move(result.value);
-    context.getDevice().setDebugUtilsObjectName(*pipeline, name);
+    context.getDevice().setDebugUtilsObjectName(*pipeline, name.toCStr());
 }
 
 }  // namespace engine

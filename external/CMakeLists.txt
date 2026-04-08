@@ -80,6 +80,7 @@ set(SPIRV_HEADERS_SKIP_INSTALL YES CACHE BOOL "" FORCE)
 add_subdirectory("SPIRV-Headers" EXCLUDE_FROM_ALL SYSTEM)
 
 
+add_subdirectory("SPIRV-Reflect" EXCLUDE_FROM_ALL SYSTEM)
 add_library("SPIRV-Reflect" STATIC)
 target_sources(
     "SPIRV-Reflect"

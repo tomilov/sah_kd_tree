@@ -13,11 +13,11 @@ namespace engine
 {
 
 Fences::Fences(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     size_t count,
     vk::FenceCreateFlags fenceCreateFlagsIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , fenceCreateFlags{fenceCreateFlagsIn}
 {
@@ -31,10 +31,10 @@ Fences::Fences(
         fences.push_back(fence);
 
         if (count > 1) {
-            auto fenceName = fmt::format("{} #{}/{}", name, i++, count);
-            device.setDebugUtilsObjectName(fence, fenceName);
+            utils::Name fenceName{"{} #{}/{}", name, i++, count};
+            device.setDebugUtilsObjectName(fence, fenceName.toCStr());
         } else {
-            device.setDebugUtilsObjectName(fence, name);
+            device.setDebugUtilsObjectName(fence, name.toCStr());
         }
     }
 }

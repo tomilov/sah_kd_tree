@@ -16,7 +16,7 @@ static void PrintTo [[maybe_unused]] (
     PushConstantRange shaderStageFlags,
     std::ostream * os)
 {
-    fmt::print(*os, FMT_STRING("vk::PushConstantRange{{.stageFlags = {}, .offset = {}, .size = {}}}"), shaderStageFlags.stageFlags, shaderStageFlags.offset, shaderStageFlags.size);
+    fmt::print(*os, "vk::PushConstantRange{{.stageFlags = {}, .offset = {}, .size = {}}}", shaderStageFlags.stageFlags, shaderStageFlags.offset, shaderStageFlags.size);
 }
 
 }  // namespace vk

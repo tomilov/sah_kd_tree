@@ -29,8 +29,7 @@ scene_data::SceneDataPtr Scenes::getScene(const std::filesystem::path & scenePat
     if (p) {
         SPDLOG_TRACE("Old scene data {} reused", scenePath);
     } else {
-        scene_data::SceneData sceneData;
-        sceneData.name = scenePath.string();
+        scene_data::SceneData sceneData{utils::Name{"{}", scenePath.string()}};
         if ((true)) {
             auto cacheLocation = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
             if (!scene_loader::cachingLoad(sceneData, QFileInfo{scenePath}, cacheLocation)) {

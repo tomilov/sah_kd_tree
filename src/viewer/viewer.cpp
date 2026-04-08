@@ -1,5 +1,7 @@
 ﻿#include <builder/builder.hpp>
 #include <compute/compute.hpp>
+#include <debug_utils/renderdoc.hpp>  //
+#include <engine/instance.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
 #include <viewer/engine.hpp>
@@ -240,7 +242,7 @@ void SceneSettings::onUrlChanged()
     }
     QFileInfo sceneFileInfo{url.toLocalFile()};
     std::filesystem::path scenePath = sceneFileInfo.filesystemCanonicalFilePath();
-    if (sceneData && (sceneData->name == scenePath)) {
+    if (sceneData && (sceneData->name.toStdStringView() == scenePath)) {
         return;
     }
     Q_CHECK_PTR(engineWrapper);
@@ -324,7 +326,7 @@ void SceneSettings::onTreeSettingsChanged()
     if (tree && (tree->settings == builderTreeSettings) && (tree->cudaDevice == *engineWrapper->getEngine().getCudaDevice()) && (tree->sceneData == sceneData)) {
         return;
     }
-    auto scenePath = QString::fromStdString(sceneData->name);
+    auto scenePath = QString::fromStdString(sceneData->name.toStdString());
     Q_CHECK_PTR(engineWrapper);
     const auto buildTree = [this, scenePath, sceneDataOld = sceneData, builderTreeSettings](QPromise<builder::TreePtr> & promise)
     {
@@ -549,6 +551,11 @@ void CameraController::resetSpeed()
     speed = kDefaultSpeed;
 }
 
+struct Viewer::FrameCapture
+{
+    std::optional<debug_utils::Renderdoc::FrameCapture> frameCapture;
+};
+
 Viewer::Viewer(QQuickItem * parent)
     : QQuickItem{parent}
 {
@@ -625,6 +632,8 @@ Viewer::Viewer(QQuickItem * parent)
     const auto onWindowChanged = [this](QQuickWindow * window)
     {
         disconnect(sceneGraphInvalidatedConnection);
+        disconnect(beforeRenderingConnection);
+        disconnect(afterRenderingConnection);
         if (!window) {
             qCDebug(viewerCategory) << "window is lost";
             return;
@@ -635,9 +644,26 @@ Viewer::Viewer(QQuickItem * parent)
             releaseResources();
         };
         sceneGraphInvalidatedConnection = connect(window, &QQuickWindow::sceneGraphInvalidated, this, onSceneGraphInvalidated, Qt::ConnectionType::DirectConnection);
+        if ((true)) {
+            const auto onBeforeRendering = [this, window]
+            {
+                if (std::exchange(rendererSettings->renderdocCaptureFrameCounter, 0) != 0) {
+                    debug_utils::Renderdoc::setCaptureFilePathTemplate("/tmp/viewer");
+                    frameCapture->frameCapture.emplace(debug_utils::Renderdoc::makeFrameCapture(engineWrapper->getContext().getInstance().getHandle(), utils::autoCast(window->winId())));
+                }
+            };
+            beforeRenderingConnection = connect(window, &QQuickWindow::beforeRendering, this, onBeforeRendering, Qt::ConnectionType::DirectConnection);
+            const auto onAfterRendering = [this]
+            {
+                frameCapture->frameCapture.reset();
+            };
+            afterRenderingConnection = connect(window, &QQuickWindow::afterRendering, this, onAfterRendering, Qt::ConnectionType::DirectConnection);
+        }
     };
     connect(this, &QQuickItem::windowChanged, onWindowChanged);
 }
+
+Viewer::~Viewer() = default;
 
 void Viewer::handleKeyboardInput()
 {

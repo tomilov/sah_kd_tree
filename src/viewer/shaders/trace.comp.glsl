@@ -6,6 +6,7 @@
 #extension GL_NV_compute_shader_derivatives: require
 #extension GL_KHR_shader_subgroup_quad: require  // subgroupQuadSwapHorizontal
 #extension GL_EXT_maximal_reconvergence: require
+#extension GL_EXT_expect_assume: require
 
 #include "utils.glsl"
 
@@ -179,7 +180,7 @@ void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
     const bvec3 corner = lessThan(invDir, vec3(0.0f));
     do {
         Node node = nodes.node[nodeIndex];
-        while (!(node.splitDimension < 0)) {
+        while (expectEXT(!(node.splitDimension < 0), true)) {
             if (corner[node.splitDimension] == ((node.splitPos - ray.pos[node.splitDimension]) * invDir[node.splitDimension] < tMin)) {
                 nodeIndex = node.leftChild;
             } else {
@@ -189,7 +190,7 @@ void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
         }
         const uint polygonStart = node.leftChild;
         const uint polygonEnd = polygonStart + node.rightChild;
-        for (uint polygon = polygonStart; polygon < polygonEnd; ++polygon) {
+        for (uint polygon = polygonStart; expectEXT(polygon < polygonEnd, true); ++polygon) {
             const uint triangle = polygons.triangle[polygon];
             vec3 uvw;
             vec3 normal;
@@ -204,13 +205,13 @@ void traceRay(uint nodeIndex, const in Ray ray, inout Hit hit, float tMin)
         }
         const vec3 aabbHitT = (mix(node.aabbMax, node.aabbMin, corner) - ray.pos) * invDir;
         tMin = min(aabbHitT.x, min(aabbHitT.y, aabbHitT.z));
-        if (hit.t <= tMin) {
+        if (expectEXT(hit.t <= tMin, false)) {
             break;
         }
         const ivec2 indices = mix(ivec2(0), ivec2(1, 2), equal(aabbHitT.yz, vec2(tMin)));
         const int ropeDirection = max(indices.x, indices.y);
         nodeIndex = corner[ropeDirection] ? node.leftRope[ropeDirection] : node.rightRope[ropeDirection];
-    } while (nodeIndex != 0u);
+    } while (expectEXT(nodeIndex != 0u, true));
 }
 
 layout(push_constant, scalar) uniform PushConstants
@@ -323,14 +324,34 @@ void main() [[maximally_reconverges]]
     traceRay(nodeIndex, ray, hit, tNear);
     vec4 color;
     if (hit.triangle != ~0u) {
-        hit.uvw = hit.uvw.yzx; //
-        if (0.0f < wireframeThickness) {
-            vec3 ddx;
-            vec3 ddy;
-            getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx, ddy);
-            color.rgb = getWireframeIntensity(hit.uvw, ddx, ddy, wireframeThickness).sss;
+        if (distance(hit.uvw, vec3(1.0f / 3.0f)) < 0.1f) {
+            if (0.0f < wireframeThickness) {
+                switch (hit.triangle % 3) {
+                case 0 : {
+                    color.rgb = vec3(0.0f, 0.0f, 1.0f);
+                    break;
+                }
+                case 1 : {
+                    color.rgb = vec3(0.0f, 1.0f, 0.0f);
+                    break;
+                }
+                case 2 : {
+                    color.rgb = vec3(1.0f, 0.0f, 0.0f);
+                    break;
+                }
+                }
+            } else {
+                color.rgb = vec3(1.0f);
+            }
         } else {
-            color.rgb = hit.uvw;
+            if (0.0f < wireframeThickness) {
+                vec3 ddx;
+                vec3 ddy;
+                getBaryDeriv(ray.dir, hit, 1.0f / viewportSize, ddx, ddy);
+                color.rgb = getWireframeIntensity(hit.uvw, ddx, ddy, wireframeThickness).sss;
+            } else {
+                color.rgb = hit.uvw;
+            }
         }
         color.a = clearColor.a;
     } else {

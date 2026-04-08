@@ -8,8 +8,6 @@
 
 #include <memory>
 
-#include <cstddef>
-
 #include <viewer/viewer_export.h>
 
 namespace engine

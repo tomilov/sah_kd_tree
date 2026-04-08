@@ -7,6 +7,7 @@
 #include <format/glm.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/name.hpp>
 #include <viewer/engine.hpp>
 #include <viewer/engine_wrapper.hpp>
 #include <viewer/render_node.hpp>
@@ -140,7 +141,7 @@ struct RenderNode::Impl
         QString nameIn,
         QQuickWindow * windowIn,
         const EngineWrapper & engineWrapper)
-        : name{nameIn}
+        : name{std::move(nameIn)}
         , window{windowIn}
         , context{engineWrapper.getContext()}
         , engine{engineWrapper.getEngine()}
@@ -267,7 +268,7 @@ struct RenderNode::Impl
         if (renderer) {
             SKT_ASSERT(renderer.value().getFramesInFlight() == framesInFlight);
         } else {
-            renderer.emplace(name.toStdString(), context, engine, framesInFlight);
+            renderer.emplace(utils::Name{"{}", name.toStdString()}, context, engine, framesInFlight);
         }
         renderer.value().setFrameSettings(frameSettings);
         if (renderer.value().getScene() != sceneData) {
@@ -281,6 +282,8 @@ struct RenderNode::Impl
         if (treeIsDirty) {
             treeIsDirty = false;
             renderer.value().setTree(std::move(builderTree));
+            // debug_utils::Renderdoc::triggerMultiFrameCapture(5);
+            //++renderdocCaptureFrameCounter;
         }
         if (renderdocCaptureFrameCount < renderdocCaptureFrameCounter) {
             ++renderdocCaptureFrameCount;

@@ -4,11 +4,11 @@ namespace engine::render_graph
 {
 
 Builder::Builder(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     CommandList & /*commandList*/,
     BuilderFlags /*flags*/)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
 {}
 

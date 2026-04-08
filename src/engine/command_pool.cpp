@@ -5,7 +5,7 @@
 #include <utils/assert.hpp>
 
 #include <initializer_list>
-#include <string_view>
+#include <utility>
 
 #include <cstdint>
 
@@ -13,10 +13,10 @@ namespace engine
 {
 
 CommandPool::CommandPool(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     uint32_t queueFamilyIndex)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
 {
     vk::CommandPoolCreateInfo commandPoolCreateInfo = {
@@ -28,7 +28,7 @@ CommandPool::CommandPool(
         commandPoolHolder = context.getDevice().getHandle().createCommandPoolUnique(commandPoolCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
     }
 
-    context.getDevice().setDebugUtilsObjectName(*commandPoolHolder, name);
+    context.getDevice().setDebugUtilsObjectName(*commandPoolHolder, name.toCStr());
 }
 
 vk::CommandPool CommandPool::getHandle() const &

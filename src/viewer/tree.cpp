@@ -18,7 +18,7 @@ namespace viewer
 
 struct Tree::Impl
 {
-    std::string name;
+    utils::Name name;
     const engine::Context & context;
 
     const uint32_t triangleCount;
@@ -42,17 +42,17 @@ struct Tree::Impl
     vk::DeviceAddress deviceAddress = 0;
 
     Impl(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         builder::Tree builderTree);
 };
 
 Tree::Tree(
-    std::string_view name,
+    utils::Name name,
     const engine::Context & context,
     builder::Tree && builderTree)
     : impl_{std::make_unique<Impl>(
-          name,
+          std::move(name),
           context,
           std::move(builderTree))}
 {}
@@ -145,10 +145,10 @@ vk::DeviceAddress Tree::getNodeParentAddress() const &
 }
 
 Tree::Impl::Impl(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const engine::Context & contextIn,
     builder::Tree builderTree)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , triangleCount{utils::autoCast(builderTree.triangleCount)}
     , vertexCount{utils::autoCast(builderTree.vertexCount)}
@@ -198,7 +198,7 @@ Tree::Impl::Impl(
         externalMemoryBufferCreateInfo.handleTypes = kHandleType;
     }
     buffer = device.createBufferUnique(bufferCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
-    context.getDevice().setDebugUtilsObjectName(*buffer, name);
+    context.getDevice().setDebugUtilsObjectName(*buffer, name.toCStr());
 
     vk::BufferMemoryRequirementsInfo2 bufferMemoryRequirementsInfo = {
         .buffer = *buffer,
@@ -250,7 +250,7 @@ Tree::Impl::Impl(
     // from the application to the Vulkan implementation.
     // So release it
     std::ignore = std::move(fd).release();
-    context.getDevice().setDebugUtilsObjectName(*deviceMemory, name);
+    context.getDevice().setDebugUtilsObjectName(*deviceMemory, name.toCStr());
 
     vk::BindBufferMemoryInfo bindBufferMemoryInfo = {
         .buffer = *buffer,

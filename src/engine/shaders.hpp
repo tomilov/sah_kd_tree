@@ -1,12 +1,11 @@
 #pragma once
 
-// TODO: rename to shaders.*
-
 #include <engine/fwd.hpp>
 #include <engine/utils.hpp>
 #include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
 #include <utils/hash.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -88,6 +87,7 @@ struct ENGINE_EXPORT ShaderModuleReflection final : utils::OneTime<ShaderModuleR
     {
         vk::DescriptorSetLayoutBinding binding;
         size_t size = 0;
+        bool isReadOnly = false;
     };
 
     std::unordered_map<uint32_t /* set */, std::unordered_map<DescriptorBindingNameAndType, DescriptorSetLayoutBinding, utils::Hash<DescriptorBindingNameAndType>>> descriptorSetLayoutSetBindings;
@@ -124,6 +124,7 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
     {
         uint32_t setIndex = std::numeric_limits<uint32_t>::max();
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        std::unordered_map<uint32_t /*binding*/, size_t> bindingToIndex;
         std::unordered_map<DescriptorBindingNameAndType, size_t, utils::Hash<DescriptorBindingNameAndType>> bindingIndices;
         std::vector<DescriptorBindingNameAndType> bindingNames;
 
@@ -145,9 +146,9 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
     };
 
     std::deque<std::string> entryPointNames;
-    std::deque<std::string> names;
+    std::deque<utils::Name> names;
+    std::vector<vk::DescriptorSetAndBindingMappingEXT> descriptorSetAndBindingMappings;
     std::vector<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::DebugUtilsObjectNameInfoEXT, vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo, vk::ShaderDescriptorSetAndBindingMappingInfoEXT>> pipelineShaderStageCreateInfoChains;
-    std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
 
     std::unique_ptr<VertexInputState> vertexInputState;
     std::map<uint32_t /*set*/, SetBindings> setBindingMap;
@@ -173,10 +174,12 @@ struct ENGINE_EXPORT ShaderStages final : utils::OneTime<ShaderStages>
         const ShaderModuleReflection & shaderModuleReflection,
         std::optional<uint32_t> subgroupSize);
     void createDescriptorSetLayouts(
-        std::string_view name,
+        utils::Name name,
         vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags);
 
     size_t findSetByBindingName(const DescriptorBindingNameAndType & nameAndType) const;
+
+    void getPipelineShaderStageCreateInfoHeads(std::vector<vk::PipelineShaderStageCreateInfo> & pipelineShaderStageCreateInfos) const &;
 
 private:
     const Context & context;

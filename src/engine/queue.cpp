@@ -8,6 +8,7 @@
 #include <fmt/format.h>
 
 #include <string_view>
+#include <utility>
 
 template struct utils::OneTime<engine::Queue>::CheckTraits;
 
@@ -15,16 +16,15 @@ namespace engine
 {
 
 Queue::Queue(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     const QueueCreateInfo & queueCreateInfoIn)
-    : name{fmt::format(
-          "{} {}",
+    : name{"{} {}",
           queueCreateInfoIn.name,
-          nameIn)}
+          nameIn.toStdStringView()}
     , context{contextIn}
     , queueCreateInfo{queueCreateInfoIn}
-    , commandPool{name,
+    , commandPool{name.clone(),
           context,
           queueCreateInfo.familyIndex}
     , queue{context.getDevice().getHandle().getQueue(
@@ -32,7 +32,7 @@ Queue::Queue(
           queueCreateInfo.index,
           context.getLibrary().getDispatcher())}
 {
-    context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name);
+    context.getDevice().setDebugUtilsObjectName(queue, queueCreateInfo.name.toCStr());
 }
 
 const QueueCreateInfo & Queue::getQueueCreateInfo() const &
@@ -77,7 +77,7 @@ void Queue::waitIdle() const
 }
 
 CommandBuffers Queue::allocateCommandBuffers(
-    std::string_view commandBuffersName,
+    utils::Name commandBuffersName,
     uint32_t count,
     vk::CommandBufferLevel level) const
 {
@@ -86,7 +86,7 @@ CommandBuffers Queue::allocateCommandBuffers(
         .level = level,
         .commandBufferCount = count,
     };
-    return {commandBuffersName, context, commandBufferAllocateInfo};
+    return {std::move(commandBuffersName), context, commandBufferAllocateInfo};
 }
 
 }  // namespace engine

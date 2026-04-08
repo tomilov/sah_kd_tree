@@ -2,11 +2,9 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string>
-#include <string_view>
 
 #include <cstdint>
 
@@ -18,7 +16,7 @@ namespace engine
 struct ENGINE_EXPORT CommandPool final
 {
     CommandPool(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         uint32_t queueFamilyIndex);
     CommandPool(CommandPool &&) noexcept = default;
@@ -27,7 +25,7 @@ struct ENGINE_EXPORT CommandPool final
     [[nodiscard]] operator vk::CommandPool() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
 
     vk::UniqueCommandPool commandPoolHolder;

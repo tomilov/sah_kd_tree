@@ -5,6 +5,7 @@
 #include <engine/vma.hpp>
 #include <format/vulkan.hpp>
 #include <utils/hash.hpp>
+#include <utils/name.hpp>
 #include <viewer/descriptors.hpp>
 
 #include <iterator>
@@ -18,12 +19,12 @@ namespace viewer
 {
 
 Descriptors::Descriptors(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const engine::Context & contextIn,
     engine::DescriptorManagementKind descriptorManagementKindIn,
     std::shared_ptr<const engine::ShaderStages> shaderStagesIn,
     uint32_t setIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , descriptorManagementKind{descriptorManagementKindIn}
     , shaderStages{std::move(shaderStagesIn)}
@@ -55,7 +56,7 @@ size_t Descriptors::getHash() const
 
 engine::DescriptorSet Descriptors::createDescriptorSet() const
 {
-    return {name, context, shaderStages, set};
+    return {name.clone(), context, shaderStages, set};
 }
 
 DescriptorBuffer Descriptors::createDescriptorBuffer() const
@@ -83,8 +84,7 @@ DescriptorBuffer Descriptors::createDescriptorBuffer() const
         }
         }
     }
-    auto descriptorBufferName = fmt::format("{} (set #{})", name, set);
-    auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(descriptorBufferName, descriptorBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorBufferOffsetAlignment);
+    auto descriptorBuffer = context.getMemoryAllocator().createStagingBuffer(utils::Name{"{} (set #{})", name, set}, descriptorBufferCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorBufferOffsetAlignment);
 
     return descriptorBuffer;
 }
@@ -150,15 +150,13 @@ DescriptorHeap Descriptors::createDescriptorHeap() const
         vk::BufferCreateInfo descriptorHeapCreateInfo;
         descriptorHeapCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eDescriptorHeapEXT;
         descriptorHeapCreateInfo.size = descriptorHeapProperties.minResourceHeapReservedRange;  // TODO:
-        auto resourcesHeapName = fmt::format("{} (set #{}) resource heap", name, set);
-        auto resources = context.getMemoryAllocator().createStagingBuffer(resourcesHeapName, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.resourceHeapAlignment);
+        auto resources = context.getMemoryAllocator().createStagingBuffer(utils::Name{"{} (set #{}) resource heap", name, set}, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.resourceHeapAlignment);
     }
     {
         vk::BufferCreateInfo descriptorHeapCreateInfo;
         descriptorHeapCreateInfo.usage = vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eDescriptorHeapEXT;
         descriptorHeapCreateInfo.size = descriptorHeapProperties.minSamplerHeapReservedRange;  // TODO:
-        auto samplerHeapName = fmt::format("{} (set #{}) sampler heap", name, set);
-        auto samplers = context.getMemoryAllocator().createStagingBuffer(samplerHeapName, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.samplerHeapAlignment);
+        auto samplers = context.getMemoryAllocator().createStagingBuffer(utils::Name{"{} (set #{}) sampler heap", name, set}, descriptorHeapCreateInfo, vk::MemoryPropertyFlagBits::eDeviceLocal, descriptorHeapProperties.samplerHeapAlignment);
     }
     return descriptorHeap;
 }

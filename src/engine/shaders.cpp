@@ -5,11 +5,13 @@
 #include <engine/library.hpp>
 #include <engine/physical_device.hpp>
 #include <engine/push_constant_ranges.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <engine/spirv_reflect_dump.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/math.hpp>
+#include <utils/name.hpp>
 
 #include <../SPIRV-Reflect/spirv_reflect.h>
 #include <fmt/format.h>
@@ -19,6 +21,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -343,6 +346,102 @@ namespace
     SKT_INVARIANT(false, "Unknown spv shader stage {}", fmt::underlying(shaderStageFlagBits));
 }
 
+vk::SpirvResourceTypeFlagsEXT descriptorTypeToResourceMask(
+    vk::DescriptorType type,
+    bool isReadOnly)
+{
+    switch (type) {
+    case vk::DescriptorType::eSampler:
+        return vk::SpirvResourceTypeFlagBitsEXT::eSampler;
+
+    case vk::DescriptorType::eSampledImage:
+        return vk::SpirvResourceTypeFlagBitsEXT::eSampledImage;
+
+    case vk::DescriptorType::eCombinedImageSampler:
+        return vk::SpirvResourceTypeFlagBitsEXT::eCombinedSampledImage;
+
+    case vk::DescriptorType::eStorageImage:
+        return isReadOnly ? vk::SpirvResourceTypeFlagBitsEXT::eReadOnlyImage : vk::SpirvResourceTypeFlagBitsEXT::eReadWriteImage;
+
+    case vk::DescriptorType::eUniformBuffer:
+    case vk::DescriptorType::eUniformBufferDynamic:
+    case vk::DescriptorType::eUniformTexelBuffer:
+        return vk::SpirvResourceTypeFlagBitsEXT::eUniformBuffer;
+
+    case vk::DescriptorType::eStorageBuffer:
+    case vk::DescriptorType::eStorageBufferDynamic:
+    case vk::DescriptorType::eStorageTexelBuffer:
+        return isReadOnly ? vk::SpirvResourceTypeFlagBitsEXT::eReadOnlyStorageBuffer : vk::SpirvResourceTypeFlagBitsEXT::eReadWriteStorageBuffer;
+
+    case vk::DescriptorType::eAccelerationStructureKHR:
+        return vk::SpirvResourceTypeFlagBitsEXT::eAccelerationStructure;
+
+    default:
+        SKT_INVARIANT(false, "Unsupported descriptor type: {}", type);
+        return {};
+    }
+}
+
+vk::DeviceSize getResourceDescriptorSize(
+    const vk::PhysicalDeviceDescriptorHeapPropertiesEXT & descriptorHeapProperties,
+    vk::DescriptorType descriptorType)
+{
+    switch (descriptorType) {
+    case vk::DescriptorType::eSampledImage:
+    case vk::DescriptorType::eStorageImage:
+    case vk::DescriptorType::eCombinedImageSampler:
+    case vk::DescriptorType::eUniformTexelBuffer:
+    case vk::DescriptorType::eStorageTexelBuffer: {
+        return descriptorHeapProperties.imageDescriptorSize;
+    }
+    case vk::DescriptorType::eUniformBuffer:
+    case vk::DescriptorType::eUniformBufferDynamic:
+    case vk::DescriptorType::eStorageBuffer:
+    case vk::DescriptorType::eStorageBufferDynamic:
+    case vk::DescriptorType::eAccelerationStructureKHR: {
+        return descriptorHeapProperties.bufferDescriptorSize;
+    }
+    case vk::DescriptorType::eSampler: {
+        SKT_INVARIANT(false, "eSampler goes to sampler heap, not resource heap");
+        return 0;
+    }
+    default: {
+        SKT_INVARIANT(false, "Unsupported descriptor type: {}", descriptorType);
+        return 0;
+    }
+    }
+}
+
+vk::DeviceSize getResourceDescriptorAlignment(
+    const vk::PhysicalDeviceDescriptorHeapPropertiesEXT & descriptorHeapProperties,
+    vk::DescriptorType descriptorType)
+{
+    switch (descriptorType) {
+    case vk::DescriptorType::eSampledImage:
+    case vk::DescriptorType::eStorageImage:
+    case vk::DescriptorType::eCombinedImageSampler:
+    case vk::DescriptorType::eUniformTexelBuffer:
+    case vk::DescriptorType::eStorageTexelBuffer: {
+        return descriptorHeapProperties.imageDescriptorAlignment;
+    }
+    case vk::DescriptorType::eUniformBuffer:
+    case vk::DescriptorType::eUniformBufferDynamic:
+    case vk::DescriptorType::eStorageBuffer:
+    case vk::DescriptorType::eStorageBufferDynamic:
+    case vk::DescriptorType::eAccelerationStructureKHR: {
+        return descriptorHeapProperties.bufferDescriptorAlignment;
+    }
+    case vk::DescriptorType::eSampler: {
+        SKT_INVARIANT(false, "eSampler goes to sampler heap, use samplerDescriptorAlignment directly");
+        return 0;
+    }
+    default: {
+        SKT_INVARIANT(false, "Unsupported descriptor type: {}", descriptorType);
+        return 0;
+    }
+    }
+}
+
 }  // namespace
 
 ShaderModule::ShaderModule(
@@ -498,7 +597,7 @@ void ShaderModuleReflection::reflect()
         SKT_INVARIANT(reflectDecriptorSet, "");
         SKT_INVARIANT(!descriptorSetLayoutSetBindings.contains(reflectDecriptorSet->set), "Duplicated set {}", reflectDecriptorSet->set);
         auto & descriptorSetLayoutBindings = descriptorSetLayoutSetBindings[reflectDecriptorSet->set];
-        auto bindingCount = reflectDecriptorSet->binding_count;
+        const uint32_t bindingCount = reflectDecriptorSet->binding_count;
         descriptorSetLayoutBindings.reserve(bindingCount);
         for (uint32_t b = 0; b < bindingCount; ++b) {
             auto * const reflectDescriptorBinding = reflectDecriptorSet->bindings[b];
@@ -512,15 +611,66 @@ void ShaderModuleReflection::reflect()
                 .binding = reflectDescriptorBinding->binding,
                 .descriptorType = descriptorType,
                 .descriptorCount = 1,  // ? reflectDescriptorBinding->count,
+                .stageFlags = shaderStage,
             };
-            const auto & block = reflectDescriptorBinding->block;
-            SKT_ASSERT(block.offset == 0);
-            SKT_ASSERT(block.absolute_offset == 0);
-            descriptorSetLayoutBinding.size = block.size;
             for (uint32_t d = 0; d < reflectDescriptorBinding->array.dims_count; ++d) {
                 descriptorSetLayoutBinding.binding.descriptorCount *= reflectDescriptorBinding->array.dims[d];
             }
-            descriptorSetLayoutBinding.binding.stageFlags = shaderStage;
+            const auto & block = reflectDescriptorBinding->block;
+            switch (descriptorType) {
+            case vk::DescriptorType::eUniformBuffer:
+            case vk::DescriptorType::eUniformBufferDynamic: {
+                SKT_ASSERT(block.offset == 0);
+                SKT_ASSERT(block.absolute_offset == 0);
+                descriptorSetLayoutBinding.size = block.size;
+                descriptorSetLayoutBinding.isReadOnly = true;
+                break;
+            }
+            case vk::DescriptorType::eStorageBuffer:
+            case vk::DescriptorType::eStorageBufferDynamic: {
+                SKT_ASSERT(block.offset == 0);
+                SKT_ASSERT(block.absolute_offset == 0);
+                descriptorSetLayoutBinding.size = block.size;
+                descriptorSetLayoutBinding.isReadOnly = (block.decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) != 0;
+                break;
+            }
+            case vk::DescriptorType::eStorageTexelBuffer:
+            case vk::DescriptorType::eStorageImage: {
+                descriptorSetLayoutBinding.size = 0;
+                SKT_INVARIANT(reflectDescriptorBinding->type_description, "");
+                descriptorSetLayoutBinding.isReadOnly = (reflectDescriptorBinding->type_description->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE) != 0;
+                break;
+            }
+            case vk::DescriptorType::eSampledImage:
+            case vk::DescriptorType::eCombinedImageSampler:
+            case vk::DescriptorType::eSampler:
+            case vk::DescriptorType::eUniformTexelBuffer:
+            case vk::DescriptorType::eAccelerationStructureKHR: {
+                descriptorSetLayoutBinding.size = 0;
+                descriptorSetLayoutBinding.isReadOnly = true;
+                break;
+            }
+            case vk::DescriptorType::eInputAttachment:
+            case vk::DescriptorType::eInlineUniformBlock:
+            case vk::DescriptorType::eAccelerationStructureNV:
+            case vk::DescriptorType::eMutableEXT:
+            case vk::DescriptorType::eSampleWeightImageQCOM:
+            case vk::DescriptorType::eBlockMatchImageQCOM:
+            case vk::DescriptorType::eTensorARM:
+            case vk::DescriptorType::ePartitionedAccelerationStructureNV: {
+                SKT_INVARIANT(false, "Unsupported descriptor type: {}", descriptorType);
+                break;
+            }
+            }
+
+            SPDLOG_DEBUG(
+                "  Binding #{}: name='{}', type={}, count={}, size={}, isReadOnly={}",
+                reflectDescriptorBinding->binding,
+                descriptorBindingName,
+                descriptorType,
+                descriptorSetLayoutBinding.binding.descriptorCount,
+                descriptorSetLayoutBinding.size,
+                descriptorSetLayoutBinding.isReadOnly);
         }
     }
 
@@ -569,6 +719,7 @@ void ShaderModuleReflection::reflect()
     }
     for (auto * specConstant : specConstants) {
         if (!specConstant->name) {
+            SPDLOG_DEBUG("Skipping unnamed specialization constant id={}", specConstant->constant_id);
             continue;
         }
         if (!specializationConstants.emplace(specConstant->name, specConstant->constant_id).second) {
@@ -610,7 +761,7 @@ void ShaderStages::add(
 {
     const auto & entryPointName = shaderModuleReflection.getEntryPointName();
     entryPointNames.push_back(entryPointName);
-    names.push_back(fmt::format("{}:{}", shaderModule.getShaderName(), entryPointName));
+    names.push_back(utils::Name{"{}:{}", shaderModule.getShaderName(), entryPointName});
     SKT_INVARIANT(std::size(pipelineShaderStageCreateInfoChains) < pipelineShaderStageCreateInfoChains.capacity(), "");
     auto & [pipelineShaderStageCreateInfo, debugUtilsObjectNameInfo, requiredSubgroupSize, shaderDescriptorSetAndBindingMappingInfo] = pipelineShaderStageCreateInfoChains.emplace_back();
     pipelineShaderStageCreateInfo.flags = vk::PipelineShaderStageCreateFlags{};
@@ -620,7 +771,7 @@ void ShaderStages::add(
     pipelineShaderStageCreateInfo.pSpecializationInfo = nullptr;
     debugUtilsObjectNameInfo.objectType = vk::ShaderModule::objectType;
     debugUtilsObjectNameInfo.objectHandle = utils::autoCast(utils::safeCast<vk::ShaderModule::NativeType>(shaderModule.getHandle()));
-    debugUtilsObjectNameInfo.pObjectName = std::data(names.back());
+    debugUtilsObjectNameInfo.pObjectName = names.back().toCStr();
     if (context.getDevice().createInfoChain.get<vk::PhysicalDeviceVulkan13Features>().subgroupSizeControl != vk::False) {
         if (subgroupSize) {
             SKT_INVARIANT(checkSubgroupSize(subgroupSize.value(), shaderModule.getStage()), "");
@@ -630,11 +781,9 @@ void ShaderStages::add(
         }
     } else {
         if (subgroupSize) {
-            SPDLOG_WARN("subgroupSize is set, but v is not enabled");
+            SPDLOG_WARN("subgroupSize is set, but subgroupSizeControl is not enabled");
         }
     }
-
-    pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfo);
 
     if (shaderModule.getStage() == vk::ShaderStageFlagBits::eVertex) {
         vertexInputState = std::make_unique<VertexInputState>(shaderModuleReflection.getVertexInputState(vertexBufferBinding));
@@ -643,24 +792,22 @@ void ShaderStages::add(
     for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
         auto & mergedBindings = setBindingMap[set];
         for (const auto & [bindingName, binding] : bindings) {
-            bool isMultistage = false;
-            size_t b = 0;
-            for (auto & mergedBinding : mergedBindings.bindings) {
-                if (binding.binding.binding == mergedBinding.binding) {
-                    const auto & [n, t] = mergedBindings.bindingNames.at(b);
-                    SKT_INVARIANT(binding.binding.descriptorType == mergedBinding.descriptorType, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorType, mergedBinding.descriptorType, b, n, t);
-                    SKT_INVARIANT(binding.binding.descriptorCount == mergedBinding.descriptorCount, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorCount, mergedBinding.descriptorCount, b, n, t);
-                    SKT_INVARIANT(binding.binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {} (binding #{}: {}, {})", fmt::ptr(binding.binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers), b, n, t);
-                    mergedBinding.stageFlags |= binding.binding.stageFlags;
-                    isMultistage = true;
-                    break;
+            const auto index = mergedBindings.bindingToIndex.find(binding.binding.binding);
+            if (index != std::cend(mergedBindings.bindingToIndex)) {
+                const size_t b = index->second;
+                auto & mergedBinding = mergedBindings.bindings.at(b);
+                const auto & [n, t] = mergedBindings.bindingNames.at(b);
+                SKT_INVARIANT(binding.binding.descriptorType == mergedBinding.descriptorType, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorType, mergedBinding.descriptorType, b, n, t);
+                SKT_INVARIANT(binding.binding.descriptorCount == mergedBinding.descriptorCount, "{} != {} (binding #{}: {}, {})", binding.binding.descriptorCount, mergedBinding.descriptorCount, b, n, t);
+                SKT_INVARIANT(binding.binding.pImmutableSamplers == mergedBinding.pImmutableSamplers, "{} != {} (binding #{}: {}, {})", fmt::ptr(binding.binding.pImmutableSamplers), fmt::ptr(mergedBinding.pImmutableSamplers), b, n, t);
+                mergedBinding.stageFlags |= binding.binding.stageFlags;
+            } else {
+                const size_t b = std::size(mergedBindings.bindings);
+                if (!mergedBindings.bindingToIndex.try_emplace(binding.binding.binding, b).second) {
+                    SKT_INVARIANT(false, "");
                 }
-                ++b;
-            }
-            if (!isMultistage) {
-                size_t index = std::size(mergedBindings.bindings);
                 mergedBindings.bindings.push_back(binding.binding);
-                if (!mergedBindings.bindingIndices.emplace(bindingName, index).second) {
+                if (!mergedBindings.bindingIndices.emplace(bindingName, b).second) {
                     SKT_INVARIANT(false, "");
                 }
                 mergedBindings.bindingNames.push_back(std::move(bindingName));
@@ -682,18 +829,41 @@ void ShaderStages::add(
         }
     }
 
-    if (descriptorManagementKind == DescriptorManagementKind::Heap) {  // TODO:
-        std::vector<vk::DescriptorSetAndBindingMappingEXT> descriptorSetAndBindingMappings;
-        for (const auto & [set, descriptorSetLayoutBindings] : setBindingMap) {
-            for (const auto & descriptorSetLayoutBinding : descriptorSetLayoutBindings.bindings) {
-                auto & descriptorSetAndBindingMapping = descriptorSetAndBindingMappings.emplace_back();
-                descriptorSetAndBindingMapping.descriptorSet = set;
-                descriptorSetAndBindingMapping.firstBinding = descriptorSetLayoutBinding.binding;
-                descriptorSetAndBindingMapping.bindingCount = descriptorSetLayoutBinding.descriptorCount;
-                // descriptorSetAndBindingMapping.resourceMask;
-                // descriptorSetAndBindingMapping.source;
-                // descriptorSetAndBindingMapping.sourceData;
-                // vk::DescriptorMappingSourceDataEXT descriptorMappingSourceData;
+    if (descriptorManagementKind == DescriptorManagementKind::Heap) {
+        const auto & descriptorHeapProperties = context.getPhysicalDevice().properties2Chain.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+        vk::DeviceSize resourceHeapOffset = 0;
+        vk::DeviceSize samplerHeapOffset = 0;
+        for (const auto & [set, bindings] : shaderModuleReflection.descriptorSetLayoutSetBindings) {
+            for (const auto & [bindingNameAndType, binding] : bindings) {
+                const uint32_t count = binding.binding.descriptorCount;
+                const auto makeMapping = [this, set, &binding, count](vk::DeviceSize & heapOffset, vk::DeviceSize descriptorSize, vk::DeviceSize descAlignment, vk::SpirvResourceTypeFlagsEXT resourceMask)
+                {
+                    heapOffset = utils::alignUp(heapOffset, descAlignment);
+                    auto & descriptorSetAndBindingMapping = descriptorSetAndBindingMappings.emplace_back();
+                    descriptorSetAndBindingMapping.descriptorSet = set;
+                    descriptorSetAndBindingMapping.firstBinding = binding.binding.binding;
+                    descriptorSetAndBindingMapping.bindingCount = count;
+                    descriptorSetAndBindingMapping.resourceMask = resourceMask;
+                    descriptorSetAndBindingMapping.source = vk::DescriptorMappingSourceEXT::eHeapWithConstantOffset;
+                    vk::DescriptorMappingSourceConstantOffsetEXT constantOffset;
+                    constantOffset.heapOffset = utils::autoCast(heapOffset);
+                    constantOffset.heapArrayStride = utils::autoCast(descriptorSize);
+                    descriptorSetAndBindingMapping.sourceData.setConstantOffset(constantOffset);
+                    heapOffset += count * descriptorSize;
+                };
+                const vk::DescriptorType descriptorType = binding.binding.descriptorType;
+                if (descriptorType == vk::DescriptorType::eCombinedImageSampler) {
+                    makeMapping(resourceHeapOffset, descriptorHeapProperties.imageDescriptorSize, descriptorHeapProperties.imageDescriptorAlignment, vk::SpirvResourceTypeFlagBitsEXT::eCombinedSampledImage);
+                    makeMapping(samplerHeapOffset, descriptorHeapProperties.samplerDescriptorSize, descriptorHeapProperties.samplerDescriptorAlignment, vk::SpirvResourceTypeFlagBitsEXT::eSampler);
+                } else if (descriptorType == vk::DescriptorType::eSampler) {
+                    makeMapping(samplerHeapOffset, descriptorHeapProperties.samplerDescriptorSize, descriptorHeapProperties.samplerDescriptorAlignment, vk::SpirvResourceTypeFlagBitsEXT::eSampler);
+                } else {
+                    makeMapping(
+                        resourceHeapOffset,
+                        getResourceDescriptorSize(descriptorHeapProperties, descriptorType),
+                        getResourceDescriptorAlignment(descriptorHeapProperties, descriptorType),
+                        descriptorTypeToResourceMask(descriptorType, binding.isReadOnly));
+                }
             }
         }
         shaderDescriptorSetAndBindingMappingInfo.setMappings(descriptorSetAndBindingMappings);
@@ -703,7 +873,7 @@ void ShaderStages::add(
 }
 
 void ShaderStages::createDescriptorSetLayouts(
-    std::string_view name,
+    utils::Name name,
     vk::DescriptorSetLayoutCreateFlags descriptorSetLayoutCreateFlags)
 {
     size_t setCount = std::size(setBindingMap);
@@ -735,11 +905,13 @@ void ShaderStages::createDescriptorSetLayouts(
         }
 
         if (std::size(setBindingMap) > 1) {
-            auto descriptorSetLayoutName = fmt::format("{} set {} (of total {} sets)", name, set, setCount);
-            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+            fmt::memory_buffer descriptorSetLayoutName;
+            fmt::format_to(std::back_inserter(descriptorSetLayoutName), "{} set {} (of total {} sets)", name, set, setCount);
+            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), std::string_view{descriptorSetLayoutName.data(), descriptorSetLayoutName.size()});
         } else {
-            auto descriptorSetLayoutName = fmt::format("{} set {}", name, set);
-            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), descriptorSetLayoutName);
+            fmt::memory_buffer descriptorSetLayoutName;
+            fmt::format_to(std::back_inserter(descriptorSetLayoutName), "{} set {}", name, set);
+            device.setDebugUtilsObjectName(descriptorSetLayouts.back(), std::string_view{descriptorSetLayoutName.data(), descriptorSetLayoutName.size()});
         }
     }
 
@@ -754,6 +926,15 @@ size_t ShaderStages::findSetByBindingName(const DescriptorBindingNameAndType & n
         }
     }
     SKT_INVARIANT(false, "{}", nameAndType);
+}
+
+void ShaderStages::getPipelineShaderStageCreateInfoHeads(std::vector<vk::PipelineShaderStageCreateInfo> & pipelineShaderStageCreateInfos) const &
+{
+    SKT_INVARIANT(std::empty(pipelineShaderStageCreateInfos), "");
+    pipelineShaderStageCreateInfos.reserve(std::size(pipelineShaderStageCreateInfoChains));
+    for (const auto & pipelineShaderStageCreateInfoChain : pipelineShaderStageCreateInfoChains) {
+        pipelineShaderStageCreateInfos.push_back(pipelineShaderStageCreateInfoChain.get<vk::PipelineShaderStageCreateInfo>());
+    }
 }
 
 }  // namespace engine

@@ -2,13 +2,12 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
-#include <string>
-#include <string_view>
 
 #include <cstdint>
 
@@ -20,7 +19,7 @@ namespace engine
 struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
 {
     DescriptorSet(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         std::shared_ptr<const ShaderStages> shaderStages,
         uint32_t set /* TODO: hash descriptor set layout */);
@@ -53,7 +52,7 @@ struct ENGINE_EXPORT DescriptorSet final : utils::OneTime<DescriptorSet>
     }
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
     std::shared_ptr<const ShaderStages> shaderStages;
     const uint32_t set;

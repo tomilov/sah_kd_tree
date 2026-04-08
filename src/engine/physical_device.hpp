@@ -4,6 +4,7 @@
 #include <engine/fwd.hpp>
 #include <engine/types.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -26,12 +27,12 @@ namespace engine
 
 struct ENGINE_EXPORT QueueCreateInfo final : utils::NonCopyable
 {
-    const std::string name;
+    const utils::Name name;
     uint32_t familyIndex = vk::QueueFamilyIgnored;
     uint32_t index = std::numeric_limits<uint32_t>::max();
 
-    explicit QueueCreateInfo(const std::string & nameIn)
-        : name{nameIn}
+    explicit QueueCreateInfo(utils::Name nameIn)
+        : name{std::move(nameIn)}
     {}
 };
 
@@ -73,7 +74,9 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
     >;
     using RequiredFeatures = FeatureList<
         //&vk::PhysicalDeviceFeatures::samplerAnisotropy,
+        //&vk::PhysicalDeviceFeatures::fullDrawIndexUint32,
         &vk::PhysicalDeviceFeatures::multiDrawIndirect,
+        &vk::PhysicalDeviceFeatures::drawIndirectFirstInstance,
         //&vk::PhysicalDeviceFeatures::shaderInt64,
         &vk::PhysicalDeviceVulkan12Features::runtimeDescriptorArray,
         &vk::PhysicalDeviceVulkan12Features::scalarBlockLayout,
@@ -87,6 +90,7 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
         &vk::PhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation,
         &vk::PhysicalDeviceVulkan13Features::subgroupSizeControl,
         &vk::PhysicalDeviceVulkan13Features::shaderZeroInitializeWorkgroupMemory,
+        &vk::PhysicalDeviceVulkan14Features::shaderExpectAssume,
         &vk::PhysicalDeviceVulkan14Features::indexTypeUint8,
         &vk::PhysicalDeviceVulkan14Features::maintenance5,
         &vk::PhysicalDeviceVulkan14Features::maintenance6,
@@ -138,11 +142,11 @@ struct ENGINE_EXPORT PhysicalDevice final : utils::NonCopyable
 #pragma GCC diagnostic pop
     // clang-format on
 
-    QueueCreateInfo externalGraphicsQueueCreateInfo{"External graphics"};
-    QueueCreateInfo graphicsQueueCreateInfo{"Graphics"};
-    QueueCreateInfo computeQueueCreateInfo{"Compute"};
-    QueueCreateInfo transferHostToDeviceQueueCreateInfo{"Host -> Device transfer"};
-    QueueCreateInfo transferDeviceToHostQueueCreateInfo{"Device -> Host transfer"};
+    QueueCreateInfo externalGraphicsQueueCreateInfo{utils::Name{"External graphics"}};
+    QueueCreateInfo graphicsQueueCreateInfo{utils::Name{"Graphics"}};
+    QueueCreateInfo computeQueueCreateInfo{utils::Name{"Compute"}};
+    QueueCreateInfo transferHostToDeviceQueueCreateInfo{utils::Name{"Host -> Device transfer"}};
+    QueueCreateInfo transferDeviceToHostQueueCreateInfo{utils::Name{"Device -> Host transfer"}};
 
     PhysicalDevice(
         Library & library,

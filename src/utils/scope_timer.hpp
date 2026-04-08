@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utils/name.hpp>
+
 #include <chrono>
 #include <source_location>
 
@@ -14,12 +16,12 @@ public:
     using Clock = std::chrono::high_resolution_clock;
 
     explicit ScopeTimer(
-        std::string_view name,
+        utils::Name name,
         const std::source_location & sourceLocation = std::source_location::current());
     ~ScopeTimer();
 
 private:
-    const std::string name;
+    const utils::Name name;
     const std::source_location sourceLocation;
     const Clock::time_point start = Clock::now();
 };

@@ -7,7 +7,7 @@
 #include <engine/graphics_pipeline.hpp>
 #include <engine/pipeline_cache.hpp>
 #include <engine/pipeline_layout.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
 #include <utils/hash.hpp>
@@ -59,18 +59,18 @@ public:
 
     Shaders(
         Private,
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         std::shared_ptr<const engine::FileIo> fileIo,
         engine::DescriptorManagementKind descriptorManagementKind);
 
     [[nodiscard]] static std::shared_ptr<Shaders> make(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         std::shared_ptr<const engine::FileIo> fileIo,
         engine::DescriptorManagementKind descriptorManagementKind)
     {
-        return std::make_shared<Shaders>(Private{}, name, context, fileIo, descriptorManagementKind);
+        return std::make_shared<Shaders>(Private{}, std::move(name), context, fileIo, descriptorManagementKind);
     }
 
     void addShader(
@@ -112,7 +112,7 @@ public:
 private:
     static constexpr uint32_t kVertexBufferBinding = 0;
 
-    std::string name;
+    utils::Name name;
     const engine::Context & context;
     std::shared_ptr<const engine::FileIo> fileIo;
     const engine::DescriptorManagementKind descriptorManagementKind;
@@ -132,7 +132,7 @@ struct GraphicsPipeline : utils::OneTime<GraphicsPipeline>
     explicit GraphicsPipeline(std::shared_ptr<const Shaders> shaders);
 
     [[nodiscard]] engine::GraphicsPipeline & initPipeline(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         vk::PipelineCache pipelineCache,
         engine::DescriptorManagementKind descriptorManagementKind,
@@ -150,7 +150,7 @@ struct ComputePipeline : utils::OneTime<ComputePipeline>
     explicit ComputePipeline(std::shared_ptr<const Shaders> shaders);
 
     [[nodiscard]] engine::ComputePipeline & initPipeline(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         vk::PipelineCache pipelineCache,
         engine::DescriptorManagementKind descriptorManagementKind,

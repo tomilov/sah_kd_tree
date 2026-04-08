@@ -426,11 +426,11 @@ vk::Bool32 Instance::userDebugUtilsCallback(
     spdlog::
         log(      //
             lvl,  //
-            // FMT_STRING("[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}"),  //
-            FMT_STRING("[ {} ] {} {:<{}} | MessageID = {:#x} | {}"),  //
-            callbackData.pMessageIdName,                              //
-            messageTypes,                                             //
-            messageSeverity,                                          //
+            // "[ {} ] {} {:<{}} | Objects: {{}} | Queues: {{}} | CommandBuffers: {{}} | MessageID = {:#x} | {}",  //
+            "[ {} ] {} {:<{}} | MessageID = {:#x} | {}",  //
+            callbackData.pMessageIdName,                  //
+            messageTypes,                                 //
+            messageSeverity,                              //
             messageSeverityMaxLength,
             // std::move(objects),
             // std::move(queues),

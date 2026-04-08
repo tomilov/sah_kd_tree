@@ -2,12 +2,12 @@
 
 #include <utils/assert.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <new>
-#include <string_view>
 #include <utility>
 
 #include <cstddef>
@@ -189,7 +189,7 @@ private:
     [[nodiscard]] void * getMappedData() const &;
 
     Buffer(
-        std::string_view name,
+        utils::Name name,
         const MemoryAllocator & memoryAllocator,
         const vk::BufferCreateInfo & createInfo,
         AllocationType allocationType,

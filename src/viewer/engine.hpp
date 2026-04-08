@@ -27,10 +27,10 @@ namespace viewer
 
 struct Settings
 {
-    bool indexTypeUint8Enabled = false;
-    engine::DescriptorManagementKind descriptorManagementKind = engine::DescriptorManagementKind::Buffer;
-    bool multiDrawIndirectEnabled = true;
-    bool drawIndirectCountEnabled = true;
+    const bool indexTypeUint8Enabled = false;
+    const engine::DescriptorManagementKind descriptorManagementKind = engine::DescriptorManagementKind::Buffer;
+    const bool multiDrawIndirectEnabled = true;
+    const bool drawIndirectCountEnabled = true;
 };
 
 struct SceneResources final
@@ -180,7 +180,7 @@ public:
     [[nodiscard]] SceneResources makeResources(const scene_data::SceneData & sceneData) const;
 
     [[nodiscard]] Descriptors makeDescriptors(
-        std::string_view name,
+        utils::Name name,
         std::shared_ptr<const engine::ShaderStages> shaderStages,
         const DescriptorInfos & descriptorInfos) const;
 
@@ -188,12 +188,12 @@ public:
         typename Resource,
         typename... Args>
     [[nodiscard]] Descriptors makeDescriptors(
-        std::string_view name,
+        utils::Name name,
         std::shared_ptr<const engine::ShaderStages> shaderStages,
         const Resource & resource,
         Args &&... args) const
     {
-        return makeDescriptors(name, std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorManagementKind, std::forward<Args>(args)...)});
+        return makeDescriptors(std::move(name), std::move(shaderStages), {resource.getDescriptorInfo(settings.descriptorManagementKind, std::forward<Args>(args)...)});
     }
 
 private:

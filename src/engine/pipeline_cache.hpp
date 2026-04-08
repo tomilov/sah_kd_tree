@@ -2,12 +2,11 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
-#include <string>
-#include <string_view>
 #include <vector>
 
 #include <cstdint>
@@ -22,7 +21,7 @@ struct ENGINE_EXPORT PipelineCache final : utils::OneTime<PipelineCache>
     static constexpr vk::PipelineCacheHeaderVersion kPipelineCacheHeaderVersion = vk::PipelineCacheHeaderVersion::eOne;
 
     PipelineCache(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         const FileIo & fileIo);
     PipelineCache(PipelineCache &&) noexcept = default;
@@ -34,7 +33,7 @@ struct ENGINE_EXPORT PipelineCache final : utils::OneTime<PipelineCache>
     [[nodiscard]] operator vk::PipelineCache() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    std::string name;
+    utils::Name name;
 
     const Context & context;
     const FileIo & fileIo;

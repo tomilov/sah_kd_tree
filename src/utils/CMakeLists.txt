@@ -5,6 +5,8 @@ skt_add_library(
         "${PROJECT_NAME}_export.h"
         "${PROJECT_NAME}.hpp"
         "${PROJECT_NAME}.cpp"
+        "name.hpp"
+        "name.cpp"
         "assert.cpp"
         "assert.hpp"
         "auto_cast.cpp"

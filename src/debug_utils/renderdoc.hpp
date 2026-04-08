@@ -51,6 +51,8 @@ public:
     [[nodiscard]] static FrameCapture makeFrameCapture(
         vk::Instance instance = {},
         WindowHandle window = nullptr);
+    static void setCaptureFilePathTemplate(const char * pathTemplate);
+    static void triggerMultiFrameCapture(uint32_t numFrames);
     [[nodiscard]] static bool isFrameCapturing();
 
 private:

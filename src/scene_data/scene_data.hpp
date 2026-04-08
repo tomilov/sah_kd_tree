@@ -2,13 +2,13 @@
 
 #include <scene_data/fwd.hpp>
 #include <utils/mem_array.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
 #include <limits>
-#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -73,7 +73,7 @@ struct SCENE_DATA_EXPORT Mesh
 
 struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 {
-    std::string name;
+    utils::Name name;
 
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
@@ -81,6 +81,10 @@ struct SCENE_DATA_EXPORT SceneData : utils::OneTime<SceneData>
 
     utils::MemArray<Index> indices;
     utils::MemArray<VertexAttributes> vertices;
+
+    explicit SceneData(utils::Name nameIn)
+        : name{std::move(nameIn)}
+    {}
 
     [[nodiscard]] size_t instanceCount(size_t rootNodeIndex = 0) const;
 

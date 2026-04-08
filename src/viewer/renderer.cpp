@@ -19,6 +19,7 @@
 #include <utils/auto_cast.hpp>
 #include <utils/checked_ptr.hpp>
 #include <utils/math.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 #include <viewer/descriptors.hpp>
 #include <viewer/engine.hpp>
@@ -525,7 +526,7 @@ public:
             return std::make_shared<DrawOffscreenResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         }
         DrawOffscreenResources resources{context, framebufferSize, displayRenderPass, sampler};
-        auto descriptors = engine.makeDescriptors("display"sv, std::move(shaderStages), resources);
+        auto descriptors = engine.makeDescriptors(utils::Name{"display"}, std::move(shaderStages), resources);
         return std::make_shared<DrawOffscreenResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
     }
 
@@ -547,7 +548,7 @@ private:
     [[nodiscard]] GraphicsPipeline makeGraphicsPipeline() const
     {
         GraphicsPipeline graphicsPipeline{engine.getPipelines().getSceneShaders()};
-        graphicsPipeline.initPipeline("offscreen scene"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, displayRenderPass, {}).create();
+        graphicsPipeline.initPipeline(utils::Name{"offscreen scene"}, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, displayRenderPass, {}).create();
         return graphicsPipeline;
     }
 };
@@ -556,13 +557,13 @@ class ScopedCommandBuffer final : utils::OneTime<ScopedCommandBuffer>
 {
 public:
     explicit ScopedCommandBuffer(
-        std::string_view nameIn,
+        utils::Name nameIn,
         const engine::Context & contextIn,
         const engine::Queue & queueIn)
-        : name{nameIn}
+        : name{std::move(nameIn)}
         , context{contextIn}
         , queue{queueIn}
-        , commandBuffers{std::make_shared<engine::CommandBuffers>(queue.allocateCommandBuffers(name))}
+        , commandBuffers{std::make_shared<engine::CommandBuffers>(queue.allocateCommandBuffers(name.clone()))}
     {
         auto commandBuffer = commandBuffers->getCommandBuffer();
         vk::CommandBufferBeginInfo commandBufferBeginInfo = {
@@ -632,7 +633,7 @@ public:
     }
 
 private:
-    std::string name;
+    utils::Name name;
     const engine::Context & context;
     const engine::Queue & queue;
 
@@ -749,13 +750,13 @@ struct Renderer::Impl : utils::NonCopyable
 {
     using DescriptorRefs = std::initializer_list<std::reference_wrapper<const Descriptors>>;
 
-    std::string name;
+    utils::Name name;
     const engine::Context & context;
     const Engine & engine;
     const uint32_t framesInFlight;
 
-    const engine::Queue graphicsQueue{"renderer"sv, context, context.getPhysicalDevice().graphicsQueueCreateInfo};
-    const engine::Queue computeQueue{"compute"sv, context, context.getPhysicalDevice().computeQueueCreateInfo};
+    const engine::Queue graphicsQueue{utils::Name{"renderer"}, context, context.getPhysicalDevice().graphicsQueueCreateInfo};
+    const engine::Queue computeQueue{utils::Name{"compute"}, context, context.getPhysicalDevice().computeQueueCreateInfo};
 
     FrameSettings frameSettings;
     scene_data::SceneDataPtr sceneData;
@@ -783,7 +784,7 @@ struct Renderer::Impl : utils::NonCopyable
     std::vector<std::vector<Resource>> deferredDeletionSlots{framesInFlight};
 
     Impl(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         const Engine & engine,
         uint32_t framesInFlight);
@@ -868,12 +869,12 @@ struct Renderer::Impl : utils::NonCopyable
 };
 
 Renderer::Renderer(
-    std::string_view name,
+    utils::Name name,
     const engine::Context & context,
     const Engine & engine,
     uint32_t framesInFlight)
     : impl_{std::make_unique<Impl>(
-          name,
+          std::move(name),
           context,
           engine,
           framesInFlight)}
@@ -932,11 +933,11 @@ void Renderer::render(
 }
 
 Renderer::Impl::Impl(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const engine::Context & contextIn,
     const Engine & engineIn,
     uint32_t framesInFlightIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , engine{engineIn}
     , framesInFlight{framesInFlightIn}
@@ -989,7 +990,7 @@ void Renderer::Impl::setTree(builder::Tree && builderTree)
 {
     unsetTree();
 
-    Tree tree{name, context, std::move(builderTree)};
+    Tree tree{name.clone(), context, std::move(builderTree)};
 
     engine::Buffer<TreeUniformBuffer> treeUniformBuffer{engine.createUniformBuffer(sizeof(TreeUniformBuffer))};
     treeUniformBuffer.map().at(0) = getTreeUniformBuffer(tree);
@@ -998,7 +999,7 @@ void Renderer::Impl::setTree(builder::Tree && builderTree)
         .tree = std::move(tree),
         .treeUniformBuffer = std::move(treeUniformBuffer),
     };
-    auto descriptors = engine.makeDescriptors("trace"sv, traceComputePipeline->shaders->getShaderStagesPtr(), traceSceneResources);
+    auto descriptors = engine.makeDescriptors(utils::Name{"trace"}, traceComputePipeline->shaders->getShaderStagesPtr(), traceSceneResources);
     traceSceneResourcesAndDescriptors = std::make_shared<TraceSceneResourcesAndDescriptors>(std::move(traceSceneResources), std::move(descriptors));
     SPDLOG_INFO("{}: Tree is set", name);
 }
@@ -1056,7 +1057,7 @@ ComputePipeline Renderer::Impl::makeTraceComputePipeline(std::shared_ptr<const S
     };
     engine::SpecializationInfos specializationInfos;
     specializationInfos.try_emplace(vk::ShaderStageFlagBits::eCompute, std::make_unique<SpecializationData>(specializationData), specializationMapEntries);
-    auto & pipeline = computePipeline.initPipeline("trace"sv, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, std::move(specializationInfos));
+    auto & pipeline = computePipeline.initPipeline(utils::Name{"trace"}, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, std::move(specializationInfos));
     pipeline.create();
     return computePipeline;
 }
@@ -1282,6 +1283,7 @@ void Renderer::Impl::drawDisplay(
     vk::CommandBuffer commandBuffer,
     const GraphicsPipeline & pipeline)
 {
+    auto drawDisplayLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), commandBuffer, "drawDisplay"sv);
     {
         SKT_ASSERT(frameResourcesAndDescriptors->displayDescriptors);
         const Descriptors * secondBinding = nullptr;
@@ -1323,7 +1325,10 @@ void Renderer::Impl::traceScene(
     vk::CommandBuffer graphicsCommandBuffer,
     const ComputePipeline & pipeline)
 {
-    traceFrameResourcesAndDescriptors = getTraceFrameDescriptors();
+    auto traceSceneLabel = engine::ScopedCommandBufferLabel::create(context.getDispatcher(), graphicsCommandBuffer, "traceScene"sv);
+    if (!traceFrameResourcesAndDescriptors) {
+        traceFrameResourcesAndDescriptors = getTraceFrameDescriptors();
+    }
 
     auto & image = traceFrameResourcesAndDescriptors->resources.image;
     const uint32_t graphicsQueueFamilyIndex = graphicsQueue.getQueueCreateInfo().familyIndex;
@@ -1331,7 +1336,7 @@ void Renderer::Impl::traceScene(
     {
         auto fenceGraphics = fencePool.get();
         {
-            ScopedCommandBuffer graphicsReleaseCommandBuffer{"Graphics release"sv, context, graphicsQueue};
+            ScopedCommandBuffer graphicsReleaseCommandBuffer{utils::Name{"Graphics release"}, context, graphicsQueue};
             graphicsReleaseCommandBuffer.setWaitCompletion(fenceGraphics);
             image.release(graphicsReleaseCommandBuffer, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite, TraceFrameResources::kInternalImageLayout, computeQueueFamilyIndex);
         }
@@ -1340,7 +1345,7 @@ void Renderer::Impl::traceScene(
     {
         auto fenceCompute = fencePool.get();
         {
-            ScopedCommandBuffer computeCommandBuffer{"Offscreen scene trace"sv, context, computeQueue};
+            ScopedCommandBuffer computeCommandBuffer{utils::Name{"Offscreen scene trace"}, context, computeQueue};
             computeCommandBuffer.setWaitCompletion(fenceCompute);
 
             {
@@ -1369,7 +1374,7 @@ void Renderer::Impl::traceScene(
 }
 
 void Renderer::Impl::advance(
-    vk::CommandBuffer commandBuffer,
+    [[maybe_unused]] vk::CommandBuffer commandBuffer,
     uint32_t currentFrameSlot)
 {
     SKT_ASSERT_MSG(currentFrameSlot < framesInFlight, "{} ^ {}", currentFrameSlot, framesInFlight);
@@ -1427,28 +1432,28 @@ void Renderer::Impl::advance(
         if (!sceneResourcesAndDescriptors) {
             const auto & graphicsPipeline = frameSettings.useOffscreenTexture ? drawOffscreenPool->getGraphicsPipeline() : *directGraphicsPipeline;
             auto resources = engine.makeResources(*sceneData);
-            auto descriptors = engine.makeDescriptors("scene"sv, graphicsPipeline.shaders->getShaderStagesPtr(), resources);
+            auto descriptors = engine.makeDescriptors(utils::Name{"scene"}, graphicsPipeline.shaders->getShaderStagesPtr(), resources);
             sceneResourcesAndDescriptors = std::make_shared<SceneResourcesAndDescriptors>(std::move(resources), std::move(descriptors));
         }
     } else {
         deferDeletion(previousFrameSlot, std::move(sceneResourcesAndDescriptors));
     }
     if (frameSettings.useOffscreenTexture) {
-        SKT_ASSERT(!offscreenResourcesAndDescriptors);
-        SKT_ASSERT(!traceFrameResourcesAndDescriptors);
         if (traceSceneResourcesAndDescriptors) {
             traceScene(commandBuffer, *traceComputePipeline);
         } else if (sceneData) {
-            offscreenResourcesAndDescriptors = drawOffscreenPool->get(frameSettings.getFramebufferSize(), displayGraphicsPipeline->shaders->getShaderStagesPtr());
-            {
-                ScopedCommandBuffer offscreenCommandBuffer{"Offscreen scene draw"sv, context, graphicsQueue};
-                const OffscreenRenderPass & offscreenRenderPass = drawOffscreenPool->getOffscreenRenderPass();
-                offscreenPass(offscreenCommandBuffer, offscreenRenderPass);
-                SKT_ASSERT(!offscreenResourcesAndDescriptors->fence);
-                offscreenResourcesAndDescriptors->fence = fencePool.get();
-                offscreenCommandBuffer.setCompletionFence(offscreenResourcesAndDescriptors->fence);
-                SKT_ASSERT(!offscreenResourcesAndDescriptors->commandBuffers);
-                offscreenResourcesAndDescriptors->commandBuffers = offscreenCommandBuffer.getCommandBuffers();
+            if (!offscreenResourcesAndDescriptors) {
+                offscreenResourcesAndDescriptors = drawOffscreenPool->get(frameSettings.getFramebufferSize(), displayGraphicsPipeline->shaders->getShaderStagesPtr());
+                {
+                    ScopedCommandBuffer offscreenCommandBuffer{utils::Name{"Offscreen scene draw"}, context, graphicsQueue};
+                    const OffscreenRenderPass & offscreenRenderPass = drawOffscreenPool->getOffscreenRenderPass();
+                    offscreenPass(offscreenCommandBuffer, offscreenRenderPass);
+                    SKT_ASSERT(!offscreenResourcesAndDescriptors->fence);
+                    offscreenResourcesAndDescriptors->fence = fencePool.get();
+                    offscreenCommandBuffer.setCompletionFence(offscreenResourcesAndDescriptors->fence);
+                    SKT_ASSERT(!offscreenResourcesAndDescriptors->commandBuffers);
+                    offscreenResourcesAndDescriptors->commandBuffers = offscreenCommandBuffer.getCommandBuffers();
+                }
             }
         }
     }
@@ -1474,7 +1479,7 @@ void Renderer::Impl::updateRenderPass(
     } else {
         graphicsPipelineName = "direct scene"sv;
     }
-    auto & p = graphicsPipeline.initPipeline(graphicsPipelineName, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, renderPass, {});
+    auto & p = graphicsPipeline.initPipeline(utils::Name{"{}", graphicsPipelineName}, context, engine.getPipelines().getPipelineCache(), engine.getSettings().descriptorManagementKind, renderPass, {});
     if (frameSettings.useOffscreenTexture) {
         p.pipelineInputAssemblyStateCreateInfo.setTopology(vk::PrimitiveTopology::eTriangleStrip);
     }
@@ -1514,7 +1519,7 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
         if (frameSettings.useOffscreenTexture) {
             if (!resourcesAndDescriptors->displayDescriptors) {
                 const auto & resources = resourcesAndDescriptors->resources;
-                auto displayDescriptors = engine.makeDescriptors("scene"sv, displayGraphicsPipeline->shaders->getShaderStagesPtr(), resources);
+                auto displayDescriptors = engine.makeDescriptors(utils::Name{"scene"}, displayGraphicsPipeline->shaders->getShaderStagesPtr(), resources);
                 resourcesAndDescriptors->displayDescriptors.emplace(std::move(displayDescriptors));
             }
         }
@@ -1529,10 +1534,10 @@ auto Renderer::Impl::getFrameDescriptors() -> std::shared_ptr<FrameResourcesAndD
     } else {
         sceneShaderStages = directGraphicsPipeline->shaders->getShaderStagesPtr();
     }
-    auto directDescriptors = engine.makeDescriptors("scene"sv, std::move(sceneShaderStages), resources);
+    auto directDescriptors = engine.makeDescriptors(utils::Name{"scene"}, std::move(sceneShaderStages), resources);
     std::optional<Descriptors> displayDescriptors;
     if (frameSettings.useOffscreenTexture) {
-        displayDescriptors.emplace(engine.makeDescriptors("scene"sv, displayGraphicsPipeline->shaders->getShaderStagesPtr(), resources));
+        displayDescriptors.emplace(engine.makeDescriptors(utils::Name{"scene"}, displayGraphicsPipeline->shaders->getShaderStagesPtr(), resources));
     }
     return std::make_shared<FrameResourcesAndDescriptors>(std::move(resources), std::move(directDescriptors), std::move(displayDescriptors));
 }
@@ -1555,9 +1560,9 @@ auto Renderer::Impl::getTraceFrameDescriptors() -> std::shared_ptr<TraceFrameRes
     }
     TraceFrameResources resources{context, frameSettings.getFramebufferSize(), sampler};
     auto writeShaderStages = traceComputePipeline->shaders->getShaderStagesPtr();
-    Descriptors writeDescriptors = engine.makeDescriptors("trace"sv, std::move(writeShaderStages), resources, true);
+    Descriptors writeDescriptors = engine.makeDescriptors(utils::Name{"trace"}, std::move(writeShaderStages), resources, true);
     auto readShaderStages = displayGraphicsPipeline->shaders->getShaderStagesPtr();
-    Descriptors readDescriptors = engine.makeDescriptors("trace"sv, std::move(readShaderStages), resources, false);
+    Descriptors readDescriptors = engine.makeDescriptors(utils::Name{"trace"}, std::move(readShaderStages), resources, false);
     return std::make_shared<TraceFrameResourcesAndDescriptors>(std::move(resources), std::move(writeDescriptors), std::move(readDescriptors));
 }
 

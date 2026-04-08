@@ -21,11 +21,11 @@ const std::string_view Shaders::kDefaultEntryPoint = "main"sv;
 
 Shaders::Shaders(
     Private,
-    std::string_view nameIn,
+    utils::Name nameIn,
     const engine::Context & contextIn,
     std::shared_ptr<const engine::FileIo> fileIoIn,
     engine::DescriptorManagementKind descriptorManagementKindIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , fileIo{std::move(fileIoIn)}
     , descriptorManagementKind{descriptorManagementKindIn}
@@ -52,9 +52,9 @@ void Shaders::create()
     if (descriptorManagementKind == engine::DescriptorManagementKind::Buffer) {
         descriptorSetLayoutCreateFlags |= vk::DescriptorSetLayoutCreateFlagBits::eDescriptorBufferEXT;
     }
-    shaderStages.createDescriptorSetLayouts(name, descriptorSetLayoutCreateFlags);
+    shaderStages.createDescriptorSetLayouts(name.clone(), descriptorSetLayoutCreateFlags);
 
-    pipelineLayout.emplace(name, context, shaderStages);
+    pipelineLayout.emplace(name.clone(), context, shaderStages);
 }
 
 GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shadersIn)
@@ -64,7 +64,7 @@ GraphicsPipeline::GraphicsPipeline(std::shared_ptr<const Shaders> shadersIn)
 }
 
 engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
-    std::string_view name,
+    utils::Name name,
     const engine::Context & context,
     vk::PipelineCache pipelineCache,
     engine::DescriptorManagementKind descriptorManagementKind,
@@ -73,7 +73,7 @@ engine::GraphicsPipeline & GraphicsPipeline::initPipeline(
 {
     SKT_ASSERT(shaders);
     SKT_ASSERT(!pipeline);
-    pipeline = std::make_unique<engine::GraphicsPipeline>(name, context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), renderPass, std::move(specializationInfos));
+    pipeline = std::make_unique<engine::GraphicsPipeline>(std::move(name), context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), renderPass, std::move(specializationInfos));
     return *pipeline;
 }
 
@@ -84,7 +84,7 @@ ComputePipeline::ComputePipeline(std::shared_ptr<const Shaders> shadersIn)
 }
 
 engine::ComputePipeline & ComputePipeline::initPipeline(
-    std::string_view name,
+    utils::Name name,
     const engine::Context & context,
     vk::PipelineCache pipelineCache,
     engine::DescriptorManagementKind descriptorManagementKind,
@@ -92,7 +92,7 @@ engine::ComputePipeline & ComputePipeline::initPipeline(
 {
     SKT_ASSERT(shaders);
     SKT_ASSERT(!pipeline);
-    pipeline = std::make_unique<engine::ComputePipeline>(name, context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), std::move(specializationInfos));
+    pipeline = std::make_unique<engine::ComputePipeline>(std::move(name), context, pipelineCache, descriptorManagementKind, shaders->getPipelineLayout(), std::move(specializationInfos));
     return *pipeline;
 }
 
@@ -102,7 +102,7 @@ Pipelines::Pipelines(
     : context{contextIn}
     , descriptorManagementKind{descriptorManagementKindIn}
     , fileIo{std::make_shared<FileIo>("shaders:"sv)}
-    , pipelineCache{"rasterization"sv,
+    , pipelineCache{utils::Name{"rasterization"},
           context,
           *fileIo}
 {}
@@ -111,7 +111,7 @@ std::shared_ptr<const Shaders> Pipelines::getSceneShaders() const
 {
     auto shaders = sceneShaders.lock();
     if (!shaders) {
-        shaders = Shaders::make("scene"sv, context, fileIo, descriptorManagementKind);
+        shaders = Shaders::make(utils::Name{"scene"}, context, fileIo, descriptorManagementKind);
         shaders->addShader("identity.vert"sv);
         shaders->addShader("barycentric_color.frag"sv);
         shaders->create();
@@ -124,7 +124,7 @@ std::shared_ptr<const Shaders> Pipelines::getDisplayShaders() const
 {
     auto shaders = displayShaders.lock();
     if (!shaders) {
-        shaders = Shaders::make("display"sv, context, fileIo, descriptorManagementKind);
+        shaders = Shaders::make(utils::Name{"display"}, context, fileIo, descriptorManagementKind);
         shaders->addShader("fullscreen_rect.vert"sv);
         shaders->addShader("offscreen.frag"sv);
         shaders->create();
@@ -137,7 +137,7 @@ std::shared_ptr<const Shaders> Pipelines::getTraceSahKdTreeShaders() const
 {
     auto shaders = traceSahKdTreeShaders.lock();
     if (!shaders) {
-        shaders = Shaders::make("trace"sv, context, fileIo, descriptorManagementKind);
+        shaders = Shaders::make(utils::Name{"trace"}, context, fileIo, descriptorManagementKind);
         shaders->addShader("trace.comp"sv);
         shaders->create();
         traceSahKdTreeShaders = shaders;

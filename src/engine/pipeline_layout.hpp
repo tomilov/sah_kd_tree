@@ -2,12 +2,10 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string>
-#include <string_view>
 
 #include <engine/engine_export.h>
 
@@ -17,7 +15,7 @@ namespace engine
 struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
 {
     PipelineLayout(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         const ShaderStages & shaderStages);
 
@@ -38,7 +36,7 @@ struct ENGINE_EXPORT PipelineLayout final : utils::OneTime<PipelineLayout>
     }
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
     const ShaderStages & shaderStages;
 

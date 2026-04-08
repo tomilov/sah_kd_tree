@@ -11,6 +11,7 @@
 #include <utils/hash.hpp>
 #include <utils/math.hpp>
 #include <utils/meta.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 #include <utils/overloaded.hpp>
 #include <utils/pp.hpp>

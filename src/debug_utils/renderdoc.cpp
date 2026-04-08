@@ -21,7 +21,7 @@ RENDERDOC_DevicePointer getDevice(vk::Instance instance)
     if (!instance) {
         return nullptr;
     }
-    return RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(VkInstance(instance));
+    return RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(static_cast<VkInstance>(instance));
 }
 
 }  // namespace
@@ -34,7 +34,7 @@ struct Renderdoc::Impl
     std::unique_ptr<void, decltype(&::dlclose)> library{::dlopen(kLibraryName, RTLD_NOW | RTLD_NOLOAD), &::dlclose};
 #pragma GCC diagnostic pop
     pRENDERDOC_GetAPI getApi = nullptr;
-    RENDERDOC_API_1_6_0 * api = nullptr;
+    RENDERDOC_API_1_7_0 * api = nullptr;
     mutable std::mutex mutex;
 
     Impl()
@@ -50,7 +50,7 @@ struct Renderdoc::Impl
             SPDLOG_INFO("Cannot load function {}", kGetApiFunctionName);
             return;
         }
-        constexpr RENDERDOC_Version kRenderdocVersion = eRENDERDOC_API_Version_1_6_0;
+        constexpr RENDERDOC_Version kRenderdocVersion = eRENDERDOC_API_Version_1_7_0;
         if (getApi(kRenderdocVersion, utils::autoCast(&api)) != 1) {
             SPDLOG_INFO("Cannot load API of version {}", fmt::underlying(kRenderdocVersion));
             return;
@@ -64,6 +64,12 @@ Renderdoc::~Renderdoc() = default;
 const Renderdoc & Renderdoc::renderdoc()
 {
     static Renderdoc renderdoc;
+    if ([[maybe_unused]] auto * const api = renderdoc.impl_->api) {
+        // api->SetCaptureOptionU32(eRENDERDOC_Option_RefAllResources, 1);
+        // api->SetCaptureOptionU32(eRENDERDOC_Option_SaveAllInitials, 1);
+        // api->SetCaptureOptionU32(eRENDERDOC_Option_CaptureCallstacks, 1);
+        api->SetCaptureOptionU32(eRENDERDOC_Option_CaptureAllCmdLists, 1);
+    }
     return renderdoc;
 }
 
@@ -104,6 +110,20 @@ auto Renderdoc::makeFrameCapture(
     WindowHandle window) -> FrameCapture
 {
     return {*renderdoc().impl_, instance, window};
+}
+
+void Renderdoc::setCaptureFilePathTemplate(const char * pathTemplate)
+{
+    if (auto * const api = renderdoc().impl_->api) {
+        api->SetCaptureFilePathTemplate(pathTemplate);
+    }
+}
+
+void Renderdoc::triggerMultiFrameCapture(uint32_t numFrames)
+{
+    if (auto * const api = renderdoc().impl_->api) {
+        api->TriggerMultiFrameCapture(numFrames);
+    }
 }
 
 bool Renderdoc::isFrameCapturing()

@@ -5,6 +5,7 @@
 #include <engine/physical_device.hpp>
 #include <engine/vma.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -37,7 +38,7 @@ void Context::createInstance(
 void Context::createDevice(vk::SurfaceKHR surface)
 {
     auto & physicalDevice = physicalDevices->pickPhisicalDevice(surface);
-    device = std::make_unique<Device>(physicalDevice.getDeviceName(), *library, *instance, requiredDeviceExtensions, physicalDevice);
+    device = std::make_unique<Device>(utils::Name{"{}", physicalDevice.getDeviceName()}, *library, *instance, requiredDeviceExtensions, physicalDevice);
     vma = std::make_unique<MemoryAllocator>(*this);
 }
 

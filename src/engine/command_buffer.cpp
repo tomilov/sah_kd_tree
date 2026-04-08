@@ -3,12 +3,13 @@
 #include <engine/device.hpp>
 #include <format/vulkan.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 
 #include <fmt/format.h>
 
 #include <iterator>
-
-#include <cstddef>
+#include <ranges>
+#include <string_view>
 
 template struct utils::OneTime<engine::CommandBuffers>::CheckTraits;
 
@@ -16,26 +17,20 @@ namespace engine
 {
 
 CommandBuffers::CommandBuffers(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & context,
     const vk::CommandBufferAllocateInfo & commandBufferAllocateInfo)
-    : name{nameIn}
+    : name{std::move(nameIn)}
 {
     const auto & device = context.getDevice();
 
     commandBuffersHolder = device.getHandle().allocateCommandBuffersUnique(commandBufferAllocateInfo, context.getDispatcher());
     commandBuffers.reserve(std::size(commandBuffersHolder));
 
-    size_t i = 0;
-    for (const auto & commandBuffer : commandBuffersHolder) {
+    for (const auto & [i, commandBuffer] : commandBuffersHolder | std::views::enumerate) {
         commandBuffers.push_back(*commandBuffer);
-
-        if (std::size(commandBuffersHolder) > 1) {
-            auto commandBufferName = fmt::format("{} #{}/{}", name, i++, std::size(commandBuffersHolder));
-            device.setDebugUtilsObjectName(*commandBuffer, commandBufferName);
-        } else {
-            device.setDebugUtilsObjectName(*commandBuffer, name);
-        }
+        utils::Name commandBufferName{"{} #{}/{}", name, i, std::size(commandBuffersHolder)};
+        device.setDebugUtilsObjectName(*commandBuffer, commandBufferName.toCStr());
     }
 }
 

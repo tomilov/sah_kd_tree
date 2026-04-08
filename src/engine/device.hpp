@@ -5,13 +5,12 @@
 #include <engine/types.hpp>
 #include <engine/utils.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <span>
-#include <string>
-#include <string_view>
 
 #include <cstdint>
 
@@ -25,7 +24,7 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
     PrependTypeToStructureChainT<vk::DeviceCreateInfo, DeviceFeatures> createInfoChain;
 
     Device(
-        std::string_view name,
+        utils::Name name,
         Library & library,
         const Instance & instance,
         std::span<const char * const> requiredDeviceExtensions,
@@ -82,7 +81,7 @@ struct ENGINE_EXPORT Device final : utils::OneTime<Device>
     operator vk::Device() const &;  // NOLINT: google-explicit-constructor
 
 private:
-    std::string name;
+    utils::Name name;
 
     const Library & library;
     const Instance & instance;

@@ -4,12 +4,10 @@
 #include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string>
-#include <string_view>
 
 #include <engine/engine_export.h>
 
@@ -21,7 +19,7 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
     vk::StructureChain<vk::ComputePipelineCreateInfo, vk::PipelineCreateFlags2CreateInfo> computePipelineCreateInfoChain;
 
     ComputePipeline(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         vk::PipelineCache pipelineCache,
         DescriptorManagementKind descriptorManagementKind,
@@ -47,11 +45,12 @@ struct ENGINE_EXPORT ComputePipeline final : utils::OneTime<ComputePipeline>
     }
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
     const vk::PipelineCache pipelineCache;
     const DescriptorManagementKind descriptorManagementKind;
 
+    std::vector<vk::PipelineShaderStageCreateInfo> pipelineShaderStageCreateInfos;
     SpecializationInfos specializationInfos;
     vk::UniquePipeline pipeline;
 };

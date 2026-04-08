@@ -148,7 +148,7 @@ void MemoryAllocator::setCurrentFrameIndex(uint32_t frameIndex) const
 }
 
 auto MemoryAllocator::createBuffer(
-    std::string_view name,
+    utils::Name name,
     const vk::BufferCreateInfo & bufferCreateInfo,
     AllocationType allocationType,
     vk::MemoryPropertyFlags requiredFlags,
@@ -156,33 +156,33 @@ auto MemoryAllocator::createBuffer(
     uint32_t queueFamilyIndex,
     float priority) const & -> Buffer<void>
 {
-    return {name, *this, bufferCreateInfo, allocationType, requiredFlags, minAlignment.value_or(impl_->context.getPhysicalDevice().getMinAlignment()), queueFamilyIndex, priority};
+    return {std::move(name), *this, bufferCreateInfo, allocationType, requiredFlags, minAlignment.value_or(impl_->context.getPhysicalDevice().getMinAlignment()), queueFamilyIndex, priority};
 }
 
 auto MemoryAllocator::createStagingBuffer(
-    std::string_view name,
+    utils::Name name,
     const vk::BufferCreateInfo & bufferCreateInfo,
     vk::MemoryPropertyFlags requiredFlags,
     std::optional<vk::DeviceSize> minAlignment,
     uint32_t queueFamilyIndex,
     float priority) const & -> Buffer<void>
 {
-    return createBuffer(name, bufferCreateInfo, AllocationType::kStaging, requiredFlags, minAlignment, queueFamilyIndex, priority);
+    return createBuffer(std::move(name), bufferCreateInfo, AllocationType::kStaging, requiredFlags, minAlignment, queueFamilyIndex, priority);
 }
 
 auto MemoryAllocator::createReadbackBuffer(
-    std::string_view name,
+    utils::Name name,
     const vk::BufferCreateInfo & bufferCreateInfo,
     vk::MemoryPropertyFlags requiredFlags,
     std::optional<vk::DeviceSize> minAlignment,
     uint32_t queueFamilyIndex,
     float priority) const & -> Buffer<void>
 {
-    return createBuffer(name, bufferCreateInfo, AllocationType::kReadback, requiredFlags, minAlignment, queueFamilyIndex, priority);
+    return createBuffer(std::move(name), bufferCreateInfo, AllocationType::kReadback, requiredFlags, minAlignment, queueFamilyIndex, priority);
 }
 
 auto MemoryAllocator::createImage(
-    std::string_view name,
+    utils::Name name,
     const vk::ImageCreateInfo & imageCreateInfo,
     AllocationType allocationType,
     vk::MemoryPropertyFlags requiredFlags,
@@ -190,33 +190,33 @@ auto MemoryAllocator::createImage(
     uint32_t queueFamilyIndex,
     float priority) const & -> Image
 {
-    return {name, *this, imageCreateInfo, allocationType, requiredFlags, imageAspectMask, queueFamilyIndex, priority};
+    return {std::move(name), *this, imageCreateInfo, allocationType, requiredFlags, imageAspectMask, queueFamilyIndex, priority};
 }
 
 auto MemoryAllocator::createStagingImage(
-    std::string_view name,
+    utils::Name name,
     const vk::ImageCreateInfo & imageCreateInfo,
     vk::MemoryPropertyFlags requiredFlags,
     vk::ImageAspectFlags imageAspectMask,
     uint32_t queueFamilyIndex,
     float priority) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kStaging, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
+    return createImage(std::move(name), imageCreateInfo, AllocationType::kStaging, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
 }
 
 auto MemoryAllocator::createReadbackImage(
-    std::string_view name,
+    utils::Name name,
     const vk::ImageCreateInfo & imageCreateInfo,
     vk::MemoryPropertyFlags requiredFlags,
     vk::ImageAspectFlags imageAspectMask,
     uint32_t queueFamilyIndex,
     float priority) const & -> Image
 {
-    return createImage(name, imageCreateInfo, AllocationType::kReadback, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
+    return createImage(std::move(name), imageCreateInfo, AllocationType::kReadback, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
 }
 
 Image MemoryAllocator::createImage2D(
-    std::string_view name,
+    utils::Name name,
     vk::Format format,
     const vk::Extent2D & size,
     vk::ImageUsageFlags imageUsage,
@@ -243,7 +243,7 @@ Image MemoryAllocator::createImage2D(
         .initialLayout = vk::ImageLayout::eUndefined,
     };
     imageCreateInfo.setQueueFamilyIndices(queueFamilyIndex);
-    return createImage(name, imageCreateInfo, AllocationType::kAuto, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
+    return createImage(std::move(name), imageCreateInfo, AllocationType::kAuto, requiredFlags, imageAspectMask, queueFamilyIndex, priority);
 }
 
 MemoryAllocator::Impl::Impl(const Context & contextIn)
@@ -389,22 +389,22 @@ namespace
 
 struct BufferResource final : utils::NonCopyable
 {
-    const std::string name;
+    const utils::Name name;
     const VmaAllocator allocator;
     const VkBuffer buffer;
     const VmaAllocation allocation;
 
     BufferResource(
-        std::string_view nameIn,
+        utils::Name nameIn,
         VmaAllocator allocatorIn,
         VkBuffer bufferIn,
         VmaAllocation allocationIn)
-        : name{nameIn}
+        : name{std::move(nameIn)}
         , allocator{allocatorIn}
         , buffer{bufferIn}
         , allocation{allocationIn}
     {
-        SKT_ASSERT(!std::empty(name));
+        SKT_ASSERT(!name.isEmpty());
         SKT_ASSERT(allocator);
         SKT_ASSERT(buffer);
         SKT_ASSERT(allocation);
@@ -435,7 +435,7 @@ struct Buffer<void>::Impl final : utils::OneTime<Impl>
     uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
     Impl(
-        std::string_view name,
+        utils::Name name,
         const MemoryAllocator & memoryAllocator,
         const vk::BufferCreateInfo & createInfo,
         AllocationType allocationType,
@@ -584,7 +584,7 @@ void * Buffer<void>::getMappedData() const &
 }
 
 Buffer<void>::Buffer(
-    std::string_view name,
+    utils::Name name,
     const MemoryAllocator & memoryAllocator,
     const vk::BufferCreateInfo & createInfo,
     AllocationType allocationType,
@@ -592,7 +592,7 @@ Buffer<void>::Buffer(
     vk::DeviceSize minAlignment,
     uint32_t queueFamilyIndex,
     float priority)
-    : impl_{name,
+    : impl_{std::move(name),
           memoryAllocator,
           createInfo,
           allocationType,
@@ -659,7 +659,7 @@ MappedMemory<void>::Impl::~Impl()
 }
 
 Buffer<void>::Impl::Impl(
-    std::string_view name,
+    utils::Name nameIn,
     const MemoryAllocator & memoryAllocatorIn,
     const vk::BufferCreateInfo & createInfoIn,
     AllocationType allocationType,
@@ -687,15 +687,15 @@ Buffer<void>::Impl::Impl(
     VkBuffer buffer = nullptr;
     VmaAllocation allocation = nullptr;
     CHECK_VK_RESULT(vmaCreateBufferWithAlignment, allocator, &bufferCreateInfo, &allocationCreateInfo, minAlignment, &buffer, &allocation, nullptr);
-    resource = std::make_unique<BufferResource>(name, allocator, buffer, allocation);
+    resource = std::make_unique<BufferResource>(std::move(nameIn), allocator, buffer, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
         context.getDevice().getHandle().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
     }
 
-    context.getDevice().setDebugUtilsObjectName(vk::Buffer{buffer}, resource->name.c_str());
-    vmaSetAllocationName(allocator, allocation, resource->name.c_str());
+    context.getDevice().setDebugUtilsObjectName(vk::Buffer{buffer}, resource->name.toCStr());
+    vmaSetAllocationName(allocator, allocation, resource->name.toCStr());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
     vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);
@@ -729,22 +729,22 @@ namespace
 
 struct ImageResource final : utils::NonCopyable
 {
-    const std::string name;
+    const utils::Name name;
     const VmaAllocator allocator;
     const VkImage image;
     const VmaAllocation allocation;
 
     ImageResource(
-        std::string_view nameIn,
+        utils::Name nameIn,
         VmaAllocator allocatorIn,
         VkImage imageIn,
         VmaAllocation allocationIn)
-        : name{nameIn}
+        : name{std::move(nameIn)}
         , allocator{allocatorIn}
         , image{imageIn}
         , allocation{allocationIn}
     {
-        SKT_ASSERT(!std::empty(name));
+        SKT_ASSERT(!name.isEmpty());
         SKT_ASSERT(allocator);
         SKT_ASSERT(image);
         SKT_ASSERT(allocation);
@@ -776,7 +776,7 @@ struct Image::Impl final : utils::OneTime<Impl>
     mutable uint32_t queueFamilyIndex = vk::QueueFamilyIgnored;
 
     Impl(
-        std::string_view name,
+        utils::Name name,
         const MemoryAllocator & memoryAllocator,
         const vk::ImageCreateInfo & createInfo,
         AllocationType allocationType,
@@ -1003,7 +1003,7 @@ vk::UniqueImageView Image::createImageView(
 }
 
 Image::Image(
-    std::string_view name,
+    utils::Name name,
     const MemoryAllocator & memoryAllocator,
     const vk::ImageCreateInfo & createInfo,
     AllocationType allocationType,
@@ -1011,7 +1011,7 @@ Image::Image(
     vk::ImageAspectFlags imageAspectMask,
     uint32_t queueFamilyIndex,
     float priority)
-    : impl_{name,
+    : impl_{std::move(name),
           memoryAllocator,
           createInfo,
           allocationType,
@@ -1022,7 +1022,7 @@ Image::Image(
 {}
 
 Image::Impl::Impl(
-    std::string_view name,
+    utils::Name name,
     const MemoryAllocator & memoryAllocatorIn,
     const vk::ImageCreateInfo & createInfoIn,
     AllocationType allocationType,
@@ -1051,15 +1051,15 @@ Image::Impl::Impl(
     VkImage image = nullptr;
     VmaAllocation allocation = nullptr;
     CHECK_VK_RESULT(vmaCreateImage, allocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, nullptr);
-    resource = std::make_unique<ImageResource>(name, allocator, image, allocation);
+    resource = std::make_unique<ImageResource>(std::move(name), allocator, image, allocation);
     vmaGetAllocationInfo2(allocator, allocation, &allocationInfo);
     const auto & dispatcher = context.getDispatcher();
     if (dispatcher.vkSetDeviceMemoryPriorityEXT) {
         context.getDevice().getHandle().setMemoryPriorityEXT(allocationInfo.allocationInfo.deviceMemory, priority, dispatcher);
     }
 
-    context.getDevice().setDebugUtilsObjectName(vk::Image{image}, resource->name.c_str());
-    vmaSetAllocationName(allocator, allocation, resource->name.c_str());
+    context.getDevice().setDebugUtilsObjectName(vk::Image{image}, resource->name.toCStr());
+    vmaSetAllocationName(allocator, allocation, resource->name.toCStr());
 
     std::underlying_type_t<vk::MemoryPropertyFlagBits> cMemoryPropertyFlags = {};
     vmaGetAllocationMemoryProperties(allocator, allocation, &cMemoryPropertyFlags);

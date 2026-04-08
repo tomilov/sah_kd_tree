@@ -3,7 +3,7 @@
 #include <engine/buffer.hpp>
 #include <engine/descriptors.hpp>
 #include <engine/fwd.hpp>
-#include <engine/shader_module.hpp>
+#include <engine/shaders.hpp>
 #include <utils/assert.hpp>
 #include <utils/noncopyable.hpp>
 
@@ -46,7 +46,7 @@ class Descriptors : utils::OneTime<Descriptors>
 {
 public:
     Descriptors(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         engine::DescriptorManagementKind descriptorManagementKind,
         std::shared_ptr<const engine::ShaderStages> shaderStages,
@@ -92,7 +92,7 @@ public:
     [[nodiscard]] size_t getHash() const;
 
 public:
-    std::string name;
+    utils::Name name;
     const engine::Context & context;
     const engine::DescriptorManagementKind descriptorManagementKind;
     std::shared_ptr<const engine::ShaderStages> shaderStages;

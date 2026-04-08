@@ -2,6 +2,7 @@
 
 #include <engine/fwd.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -69,7 +70,7 @@ struct ENGINE_EXPORT Builder final : utils::NonCopyable
     };
 
     Builder(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         CommandList & commandList,
         BuilderFlags flags = BuilderFlags::None);
@@ -84,7 +85,7 @@ struct ENGINE_EXPORT Builder final : utils::NonCopyable
         F && f);
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
 };
 

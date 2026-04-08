@@ -3,12 +3,10 @@
 #include <engine/fwd.hpp>
 #include <engine/specialization_info.hpp>
 #include <utils/assert.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string>
-#include <string_view>
 
 #include <engine/engine_export.h>
 
@@ -35,7 +33,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
     vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineCreateFlags2CreateInfo> graphicsPipelineCreateInfoChain;
 
     GraphicsPipeline(
-        std::string_view name,
+        utils::Name name,
         const Context & context,
         vk::PipelineCache pipelineCache,
         DescriptorManagementKind descriptorManagementKind,
@@ -67,7 +65,7 @@ struct ENGINE_EXPORT GraphicsPipeline final : utils::NonCopyable
     }
 
 private:
-    std::string name;
+    utils::Name name;
     const Context & context;
     const vk::PipelineCache pipelineCache;
     const DescriptorManagementKind descriptorManagementKind;

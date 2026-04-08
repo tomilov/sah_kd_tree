@@ -1,11 +1,10 @@
 #pragma once
 
 #include <utils/fast_pimpl.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <string_view>
 
 #include <cstddef>
 #include <cstdint>
@@ -79,7 +78,7 @@ private:
     utils::FastPimpl<Impl, kSize, kAlignment> impl_;
 
     Image(
-        std::string_view name,
+        utils::Name name,
         const MemoryAllocator & memoryAllocator,
         const vk::ImageCreateInfo & createInfo,
         AllocationType allocationType,

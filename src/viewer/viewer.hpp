@@ -2,6 +2,7 @@
 
 #include <builder/fwd.hpp>
 #include <scene_data/fwd.hpp>
+#include <utils/fast_pimpl.hpp>
 
 #include <QtCore/QFutureWatcher>
 #include <QtCore/QHash>
@@ -271,6 +272,7 @@ class Viewer : public QQuickItem
 
 public:
     explicit Viewer(QQuickItem * parent = nullptr);
+    ~Viewer() override;
 
 Q_SIGNALS:
     void engineChanged();
@@ -295,8 +297,13 @@ private:
     QHash<Qt::Key, int> pressedKeys;
     QTimer * const handleKeyboardInputTimer = new QTimer{this};
 
+    struct FrameCapture;
+    utils::FastPimpl<FrameCapture, 48, 8> frameCapture;
+
     QMetaObject::Connection refreshRateConnection;
     QMetaObject::Connection sceneGraphInvalidatedConnection;
+    QMetaObject::Connection beforeRenderingConnection;
+    QMetaObject::Connection afterRenderingConnection;
 
     QMetaObject::Connection sceneUrlChangedConnection;
     QMetaObject::Connection sceneChangedConnection;

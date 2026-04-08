@@ -2,6 +2,7 @@
 
 #include <builder/fwd.hpp>
 #include <soft_renderer/fwd.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <gli/texture2d.hpp>
@@ -10,8 +11,6 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
-
-#include <string_view>
 
 #include <soft_renderer/soft_renderer_export.h>
 
@@ -38,7 +37,7 @@ public:
     using PixelType = glm::u8vec4;
 
     SoftRenderer(
-        std::string_view name,
+        utils::Name name,
         const glm::vec4 & clearColor);
     SoftRenderer(SoftRenderer &&) noexcept;
     ~SoftRenderer();

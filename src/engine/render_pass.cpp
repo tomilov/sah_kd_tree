@@ -4,17 +4,15 @@
 
 #include <fmt/format.h>
 
-#include <string_view>
-
 template struct utils::OneTime<engine::RenderPass>::CheckTraits;
 
 namespace engine
 {
 
 RenderPass::RenderPass(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
 {
     attachmentReference = {
@@ -48,7 +46,7 @@ RenderPass::RenderPass(
 
     renderPassHolder = context.getDevice().getHandle().createRenderPassUnique(renderPassCreateInfo, context.getAllocationCallbacks(), context.getDispatcher());
 
-    context.getDevice().setDebugUtilsObjectName(*renderPassHolder, name);
+    context.getDevice().setDebugUtilsObjectName(*renderPassHolder, name.toCStr());
 }
 
 }  // namespace engine

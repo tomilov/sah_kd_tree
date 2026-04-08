@@ -24,7 +24,7 @@ namespace engine
 
 std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 {
-    auto cacheData = fileIo.loadPipelineCache(name);
+    auto cacheData = fileIo.loadPipelineCache(name.toStdStringView());
     if (std::size(cacheData) <= sizeof(vk::PipelineCacheHeaderVersionOne)) {
         SPDLOG_INFO("There is no room for pipeline cache header in data");
         return {};
@@ -56,10 +56,10 @@ std::vector<uint8_t> PipelineCache::loadPipelineCacheData() const
 }
 
 PipelineCache::PipelineCache(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const Context & contextIn,
     const FileIo & fileIoIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , context{contextIn}
     , fileIo{fileIoIn}
 {
@@ -96,7 +96,7 @@ PipelineCache::PipelineCache(
     }
 
     SKT_ASSERT(pipelineCacheHolder);
-    device.setDebugUtilsObjectName(*pipelineCacheHolder, name);
+    device.setDebugUtilsObjectName(*pipelineCacheHolder, name.toCStr());
 }
 
 PipelineCache::~PipelineCache()
@@ -112,7 +112,7 @@ bool PipelineCache::flush()
     const auto & library = context.getLibrary();
     const auto & device = context.getDevice();
     auto data = device.getHandle().getPipelineCacheData(*pipelineCacheHolder, library.getDispatcher());
-    if (!fileIo.savePipelineCache(data, name)) {
+    if (!fileIo.savePipelineCache(data, name.toStdStringView())) {
         SPDLOG_WARN("Failed to flush pipeline cache '{}'", name);
         return false;
     }

@@ -2,13 +2,13 @@
 
 #include <engine/fwd.hpp>
 #include <utils/fast_pimpl.hpp>
+#include <utils/name.hpp>
 #include <utils/noncopyable.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <initializer_list>
 #include <optional>
-#include <string_view>
 
 #include <cstddef>
 #include <cstdint>
@@ -42,7 +42,7 @@ public:
     void setCurrentFrameIndex(uint32_t frameIndex) const;
 
     [[nodiscard]] Buffer<void> createBuffer(
-        std::string_view name,
+        utils::Name name,
         const vk::BufferCreateInfo & bufferCreateInfo,
         AllocationType allocationType,
         vk::MemoryPropertyFlags requiredFlags = {},
@@ -50,14 +50,14 @@ public:
         uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
         float priority = 0.5f) const &;
     [[nodiscard]] Buffer<void> createStagingBuffer(
-        std::string_view name,
+        utils::Name name,
         const vk::BufferCreateInfo & bufferCreateInfo,
         vk::MemoryPropertyFlags requiredFlags,
         std::optional<vk::DeviceSize> minAlignment = {},
         uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
         float priority = 0.5f) const &;
     [[nodiscard]] Buffer<void> createReadbackBuffer(
-        std::string_view name,
+        utils::Name name,
         const vk::BufferCreateInfo & bufferCreateInfo,
         vk::MemoryPropertyFlags requiredFlags,
         std::optional<vk::DeviceSize> minAlignment = {},
@@ -65,7 +65,7 @@ public:
         float priority = 0.5f) const &;
 
     [[nodiscard]] Image createImage(
-        std::string_view name,
+        utils::Name name,
         const vk::ImageCreateInfo & imageCreateInfo,
         AllocationType allocationType,
         vk::MemoryPropertyFlags requiredFlags,
@@ -73,14 +73,14 @@ public:
         uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
         float priority = 0.5f) const &;
     [[nodiscard]] Image createStagingImage(
-        std::string_view name,
+        utils::Name name,
         const vk::ImageCreateInfo & imageCreateInfo,
         vk::MemoryPropertyFlags requiredFlags,
         vk::ImageAspectFlags imageAspectMask,
         uint32_t queueFamilyIndex = vk::QueueFamilyIgnored,
         float priority = 0.5f) const &;
     [[nodiscard]] Image createReadbackImage(
-        std::string_view name,
+        utils::Name name,
         const vk::ImageCreateInfo & imageCreateInfo,
         vk::MemoryPropertyFlags requiredFlags,
         vk::ImageAspectFlags imageAspectMask,
@@ -88,7 +88,7 @@ public:
         float priority = 0.5f) const &;
 
     [[nodiscard]] Image createImage2D(
-        std::string_view name,
+        utils::Name name,
         vk::Format format,
         const vk::Extent2D & size,
         vk::ImageUsageFlags imageUsage,

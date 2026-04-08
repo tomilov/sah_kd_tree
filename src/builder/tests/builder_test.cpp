@@ -4,6 +4,7 @@
 #include <scene_data/scene_data.hpp>
 #include <scene_loader/scene_loader.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/name.hpp>
 
 #include <gtest/gtest.h>
 
@@ -17,7 +18,6 @@
 
 #include <chrono>
 #include <memory>
-#include <optional>
 #include <ostream>
 #include <utility>
 
@@ -50,7 +50,7 @@ protected:
         float intersectionCost = kIntersectionCost,
         int maxTreeDepth = kMaxTreeDepth) const
     {
-        auto sceneData = std::make_shared<scene_data::SceneData>();
+        auto sceneData = std::make_shared<scene_data::SceneData>(utils::Name{"{}", sceneFileName.toStdString()});
         QFileInfo sceneFileInfo{sceneFileName};
         if ((true)) {
             if (!scene_loader::load(*sceneData, sceneFileInfo)) {

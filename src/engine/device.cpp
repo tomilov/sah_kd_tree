@@ -23,12 +23,12 @@ namespace engine
 {
 
 Device::Device(
-    std::string_view nameIn,
+    utils::Name nameIn,
     Library & libraryIn,
     const Instance & instanceIn,
     std::span<const char * const> requiredDeviceExtensions,
     PhysicalDevice & physicalDeviceIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , library{libraryIn}
     , instance{instanceIn}
     , physicalDevice{physicalDeviceIn}
@@ -87,7 +87,7 @@ Device::Device(
     deviceCreateInfo.setPEnabledExtensionNames(getEnabledExtensions());
 
     deviceHolder = physicalDevice.getHandle().createDeviceUnique(deviceCreateInfo, library.getAllocationCallbacks(), library.getDispatcher());
-    setDebugUtilsObjectName(deviceHolder, name);
+    setDebugUtilsObjectName(deviceHolder, name.toCStr());
 
 #ifdef VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     libraryIn.getDispatcher().init(*deviceHolder);

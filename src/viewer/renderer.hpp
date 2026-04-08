@@ -61,7 +61,7 @@ class Renderer : utils::NonCopyable
 {
 public:
     Renderer(
-        std::string_view name,
+        utils::Name name,
         const engine::Context & context,
         const Engine & engine,
         uint32_t framesInFlight);

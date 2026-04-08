@@ -131,7 +131,7 @@ bool rayTriangleIntersectPluecker [[maybe_unused]] (
 
 struct SoftRenderer::Impl
 {
-    const std::string name;
+    const utils::Name name;
     const glm::vec4 clearColor;
 
     utils::MemArray<glm::uvec3> indices;
@@ -141,9 +141,9 @@ struct SoftRenderer::Impl
     utils::MemArray<glm::uint> nodeParents;
 
     Impl(
-        std::string_view nameIn,
+        utils::Name nameIn,
         const glm::vec4 & clearColorIn)
-        : name{nameIn}
+        : name{std::move(nameIn)}
         , clearColor{clearColorIn}
     {
         omp_set_num_threads(utils::autoCast(std::thread::hardware_concurrency()));
@@ -219,10 +219,10 @@ struct SoftRenderer::Impl
 };
 
 SoftRenderer::SoftRenderer(
-    std::string_view name,
+    utils::Name name,
     const glm::vec4 & clearColor)
     : impl_{std::make_unique<Impl>(
-          name,
+          std::move(name),
           clearColor)}
 {}
 

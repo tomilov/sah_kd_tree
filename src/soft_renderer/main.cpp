@@ -6,6 +6,7 @@
 #include <soft_renderer/soft_renderer.hpp>
 #include <utils/assert.hpp>
 #include <utils/auto_cast.hpp>
+#include <utils/name.hpp>
 #include <utils/pp.hpp>
 #include <utils/scope_guard.hpp>
 
@@ -69,7 +70,7 @@ scene_data::SceneDataPtr getScene(
     glm::vec3 & sceneCenter,
     glm::float32 & mainDiagonal)
 {
-    scene_data::SceneData sceneData;
+    scene_data::SceneData sceneData{utils::Name{"{}", sceneFileName.toStdString()}};
     QFileInfo sceneFileInfo{sceneFileName};
     if ((false)) {
         if (!scene_loader::load(sceneData, sceneFileInfo)) {
@@ -202,7 +203,7 @@ int main(
     }
 
     const glm::vec4 kClearColor{0.0f, 0.0f, 0.0f, 1.0f};
-    soft_renderer::SoftRenderer softRenderer{SKT_APPLICATION_NAME ""sv, kClearColor};
+    soft_renderer::SoftRenderer softRenderer{utils::Name{"{}", SKT_APPLICATION_NAME}, kClearColor};
 
     const auto getTree = [cudaDevice = compute::makeCudaDevice(std::nullopt), sceneData = std::move(sceneData)](ThrustDeviceSystem thrustDeviceSystem) -> builder::TreePtr
     {

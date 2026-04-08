@@ -7,9 +7,9 @@ namespace utils
 {
 
 ScopeTimer::ScopeTimer(
-    std::string_view nameIn,
+    utils::Name nameIn,
     const std::source_location & sourceLocationIn)
-    : name{nameIn}
+    : name{std::move(nameIn)}
     , sourceLocation{sourceLocationIn}
 {}
 
